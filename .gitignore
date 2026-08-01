@@ -1,0 +1,13 @@
+# builds locais
+/build/
+/build-win/
+/dist/
+
+# artefatos do instalador (ficam na GitHub Release)
+/Halla-Setup-*.exe
+/Halla-*-portable.zip
+
+# lixo de editor/IDE
+*.user
+.vscode/
+.idea/

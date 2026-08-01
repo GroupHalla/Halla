@@ -1,0 +1,24 @@
+HALLA — CLIENTE DE COMUNICAÇÃO DE VOZ
+=====================================
+
+Contrato de Licença de Usuário Final
+
+1. CONCESSÃO DE LICENÇA
+   É concedida a você uma licença não exclusiva e intransferível para
+   instalar e utilizar o Halla em seu computador, para uso pessoal.
+
+2. RESTRIÇÕES
+   Não é permitido descompilar, fazer engenharia reversa ou redistribuir
+   o software para fins comerciais sem autorização.
+
+3. ISENÇÃO DE GARANTIA
+   O software é fornecido "como está", sem garantias de qualquer tipo,
+   expressas ou implícitas. Em nenhum caso os autores serão responsáveis
+   por danos decorrentes do uso do software.
+
+4. COMPONENTES DE TERCEIROS
+   Este produto utiliza o Qt Framework (The Qt Company), licenciado sob
+   a LGPL v3, e runtime do compilador MinGW-w64 GCC (GPL com exceção de
+   runtime).
+
+Copyright © 2026 Halla. Todos os direitos reservados.
