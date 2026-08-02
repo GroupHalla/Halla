@@ -8,10 +8,10 @@
 
 // ============================================================================
 // Modelo de dados do cliente Halla (lado do cliente apenas — igual à
-// estrutura que o TeamSpeak 3 mantém em memória para um servidor conectado)
+// estrutura que o Halla mantém em memória para um servidor conectado)
 // ============================================================================
 
-// Codecs de áudio idênticos aos oferecidos pelo TS3
+// Codecs de áudio idênticos aos oferecidos pelo Halla
 inline QStringList codecNames() {
     return { "Speex Narrowband (8 kHz)",
              "Speex Wideband (16 kHz)",
@@ -96,7 +96,7 @@ struct ServerData {
         QList<int> out;
         for (const Channel& c : channels)
             if (c.parentId == parentId) out << c.id;
-        // Canais temporários sempre por último (comportamento do TS3)
+        // Canais temporários sempre por último (comportamento do Halla)
         std::sort(out.begin(), out.end(), [&](int a, int b) {
             const Channel& ca = channels[a];
             const Channel& cb = channels[b];

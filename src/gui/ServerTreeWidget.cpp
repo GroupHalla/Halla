@@ -116,7 +116,7 @@ QString ServerTreeWidget::channelTooltip(const Channel& c) const {
 void ServerTreeWidget::rebuild() {
     if (!m_data) return;
 
-    // preserva itens COLAPSADOS (padrão TS3: tudo expandido — assim usuários
+    // preserva itens COLAPSADOS (padrão Halla: tudo expandido — assim usuários
     // que entram depois do primeiro rebuild nunca ficam invisíveis)
     QSet<int> collapsed;
     std::function<void(QTreeWidgetItem*)> save = [&](QTreeWidgetItem* it) {
@@ -198,11 +198,11 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
         f.setBold(true);
         item->setFont(0, f);
     }
-    if (c.type == 0) { // temporário: nome em cinza-azulado, como no TS3
+    if (c.type == 0) { // temporário: nome em cinza-azulado, como no Halla
         item->setForeground(0, QColor("#5C7285"));
     }
 
-    // TS3: por padrão clientes aparecem acima dos subcanais; com a opção
+    // Halla: por padrão clientes aparecem acima dos subcanais; com a opção
     // "Classificar clientes abaixo dos canais" os subcanais vêm primeiro.
     if (!m_sortClientsBelow) {
         for (int uid : c.users)
@@ -267,7 +267,7 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
     QMenu menu(this);
 
     if (!it || kind == NodeServer) {
-        // menu do servidor — como clicar na aba do servidor no TS3
+        // menu do servidor — como clicar na aba do servidor no Halla
         menu.addAction(HIcons::disconnectPlug(), tr("Desconectar"), this,
                        [this] { emit disconnectRequested(); });
         menu.addSeparator();

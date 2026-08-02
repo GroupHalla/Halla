@@ -2,7 +2,7 @@
 
 #include <QString>
 
-// Texto-para-voz do Halla (estilo "Default Sound Pack" com voz do TS3):
+// Texto-para-voz do Halla (estilo "Default Sound Pack" com voz do Halla):
 // narra eventos ("Fulano entrou", "Você foi cutucado") quando ativado em
 // Opções > Notificações. Usa QTextToSpeech (Windows: SAPI; Linux: speechd).
 namespace HSpeech {

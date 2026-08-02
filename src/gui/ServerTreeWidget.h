@@ -13,7 +13,7 @@ enum TreeRoles {
 };
 
 // Delegado que pinta os mini-ícones de estado (mic mudo, fones mudos, ausente,
-// gravando, comandante) logo após o nome do usuário — exatamente como o TS3.
+// gravando, comandante) logo após o nome do usuário — exatamente como o Halla.
 class ServerRowDelegate : public QStyledItemDelegate {
     Q_OBJECT
 public:
@@ -30,7 +30,7 @@ private:
     bool m_showMinis = true;
 };
 
-// Árvore de canais/usuários de uma conexão (visual e comportamento do TS3)
+// Árvore de canais/usuários de uma conexão (visual e comportamento do Halla)
 class ServerTreeWidget : public QTreeWidget {
     Q_OBJECT
 public:

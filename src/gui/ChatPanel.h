@@ -7,7 +7,7 @@
 #include <QToolButton>
 #include <QMap>
 
-// Painel de chat no estilo TeamSpeak 3: abas de chat do servidor/canal,
+// Painel de chat no estilo Halla: abas de chat do servidor/canal,
 // mensagens com horário, BBCode ([b][i][u][color=][size=][url=]) e emojis.
 class ChatPanel : public QWidget {
     Q_OBJECT

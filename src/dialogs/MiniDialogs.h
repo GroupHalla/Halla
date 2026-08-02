@@ -6,7 +6,7 @@
 #include <QSpinBox>
 #include <QTextEdit>
 
-// Diálogos pequenos do estilo TS3.
+// Diálogos pequenos do estilo Halla.
 class PrivilegeKeyDialog : public QDialog {
     Q_OBJECT
 public:

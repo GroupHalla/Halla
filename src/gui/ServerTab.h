@@ -12,7 +12,7 @@ class QSplitter;
 class NetSession;
 class VoiceEngine;
 
-// Uma "conexão" do Halla = uma aba do servidor — layout clássico do TeamSpeak 3:
+// Uma "conexão" do Halla = uma aba do servidor — layout clássico do Halla:
 // árvore de canais (50%) | painel de informações (50%) lado a lado em cima,
 // e o console de chat ocupando 100% da largura embaixo.
 class ServerTab : public QWidget {
@@ -43,7 +43,7 @@ public:
     void setSelfDescription();
     void editVirtualServerName();
 
-    // ---- v3: TS3 feature parity
+    // ---- v3: Halla feature parity
     void setAvatarInteractive();          // escolher imagem e enviar ao servidor
     void removeAvatar();
     void toggleRecording();               // gravação local WAV
@@ -52,7 +52,7 @@ public:
     void setWhisperUids(const QStringList& uids); // vazio = desligar sussurro
     bool whisperActive() const { return !m_whisperUids.isEmpty(); }
 
-    // ---- v3.11: sussurro por TECLA DE ATALHO (segurar para falar, como no TS3)
+    // ---- v3.11: sussurro por TECLA DE ATALHO (segurar para falar, como no Halla)
     // scope: 0 = canal atual | 1 = canal atual + subcanais | 2 = lista de usuários
     void setWhisperHold(bool on, int scope);
     QList<int> whisperTargetIds(int scope) const;

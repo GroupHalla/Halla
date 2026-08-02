@@ -7,7 +7,7 @@
 
 class QLabel;
 
-// Janela "Opções" — réplica do diálogo de opções do TS3 (clássico):
+// Janela "Opções" — réplica do diálogo de opções do Halla (clássico):
 // menu lateral de categorias com ícones grandes à esquerda (separado por
 // linha de 1px), cabeçalho com gradiente claro dentro do painel de conteúdo
 // (título em negrito + subtítulo + ícone da seção à direita), fieldsets

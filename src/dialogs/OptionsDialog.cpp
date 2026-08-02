@@ -33,7 +33,7 @@
 #include <QPainter>
 #include <QMessageBox>
 
-// envolve a página em um QScrollArea SEM moldura (estilo do TS3: o conteúdo
+// envolve a página em um QScrollArea SEM moldura (estilo do Halla: o conteúdo
 // flutua sobre o fundo branco, sem caixas cinzas à vista)
 static QWidget* wrapScroll(QWidget* inner) {
     inner->setObjectName(QStringLiteral("optionsPage"));
@@ -75,7 +75,7 @@ static QWidget* separatorLine(bool vertical) {
 }
 
 // ============================================================================
-//  WIDGETS AUXILIARES DAS PÁGINAS (estilo TS3)
+//  WIDGETS AUXILIARES DAS PÁGINAS (estilo Halla)
 // ============================================================================
 #include "ToolsDialogs.h"
 
@@ -455,7 +455,7 @@ void OptionsDialog::apply() {
 }
 
 // ------------------------------------------------------------------ Aplicativo
-// duas colunas, como na janela de opções do TS3
+// duas colunas, como na janela de opções do Halla
 QWidget* OptionsDialog::pageApplication() {
     QWidget* w = new QWidget;
     QHBoxLayout* cols = new QHBoxLayout(w);
@@ -534,7 +534,7 @@ QWidget* OptionsDialog::pageApplication() {
 
 // ------------------------------------------------------------------ Design
 // ------------------------------------------------------------------ Aparência
-// duas colunas, como na janela de opções do TS3: à esquerda estilo/tema/ícones/
+// duas colunas, como na janela de opções do Halla: à esquerda estilo/tema/ícones/
 // transparência; à direita os grupos "Árvore do canal", "Ícone da bandeja" e
 // "Suporte a GIF animado"
 QWidget* OptionsDialog::pageDesign() {
@@ -743,7 +743,7 @@ QWidget* OptionsDialog::pageNotifications() {
 
     lay->addSpacing(10);
     QCheckBox* tts = new QCheckBox(tr("Narrar eventos com voz (texto-para-voz, "
-                                    "como o pacote de voz do TS3)"), w);
+                                    "como o pacote de voz do Halla)"), w);
     tts->setChecked(S::flag("notify/ttsEnabled", false));
     connect(tts, &QCheckBox::toggled, this,
             [](bool v) { S::set("notify/ttsEnabled", v); });
@@ -762,7 +762,7 @@ QWidget* OptionsDialog::pageNotifications() {
 }
 
 // ------------------------------------------------------------------ Reprodução
-// estilo TS3: perfis à esquerda; modo/dispositivo; sliders de volume em dB;
+// estilo Halla: perfis à esquerda; modo/dispositivo; sliders de volume em dB;
 // teste de som; grupo "Opções" (com slider de ruído) e grupo "Expansão de som mono"
 QWidget* OptionsDialog::pagePlayback() {
     QWidget* w = new QWidget;
@@ -926,7 +926,7 @@ QWidget* OptionsDialog::pageCapture() {
 
     const int curMode = S::num("capture/pttMode", 1);
 
-    // --- Radio 1: Push-to-Talk (com sub-opções recuadas, como no TS3)
+    // --- Radio 1: Push-to-Talk (com sub-opções recuadas, como no Halla)
     QRadioButton* rbPtt = new QRadioButton(tr("Pressionar para falar (PTT)"), gbMode);
     vm->addWidget(rbPtt);
 
@@ -1150,7 +1150,7 @@ static void migrateLegacyHotkeys() {
         S::set(newKey, legacy);
 }
 
-// "MOUSE BUTTON 5" estilo TS3 para exibição (Mouse5 -> MOUSE BUTTON 5)
+// "MOUSE BUTTON 5" estilo Halla para exibição (Mouse5 -> MOUSE BUTTON 5)
 static QString keyDisplayName(const QString& canonical) {
     if (canonical == QLatin1String(HotkeyEdit::kMouse4))      return QStringLiteral("MOUSE BUTTON 4");
     if (canonical == QLatin1String(HotkeyEdit::kMouse5))      return QStringLiteral("MOUSE BUTTON 5");
@@ -1215,7 +1215,7 @@ QWidget* OptionsDialog::pageHotkeys() {
     right->addWidget(table, 1);
 
     // linha informativa (não editável) com o PTT do perfil de captura ativo,
-    // como o TS3 mostra: "MOUSE BUTTON 5 | Push-to-Talk ("Padrão")"
+    // como o Halla mostra: "MOUSE BUTTON 5 | Push-to-Talk ("Padrão")"
     auto addPttRow = [table, defProfile] {
         const QString cap = S::str(QStringLiteral("capture/profile"), defProfile);
         const QString key = S::str(QStringLiteral("capture/pttKey"),
@@ -1382,7 +1382,7 @@ QWidget* OptionsDialog::pageHotkeys() {
         QFormLayout* f = new QFormLayout(&d);
         QComboBox* action = new QComboBox(&d);
         action->addItems(actions);
-        // captura tecla OU botão do mouse (inclusive laterais) — igual ao TS3
+        // captura tecla OU botão do mouse (inclusive laterais) — igual ao Halla
         HotkeyEdit* key = new HotkeyEdit(&d);
         key->setMinimumWidth(220);
         QComboBox* scope = new QComboBox(&d);
@@ -1410,7 +1410,7 @@ QWidget* OptionsDialog::pageHotkeys() {
         syncScope();
         QLabel* hint = new QLabel(tr("Aceita teclas e botões do mouse (laterais, meio).\n"
                                      "O sussurro funciona \"segurando\" a tecla/botão, "
-                                     "como o PTT do TeamSpeak."), &d);
+                                     "como o PTT do Halla."), &d);
         hint->setWordWrap(true);
         hint->setObjectName(QStringLiteral("captionLabel"));
         f->addRow(QString(), hint);

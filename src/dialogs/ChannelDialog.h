@@ -11,7 +11,7 @@
 #include <QLabel>
 #include "core/Models.h"
 
-// Diálogo "Criar canal" / "Editar canal" — réplica fiel do diálogo do TS3.
+// Diálogo "Criar canal" / "Editar canal" — réplica fiel do diálogo do Halla.
 class ChannelDialog : public QDialog {
     Q_OBJECT
 public:

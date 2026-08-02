@@ -6,7 +6,7 @@ class QFocusEvent;
 
 // Campo que captura UMA tecla (ex.: "Space", "Ctrl+M") OU um botão de mouse
 // (XButton1 = "Mouse4", XButton2 = "Mouse5", botão do meio = "MouseMeio").
-// Usado para a tecla de PTT e nas teclas de atalho (o TeamSpeak permite
+// Usado para a tecla de PTT e nas teclas de atalho (o Halla permite
 // botões laterais do mouse).
 //
 // A captura é feita em TRÊS camadas (Windows), então nenhum botão passa

@@ -16,7 +16,7 @@ class WelcomePage;
 class LogDialog;
 
 // Janela principal do Halla — reproduz fielmente a janela clássica do
-// TeamSpeak 3 (tema claro): barra de menus (Conexões, Marcadores, Si mesmo,
+// tema claro clássico: barra de menus (Conexões, Marcadores, Si mesmo,
 // Permissões, Ferramentas, Ajuda), barra de ferramentas com setas suspensas,
 // corpo 50/50 (árvore | informações) com chat embaixo e barra de status
 // em três zonas (servidor | notícias | conexão).
@@ -89,7 +89,7 @@ private:
     QMenu* m_bookmarksMenu = nullptr;
     QMenu* m_recentMenu = nullptr;
 
-    // barra de status em 3 zonas (servidor | notícias | conexão), como no TS3
+    // barra de status em 3 zonas (servidor | notícias | conexão), como no Halla
     QToolButton* m_serverButton = nullptr;
     QMenu* m_serverMenu = nullptr;
     QLabel* m_newsLabel = nullptr;
@@ -112,7 +112,7 @@ private:
     bool m_rawInputRegistered = false;
     class QTimer* m_pttPoll = nullptr;
 
-    // ---- v3.11: sussurro por tecla de atalho (segurar p/ falar, como no TS3)
+    // ---- v3.11: sussurro por tecla de atalho (segurar p/ falar, como no Halla)
     struct HoldKey {
         unsigned int vk = 0;      // tecla (0 = usa mouseBtn)
         unsigned int mods = 0;    // MOD_CONTROL/SHIFT/ALT

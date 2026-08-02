@@ -4,7 +4,7 @@
 #include <QString>
 
 // Faixa azul-marinho arredondada no topo das janelas de diálogo — assinatura
-// visual dos diálogos do TeamSpeak 3 (Opções, Criar Canal, Favoritos, etc.)
+// visual dos diálogos do Halla (Opções, Criar Canal, Favoritos, etc.)
 class TsBanner : public QWidget {
     Q_OBJECT
 public:

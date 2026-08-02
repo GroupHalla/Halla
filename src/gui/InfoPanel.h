@@ -6,7 +6,7 @@
 #include <QTimer>
 #include "core/Models.h"
 
-// Painel de informações do lado direito (banner + detalhes), como no TS3.
+// Painel de informações do lado direito (banner + detalhes), como no Halla.
 // Mostra informações do servidor, do canal selecionado ou do usuário selecionado.
 class InfoPanel : public QWidget {
     Q_OBJECT

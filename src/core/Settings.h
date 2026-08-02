@@ -4,7 +4,7 @@
 #include <QString>
 #include <QVariant>
 
-// Acesso centralizado às configurações persistentes (estilo TeamSpeak: tudo guardado localmente)
+// Acesso centralizado às configurações persistentes (estilo Halla: tudo guardado localmente)
 namespace S {
 
 inline QSettings& store() {

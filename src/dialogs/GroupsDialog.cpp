@@ -12,7 +12,7 @@
 #include <QInputDialog>
 #include <QLabel>
 
-// Permissões reais do TeamSpeak 3 exibidas na grade
+// Permissões reais do Halla exibidas na grade
 const QStringList& GroupsDialog::permissionDefaults() {
     static const QStringList list = {
         "b_virtualserver_select",
@@ -208,7 +208,7 @@ void GroupsDialog::reloadPermissions() {
         const int r = m_perms->rowCount();
         m_perms->insertRow(r);
 
-        // nome "amigável" + nome técnico no tooltip, como no TS3
+        // nome "amigável" + nome técnico no tooltip, como no Halla
         QTableWidgetItem* name = new QTableWidgetItem(it.key());
         name->setData(Qt::UserRole, it.key());
         name->setToolTip(it.key());

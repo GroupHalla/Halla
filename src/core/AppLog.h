@@ -4,7 +4,7 @@
 #include <QString>
 #include <QDateTime>
 
-// Registro de eventos do cliente (equivale ao "Client Log" do TeamSpeak 3)
+// Registro de eventos do cliente (equivale ao "Client Log" do Halla)
 class AppLog : public QObject {
     Q_OBJECT
 public:

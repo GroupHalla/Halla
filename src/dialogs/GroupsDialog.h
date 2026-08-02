@@ -6,7 +6,7 @@
 #include <QLineEdit>
 #include "core/Models.h"
 
-// Janela "Grupos de servidores" — editor de permissões no formato do TS3,
+// Janela "Grupos de servidores" — editor de permissões no formato do Halla,
 // com grade de permissões, filtro e coluna "Conceder" no modo avançado.
 class GroupsDialog : public QDialog {
     Q_OBJECT

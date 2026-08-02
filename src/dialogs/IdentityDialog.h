@@ -4,7 +4,7 @@
 #include <QTableWidget>
 
 // Janela "Identidades" — gerencia as identidades locais (ID único),
-// como a janela de identidades do TeamSpeak 3.
+// como a janela de identidades do Halla.
 class IdentityDialog : public QDialog {
     Q_OBJECT
 public:

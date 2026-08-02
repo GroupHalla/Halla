@@ -448,7 +448,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_tabs->setTabsClosable(true);
     m_tabs->setMovable(true);
     m_tabs->setDocumentMode(false);
-    // cada aba já traz o layout TS3 completo: árvore 50% | informações 50%
+    // cada aba já traz o layout Halla completo: árvore 50% | informações 50%
     // em cima e chat ocupando 100% da largura embaixo
     m_center->addWidget(m_tabs);
     m_center->setStretchFactor(0, 1);
@@ -467,7 +467,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         updateStatusBar();
     });
 
-    // menu de contexto nas abas (como no TS3)
+    // menu de contexto nas abas (como no Halla)
     m_tabs->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tabs->tabBar(), &QTabBar::customContextMenuRequested, this,
             [this](const QPoint& pos) {
@@ -487,7 +487,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             });
 
     // ------------------------- barra de status --------------------------
-    // três zonas, como no TS3:
+    // três zonas, como no Halla:
     // [aba do servidor atual]  |  [linha de notícias]  |  [ícone + conexão + ping]
     m_serverMenu = new QMenu(this);
     m_serverMenu->addAction(m_actDisconnect);
@@ -505,7 +505,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     statusBar()->addWidget(m_serverButton, 0);
 
     m_newsLabel = new QLabel(
-        tr("Bem-vindo ao Halla!  •  Cliente de voz livre estilo TeamSpeak 3  •  "
+        tr("Bem-vindo ao Halla!  •  Cliente de voz livre e completo  •  "
            "github.com/farleybarbosa320-oss/Halla"), this);
     m_newsLabel->setObjectName(QStringLiteral("newsLabel"));
     m_newsLabel->setAlignment(Qt::AlignCenter);
@@ -696,7 +696,7 @@ ServerTab* MainWindow::currentTab() const {
 
 // ======================================================================
 void MainWindow::openConnectDialog(bool newTab) {
-    Q_UNUSED(newTab); // cada conexão já abre em sua própria aba, como no TS3
+    Q_UNUSED(newTab); // cada conexão já abre em sua própria aba, como no Halla
     ConnectDialog dlg(this);
     dlg.setNickname(S::str("connect/nickname", IdentityDialog::defaultNickname()));
     if (dlg.exec() != QDialog::Accepted) return;
@@ -1090,7 +1090,7 @@ void MainWindow::applyHotkeys() {
             const QString keyStr = o["key"].toString();
             if (keyStr.isEmpty()) continue;
 
-            // ---- v3.11: "Sussurrar" é um atalho de SEGURAR (como o PTT do TS3)
+            // ---- v3.11: "Sussurrar" é um atalho de SEGURAR (como o PTT do Halla)
             if (action.contains(QStringLiteral("ussurr"), Qt::CaseInsensitive)) {
                 const int scope = o["scope"].toInt(1);
 #ifdef Q_OS_WIN
@@ -1137,7 +1137,7 @@ void MainWindow::applyHotkeys() {
                 mh.held = false;
                 m_mouseHotkeys << mh;
             } else {
-                // GLOBAL: funciona em segundo plano, como no TS3
+                // GLOBAL: funciona em segundo plano, como no Halla
                 UINT vk = 0, mods = 0;
                 if (specToVk(seq, vk, mods)) {
                     const int id = 100 + idx;
@@ -1219,7 +1219,7 @@ void MainWindow::changeEvent(QEvent* e) {
 
 // ======================================================================
 // PTT global: RegisterHotKey (teclado) + Raw Input (botões do mouse)
-// funcionam com a janela EM SEGUNDO PLANO (equivale ao PTT do TeamSpeak)
+// funcionam com a janela EM SEGUNDO PLANO (PTT global de voz)
 // ======================================================================
 #ifdef Q_OS_WIN
 // converte QKeySequence (ex.: "Ctrl+F2", "Space") em VK + modificadores

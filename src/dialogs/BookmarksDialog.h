@@ -14,7 +14,7 @@ struct Bookmark {
     bool autoconnect = false;
 };
 
-// Janela "Gerenciar favoritos" (Bookmarks Manager do TS3)
+// Janela "Gerenciar favoritos" (Bookmarks Manager do Halla)
 class BookmarksDialog : public QDialog {
     Q_OBJECT
 public:

@@ -5,7 +5,7 @@
 #include <QComboBox>
 #include <QPushButton>
 
-// Diálogo "Conectar" — campos e disposição iguais aos do TS3:
+// Diálogo "Conectar" — campos e disposição iguais aos do Halla:
 // apelido, endereço do servidor, senha + seção expansível "Mais >>" com
 // apelido fonético e perfis de captura/reprodução.
 class ConnectDialog : public QDialog {

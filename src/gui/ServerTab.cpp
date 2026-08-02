@@ -55,7 +55,7 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
 
-    // layout clássico do TeamSpeak 3:
+    // layout clássico do Halla:
     // ┌────────────────────────────┬────────────────────────────┐
     // │  ÁRVORE DE CANAIS (50%)    │  INFORMAÇÕES (50%)         │
     // ├────────────────────────────┴────────────────────────────┤
@@ -128,7 +128,7 @@ void ServerTab::attachNetwork(NetSession* net) {
 
     // estado vindo do servidor -> redesenha a árvore/informações
     connect(net, &NetSession::stateChanged, this, [this] {
-        // detecção de entrada/saída (sons estilo TS3)
+        // detecção de entrada/saída (sons estilo Halla)
         QSet<int> now;
         for (const User& u : m_data.users) { now << u.id; m_lastNames[u.id] = u.name; }
         for (int id : now)

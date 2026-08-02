@@ -5,7 +5,7 @@
 #include <QColor>
 
 // Ícones do Halla — todos renderizados em código (QPainter) no estilo visual
-// clássico do TeamSpeak 3, sem depender de arquivos externos.
+// clássico do Halla, sem depender de arquivos externos.
 namespace HIcons {
 
 // cores da identidade visual

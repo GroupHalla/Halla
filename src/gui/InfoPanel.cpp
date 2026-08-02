@@ -7,7 +7,7 @@
 #include <QPainter>
 
 // QTextBrowser com a marca d'água discreta do Halla no canto superior direito
-// (como o logo de fundo do painel de informações do TeamSpeak 3)
+// (como o logo de fundo do painel de informações do Halla)
 class InfoView : public QTextBrowser {
 public:
     explicit InfoView(QWidget* parent = nullptr) : QTextBrowser(parent) {}
@@ -108,7 +108,7 @@ QString InfoPanel::channelHtml(const Channel& c) const {
     if (!c.topic.isEmpty())
         h += QStringLiteral("<p><b>%1</b></p>").arg(c.topic.toHtmlEscaped());
     if (!c.description.isEmpty())
-        // descrição com BBCode renderizado (igual ao diálogo TS3)
+        // descrição com BBCode renderizado (igual ao diálogo Halla)
         h += QStringLiteral("<p>%1</p>").arg(ChatPanel::bbToHtml(c.description));
     return h;
 }

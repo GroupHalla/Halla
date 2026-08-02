@@ -16,7 +16,7 @@ class NetSession;
 struct ServerData;
 
 // ============================================================================
-// Diálogos de administração do Halla (protocolo v3) — estilo TeamSpeak 3
+// Diálogos de administração do Halla (protocolo v3) — estilo Halla
 // ============================================================================
 
 // "Lista de banidos" — mostra banimentos ativos e permite removê-los

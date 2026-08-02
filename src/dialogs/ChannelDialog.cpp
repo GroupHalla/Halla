@@ -45,7 +45,7 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, QWi
 
     m_codec = new QComboBox(this);
     m_codec->addItems(codecNames());
-    m_codec->setCurrentIndex(4); // Opus Voice (padrão do TS3)
+    m_codec->setCurrentIndex(4); // Opus Voice (padrão do Halla)
     form->addRow(tr("Codec:"), m_codec);
 
     QHBoxLayout* qrow = new QHBoxLayout;
@@ -76,7 +76,7 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, QWi
     m_maxClients->setSpecialValueText(tr("ilimitado"));
     form->addRow(tr("Máx. de clientes:"), m_maxClients);
 
-    // tipo do canal — radio buttons como no TS3
+    // tipo do canal — radio buttons como no Halla
     QHBoxLayout* typerow = new QHBoxLayout;
     m_temp = new QRadioButton(tr("Temporário"), this);
     m_semi = new QRadioButton(tr("Semi-permanente"), this);

@@ -67,7 +67,7 @@ QString HTheme::styleSheet(bool dark) {
 
     if (!dark) {
         // ---------------------------------------------------------------
-        // EXTRAS DO TEMA CLARO — visual clássico do TeamSpeak 3 / Windows:
+        // EXTRAS DO TEMA CLARO — visual clássico do Halla / Windows:
         // cromo #F0F0F0, conteúdo branco, bordas 1px e cantos retos
         // ---------------------------------------------------------------
         css += QStringLiteral(
@@ -105,7 +105,7 @@ QString HTheme::styleSheet(bool dark) {
             "QToolButton#serverTabButton:hover { background: #E5F1FB; }"
             "QToolButton#serverTabButton::menu-indicator { image: none; width: 0px; }"
 
-            // abas do servidor no topo (conexões), estilo clássico do TS3
+            // abas do servidor no topo (conexões), estilo clássico do Halla
             "QTabWidget::pane { border: 1px solid #D0D0D0; top: -1px;"
             "  background: #FFFFFF; border-radius: 0px; }"
             "QTabBar::tab { background: #E7E7E7; color: #111111;"
@@ -126,7 +126,7 @@ QString HTheme::styleSheet(bool dark) {
             "  subcontrol-position: top left; left: 8px; top: 1px;"
             "  padding: 0px 4px; background: palette(window); }"
 
-            // ---- janela de OPÇÕES (estilo TS3) --------------------------
+            // ---- janela de OPÇÕES (estilo Halla) --------------------------
             "QListWidget#optionsNav { background: #FFFFFF; border: 0px;"
             "  outline: 0; padding: 5px 4px; }"
             "QListWidget#optionsNav::item { height: 34px; padding-left: 10px;"
@@ -186,7 +186,7 @@ void HTheme::apply() {
     const bool dark = isDark();
 
     // no Windows o tema claro usa o estilo nativo clássico (windowsvista):
-    // é exatamente o "chrome" do TeamSpeak 3 — cinza #F0F0F0, relevos Win32
+    // é exatamente o "chrome" do Halla — cinza #F0F0F0, relevos Win32
     QStyle* style = nullptr;
 #ifdef Q_OS_WIN
     if (!dark)
@@ -231,7 +231,7 @@ void HTheme::apply() {
         pal.setColor(QPalette::Disabled, QPalette::Base, QColor("#22252A"));
         pal.setColor(QPalette::Disabled, QPalette::Window, QColor("#282B30"));
     } else {
-        // ---- tema claro clássico (TeamSpeak 3 / Windows nativo)
+        // ---- tema claro clássico (Halla / Windows nativo)
         pal = QApplication::style()->standardPalette();
         pal.setColor(QPalette::Window, QColor("#F0F0F0"));
         pal.setColor(QPalette::Base, QColor("#FFFFFF"));

@@ -3,7 +3,7 @@
 #include <QString>
 #include <QStringList>
 
-// Pacote de sons do Halla (estilo TeamSpeak 3):
+// Pacote de sons do Halla (estilo Halla):
 // na primeira execução, gera pequenos arquivos WAV em <config>/sounds e os
 // reproduz via QSoundEffect nos eventos de notificação.
 namespace HSound {

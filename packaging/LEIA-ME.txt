@@ -2,12 +2,12 @@
   HALLA 3.13.0 — Cliente de comunicação por voz
 ========================================================================
 
-O Halla é um aplicativo de voz sobre IP no estilo do TeamSpeak 3,
+O Halla é um aplicativo de voz sobre IP no estilo do Halla,
 com cliente para Windows e servidor auto-hospedável (Halla Server).
 
 NOVIDADES DA VERSÃO 3.13.0
 --------------------------
-* OPÇÕES COMPLETAS NO PADRÃO TS3, seção por seção:
+* OPÇÕES COMPLETAS NO PADRÃO Halla, seção por seção:
 
   - REPRODUÇÃO: perfis de reprodução com botão "+", modo e dispositivo
     de reprodução, ajuste de volume de voz (Baixo/Alto, em dB), volume
@@ -54,13 +54,13 @@ NOVIDADES DA VERSÃO 3.13.0
 * Atraso do PTT funciona de verdade: ao soltar a tecla, a transmissão
   continua pelo tempo configurado antes de desligar.
 * Ícones dos cabeçalhos das opções agora são marca d'água (esmaecidos),
-  como no TS3.
+  como no Halla.
 
-(da 3.12.0) Janela de Opções redesenhada no estilo TS3 (cabeçalho com
+(da 3.12.0) Janela de Opções redesenhada no estilo Halla (cabeçalho com
 gradiente, grupos "fieldset", duas colunas), ativação de voz com botões
 de opção e barra de ferramentas com setas ao lado dos botões.
 
-(da 3.11.0) Interface no estilo clássico do TS3 (tema claro nativo),
+(da 3.11.0) Interface no estilo clássico do Halla (tema claro nativo),
 menu "Si mesmo", corpo 50/50 com chat embaixo, barra de status em
 três zonas, sussurro por tecla de atalho (canal/subcanais/usuários) e
 PTT com botões do mouse definitivo.
@@ -68,7 +68,7 @@ PTT com botões do mouse definitivo.
 E MAIS (desde a 3.9.0)
 ----------------------
 * Pressionar-para-falar (PTT), detecção de voz e transmissão contínua.
-* Notificações sonoras estilo TeamSpeak.
+* Notificações sonoras estilo Halla.
 * Gravação de chamadas em WAV (Documentos\Halla).
 * Avatares, sussurro, mensagens offline, reclamações, lista de banidos.
 * Grupos de servidores com editor de permissões de verdade.
