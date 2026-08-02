@@ -24,24 +24,18 @@ jobs:
         with:
           msystem: MINGW64
           path-type: inherit
-          install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-ninja
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v3
-        with:
-          version: '6.8.2'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_mingw'
-          modules: 'qtmultimedia qtspeech'
-
-      - name: Install Ninja and NSIS
-        run: choco install ninja nsis
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-qt6-multimedia
+            mingw-w64-x86_64-qt6-speech
 
       - name: Configure CMake
         shell: msys2 {0}
         run: |
-          cmake -S . -B build -G "Ninja" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_PREFIX_PATH="${Qt6_DIR}" -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -G "Ninja" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_PREFIX_PATH="/mingw64" -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Application
         shell: msys2 {0}
@@ -54,17 +48,25 @@ jobs:
           mkdir -p dist/Halla
           cp build/Halla.exe dist/Halla/
           
-          # Deploy Qt dependencies
-          "${Qt6_DIR}/bin/windeployqt.exe" --release --no-translations --no-compiler-runtime --dir dist/Halla dist/Halla/Halla.exe
+          # Deploy Qt dependencies using MSYS2's native windeployqt
+          windeployqt --release --no-translations --no-compiler-runtime --dir dist/Halla dist/Halla/Halla.exe
           
-          # Copy MinGW runtime DLLs
+          # Copy MinGW/MSYS2 runtime DLLs directly from MSYS2
           cp /mingw64/bin/libgcc_s_seh-1.dll dist/Halla/
           cp /mingw64/bin/libstdc++-6.dll dist/Halla/
           cp /mingw64/bin/libwinpthread-1.dll dist/Halla/
           
+          # Copy extra required libraries that are needed by MSYS2 Qt6
+          cp /mingw64/bin/libdouble-conversion.dll dist/Halla/ || true
+          cp /mingw64/bin/libpcre2-16.dll dist/Halla/ || true
+          cp /mingw64/bin/libzstd.dll dist/Halla/ || true
+          
           # Copy Readme and License
           cp packaging/LEIA-ME.txt dist/Halla/
           cp packaging/LICENSE.txt dist/Halla/
+
+      - name: Install NSIS
+        run: choco install nsis
 
       - name: Build Installer with NSIS
         run: |
@@ -73,10 +75,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.0
-          name: Halla v3.13.0
+          tag_name: v3.13.1
+          name: Halla v3.13.1
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.0.exe
+          files: Halla-Setup-3.13.1.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
