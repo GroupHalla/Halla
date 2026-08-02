@@ -64,7 +64,6 @@ jobs:
           cp packaging/LICENSE.txt dist/Halla/
 
       - name: Build Installer with NSIS
-        shell: msys2 {0}
         run: |
           makensis packaging/halla-setup.nsi
 
