@@ -260,6 +260,9 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
                        [this, id] { emit editChannelRequested(id); });
         menu.addAction(HIcons::trash(), tr("Excluir canal"), this,
                        [this, id] { emit deleteChannelRequested(id); });
+        menu.addSeparator();
+        menu.addAction(HIcons::info(), tr("Ver descrição do canal"), this,
+                       [this, id] { emit channelDescriptionRequested(id); });
     } else if (kind == NodeUser) {
         const User& u = m_data->users[id];
         const bool self = (id == m_data->selfId);

@@ -1,25 +1,29 @@
 ========================================================================
-  HALLA 3.9.0 — Cliente de comunicação por voz
+  HALLA 3.10.0 — Cliente de comunicação por voz
 ========================================================================
 
 O Halla é um aplicativo de voz sobre IP no estilo do TeamSpeak 3,
 com cliente para Windows e servidor auto-hospedável (Halla Server).
 
-NOVIDADES DA VERSÃO 3.9.0
--------------------------
-* Pressionar-para-falar (PTT) com tecla configurável — funciona até
-  com o Halla em segundo plano (hotkey global do Windows).
-* Notificações sonoras estilo TeamSpeak (entrar/sair, cliente
-  entrou/saiu, cutucada, mensagens, mudo, gravação).
-* Gravação de chamadas em arquivo WAV (Documentos\Halla).
-* Avatares: defina a sua foto e veja a dos outros usuários.
-* Sussurro: fale diretamente com usuários escolhidos.
-* Mensagens offline: deixe recados para quem está ausente.
-* Reclamações de usuários e lista de banidos (Permissões).
+NOVIDADES DA VERSÃO 3.10.0
+--------------------------
+* PTT com botões LATERAIS DO MOUSE (Mouse4/Mouse5) ou qualquer tecla —
+  funciona em segundo plano.
+* Todas as teclas de atalho configuradas agora são globais no Windows
+  (uso com o Halla minimizado).
+* Texto-para-voz (TTS) narrando eventos, como o pacote de voz do TS3.
+* Descrição de canal com BBCode renderizado + "Ver descrição do canal".
+* Halla Server 3.1.0: ServerQuery (administração remota, porta 10011).
+
+E MAIS (desde a 3.9.0)
+----------------------
+* Pressionar-para-falar (PTT), detecção de voz e transmissão contínua.
+* Notificações sonoras estilo TeamSpeak.
+* Gravação de chamadas em WAV (Documentos\Halla).
+* Avatares, sussurro, mensagens offline, reclamações, lista de banidos.
 * Grupos de servidores com editor de permissões de verdade.
-* Operadores de canal: quem cria o canal pode gerenciá-lo.
-* Transferência de arquivos por canal (upload/download no servidor).
-* Tudo isso requer o Halla Server 3.0.0 (grátis, link abaixo).
+* Operadores de canal e transferência de arquivos por canal.
+* Tudo isso requer o Halla Server 3.1.0 (grátis, link abaixo).
 
 COMO USAR
 ---------
@@ -31,7 +35,7 @@ COMO USAR
 
 PARA HOSPEDAR SEU PRÓPRIO SERVIDOR
 ----------------------------------
-Baixe o Halla Server 3.0.0 (Windows e Linux) em:
+Baixe o Halla Server 3.1.0 (Windows e Linux) em:
   https://github.com/farleybarbosa320-oss/HallaServer/releases
 
 Execute halla-server.exe (ou o binário Linux) e passe o endereço

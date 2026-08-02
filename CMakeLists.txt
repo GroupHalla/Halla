@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(Halla VERSION 3.6.2 LANGUAGES CXX)
+project(Halla VERSION 3.10.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,13 +10,13 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 # Qt 6
-find_package(Qt6 6.2 QUIET COMPONENTS Widgets Network Multimedia)
+find_package(Qt6 6.2 QUIET COMPONENTS Widgets Network Multimedia TextToSpeech)
 if (Qt6_FOUND)
-    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia)
+    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech)
     message(STATUS "Halla: usando Qt ${Qt6_VERSION}")
 else()
-    find_package(Qt6 REQUIRED COMPONENTS Widgets Network Multimedia)
-    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets Network Multimedia TextToSpeech)
+    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech)
 endif()
 
 # Opus (biblioteca do sistema no Linux, estática incluída no Windows)
@@ -40,6 +40,7 @@ set(HALLA_SOURCES
     src/core/AppLog.cpp
     src/gui/Icons.cpp
     src/gui/TsBanner.cpp
+    src/gui/HotkeyEdit.cpp
     src/gui/ServerTreeWidget.cpp
     src/gui/ChatPanel.cpp
     src/gui/InfoPanel.cpp
@@ -59,6 +60,7 @@ set(HALLA_SOURCES
     src/app/MainWindow.cpp
     src/app/Theme.cpp
     src/app/SoundPack.cpp
+    src/app/Speech.cpp
     src/net/NetSession.cpp
     src/net/VoiceEngine.cpp
 )

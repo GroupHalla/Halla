@@ -21,6 +21,8 @@
 #include "dialogs/AboutDialog.h"
 #include "net/VoiceEngine.h"
 #include "SoundPack.h"
+#include "Speech.h"
+#include "gui/HotkeyEdit.h"
 #include "version.h"
 
 #include <QMenuBar>
@@ -43,6 +45,8 @@
 #include <QRandomGenerator>
 #ifdef Q_OS_WIN
 #include <windows.h>
+// definida mais abaixo (mesmo arquivo)
+bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods);
 #endif
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -497,6 +501,7 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         });
 
         if (S::flag("notify/connectSound", true)) HSound::play(QStringLiteral("connected"));
+        HSpeech::say(tr("Conectado ao servidor"));
 
         m_info->setData(&tab->data());
         m_info->setSelection(0, 0);
@@ -563,6 +568,7 @@ void MainWindow::disconnectTab(ServerTab* tab, bool notify) {
     AppLog::info(tr("Desconectado de %1").arg(addr));
     if (notify && S::flag("notify/disconnectSound", true))
         HSound::play(QStringLiteral("disconnected"));
+    if (notify) HSpeech::say(tr("Desconectado do servidor"));
 
     saveSession();
     if (m_tabs->count() == 0) {
@@ -774,54 +780,77 @@ void MainWindow::applyTheme() {
     if (m_welcome) m_welcome->update();
 }
 
+// executa uma ação configurada em "Teclas de atalho" (independente da origem:
+// atalho local do Qt no Linux ou hotkey GLOBAL do sistema no Windows)
+void MainWindow::runConfiguredAction(const QString& action) {
+    if (action.contains(tr("microfone"))) {
+        if (ServerTab* t = currentTab()) t->setMicMuted(!t->isMicMuted());
+        updateConnectionUi();
+    } else if (action.contains(tr("alto-falantes"))) {
+        if (ServerTab* t = currentTab()) t->setSpeakersMuted(!t->isSpkMuted());
+        updateConnectionUi();
+    } else if (action.contains(tr("ausente"))) {
+        if (ServerTab* t = currentTab()) t->setAway(!t->isAway());
+        updateConnectionUi();
+    } else if (action.contains(tr("comandante"))) {
+        if (ServerTab* t = currentTab()) {
+            ServerData& d = t->data();
+            User& self = d.users[d.selfId];
+            self.commander = !self.commander;
+            t->tree()->rebuild();
+        }
+        updateConnectionUi();
+    } else if (action.contains(tr("gravação"))) {
+        if (ServerTab* t = currentTab()) t->toggleRecording();
+        updateConnectionUi();
+    } else if (action.contains(tr("transmissão contínua"))) {
+        const int m = S::num("capture/pttMode", 1);
+        S::set("capture/pttMode", m == 2 ? 1 : 2); // contínuo <-> detecção
+        statusBar()->showMessage(m == 2 ? tr("Transmissão contínua desativada")
+                                        : tr("Transmissão contínua ativada"), 3000);
+    }
+}
+
 void MainWindow::applyHotkeys() {
     for (QShortcut* s : m_hotkeyShortcuts)
         if (s) s->deleteLater();
     m_hotkeyShortcuts.clear();
 
+#ifdef Q_OS_WIN
+    // remove hotkeys globais anteriores (ids 100+)
+    for (int id : m_globalHotkeyActions.keys())
+        UnregisterHotKey(HWND(winId()), id);
+    m_globalHotkeyActions.clear();
+#endif
+
     QJsonDocument doc = QJsonDocument::fromJson(S::str("hotkeys/list").toUtf8());
-    if (!doc.isArray()) return;
-
-    for (const QJsonValue& v : doc.array()) {
-        QJsonObject o = v.toObject();
-        const QString action = o["action"].toString();
-        const QKeySequence seq = QKeySequence::fromString(o["key"].toString());
-        if (seq.isEmpty()) continue;
-        QShortcut* sc = new QShortcut(seq, this);
-        sc->setContext(Qt::WindowShortcut);
-
-        if (action.contains(tr("microfone"))) {
-            connect(sc, &QShortcut::activated, this, [this] {
-                if (ServerTab* t = currentTab()) t->setMicMuted(!t->isMicMuted());
-                updateConnectionUi();
-            });
-        } else if (action.contains(tr("alto-falantes"))) {
-            connect(sc, &QShortcut::activated, this, [this] {
-                if (ServerTab* t = currentTab()) t->setSpeakersMuted(!t->isSpkMuted());
-                updateConnectionUi();
-            });
-        } else if (action.contains(tr("ausente"))) {
-            connect(sc, &QShortcut::activated, this, [this] {
-                if (ServerTab* t = currentTab()) t->setAway(!t->isAway());
-                updateConnectionUi();
-            });
-        } else if (action.contains(tr("comandante"))) {
-            connect(sc, &QShortcut::activated, this, [this] {
-                if (ServerTab* t = currentTab()) {
-                    ServerData& d = t->data();
-                    User& self = d.users[d.selfId];
-                    self.commander = !self.commander;
-                    t->tree()->rebuild();
-                }
-                updateConnectionUi();
-            });
-        } else {
-            connect(sc, &QShortcut::activated, this, [] { QApplication::beep(); });
+    if (doc.isArray()) {
+        int idx = 0;
+        for (const QJsonValue& v : doc.array()) {
+            QJsonObject o = v.toObject();
+            const QString action = o["action"].toString();
+            const QKeySequence seq = QKeySequence::fromString(o["key"].toString());
+            if (seq.isEmpty()) continue;
+#ifdef Q_OS_WIN
+            // GLOBAL: funciona em segundo plano, como no TS3
+            UINT vk = 0, mods = 0;
+            if (specToVk(seq, vk, mods)) {
+                const int id = 100 + idx;
+                if (RegisterHotKey(HWND(winId()), id, mods | MOD_NOREPEAT, vk))
+                    m_globalHotkeyActions[id] = action;
+            }
+#else
+            QShortcut* sc = new QShortcut(seq, this);
+            sc->setContext(Qt::WindowShortcut);
+            connect(sc, &QShortcut::activated, this,
+                    [this, action] { runConfiguredAction(action); });
+            m_hotkeyShortcuts << sc;
+#endif
+            ++idx;
         }
-        m_hotkeyShortcuts << sc;
     }
 
-    // (re)registra a tecla PTT global do sistema (Windows)
+    // (re)registra a tecla PTT global do sistema (Windows) — tecla OU mouse
     registerPttHotkey();
 }
 
@@ -857,17 +886,84 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
 }
 
 // ======================================================================
-// PTT global: RegisterHotKey funciona com a janela EM SEGUNDO PLANO
-// (equivale ao push-to-talk do TeamSpeak no Windows)
+// PTT global: RegisterHotKey (teclado) + Raw Input (botões do mouse)
+// funcionam com a janela EM SEGUNDO PLANO (equivale ao PTT do TeamSpeak)
 // ======================================================================
+#ifdef Q_OS_WIN
+// converte QKeySequence (ex.: "Ctrl+F2", "Space") em VK + modificadores
+static bool specToVkImpl(const QKeySequence& ks, UINT& vk, UINT& mods) {
+    if (ks.isEmpty()) return false;
+    const QKeyCombination comb = ks[0];
+    const int k = comb.toCombined();
+    const int key = k & ~int(Qt::KeyboardModifierMask);
+    vk = 0;
+    if (key >= Qt::Key_A && key <= Qt::Key_Z)      vk = UINT(key);
+    else if (key >= Qt::Key_0 && key <= Qt::Key_9) vk = UINT(key);
+    else if (key == Qt::Key_Space)     vk = VK_SPACE;
+    else if (key == Qt::Key_Tab)       vk = VK_TAB;
+    else if (key == Qt::Key_CapsLock)  vk = VK_CAPITAL;
+    else if (key == Qt::Key_Return)    vk = VK_RETURN;
+    else if (key == Qt::Key_Backspace) vk = VK_BACK;
+    else if (key == Qt::Key_Insert)    vk = VK_INSERT;
+    else if (key == Qt::Key_Delete)    vk = VK_DELETE;
+    else if (key == Qt::Key_Home)      vk = VK_HOME;
+    else if (key == Qt::Key_End)       vk = VK_END;
+    else if (key == Qt::Key_PageUp)    vk = VK_PRIOR;
+    else if (key == Qt::Key_PageDown)  vk = VK_NEXT;
+    else if (key == Qt::Key_Print)     vk = VK_SNAPSHOT;
+    else if (key == Qt::Key_Pause)     vk = VK_PAUSE;
+    else if (key == Qt::Key_Left)      vk = VK_LEFT;
+    else if (key == Qt::Key_Up)        vk = VK_UP;
+    else if (key == Qt::Key_Right)     vk = VK_RIGHT;
+    else if (key == Qt::Key_Down)      vk = VK_DOWN;
+    else if (key >= Qt::Key_F1 && key <= Qt::Key_F24)
+        vk = VK_F1 + UINT(key - Qt::Key_F1);
+    mods = MOD_NOREPEAT;
+    if (k & int(Qt::ShiftModifier))   mods |= MOD_SHIFT;
+    if (k & int(Qt::ControlModifier)) mods |= MOD_CONTROL;
+    if (k & int(Qt::AltModifier))     mods |= MOD_ALT;
+    return vk != 0;
+}
+// visibilidade p/ applyHotkeys()
+bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods) {
+    return specToVkImpl(ks, vk, mods);
+}
+#endif
+
 bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
                              qintptr* result) {
 #ifdef Q_OS_WIN
     if (eventType == QByteArrayLiteral("windows_generic_MSG") ||
         eventType == QByteArrayLiteral("windows_dispatcher_MSG")) {
         MSG* msg = static_cast<MSG*>(message);
-        if (msg->message == WM_HOTKEY && msg->wParam == 1) {
-            pttSetHeld(true); // a soltura é detectada por polling (GetAsyncKeyState)
+
+        if (msg->message == WM_HOTKEY) {
+            const int id = int(msg->wParam);
+            if (id == 1)
+                pttSetHeld(true); // soltura detectada por polling (GetAsyncKeyState)
+            else if (m_globalHotkeyActions.contains(id))
+                runConfiguredAction(m_globalHotkeyActions.value(id));
+        } else if (msg->message == WM_INPUT &&
+                   (msg->wParam == RIM_INPUT || msg->wParam == RIM_INPUTSINK) &&
+                   m_mousePttButton != 0) {
+            // botão de mouse do PTT pressionado/solto em qualquer janela
+            BYTE buf[64];
+            UINT sz = sizeof(buf);
+            if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam),
+                                RID_INPUT, buf, &sz, sizeof(RAWINPUTHEADER)) != UINT(-1)) {
+                RAWINPUT* ri = reinterpret_cast<RAWINPUT*>(buf);
+                if (ri->header.dwType == RIM_TYPEMOUSE) {
+                    const USHORT f = ri->data.mouse.usButtonFlags;
+                    auto hit = [&](int btn, USHORT down, USHORT up) {
+                        if (m_mousePttButton != btn) return;
+                        if (f & down) pttSetHeld(true);
+                        if (f & up)   pttSetHeld(false);
+                    };
+                    hit(4, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
+                    hit(5, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
+                    hit(3, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
+                }
+            }
         }
     }
 #endif
@@ -876,27 +972,36 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
 
 void MainWindow::registerPttHotkey() {
 #ifdef Q_OS_WIN
-    unregisterPttHotkey();
-    const QKeySequence ks =
-        QKeySequence::fromString(S::str("capture/pttKey", QStringLiteral("Space")));
-    if (ks.isEmpty()) return;
-    const QKeyCombination comb = ks[0];
-    const int k = comb.toCombined();
-    const int key = k & ~int(Qt::KeyboardModifierMask);
-    UINT vk = 0;
-    if (key >= Qt::Key_A && key <= Qt::Key_Z)      vk = UINT(key);
-    else if (key >= Qt::Key_0 && key <= Qt::Key_9) vk = UINT(key);
-    else if (key == Qt::Key_Space)     vk = VK_SPACE;
-    else if (key == Qt::Key_Tab)       vk = VK_TAB;
-    else if (key == Qt::Key_CapsLock)  vk = VK_CAPITAL;
-    else if (key == Qt::Key_Return)    vk = VK_RETURN;
-    else if (key >= Qt::Key_F1 && key <= Qt::Key_F12)
-        vk = VK_F1 + UINT(key - Qt::Key_F1);
-    UINT mods = MOD_NOREPEAT;
-    if (k & int(Qt::ShiftModifier))   mods |= MOD_SHIFT;
-    if (k & int(Qt::ControlModifier)) mods |= MOD_CONTROL;
-    if (k & int(Qt::AltModifier))     mods |= MOD_ALT;
-    if (!vk) return;
+    // limpa o modo anterior
+    if (m_pttRegistered) { UnregisterHotKey(HWND(winId()), 1); m_pttRegistered = false; }
+    m_mousePttButton = 0;
+
+    const QString spec = S::str("capture/pttKey", QStringLiteral("Space"));
+    if (spec.isEmpty()) return;
+
+    // ---- botões do mouse via Raw Input (funciona em segundo plano)
+    int btn = 0;
+    if (spec == QLatin1String(HotkeyEdit::kMouse4))        btn = 4;
+    else if (spec == QLatin1String(HotkeyEdit::kMouse5))   btn = 5;
+    else if (spec == QLatin1String(HotkeyEdit::kMouseMiddle)) btn = 3;
+    if (btn != 0) {
+        RAWINPUTDEVICE rid = {};
+        rid.usUsagePage = 0x01;          // generic desktop
+        rid.usUsage     = 0x02;          // mouse
+        rid.dwFlags     = RIDEV_INPUTSINK; // recebe mesmo sem foco
+        rid.hwndTarget  = HWND(winId());
+        if (RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
+            m_rawInputRegistered = true;
+            m_mousePttButton = btn;
+            AppLog::info(tr("PTT global registrado no mouse: %1").arg(spec));
+        }
+        return;
+    }
+
+    // ---- tecla via RegisterHotKey
+    UINT vk = 0, mods = 0;
+    const QKeySequence ks = QKeySequence::fromString(spec);
+    if (!specToVkImpl(ks, vk, mods)) return;
     if (RegisterHotKey(HWND(winId()), 1, mods, vk)) {
         m_pttRegistered = true;
         m_pttVk = vk;
@@ -920,6 +1025,7 @@ void MainWindow::unregisterPttHotkey() {
         UnregisterHotKey(HWND(winId()), 1);
         m_pttRegistered = false;
     }
+    m_mousePttButton = 0;
 #endif
     pttSetHeld(false);
 }

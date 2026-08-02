@@ -90,14 +90,18 @@ private:
 
     void wireTab(ServerTab* tab);
 
-    // ---- PTT global (hotkey de todo o sistema no Windows)
+    // ---- PTT global (hotkey de todo o sistema no Windows — tecla OU mouse)
     void registerPttHotkey();
     void unregisterPttHotkey();
     void pttSetHeld(bool held);
+    void runConfiguredAction(const QString& action); // ação das "Teclas de atalho"
     unsigned int m_pttVk = 0;
     bool m_pttRegistered = false;
     bool m_pttHeld = false;
+    int  m_mousePttButton = 0;        // 0=tecla, 3=meio, 4/5=laterais
+    bool m_rawInputRegistered = false;
     class QTimer* m_pttPoll = nullptr;
 
     QList<QPointer<QShortcut>> m_hotkeyShortcuts;
+    QMap<int, QString> m_globalHotkeyActions; // id (100+) -> ação (Windows)
 };

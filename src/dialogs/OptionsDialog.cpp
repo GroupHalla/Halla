@@ -4,6 +4,7 @@
 #include "Settings.h"
 #include "AppLog.h"
 #include "SoundPack.h"
+#include "HotkeyEdit.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -261,6 +262,14 @@ QWidget* OptionsDialog::pageNotifications() {
         lay->addWidget(cb);
     }
 
+    lay->addSpacing(10);
+    QCheckBox* tts = new QCheckBox(tr("Narrar eventos com voz (texto-para-voz, "
+                                    "como o pacote de voz do TS3)"), w);
+    tts->setChecked(S::flag("notify/ttsEnabled", false));
+    connect(tts, &QCheckBox::toggled, this,
+            [](bool v) { S::set("notify/ttsEnabled", v); });
+    lay->addWidget(tts);
+
     QHBoxLayout* row = new QHBoxLayout;
     row->addSpacing(20);
     QPushButton* test = new QPushButton(tr("Reproduzir som de teste"), w);
@@ -357,11 +366,16 @@ QWidget* OptionsDialog::pageCapture() {
     connect(pttMode, &QComboBox::currentIndexChanged, this,
             [](int v) { S::set("capture/pttMode", v); });
 
-    QKeySequenceEdit* pttKey = new QKeySequenceEdit(
-        QKeySequence::fromString(S::str("capture/pttKey", "Space")), w);
+    HotkeyEdit* pttKey = new HotkeyEdit(w);
+    pttKey->setSpec(S::str("capture/pttKey", "Space"));
     form->addRow(tr("Tecla PTT:"), pttKey);
-    connect(pttKey, &QKeySequenceEdit::keySequenceChanged, this,
-            [](const QKeySequence& s) { S::set("capture/pttKey", s.toString()); });
+    connect(pttKey, &HotkeyEdit::specChanged, this,
+            [](const QString& s) { S::set("capture/pttKey", s); });
+    QLabel* pttHint = new QLabel(tr("Aceita teclas e botões laterais do mouse "
+                                    "(Mouse4/Mouse5). Funciona em segundo plano."), w);
+    pttHint->setWordWrap(true);
+    pttHint->setObjectName(QStringLiteral("captionLabel"));
+    form->addRow(QString(), pttHint);
 
     QHBoxLayout* srow = new QHBoxLayout;
     QSlider* level = new QSlider(Qt::Horizontal, w);

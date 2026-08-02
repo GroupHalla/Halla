@@ -51,6 +51,7 @@ signals:
     void createChannelRequested(int parentChannelId);
     void editChannelRequested(int channelId);
     void deleteChannelRequested(int channelId);
+    void channelDescriptionRequested(int channelId);
     void renameRequested();
     void setDescriptionRequested();
     void viewAvatarRequested(int userId);

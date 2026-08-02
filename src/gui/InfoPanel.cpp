@@ -1,5 +1,6 @@
 #include "InfoPanel.h"
 #include "Icons.h"
+#include "ChatPanel.h"
 #include "app/Theme.h"
 
 #include <QVBoxLayout>
@@ -88,7 +89,8 @@ QString InfoPanel::channelHtml(const Channel& c) const {
     if (!c.topic.isEmpty())
         h += QStringLiteral("<p><b>%1</b></p>").arg(c.topic.toHtmlEscaped());
     if (!c.description.isEmpty())
-        h += QStringLiteral("<p>%1</p>").arg(c.description.toHtmlEscaped());
+        // descrição com BBCode renderizado (igual ao diálogo TS3)
+        h += QStringLiteral("<p>%1</p>").arg(ChatPanel::bbToHtml(c.description));
     return h;
 }
 

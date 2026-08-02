@@ -15,6 +15,24 @@ ping e diálogos com a faixa azul-marinho característica.
 
 ![Halla](shots/demo.png)
 
+## Novidades da 3.10.0
+
+- **PTT com botões laterais do mouse!** A tecla de PTT agora pode ser uma
+  tecla **ou** um botão do mouse (Mouse4/Mouse5/botão do meio) — selecione em
+  Opções > Captura clicando com o botão sobre o campo. Funciona em segundo
+  plano (Raw Input do Windows).
+- **Hotkeys globais**: todas as ações configuradas em "Teclas de atalho"
+  (mudo do microfone, alto-falantes, ausente, comandante, gravação,
+  transmissão contínua) funcionam com o Halla **em segundo plano** no Windows.
+- **Texto-para-voz (TTS)**: o Halla narra os eventos ("Fulano entrou no
+  servidor", "Cutucada de Fulano"), como o pacote de voz do TS3. Ative em
+  Opções > Notificações.
+- **Descrição de canal com BBCode**: renderizada no painel de informações e
+  no novo "Ver descrição do canal" (menu de contexto do canal).
+- O **Halla Server 3.1.0** acompanha com o **ServerQuery** (administração
+  remota em texto na porta 10011 — `login`, `serverinfo`, `clientlist`,
+  `clientkick`, `banclient`, `gm`...).
+
 ## Novidades da 3.9.0 — paridade de recursos com o TeamSpeak 3
 
 Em conjunto com o **Halla Server 3.0.0**:

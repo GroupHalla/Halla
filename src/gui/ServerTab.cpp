@@ -4,6 +4,7 @@
 #include "Settings.h"
 #include "AppLog.h"
 #include "SoundPack.h"
+#include "Speech.h"
 #include "dialogs/ChannelDialog.h"
 #include "dialogs/MiniDialogs.h"
 #include "net/NetSession.h"
@@ -24,6 +25,7 @@
 #include <QDir>
 #include <QLabel>
 #include <QDialogButtonBox>
+#include <QTextBrowser>
 #include <QLineEdit>
 #include <algorithm>
 
@@ -86,14 +88,16 @@ void ServerTab::attachNetwork(NetSession* net) {
     connect(net, &NetSession::stateChanged, this, [this] {
         // detecção de entrada/saída (sons estilo TS3)
         QSet<int> now;
-        for (const User& u : m_data.users) now << u.id;
+        for (const User& u : m_data.users) { now << u.id; m_lastNames[u.id] = u.name; }
         for (int id : now)
             if (!m_knownUsers.contains(id) && id != m_data.selfId) {
                 if (S::flag("notify/userJoinSound", true)) HSound::play(QStringLiteral("user_joined"));
+                HSpeech::say(tr("%1 entrou no servidor").arg(m_lastNames.value(id)));
             }
         for (int id : m_knownUsers)
             if (!now.contains(id) && id != m_data.selfId) {
                 if (S::flag("notify/userLeftSound", true)) HSound::play(QStringLiteral("user_left"));
+                HSpeech::say(tr("%1 saiu do servidor").arg(m_lastNames.value(id)));
             }
         m_knownUsers = now;
 
@@ -117,6 +121,7 @@ void ServerTab::attachNetwork(NetSession* net) {
                     m_chat->addPrivateTab(fromId, fromName);
                     m_chat->addPrivateChat(fromId, fromName, text);
                     if (S::flag("notify/messageSound", true)) HSound::play(QStringLiteral("message"));
+                    HSpeech::say(tr("Mensagem de %1").arg(fromName));
                 } else {
                     m_chat->addChannelChat(fromName, text);
                 }
@@ -130,6 +135,7 @@ void ServerTab::attachNetwork(NetSession* net) {
             [this](const QString& fromName, const QString& msg) {
                 systemMsgServer(tr("Você foi cutucado por %1: %2").arg(fromName, msg));
                 if (S::flag("notify/pokeSound", true)) HSound::play(QStringLiteral("poke"));
+                HSpeech::say(tr("Cutucada de %1").arg(fromName));
             });
 
     // ---- v3: caixa de entrada offline (mensagens deixadas enquanto ausente)
@@ -192,6 +198,25 @@ void ServerTab::hookSignals() {
             this, &ServerTab::renameSelf);
     connect(m_tree, &ServerTreeWidget::setDescriptionRequested,
             this, &ServerTab::setSelfDescription);
+    connect(m_tree, &ServerTreeWidget::channelDescriptionRequested, this,
+            [this](int channelId) {
+                if (!m_data.channels.contains(channelId)) return;
+                const Channel& c = m_data.channels[channelId];
+                QDialog dlg(this);
+                dlg.setWindowTitle(tr("Descrição — %1").arg(c.name));
+                dlg.resize(480, 340);
+                QVBoxLayout* l = new QVBoxLayout(&dlg);
+                QTextBrowser* view = new QTextBrowser(&dlg);
+                view->setOpenExternalLinks(true);
+                view->setHtml(c.description.isEmpty()
+                    ? tr("<i>Este canal não tem descrição.</i>")
+                    : ChatPanel::bbToHtml(c.description));
+                l->addWidget(view, 1);
+                QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
+                l->addWidget(bb);
+                QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+                dlg.exec();
+            });
     connect(m_tree, &ServerTreeWidget::editVirtualServerRequested,
             this, &ServerTab::editVirtualServerName);
     connect(m_tree, &ServerTreeWidget::disconnectRequested,
