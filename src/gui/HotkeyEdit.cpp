@@ -148,40 +148,8 @@ static HHOOK hMouseHook = NULL;
 static HHOOK hKeyboardHook = NULL;
 static HotkeyCaptureDialog* activeCaptureDlg = nullptr;
 
-LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && activeCaptureDlg) {
-        if (wParam == WM_XBUTTONDOWN) {
-            MSLLHOOKSTRUCT* hs = (MSLLHOOKSTRUCT*)lParam;
-            int button = HIWORD(hs->mouseData);
-            QString name = (button == XBUTTON1) ? QStringLiteral("Mouse4") : QStringLiteral("Mouse5");
-            activeCaptureDlg->onCaptured(name);
-            return 1;
-        }
-        else if (wParam == WM_MBUTTONDOWN) {
-            activeCaptureDlg->onCaptured(QStringLiteral("MouseMeio"));
-            return 1;
-        }
-    }
-    return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
-}
-
-LRESULT CALLBACK GlobalKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && activeCaptureDlg) {
-        KBDLLHOOKSTRUCT* hs = (KBDLLHOOKSTRUCT*)lParam;
-        if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-            if (hs->vkCode == VK_ESCAPE) {
-                activeCaptureDlg->onCancelled();
-                return 1;
-            }
-            QString spec = NativeCapture::specFromVk(hs->vkCode);
-            if (!spec.isEmpty() && spec != QStringLiteral("!ignore")) {
-                activeCaptureDlg->onCaptured(spec);
-                return 1;
-            }
-        }
-    }
-    return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
-}
+LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK GlobalKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 #endif
 
 class HotkeyCaptureDialog : public QDialog {
@@ -278,6 +246,43 @@ private:
     HotkeyEdit* m_captureEdit;
     QString m_capturedSpec;
 };
+
+#ifdef Q_OS_WIN
+LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0 && activeCaptureDlg) {
+        if (wParam == WM_XBUTTONDOWN) {
+            MSLLHOOKSTRUCT* hs = (MSLLHOOKSTRUCT*)lParam;
+            int button = HIWORD(hs->mouseData);
+            QString name = (button == XBUTTON1) ? QStringLiteral("Mouse4") : QStringLiteral("Mouse5");
+            activeCaptureDlg->onCaptured(name);
+            return 1;
+        }
+        else if (wParam == WM_MBUTTONDOWN) {
+            activeCaptureDlg->onCaptured(QStringLiteral("MouseMeio"));
+            return 1;
+        }
+    }
+    return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
+}
+
+LRESULT CALLBACK GlobalKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0 && activeCaptureDlg) {
+        KBDLLHOOKSTRUCT* hs = (KBDLLHOOKSTRUCT*)lParam;
+        if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
+            if (hs->vkCode == VK_ESCAPE) {
+                activeCaptureDlg->onCancelled();
+                return 1;
+            }
+            QString spec = NativeCapture::specFromVk(hs->vkCode);
+            if (!spec.isEmpty() && spec != QStringLiteral("!ignore")) {
+                activeCaptureDlg->onCaptured(spec);
+                return 1;
+            }
+        }
+    }
+    return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
+}
+#endif
 
 // ============================================================================
 HotkeyEdit::HotkeyEdit(QWidget* parent, bool isCaptureTarget) 
