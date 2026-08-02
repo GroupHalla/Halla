@@ -200,7 +200,7 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
         isRepeating = !match.captured(1).isEmpty();
         spacerText = match.captured(3);
         if (isRepeating && !spacerText.isEmpty()) {
-            spacerText = spacerText.at(0).repeated(50);
+            spacerText = QString(spacerText.at(0)).repeated(50);
         }
     }
     
