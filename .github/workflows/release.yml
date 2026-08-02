@@ -35,6 +35,9 @@ jobs:
           arch: 'win64_mingw'
           modules: 'qtmultimedia qtspeech'
 
+      - name: Install Ninja and NSIS
+        run: choco install ninja nsis
+
       - name: Configure CMake
         shell: msys2 {0}
         run: |
