@@ -91,10 +91,34 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.3
-          name: Halla v3.13.3
+          tag_name: v3.13.4
+          name: Halla v3.13.4
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.3.exe
+          files: Halla-Setup-3.13.4.exe
+          body: |
+            ## 🚀 Novidades e Correções do Halla v3.13.4
+
+            Esta release traz o polimento visual definitivo e a correção de bugs críticos para oferecer uma experiência de áudio idêntica ao TeamSpeak 3!
+
+            ### ⌨️ Captura Perfeita de PTT e Atalhos pelo Mouse (Middle / 4 / 5)
+            * **Visibilidade Garantida:** Corrigimos o foco e a visibilidade do capturador de atalhos dentro do diálogo modal. Agora o gancho global de baixo nível (Windows Hook / NativeCapture) é corretamente armado e ativado.
+            * **Múltiplos Meios de Captura:** O usuário pode capturar qualquer tecla do teclado ou os botões extras do mouse (`Mouse 4`, `Mouse 5` e `MouseMeio`) seja focando o campo central ou simplesmente **clicando com o botão do mouse em qualquer lugar dentro da janela modal**!
+            * **Tecla ESC:** Mantivemos o clássico atalho de cancelar a captura pressionando a tecla `ESC`.
+
+            ### 🎨 Refatoração Definitiva e Alinhamento da Barra de Ferramentas
+            * **Remoção de Linhas Divisórias Internas:** Eliminamos a borda cinza escura interna dos botões com menu suspenso.
+            * **Área de Clique em Bloco Sólido:** Os botões com dropdown (`Desconectar`, `Mutar Fones`, etc.) agora têm a largura dimensionada de forma dinâmica e fluida (sem sobreposição do ícone com a seta preta). O efeito visual de hover e o clique englobam o ícone e a seta como um único bloco sólido.
+            * **Divisórias Externas Nativas:** A divisória 3D etched (`Q3DSeparator`) agora é renderizada de forma completamente autônoma do lado de fora dos botões, organizando a barra sem invadir as áreas clicáveis.
+
+            ### 🎙️ Correção Instantânea do Indicador de Transmissão (Círculo Verde)
+            * **Ignore Echoes:** O estado de fala local (`talking`) do próprio usuário agora é regulado de forma instantânea e estrita pelo sinal do motor de voz físico (`VoiceEngine::talkingChanged`), ignorando ecos atrasados enviados pelo servidor. O círculo verde ao redor do seu avatar apaga exatamente no mesmo milissegundo em que você solta a tecla de PTT!
+
+            ### 🎛️ Liberação das Placas de Áudio e Microfones
+            * **Menu Desbloqueado:** Corrigimos a trava que mantinha a seleção de dispositivos de áudio desabilitada e presa em "Padrão" nas configurações de Captura e Reprodução.
+            * **Identificadores de Hardware Reais:** O aplicativo agora lê e mapeia dinamicamente todos os seus microfones, headsets e placas de som, aplicando-os em tempo real ao motor de voz!
+
+            ### 🔄 Sistema de Atualização Automática Integrado
+            * O Halla agora busca silenciosamente novas atualizações diretamente nas Releases do GitHub e exibe um prompt com barra de porcentagem de download e instalação automatizada!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

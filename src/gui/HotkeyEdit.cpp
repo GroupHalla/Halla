@@ -145,14 +145,14 @@ class HotkeyCaptureDialog : public QDialog {
 public:
     explicit HotkeyCaptureDialog(QWidget* parent = nullptr) : QDialog(parent) {
         setWindowTitle(tr("Capturar atalho"));
-        setFixedSize(320, 100);
+        setFixedSize(340, 110);
         setWindowFlags((windowFlags() & ~Qt::WindowContextHelpButtonHint) | Qt::MSWindowsFixedSizeDialogHint);
         
         QVBoxLayout* lay = new QVBoxLayout(this);
         lay->setContentsMargins(15, 15, 15, 15);
-        lay->setSpacing(10);
+        lay->setSpacing(8);
         
-        QLabel* label = new QLabel(tr("Pressione uma tecla ou botão do mouse...\n(Pressione ESC para cancelar)"), this);
+        QLabel* label = new QLabel(tr("Pressione uma tecla ou botão do mouse..."), this);
         label->setAlignment(Qt::AlignCenter);
         QFont f = label->font();
         f.setPointSize(10);
@@ -160,8 +160,8 @@ public:
         lay->addWidget(label);
         
         m_captureEdit = new HotkeyEdit(this, true); // m_isCaptureTarget = true
-        m_captureEdit->setMinimumWidth(250);
-        m_captureEdit->setVisible(false);
+        m_captureEdit->setMinimumWidth(280);
+        m_captureEdit->setVisible(true); // Deve estar visível para receber foco e armar o NativeCapture!
         lay->addWidget(m_captureEdit);
         m_captureEdit->setFocus();
         
@@ -181,6 +181,22 @@ protected:
             reject();
         } else {
             m_captureEdit->event(e);
+        }
+    }
+    
+    void mousePressEvent(QMouseEvent* e) override {
+        QString name;
+        switch (e->button()) {
+        case Qt::XButton1:     name = QString::fromLatin1(HotkeyEdit::kMouse4);      break;
+        case Qt::XButton2:     name = QString::fromLatin1(HotkeyEdit::kMouse5);      break;
+        case Qt::MiddleButton: name = QString::fromLatin1(HotkeyEdit::kMouseMiddle); break;
+        default: break;
+        }
+        if (!name.isEmpty()) {
+            m_capturedSpec = name;
+            accept();
+        } else {
+            QDialog::mousePressEvent(e);
         }
     }
 private:
