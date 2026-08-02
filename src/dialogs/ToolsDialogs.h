@@ -6,6 +6,14 @@
 
 struct ServerData;
 
+class QListWidget;
+class QListWidgetItem;
+class QTreeWidget;
+class QTreeWidgetItem;
+class QComboBox;
+class QLineEdit;
+class HotkeyEdit;
+
 // Janela "Listas de sussurro" (Whisper Lists) — destinos por ID único
 class WhisperDialog : public QDialog {
     Q_OBJECT
@@ -13,10 +21,51 @@ public:
     explicit WhisperDialog(const ServerData* data, QWidget* parent = nullptr);
     // uids da lista de sussurro ATIVA (0 se nenhuma)
     static QStringList activeWhisperUids();
+private slots:
+    void onNewList();
+    void onRemoveList();
+    void onRenameList();
+    void onReload();
+    void onSelectedListChanged();
+    void onTargetsChanged();
+    void onSearchTextChanged(const QString& text);
+    void onFilterChanged(int index);
+    void onServerTreeDoubleClicked(QTreeWidgetItem* item, int column);
+    void onTargetItemChanged(QTreeWidgetItem* item, int column);
+    void onApply();
+    void onAccept();
 private:
-    QTableWidget* m_table;
     const ServerData* m_data;
-    void reload();
+    
+    // Left column
+    QListWidget* m_syncList;
+    QListWidget* m_localList;
+    QPushButton* m_btnNew;
+    QPushButton* m_btnRemove;
+    QPushButton* m_btnRename;
+    QPushButton* m_btnReload;
+
+    // Center column
+    HotkeyEdit* m_hotkeyEdit;
+    HotkeyEdit* m_replyHotkeyEdit;
+    QComboBox* m_scopeCombo;
+    QTreeWidget* m_targetsTree;
+
+    // Right column
+    QComboBox* m_filterCombo;
+    QTreeWidget* m_serverTree;
+    QLineEdit* m_searchEdit;
+
+    // Data lists
+    QList<QJsonObject> m_whispers;
+    bool m_isLoading = false;
+    
+    void loadSettings();
+    void saveSettings();
+    void populateServerTree();
+    void populateTargetsTreeForSelected();
+    void addTargetToSelected(const QString& name, const QString& uid, bool isChannel);
+    void filterTree(QTreeWidgetItem* item, const QString& text);
 };
 
 // Janela "Contatos" — catálogo de amigos offline

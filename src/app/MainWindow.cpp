@@ -28,6 +28,7 @@
 #include <QMenuBar>
 #include <QToolBar>
 #include <QStatusBar>
+#include <QPainter>
 #include <QTabBar>
 #include <QStackedWidget>
 #include <QSplitter>
@@ -320,17 +321,72 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     mHelp->addAction(tr("Verificar atualizações"), this, [this] { checkUpdates(); });
 
     // ------------------------- barra de ferramentas ---------------------
-    // ícones pequenos com setas suspensas, como no TeamSpeak 3
+    // Custom grabber style Windows clássico
+    class QGrabber : public QWidget {
+    public:
+        explicit QGrabber(QWidget* parent = nullptr) : QWidget(parent) {
+            setFixedWidth(10);
+            setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+        }
+    protected:
+        void paintEvent(QPaintEvent*) override {
+            QPainter p(this);
+            p.setPen(QColor("#A0A0A0"));
+            for (int y = 6; y < height() - 6; y += 4) {
+                p.drawPoint(3, y);
+                p.drawPoint(6, y);
+            }
+        }
+    };
+
+    // Custom 3D separator etched style native Windows
+    class Q3DSeparator : public QWidget {
+    public:
+        explicit Q3DSeparator(QWidget* parent = nullptr) : QWidget(parent) {
+            setFixedWidth(4);
+            setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+        }
+    protected:
+        void paintEvent(QPaintEvent*) override {
+            QPainter p(this);
+            p.setPen(QColor("#A0A0A0"));
+            p.drawLine(1, 4, 1, height() - 4);
+            p.setPen(QColor("#FFFFFF"));
+            p.drawLine(2, 4, 2, height() - 4);
+        }
+    };
+
+    // Estilo do Menu Superior
+    menuBar()->setStyleSheet(
+        "QMenuBar { background-color: #F0F0F0; border-bottom: none; }"
+        "QMenuBar::item { background-color: #F0F0F0; padding: 4px 10px; color: #000000; }"
+        "QMenuBar::item:selected { background-color: #D0D0D0; }"
+    );
+
     QToolBar* tb = addToolBar(tr("Principal"));
     tb->setObjectName(QStringLiteral("mainToolBar"));
     tb->setMovable(false);
-    tb->setIconSize(QSize(16, 16));
+    tb->setIconSize(QSize(24, 24)); // Aumenta o tamanho dos ícones para preencher melhor a altura da barra
     tb->setToolButtonStyle(Qt::ToolButtonIconOnly);
 
-    // auxiliar: botão de ação principal + seta com menu suspenso
+    // Fundo e borda cinza claro sólido com 1px cinza escuro inferior
+    tb->setStyleSheet(
+        "QToolBar { background-color: #F0F0F0; border-bottom: 1px solid #A0A0A0; spacing: 0px; padding: 2px; }"
+        "QToolButton { background-color: transparent; border: 1px solid transparent; border-radius: 2px; padding: 2px; margin: 0px; width: 24px; height: 24px; }"
+        "QToolButton:hover { background-color: #E0E0E0; border: 1px solid #A0A0A0; }"
+        "QToolButton:pressed { background-color: #D0D0D0; border: 1px solid #808080; }"
+        "QToolButton::menu-button { border-left: 1px solid #A0A0A0; width: 12px; background: transparent; }"
+        "QToolButton::menu-button:hover { background-color: #D8D8D8; }"
+    );
+
+    // Adiciona Grabber
+    tb->addWidget(new QGrabber(tb));
+
+    // auxiliar: botão de ação principal + seta com menu suspenso (sem textos)
     auto addDropButton = [tb](QAction* main, QMenu* menu) -> QToolButton* {
         QToolButton* b = new QToolButton(tb);
         b->setDefaultAction(main);
+        b->setToolButtonStyle(Qt::ToolButtonIconOnly); // strictly icon only!
         if (menu) {
             b->setPopupMode(QToolButton::MenuButtonPopup);
             b->setMenu(menu);
@@ -339,40 +395,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         return b;
     };
 
-    // --- bloco conexão
-    addDropButton(m_actConnect, nullptr);
+    // --- Botão 1 (Desconectar) com menu dropdown
     QMenu* disMenu = new QMenu(this);
     disMenu->addAction(m_actDisconnectAll);
     addDropButton(m_actDisconnect, disMenu);
-    tb->addSeparator();
 
-    // --- marcadores
-    QMenu* bmMenu = new QMenu(this);
-    bmMenu->addAction(tr("Gerenciar marcadores..."), this,
-                      [this] { openBookmarksDialog(); });
-    addDropButton(m_actBookmarkAdd, bmMenu);
-    tb->addSeparator();
+    // --- Botão 2 (Conectar/Trocar) sem seta
+    addDropButton(m_actConnect, nullptr);
 
-    // --- estado: ausente (com seta: apelido/comandante)
-    QMenu* awayMenu = new QMenu(this);
-    awayMenu->addAction(m_actRenameSelf);
-    awayMenu->addAction(m_actCommander);
-    addDropButton(m_actAway, awayMenu);
+    // --- Botão 3 (Mutar Microfone) sem seta
+    addDropButton(m_actMuteMic, nullptr);
 
-    // --- microfone (com seta: transmissão contínua + opções de captura)
-    QMenu* micMenu = new QMenu(this);
-    QAction* actCont = micMenu->addAction(tr("Alternar transmissão contínua"), this, [this] {
-        runConfiguredAction(tr("Alternar transmissão contínua"));
-    });
-    Q_UNUSED(actCont);
-    micMenu->addAction(tr("Opções de captura..."), this, [this] {
-        OptionsDialog dlg(this);
-        dlg.selectPage(tr("Capturar"));
-        dlg.exec();
-    });
-    addDropButton(m_actMuteMic, micMenu);
-
-    // --- alto-falantes (com seta: opções de reprodução)
+    // --- Botão 4 (Mutar Fones) com menu dropdown
     QMenu* spkMenu = new QMenu(this);
     spkMenu->addAction(tr("Opções de reprodução..."), this, [this] {
         OptionsDialog dlg(this);
@@ -381,56 +415,22 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     });
     addDropButton(m_actMuteSpk, spkMenu);
 
-    tb->addAction(m_actRecord);
-    m_actRecord->setToolTip(tr("Iniciar/parar gravação (arquivo WAV local)"));
-    tb->addSeparator();
+    // --- Separador Vertical 3D
+    tb->addWidget(new Q3DSeparator(tb));
 
-    // --- gerenciar grupos (com seta: chave/banidos/permissões)
-    QMenu* grpMenu = new QMenu(this);
-    grpMenu->addAction(m_actPrivilegeKey);
-    grpMenu->addAction(m_actMyPerms);
-    grpMenu->addAction(m_actBanList);
-    grpMenu->addAction(m_actComplaints);
-    addDropButton(m_actServerGroups, grpMenu);
+    // --- Botão 5 (Ausente) sem seta
+    addDropButton(m_actAway, nullptr);
 
-    // --- sussurro (botão com ícone + TEXTO + seta, tudo lado a lado)
+    // --- Botão 6 (Contatos/Voz) sem seta
     QMenu* whMenu = new QMenu(this);
     whMenu->addAction(tr("Listas de sussurro..."), this, [this] {
         ServerTab* t = currentTab();
         WhisperDialog dlg(t ? &t->data() : nullptr, this);
         dlg.exec();
     });
-    QToolButton* whBtn = addDropButton(m_actWhisper, whMenu);
-    whBtn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    tb->addSeparator();
-
-    QToolButton* logBtn = new QToolButton(tb);
-    logBtn->setIcon(HIcons::logPage());
-    logBtn->setToolTip(tr("Registro do cliente"));
-    tb->addWidget(logBtn);
-    connect(logBtn, &QToolButton::clicked, this, [this] {
-        if (!m_log) m_log = new LogDialog(this);
-        m_log->show();
-    });
-
-    QToolButton* optBtn = new QToolButton(tb);
-    optBtn->setIcon(HIcons::optionsGear());
-    optBtn->setToolTip(tr("Opções"));
-    tb->addWidget(optBtn);
-
-    QWidget* spacer = new QWidget(tb);
-    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    tb->addWidget(spacer);
-
-    QToolButton* bellBtn = new QToolButton(tb);
-    bellBtn->setIcon(HIcons::bell());
-    bellBtn->setToolTip(tr("Notificações"));
-    tb->addWidget(bellBtn);
-    connect(bellBtn, &QToolButton::clicked, this, [this] { showNotifications(); });
-
-    connect(optBtn, &QToolButton::clicked, this, [this] {
-        if (m_actOptions) m_actOptions->trigger();
-    });
+    // Força o ícone de duas silhuetas no botão de sussurro
+    m_actWhisper->setIcon(HIcons::contacts());
+    addDropButton(m_actWhisper, whMenu);
 
     // ------------------------- área central -----------------------------
     m_stack = new QStackedWidget(this);
@@ -947,6 +947,7 @@ void MainWindow::applyHotkeys() {
         UnregisterHotKey(HWND(winId()), id);
     m_globalHotkeyActions.clear();
     m_whisperHolds.clear();
+    m_mouseHotkeys.clear();
 #endif
 
     // lista do PERFIL ativo (migração da chave legada "hotkeys/list")
@@ -998,12 +999,25 @@ void MainWindow::applyHotkeys() {
             const QKeySequence seq = QKeySequence::fromString(keyStr);
             if (seq.isEmpty()) continue;
 #ifdef Q_OS_WIN
-            // GLOBAL: funciona em segundo plano, como no TS3
-            UINT vk = 0, mods = 0;
-            if (specToVk(seq, vk, mods)) {
-                const int id = 100 + idx;
-                if (RegisterHotKey(HWND(winId()), id, mods | MOD_NOREPEAT, vk))
-                    m_globalHotkeyActions[id] = action;
+            int mouseBtn = 0;
+            if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         mouseBtn = 4;
+            else if (keyStr == QLatin1String(HotkeyEdit::kMouse5))    mouseBtn = 5;
+            else if (keyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) mouseBtn = 3;
+
+            if (mouseBtn != 0) {
+                MouseHotkey mh;
+                mh.mouseBtn = mouseBtn;
+                mh.action = action;
+                mh.held = false;
+                m_mouseHotkeys << mh;
+            } else {
+                // GLOBAL: funciona em segundo plano, como no TS3
+                UINT vk = 0, mods = 0;
+                if (specToVk(seq, vk, mods)) {
+                    const int id = 100 + idx;
+                    if (RegisterHotKey(HWND(winId()), id, mods | MOD_NOREPEAT, vk))
+                        m_globalHotkeyActions[id] = action;
+                }
             }
 #else
             QShortcut* sc = new QShortcut(seq, this);
@@ -1148,6 +1162,20 @@ static bool modsHeld(UINT mods) {
 }
 #endif
 
+bool MainWindow::isMouseDown(int btn) {
+#ifdef Q_OS_WIN
+    bool rawDown = false;
+    if (btn >= 0 && btn < 6) {
+        rawDown = m_mouseButtonState[btn];
+    }
+    bool vkDown = anyVkDown(mouseVkCandidates(btn));
+    return rawDown || vkDown;
+#else
+    Q_UNUSED(btn);
+    return false;
+#endif
+}
+
 // timer de 50 ms: lê o estado FÍSICO do PTT e das teclas de sussurro.
 // Detecta tanto a pressão quanto a soltura — inclusive em segundo plano —
 // sem depender de qual janela recebeu a mensagem do mouse.
@@ -1155,7 +1183,7 @@ void MainWindow::pollGlobalInputs() {
 #ifdef Q_OS_WIN
     // ---- PTT
     if (m_mousePttButton != 0) {
-        pttSetHeld(anyVkDown(mouseVkCandidates(m_mousePttButton)));
+        pttSetHeld(isMouseDown(m_mousePttButton));
     } else if (m_pttVk != 0) {
         const bool down = (GetAsyncKeyState(int(m_pttVk)) & 0x8000) &&
                           modsHeld(m_pttMods);
@@ -1166,11 +1194,23 @@ void MainWindow::pollGlobalInputs() {
     for (int i = 0; i < m_whisperHolds.size(); ++i) {
         HoldKey& h = m_whisperHolds[i];
         const bool down = h.mouseBtn != 0
-            ? anyVkDown(mouseVkCandidates(h.mouseBtn))
+            ? isMouseDown(h.mouseBtn)
             : (h.vk != 0 && (GetAsyncKeyState(int(h.vk)) & 0x8000) && modsHeld(h.mods));
         if (down != h.held) {
             h.held = down;
             whisperSetHeld(i, down);
+        }
+    }
+
+    // ---- outros atalhos de mouse (um clique ativa, outro solta)
+    for (int i = 0; i < m_mouseHotkeys.size(); ++i) {
+        MouseHotkey& mh = m_mouseHotkeys[i];
+        const bool down = isMouseDown(mh.mouseBtn);
+        if (down && !mh.held) {
+            mh.held = true;
+            runConfiguredAction(mh.action);
+        } else if (!down && mh.held) {
+            mh.held = false;
         }
     }
 #endif
@@ -1197,33 +1237,26 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
                 runConfiguredAction(m_globalHotkeyActions.value(id));
         } else if (msg->message == WM_INPUT &&
                    (msg->wParam == RIM_INPUT || msg->wParam == RIM_INPUTSINK)) {
-            // botão de mouse (PTT/sussurro) pressionado em qualquer janela —
+            // botão de mouse (PTT/sussurro/atalhos) pressionado em qualquer janela —
             // caminho rápido; o timer de 50 ms cobre os demais casos
-            if (m_mousePttButton != 0) {
-                BYTE buf[64];
-                UINT sz = sizeof(buf);
-                if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam),
-                                    RID_INPUT, buf, &sz,
-                                    sizeof(RAWINPUTHEADER)) != UINT(-1)) {
-                    RAWINPUT* ri = reinterpret_cast<RAWINPUT*>(buf);
-                    if (ri->header.dwType == RIM_TYPEMOUSE) {
-                        const USHORT f = ri->data.mouse.usButtonFlags;
-                        auto hit = [&](int btn, USHORT down, USHORT up) {
-                            if (m_mousePttButton != btn) return;
-                            if (f & down) pttSetHeld(true);
-                            if (f & up)   pttSetHeld(false);
-                        };
-                        hit(4, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
-                        hit(5, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
-                        hit(3, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
-                    }
+            BYTE buf[64];
+            UINT sz = sizeof(buf);
+            if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam),
+                                RID_INPUT, buf, &sz,
+                                sizeof(RAWINPUTHEADER)) != UINT(-1)) {
+                RAWINPUT* ri = reinterpret_cast<RAWINPUT*>(buf);
+                if (ri->header.dwType == RIM_TYPEMOUSE) {
+                    const USHORT f = ri->data.mouse.usButtonFlags;
+                    auto hit = [&](int btn, USHORT down, USHORT up) {
+                        if (f & down) m_mouseButtonState[btn] = true;
+                        if (f & up)   m_mouseButtonState[btn] = false;
+                    };
+                    hit(3, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
+                    hit(4, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
+                    hit(5, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
                 }
             }
-            // sussurro por botão do mouse: re-lê o estado imediatamente
-            bool mouseWhisper = false;
-            for (const HoldKey& h : std::as_const(m_whisperHolds))
-                if (h.mouseBtn != 0) { mouseWhisper = true; break; }
-            if (mouseWhisper) pollGlobalInputs();
+            pollGlobalInputs();
         } else if (msg->message == WM_XBUTTONDOWN || msg->message == WM_XBUTTONUP ||
                    msg->message == WM_MBUTTONDOWN || msg->message == WM_MBUTTONUP ||
                    msg->message == WM_APPCOMMAND) {
@@ -1244,6 +1277,15 @@ void MainWindow::registerPttHotkey() {
     m_pttVk = 0;
     m_pttMods = 0;
 
+    // ---- Sempre registre os dispositivos de Raw Input para o mouse para garantir que os botões do mouse e atalhos funcionem de forma ultra responsiva e global
+    RAWINPUTDEVICE rid = {};
+    rid.usUsagePage = 0x01;          // generic desktop
+    rid.usUsage     = 0x02;          // mouse
+    rid.dwFlags     = RIDEV_INPUTSINK; // recebe mesmo sem foco
+    rid.hwndTarget  = HWND(winId());
+    if (RegisterRawInputDevices(&rid, 1, sizeof(rid)))
+        m_rawInputRegistered = true;
+
     const QString spec = S::str("capture/pttKey", QStringLiteral("Space"));
     if (spec.isEmpty()) return;
 
@@ -1253,13 +1295,6 @@ void MainWindow::registerPttHotkey() {
     else if (spec == QLatin1String(HotkeyEdit::kMouse5))   btn = 5;
     else if (spec == QLatin1String(HotkeyEdit::kMouseMiddle)) btn = 3;
     if (btn != 0) {
-        RAWINPUTDEVICE rid = {};
-        rid.usUsagePage = 0x01;          // generic desktop
-        rid.usUsage     = 0x02;          // mouse
-        rid.dwFlags     = RIDEV_INPUTSINK; // recebe mesmo sem foco
-        rid.hwndTarget  = HWND(winId());
-        if (RegisterRawInputDevices(&rid, 1, sizeof(rid)))
-            m_rawInputRegistered = true;
         m_mousePttButton = btn; // o timer de 50 ms lê o estado físico do botão
         AppLog::info(tr("PTT global registrado no mouse: %1").arg(spec));
         return;

@@ -5,6 +5,7 @@
 #include "AppLog.h"
 #include "net/NetSession.h"
 #include "core/Models.h"
+#include "HotkeyEdit.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -40,6 +41,14 @@ static void saveList(const char* key, const QList<QJsonObject>& list) {
 }
 
 // ================================================================== Whisper
+#include <QSplitter>
+#include <QListWidget>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
+#include <QComboBox>
+#include <QLineEdit>
+#include <functional>
+
 QStringList WhisperDialog::activeWhisperUids() {
     const QString uid = S::str("whisper/activeList");
     if (uid.isEmpty()) return {};
@@ -55,133 +64,596 @@ QStringList WhisperDialog::activeWhisperUids() {
 WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     : QDialog(parent), m_data(data) {
     setWindowTitle(tr("Listas de sussurro"));
-    resize(560, 320);
+    resize(950, 550);
 
-    QVBoxLayout* root = new QVBoxLayout(this);
-    root->setContentsMargins(0, 0, 0, 8);
-    root->setSpacing(0);
-    root->addWidget(new TsBanner(tr("Listas de sussurro"),
-                                 tr("Escolha para quem sua voz vai ao sussurrar"),
-                                 HIcons::captureMic().pixmap(24, 24), this));
-    root->addSpacing(8);
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setSpacing(8);
 
-    QHBoxLayout* mid = new QHBoxLayout;
-    mid->setContentsMargins(10, 0, 10, 0);
-    m_table = new QTableWidget(0, 2, this);
-    m_table->setHorizontalHeaderLabels({ tr("Nome"), tr("Destinatários") });
-    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setStretchLastSection(true);
-    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    mid->addWidget(m_table, 1);
-    root->addLayout(mid);
+    QHBoxLayout* columnsLayout = new QHBoxLayout;
+    columnsLayout->setSpacing(10);
 
-    QHBoxLayout* btns = new QHBoxLayout;
-    btns->setContentsMargins(10, 6, 10, 0);
-    QPushButton* add = new QPushButton(tr("Adicionar"), this);
-    QPushButton* del = new QPushButton(tr("Excluir"), this);
-    QPushButton* use = new QPushButton(tr("Usar esta lista"), this);
-    QPushButton* close = new QPushButton(tr("Fechar"), this);
-    btns->addWidget(add);
-    btns->addWidget(del);
-    btns->addStretch(1);
-    btns->addWidget(use);
-    btns->addWidget(close);
-    root->addLayout(btns);
+    // ========================================== COLUMN 1: LEFT (Gerenciamento de Listas)
+    QVBoxLayout* colLeft = new QVBoxLayout;
+    
+    colLeft->addWidget(new QLabel(tr("Listas de sussurros sincronizadas"), this));
+    m_syncList = new QListWidget(this);
+    m_syncList->setMinimumHeight(150);
+    colLeft->addWidget(m_syncList, 3);
 
-    connect(close, &QPushButton::clicked, this, &QDialog::accept);
+    colLeft->addWidget(new QLabel(tr("Listas de sussurros locais"), this));
+    m_localList = new QListWidget(this);
+    m_localList->setMinimumHeight(150);
+    colLeft->addWidget(m_localList, 2);
 
-    connect(add, &QPushButton::clicked, this, [this] {
-        QDialog d(this);
-        d.setWindowTitle(tr("Nova lista de sussurro"));
-        QVBoxLayout* dv = new QVBoxLayout(&d);
-        QFormLayout* f = new QFormLayout;
-        QLineEdit* name = new QLineEdit(&d);
-        f->addRow(tr("Nome:"), name);
-        dv->addLayout(f);
-        dv->addWidget(new QLabel(
-            m_data ? tr("Marque os destinatários (identificados pelo ID único):")
-                   : tr("Conecte-se a um servidor para escolher destinatários "
-                        "na lista abaixo."), &d));
-        QList<QPair<QCheckBox*, QString>> picks;
-        if (m_data) {
-            for (const User& u : m_data->users) {
-                if (u.id == m_data->selfId) continue;
-                QCheckBox* cb = new QCheckBox(u.name, &d);
-                picks << qMakePair(cb, u.uniqueId);
-                dv->addWidget(cb);
-            }
+    QHBoxLayout* leftButtons = new QHBoxLayout;
+    m_btnNew = new QPushButton(tr("Novo"), this);
+    m_btnRemove = new QPushButton(tr("Remover"), this);
+    m_btnRename = new QPushButton(tr("Renomear"), this);
+    leftButtons->addWidget(m_btnNew);
+    leftButtons->addWidget(m_btnRemove);
+    leftButtons->addWidget(m_btnRename);
+    colLeft->addLayout(leftButtons);
+
+    columnsLayout->addLayout(colLeft, 1);
+
+    // ========================================== COLUMN 2: CENTER (Detalhes e Árvore de Alvos)
+    QVBoxLayout* colCenter = new QVBoxLayout;
+    
+    QFormLayout* centerForm = new QFormLayout;
+    centerForm->setSpacing(6);
+    centerForm->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+
+    m_hotkeyEdit = new HotkeyEdit(this);
+    m_hotkeyEdit->setMinimumWidth(180);
+    centerForm->addRow(tr("Tecla de atalho:"), m_hotkeyEdit);
+
+    m_replyHotkeyEdit = new HotkeyEdit(this);
+    m_replyHotkeyEdit->setMinimumWidth(180);
+    centerForm->addRow(tr("Tecla de atalho para resposta:"), m_replyHotkeyEdit);
+
+    m_scopeCombo = new QComboBox(this);
+    m_scopeCombo->addItems({ tr("Clientes & canais"), tr("Grupos de servidores"), tr("Grupos de canais") });
+    centerForm->addRow(tr("Enviar sussurro para:"), m_scopeCombo);
+
+    colCenter->addLayout(centerForm);
+    colCenter->addSpacing(4);
+
+    colCenter->addWidget(new QLabel(tr("Árvore de Alvos (Caixa Branca Principal)"), this));
+    m_targetsTree = new QTreeWidget(this);
+    m_targetsTree->setHeaderHidden(true);
+    m_targetsTree->setStyleSheet(QStringLiteral("QTreeWidget { background-color: white; border: 1px solid #CCC; }"));
+    colCenter->addWidget(m_targetsTree, 1);
+
+    columnsLayout->addLayout(colCenter, 1);
+
+    // ========================================== COLUMN 3: RIGHT (Navegador/Seletor de Canais e Usuários)
+    QVBoxLayout* colRight = new QVBoxLayout;
+
+    QHBoxLayout* rightTop = new QHBoxLayout;
+    rightTop->addWidget(new QLabel(tr("Filtro:"), this));
+    m_filterCombo = new QComboBox(this);
+    m_filterCombo->addItems({ tr("Ver tudo"), tr("Canais"), tr("Clientes") });
+    rightTop->addWidget(m_filterCombo, 1);
+    colRight->addLayout(rightTop);
+
+    colRight->addWidget(new QLabel(tr("Árvore do Servidor"), this));
+    m_serverTree = new QTreeWidget(this);
+    m_serverTree->setHeaderHidden(true);
+    m_serverTree->setStyleSheet(QStringLiteral("QTreeWidget { background-color: white; border: 1px solid #CCC; }"));
+    colRight->addWidget(m_serverTree, 1);
+
+    QHBoxLayout* searchLayout = new QHBoxLayout;
+    m_searchEdit = new QLineEdit(this);
+    m_searchEdit->setPlaceholderText(tr("Pesquisar..."));
+    searchLayout->addWidget(m_searchEdit, 1);
+    colRight->addLayout(searchLayout);
+
+    columnsLayout->addLayout(colRight, 1);
+
+    mainLayout->addLayout(columnsLayout, 1);
+
+    // ========================================== FOOTER
+    QHBoxLayout* footerLayout = new QHBoxLayout;
+    m_btnReload = new QPushButton(tr("Recarregar"), this);
+    footerLayout->addWidget(m_btnReload);
+    footerLayout->addStretch(1);
+
+    QPushButton* btnOk = new QPushButton(tr("OK"), this);
+    QPushButton* btnCancel = new QPushButton(tr("Cancelar"), this);
+    QPushButton* btnApply = new QPushButton(tr("Aplicar"), this);
+    footerLayout->addWidget(btnOk);
+    footerLayout->addWidget(btnCancel);
+    footerLayout->addWidget(btnApply);
+    mainLayout->addLayout(footerLayout);
+
+    // Connections
+    connect(m_btnNew, &QPushButton::clicked, this, &WhisperDialog::onNewList);
+    connect(m_btnRemove, &QPushButton::clicked, this, &WhisperDialog::onRemoveList);
+    connect(m_btnRename, &QPushButton::clicked, this, &WhisperDialog::onRenameList);
+    connect(m_btnReload, &QPushButton::clicked, this, &WhisperDialog::onReload);
+    connect(m_syncList, &QListWidget::currentItemChanged, this, &WhisperDialog::onSelectedListChanged);
+    connect(m_searchEdit, &QLineEdit::textChanged, this, &WhisperDialog::onSearchTextChanged);
+    connect(m_filterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &WhisperDialog::onFilterChanged);
+    connect(m_serverTree, &QTreeWidget::itemDoubleClicked, this, &WhisperDialog::onServerTreeDoubleClicked);
+    connect(m_targetsTree, &QTreeWidget::itemChanged, this, &WhisperDialog::onTargetItemChanged);
+
+    connect(m_hotkeyEdit, &HotkeyEdit::specChanged, this, [this](const QString& spec) {
+        if (m_isLoading) return;
+        QListWidgetItem* item = m_syncList->currentItem();
+        if (!item) return;
+        int index = m_syncList->row(item);
+        if (index >= 0 && index < m_whispers.size()) {
+            m_whispers[index]["key"] = spec;
+            QString name = m_whispers[index]["name"].toString();
+            QString displayKey = spec.isEmpty() ? tr("Nenhuma tecla de atalho atribuída") : spec;
+            item->setText(name + " (" + displayKey + ")");
         }
-        QLineEdit* manual = new QLineEdit(&d);
-        manual->setPlaceholderText(tr("IDs únicos extras, separados por vírgula"));
-        dv->addWidget(manual);
-        QHBoxLayout* rb = new QHBoxLayout;
-        QPushButton* ok = new QPushButton(tr("OK"), &d);
-        QPushButton* cancel = new QPushButton(tr("Cancelar"), &d);
-        rb->addStretch(1);
-        rb->addWidget(ok);
-        rb->addWidget(cancel);
-        dv->addLayout(rb);
-        QObject::connect(ok, &QPushButton::clicked, &d, &QDialog::accept);
-        QObject::connect(cancel, &QPushButton::clicked, &d, &QDialog::reject);
-        if (d.exec() != QDialog::Accepted || name->text().trimmed().isEmpty()) return;
+    });
 
-        QJsonArray uids;
-        QStringList names;
-        for (const auto& pr : picks)
-            if (pr.first->isChecked()) { uids << pr.second; names << pr.first->text(); }
-        for (const QString& extra : manual->text().split(QLatin1Char(','),
-                                                         Qt::SkipEmptyParts)) {
-            const QString e = extra.trimmed();
-            if (!e.isEmpty()) uids << e;
+    connect(m_replyHotkeyEdit, &HotkeyEdit::specChanged, this, [this](const QString& spec) {
+        if (m_isLoading) return;
+        QListWidgetItem* item = m_syncList->currentItem();
+        if (!item) return;
+        int index = m_syncList->row(item);
+        if (index >= 0 && index < m_whispers.size()) {
+            m_whispers[index]["replyKey"] = spec;
         }
-        QList<QJsonObject> list = loadList("whispers");
-        QJsonObject o;
-        o["name"] = name->text().trimmed();
-        o["uids"] = uids;
-        o["targetNames"] = names.join(QStringLiteral(", "));
-        list << o;
-        saveList("whispers", list);
-        reload();
     });
 
-    connect(del, &QPushButton::clicked, this, [this] {
-        auto items = m_table->selectedItems();
-        if (items.isEmpty()) return;
-        QList<QJsonObject> list = loadList("whispers");
-        const QString name = list.value(items.first()->row())["name"].toString();
-        list.removeAt(items.first()->row());
-        saveList("whispers", list);
-        if (S::str("whisper/activeList") == name) S::set("whisper/activeList", QString());
-        reload();
+    connect(m_scopeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int idx) {
+        if (m_isLoading) return;
+        QListWidgetItem* item = m_syncList->currentItem();
+        if (!item) return;
+        int index = m_syncList->row(item);
+        if (index >= 0 && index < m_whispers.size()) {
+            m_whispers[index]["scope"] = idx;
+        }
     });
 
-    connect(use, &QPushButton::clicked, this, [this] {
-        auto items = m_table->selectedItems();
-        if (items.isEmpty()) return;
-        const QString name = loadList("whispers").value(items.first()->row())
-                                                   ["name"].toString();
-        S::set("whisper/activeList", name);
-        reload();
-    });
+    connect(btnOk, &QPushButton::clicked, this, &WhisperDialog::onAccept);
+    connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
+    connect(btnApply, &QPushButton::clicked, this, &WhisperDialog::onApply);
 
-    reload();
+    // Initial load
+    loadSettings();
+    populateServerTree();
 }
 
-void WhisperDialog::reload() {
-    QList<QJsonObject> list = loadList("whispers");
-    const QString active = S::str("whisper/activeList");
-    m_table->setRowCount(list.size());
-    for (int i = 0; i < list.size(); ++i) {
-        const QString name = list[i]["name"].toString();
-        QTableWidgetItem* n = new QTableWidgetItem(
-            name == active ? QStringLiteral("%1  (ativa)").arg(name) : name);
-        m_table->setItem(i, 0, n);
-        QString targets = list[i]["targetNames"].toString();
-        if (targets.isEmpty())
-            targets = QString::number(list[i]["uids"].toArray().size()) + tr(" destino(s)");
-        m_table->setItem(i, 1, new QTableWidgetItem(targets));
+void WhisperDialog::loadSettings() {
+    m_isLoading = true;
+    m_whispers = loadList("whispers");
+    m_syncList->clear();
+    
+    for (const QJsonObject& o : m_whispers) {
+        QString name = o["name"].toString();
+        QString key = o["key"].toString();
+        if (key.isEmpty()) {
+            key = tr("Nenhuma tecla de atalho atribuída");
+        }
+        m_syncList->addItem(name + " (" + key + ")");
     }
+    
+    m_localList->clear();
+    // Local lists are empty, show standard placeholder text "Nenhum item neste painel..."
+    QListWidgetItem* placeholder = new QListWidgetItem(tr("Nenhum item neste painel..."), m_localList);
+    placeholder->setFlags(placeholder->flags() & ~Qt::ItemIsEnabled);
+    m_localList->addItem(placeholder);
+    
+    m_isLoading = false;
+    
+    if (m_syncList->count() > 0) {
+        m_syncList->setCurrentRow(0);
+    } else {
+        onSelectedListChanged();
+    }
+}
+
+void WhisperDialog::saveSettings() {
+    saveList("whispers", m_whispers);
+    QListWidgetItem* item = m_syncList->currentItem();
+    if (item) {
+        int index = m_syncList->row(item);
+        if (index >= 0 && index < m_whispers.size()) {
+            S::set("whisper/activeList", m_whispers[index]["name"].toString());
+        }
+    }
+}
+
+void WhisperDialog::onNewList() {
+    bool ok = false;
+    QString name = QInputDialog::getText(this, tr("Nova lista de sussurro"),
+                                         tr("Nome da lista:"), QLineEdit::Normal, QString(), &ok);
+    if (!ok || name.trimmed().isEmpty()) return;
+    
+    QJsonObject o;
+    o["name"] = name.trimmed();
+    o["key"] = "";
+    o["replyKey"] = "";
+    o["scope"] = 0;
+    o["uids"] = QJsonArray();
+    o["targetNames"] = "";
+    
+    m_whispers << o;
+    saveSettings();
+    loadSettings();
+    
+    for (int i = 0; i < m_syncList->count(); ++i) {
+        if (m_syncList->item(i)->text().startsWith(name.trimmed())) {
+            m_syncList->setCurrentRow(i);
+            break;
+        }
+    }
+}
+
+void WhisperDialog::onRemoveList() {
+    QListWidgetItem* item = m_syncList->currentItem();
+    if (!item) return;
+    int index = m_syncList->row(item);
+    if (index >= 0 && index < m_whispers.size()) {
+        const QString name = m_whispers[index]["name"].toString();
+        m_whispers.removeAt(index);
+        saveSettings();
+        if (S::str("whisper/activeList") == name) S::set("whisper/activeList", QString());
+        loadSettings();
+    }
+}
+
+void WhisperDialog::onRenameList() {
+    QListWidgetItem* item = m_syncList->currentItem();
+    if (!item) return;
+    int index = m_syncList->row(item);
+    if (index >= 0 && index < m_whispers.size()) {
+        const QString oldName = m_whispers[index]["name"].toString();
+        bool ok = false;
+        QString name = QInputDialog::getText(this, tr("Renomear lista de sussurro"),
+                                             tr("Novo nome:"), QLineEdit::Normal, oldName, &ok);
+        if (!ok || name.trimmed().isEmpty()) return;
+        
+        m_whispers[index]["name"] = name.trimmed();
+        saveSettings();
+        if (S::str("whisper/activeList") == oldName) S::set("whisper/activeList", name.trimmed());
+        loadSettings();
+    }
+}
+
+void WhisperDialog::onReload() {
+    loadSettings();
+    populateServerTree();
+}
+
+void WhisperDialog::onSelectedListChanged() {
+    m_isLoading = true;
+    
+    QListWidgetItem* currentItem = m_syncList->currentItem();
+    if (!currentItem) {
+        m_hotkeyEdit->setSpec("");
+        m_replyHotkeyEdit->setSpec("");
+        m_scopeCombo->setCurrentIndex(0);
+        m_targetsTree->clear();
+        m_isLoading = false;
+        return;
+    }
+    
+    int index = m_syncList->row(currentItem);
+    if (index >= 0 && index < m_whispers.size()) {
+        const QJsonObject& o = m_whispers[index];
+        m_hotkeyEdit->setSpec(o["key"].toString());
+        m_replyHotkeyEdit->setSpec(o["replyKey"].toString());
+        m_scopeCombo->setCurrentIndex(o["scope"].toInt(0));
+        populateTargetsTreeForSelected();
+    }
+    
+    m_isLoading = false;
+}
+
+void WhisperDialog::onTargetsChanged() {
+}
+
+void WhisperDialog::onSearchTextChanged(const QString& text) {
+    if (text.isEmpty()) {
+        for (int i = 0; i < m_serverTree->topLevelItemCount(); ++i) {
+            QTreeWidgetItem* top = m_serverTree->topLevelItem(i);
+            top->setHidden(false);
+            std::function<void(QTreeWidgetItem*)> showAll = [&](QTreeWidgetItem* item) {
+                item->setHidden(false);
+                for (int j = 0; j < item->childCount(); ++j) showAll(item->child(j));
+            };
+            showAll(top);
+        }
+        return;
+    }
+    
+    for (int i = 0; i < m_serverTree->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* top = m_serverTree->topLevelItem(i);
+        filterTree(top, text);
+    }
+}
+
+void WhisperDialog::filterTree(QTreeWidgetItem* item, const QString& text) {
+    bool match = item->text(0).contains(text, Qt::CaseInsensitive);
+    bool anyChildMatch = false;
+    for (int i = 0; i < item->childCount(); ++i) {
+        filterTree(item->child(i), text);
+        if (!item->child(i)->isHidden()) {
+            anyChildMatch = true;
+        }
+    }
+    item->setHidden(!match && !anyChildMatch);
+}
+
+void WhisperDialog::onFilterChanged(int index) {
+    std::function<void(QTreeWidgetItem*)> applyFilter = [&](QTreeWidgetItem* item) {
+        QString type = item->data(0, Qt::UserRole + 1).toString();
+        bool show = true;
+        if (index == 1) { // Canais
+            show = (type == "channel" || type == "server");
+        } else if (index == 2) { // Clientes
+            show = (type == "user" || type == "server" || type.isEmpty());
+        }
+        
+        item->setHidden(!show);
+        
+        for (int i = 0; i < item->childCount(); ++i) {
+            applyFilter(item->child(i));
+        }
+    };
+    
+    for (int i = 0; i < m_serverTree->topLevelItemCount(); ++i) {
+        applyFilter(m_serverTree->topLevelItem(i));
+    }
+}
+
+void WhisperDialog::populateServerTree() {
+    m_serverTree->clear();
+    
+    // Top-level 1: Contactos
+    QTreeWidgetItem* contactsRoot = new QTreeWidgetItem(m_serverTree);
+    contactsRoot->setText(0, tr("Contactos"));
+    contactsRoot->setIcon(0, HIcons::contacts());
+    
+    QList<QJsonObject> contacts = loadList("contacts");
+    for (const QJsonObject& c : contacts) {
+        QTreeWidgetItem* cItem = new QTreeWidgetItem(contactsRoot);
+        cItem->setText(0, c["name"].toString());
+        cItem->setIcon(0, HIcons::contacts());
+        cItem->setData(0, Qt::UserRole, c["name"].toString());
+        cItem->setData(0, Qt::UserRole + 1, "user");
+        cItem->setData(0, Qt::UserRole + 2, c["uid"].toString());
+    }
+    
+    // Top-level 2: Servidores
+    QTreeWidgetItem* serverRoot = new QTreeWidgetItem(m_serverTree);
+    serverRoot->setText(0, m_data ? m_data->name : tr("Servidores"));
+    serverRoot->setIcon(0, HIcons::server());
+    serverRoot->setData(0, Qt::UserRole + 1, "server");
+    
+    if (m_data) {
+        QList<int> rootChans = m_data->childChannels(0);
+        
+        std::function<void(QTreeWidgetItem*, int)> addServerChan = [&](QTreeWidgetItem* parentItem, int chanId) {
+            const Channel& chan = m_data->channels[chanId];
+            QTreeWidgetItem* chanItem = new QTreeWidgetItem(parentItem);
+            chanItem->setText(0, chan.name);
+            chanItem->setIcon(0, HIcons::channel(false, false, false, false));
+            chanItem->setData(0, Qt::UserRole, chan.name);
+            chanItem->setData(0, Qt::UserRole + 1, "channel");
+            chanItem->setData(0, Qt::UserRole + 2, QString::number(chan.id));
+            
+            for (int userId : chan.users) {
+                if (m_data->users.contains(userId)) {
+                    const User& u = m_data->users[userId];
+                    QTreeWidgetItem* userItem = new QTreeWidgetItem(chanItem);
+                    userItem->setText(0, u.name);
+                    userItem->setIcon(0, HIcons::user(false, false));
+                    userItem->setData(0, Qt::UserRole, u.name);
+                    userItem->setData(0, Qt::UserRole + 1, "user");
+                    userItem->setData(0, Qt::UserRole + 2, u.uniqueId);
+                }
+            }
+            
+            for (int childId : m_data->childChannels(chanId)) {
+                addServerChan(chanItem, childId);
+            }
+        };
+        
+        for (int rId : rootChans) {
+            addServerChan(serverRoot, rId);
+        }
+    }
+    
+    m_serverTree->expandAll();
+}
+
+void WhisperDialog::populateTargetsTreeForSelected() {
+    m_isLoading = true;
+    m_targetsTree->clear();
+    
+    QListWidgetItem* currentItem = m_syncList->currentItem();
+    if (!currentItem) {
+        m_isLoading = false;
+        return;
+    }
+    
+    int index = m_syncList->row(currentItem);
+    if (index < 0 || index >= m_whispers.size()) {
+        m_isLoading = false;
+        return;
+    }
+    
+    const QJsonObject& o = m_whispers[index];
+    QJsonArray uidsArr = o["uids"].toArray();
+    QStringList uids;
+    for (const QJsonValue& val : uidsArr) {
+        uids << val.toString();
+    }
+    
+    if (!m_data) {
+        for (const QString& uid : uids) {
+            QTreeWidgetItem* item = new QTreeWidgetItem(m_targetsTree);
+            item->setText(0, uid);
+            item->setIcon(0, HIcons::user(false, false));
+            item->setCheckState(0, Qt::Checked);
+            item->setData(0, Qt::UserRole, uid);
+            item->setData(0, Qt::UserRole + 1, "user");
+            item->setData(0, Qt::UserRole + 2, uid);
+        }
+        m_isLoading = false;
+        return;
+    }
+    
+    QList<int> rootChans = m_data->childChannels(0);
+    
+    std::function<void(QTreeWidgetItem*, int)> addTargetsChan = [&](QTreeWidgetItem* parentItem, int chanId) {
+        const Channel& chan = m_data->channels[chanId];
+        QTreeWidgetItem* chanItem = nullptr;
+        if (parentItem) {
+            chanItem = new QTreeWidgetItem(parentItem);
+        } else {
+            chanItem = new QTreeWidgetItem(m_targetsTree);
+        }
+        chanItem->setText(0, chan.name);
+        chanItem->setIcon(0, HIcons::channel(false, false, false, false));
+        chanItem->setData(0, Qt::UserRole, chan.name);
+        chanItem->setData(0, Qt::UserRole + 1, "channel");
+        chanItem->setData(0, Qt::UserRole + 2, QString::number(chan.id));
+        
+        bool isChanChecked = uids.contains(QString::number(chan.id));
+        chanItem->setCheckState(0, isChanChecked ? Qt::Checked : Qt::Unchecked);
+        
+        for (int userId : chan.users) {
+            if (m_data->users.contains(userId)) {
+                const User& u = m_data->users[userId];
+                QTreeWidgetItem* userItem = new QTreeWidgetItem(chanItem);
+                userItem->setText(0, u.name);
+                userItem->setIcon(0, HIcons::user(false, false));
+                userItem->setData(0, Qt::UserRole, u.name);
+                userItem->setData(0, Qt::UserRole + 1, "user");
+                userItem->setData(0, Qt::UserRole + 2, u.uniqueId);
+                
+                bool isUserChecked = uids.contains(u.uniqueId);
+                userItem->setCheckState(0, isUserChecked ? Qt::Checked : Qt::Unchecked);
+            }
+        }
+        
+        for (int childId : m_data->childChannels(chanId)) {
+            addTargetsChan(chanItem, childId);
+        }
+    };
+    
+    for (int rId : rootChans) {
+        addTargetsChan(nullptr, rId);
+    }
+    
+    m_targetsTree->expandAll();
+    m_isLoading = false;
+}
+
+void WhisperDialog::onServerTreeDoubleClicked(QTreeWidgetItem* item, int column) {
+    Q_UNUSED(column);
+    QString type = item->data(0, Qt::UserRole + 1).toString();
+    if (type.isEmpty() || type == "server") return;
+    QString name = item->text(0);
+    QString uid = item->data(0, Qt::UserRole + 2).toString();
+    
+    QListWidgetItem* currentList = m_syncList->currentItem();
+    if (!currentList) {
+        QMessageBox::warning(this, tr("Nenhuma lista selecionada"),
+                             tr("Selecione ou crie uma lista de sussurros à esquerda antes de adicionar destinatários."));
+        return;
+    }
+    
+    QList<QTreeWidgetItem*> found = m_targetsTree->findItems(name, Qt::MatchRecursive);
+    bool marked = false;
+    for (QTreeWidgetItem* tItem : found) {
+        if (tItem->data(0, Qt::UserRole + 2).toString() == uid) {
+            tItem->setCheckState(0, Qt::Checked);
+            marked = true;
+            onTargetItemChanged(tItem, 0);
+        }
+    }
+    
+    if (!marked) {
+        QTreeWidgetItem* newItem = new QTreeWidgetItem(m_targetsTree);
+        newItem->setText(0, name);
+        newItem->setIcon(0, (type == "channel") ? HIcons::channel(false, false, false, false) : HIcons::user(false, false));
+        newItem->setData(0, Qt::UserRole, name);
+        newItem->setData(0, Qt::UserRole + 1, type);
+        newItem->setData(0, Qt::UserRole + 2, uid);
+        newItem->setCheckState(0, Qt::Checked);
+        onTargetItemChanged(newItem, 0);
+    }
+}
+
+void WhisperDialog::onTargetItemChanged(QTreeWidgetItem* item, int column) {
+    Q_UNUSED(column);
+    if (m_isLoading) return;
+    
+    QListWidgetItem* listRow = m_syncList->currentItem();
+    if (!listRow) return;
+    int index = m_syncList->row(listRow);
+    if (index < 0 || index >= m_whispers.size()) return;
+    
+    m_isLoading = true;
+    
+    Qt::CheckState state = item->checkState(0);
+    std::function<void(QTreeWidgetItem*, Qt::CheckState)> checkChildren = [&](QTreeWidgetItem* parent, Qt::CheckState s) {
+        for (int i = 0; i < parent->childCount(); ++i) {
+            QTreeWidgetItem* child = parent->child(i);
+            child->setCheckState(0, s);
+            checkChildren(child, s);
+        }
+    };
+    checkChildren(item, state);
+    
+    QJsonArray checkedUids;
+    QStringList checkedNames;
+    
+    std::function<void(QTreeWidgetItem*)> collectChecked = [&](QTreeWidgetItem* parent) {
+        for (int i = 0; i < parent->childCount(); ++i) {
+            QTreeWidgetItem* child = parent->child(i);
+            if (child->checkState(0) == Qt::Checked) {
+                QString uid = child->data(0, Qt::UserRole + 2).toString();
+                if (!uid.isEmpty()) {
+                    checkedUids.append(uid);
+                    checkedNames.append(child->text(0));
+                }
+            }
+            collectChecked(child);
+        }
+    };
+    
+    for (int i = 0; i < m_targetsTree->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* top = m_targetsTree->topLevelItem(i);
+        if (top->checkState(0) == Qt::Checked) {
+            QString uid = top->data(0, Qt::UserRole + 2).toString();
+            if (!uid.isEmpty()) {
+                checkedUids.append(uid);
+                checkedNames.append(top->text(0));
+            }
+        }
+        collectChecked(top);
+    }
+    
+    m_whispers[index]["uids"] = checkedUids;
+    m_whispers[index]["targetNames"] = checkedNames.join(QStringLiteral(", "));
+    
+    m_isLoading = false;
+}
+
+void WhisperDialog::onApply() {
+    saveSettings();
+}
+
+void WhisperDialog::onAccept() {
+    saveSettings();
+    QDialog::accept();
+}
+
+void WhisperDialog::addTargetToSelected(const QString& name, const QString& uid, bool isChannel) {
+    Q_UNUSED(name);
+    Q_UNUSED(uid);
+    Q_UNUSED(isChannel);
 }
 
 // ================================================================== Contatos

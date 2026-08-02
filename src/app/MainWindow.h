@@ -119,7 +119,15 @@ private:
         int  scope = 1;           // 0 canal, 1 canal+subcanais, 2 usuários
         bool held = false;
     };
+    struct MouseHotkey {
+        int mouseBtn = 0; // 3, 4, 5
+        QString action;
+        bool held = false;
+    };
     QList<HoldKey> m_whisperHolds;
+    QList<MouseHotkey> m_mouseHotkeys;
+    bool m_mouseButtonState[6] = { false };
+    bool isMouseDown(int btn);
     bool m_whisperToggleOn = false;          // alternância (atalho sem "segurar")
     void whisperSetHeld(int idx, bool held);
     void pollGlobalInputs();                  // timer de 50 ms (pressões/solturas)

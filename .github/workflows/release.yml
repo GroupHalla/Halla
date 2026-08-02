@@ -1,0 +1,79 @@
+name: Build and Release Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows Client
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.8.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_mingw'
+          modules: 'qtmultimedia qtspeech'
+
+      - name: Install Ninja
+        run: choco install ninja
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          export PATH="/c/msys64/mingw64/bin:$PATH"
+          cmake -S . -B build -G "Ninja" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Application
+        shell: bash
+        run: |
+          export PATH="/c/msys64/mingw64/bin:$PATH"
+          cmake --build build
+
+      - name: Prepare Distribution
+        shell: bash
+        run: |
+          export PATH="/c/msys64/mingw64/bin:$PATH"
+          mkdir -p dist/Halla
+          cp build/Halla.exe dist/Halla/
+          
+          # Deploy Qt dependencies
+          "${{ env.Qt6_DIR }}/bin/windeployqt.exe" --release --no-translations --no-compiler-runtime --dir dist/Halla dist/Halla/Halla.exe
+          
+          # Copy MinGW runtime DLLs
+          cp /c/msys64/mingw64/bin/libgcc_s_seh-1.dll dist/Halla/
+          cp /c/msys64/mingw64/bin/libstdc++-6.dll dist/Halla/
+          cp /c/msys64/mingw64/bin/libwinpthread-1.dll dist/Halla/
+          
+          # Copy Readme and License
+          cp packaging/LEIA-ME.txt dist/Halla/
+          cp packaging/LICENSE.txt dist/Halla/
+
+      - name: Build Installer with NSIS
+        shell: bash
+        run: |
+          makensis packaging/halla-setup.nsi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v3.13.0
+          name: Halla v3.13.0
+          draft: false
+          prerelease: false
+          files: Halla-Setup-3.13.0.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
