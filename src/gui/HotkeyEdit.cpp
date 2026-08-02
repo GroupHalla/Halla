@@ -331,6 +331,15 @@ void HotkeyEdit::focusInEvent(QFocusEvent* e) {
         setArmed(true);
         QLineEdit::focusInEvent(e);
     } else {
+        // Se o foco veio de um clique do mouse, o mousePressEvent
+        // (que roda logo depois) já vai abrir o diálogo de captura.
+        // Abrir aqui TAMBÉM causava um segundo diálogo em sequência,
+        // que acabava sobrescrevendo o botão do mouse já capturado
+        // com o que o usuário apertasse depois (normalmente uma tecla).
+        if (e->reason() == Qt::MouseFocusReason) {
+            QLineEdit::focusInEvent(e);
+            return;
+        }
         HotkeyCaptureDialog dlg(this);
         if (dlg.exec() == QDialog::Accepted) {
             acceptSpec(dlg.capturedSpec());

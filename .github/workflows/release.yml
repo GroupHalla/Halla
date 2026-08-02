@@ -91,34 +91,29 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.4
-          name: Halla v3.13.4
+          tag_name: v3.13.5
+          name: Halla v3.13.5
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.4.exe
+          files: Halla-Setup-3.13.5.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.4
+            ## 🚀 Novidades e Correções do Halla v3.13.5
 
-            Esta release traz o polimento visual definitivo e a correção de bugs críticos para oferecer uma experiência de áudio idêntica ao TeamSpeak 3!
+            Esta release corrige o bug crítico de captura duplicada de atalhos e botões do mouse e traz melhorias de estabilidade incríveis!
 
-            ### ⌨️ Captura Perfeita de PTT e Atalhos pelo Mouse (Middle / 4 / 5)
-            * **Visibilidade Garantida:** Corrigimos o foco e a visibilidade do capturador de atalhos dentro do diálogo modal. Agora o gancho global de baixo nível (Windows Hook / NativeCapture) é corretamente armado e ativado.
-            * **Múltiplos Meios de Captura:** O usuário pode capturar qualquer tecla do teclado ou os botões extras do mouse (`Mouse 4`, `Mouse 5` e `MouseMeio`) seja focando o campo central ou simplesmente **clicando com o botão do mouse em qualquer lugar dentro da janela modal**!
-            * **Tecla ESC:** Mantivemos o clássico atalho de cancelar a captura pressionando a tecla `ESC`.
+            ### 🖱️ Correção Definitiva da Captura de Botões Laterais do Mouse
+            * **Fim dos Diálogos Duplicados (Bug do focusInEvent):** Corrigimos o conflito de eventos de foco e clique no Qt. Antes, ao clicar no campo de atalho, o Qt disparava o `focusInEvent` (abrindo o Diálogo #1) e, após fechar, continuava o fluxo disparando o `mousePressEvent` (abrindo o Diálogo #2 vazio por cima, o que acabava sobrescrevendo o botão lateral já capturado).
+            * **Controle Inteligente de Foco:** Agora o `focusInEvent` detecta se o foco veio de um clique físico (`Qt::MouseFocusReason`) e cede o controle para o `mousePressEvent` abrir o diálogo uma **única vez** de forma limpa e direta!
+            * **Fácil Associação:** Você pode associar qualquer tecla ou botão lateral (`Mouse 4`, `Mouse 5` ou `Botão do Meio`) com um clique único e limpo!
 
-            ### 🎨 Refatoração Definitiva e Alinhamento da Barra de Ferramentas
-            * **Remoção de Linhas Divisórias Internas:** Eliminamos a borda cinza escura interna dos botões com menu suspenso.
-            * **Área de Clique em Bloco Sólido:** Os botões com dropdown (`Desconectar`, `Mutar Fones`, etc.) agora têm a largura dimensionada de forma dinâmica e fluida (sem sobreposição do ícone com a seta preta). O efeito visual de hover e o clique englobam o ícone e a seta como um único bloco sólido.
-            * **Divisórias Externas Nativas:** A divisória 3D etched (`Q3DSeparator`) agora é renderizada de forma completamente autônoma do lado de fora dos botões, organizando a barra sem invadir as áreas clicáveis.
+            ### 🎨 Barra de Ferramentas e UI no Padrão TS3 Clássico
+            * Botões com dropdown se auto-ajustam ao tamanho do ícone + seta com espaçamento elegante.
+            * O efeito visual de hover e o clique cobrem todo o botão como um bloco sólido indivisível.
+            * Separadores 3D etched independentes que separam visualmente os grupos de botões.
 
-            ### 🎙️ Correção Instantânea do Indicador de Transmissão (Círculo Verde)
-            * **Ignore Echoes:** O estado de fala local (`talking`) do próprio usuário agora é regulado de forma instantânea e estrita pelo sinal do motor de voz físico (`VoiceEngine::talkingChanged`), ignorando ecos atrasados enviados pelo servidor. O círculo verde ao redor do seu avatar apaga exatamente no mesmo milissegundo em que você solta a tecla de PTT!
-
-            ### 🎛️ Liberação das Placas de Áudio e Microfones
-            * **Menu Desbloqueado:** Corrigimos a trava que mantinha a seleção de dispositivos de áudio desabilitada e presa em "Padrão" nas configurações de Captura e Reprodução.
-            * **Identificadores de Hardware Reais:** O aplicativo agora lê e mapeia dinamicamente todos os seus microfones, headsets e placas de som, aplicando-os em tempo real ao motor de voz!
-
-            ### 🔄 Sistema de Atualização Automática Integrado
-            * O Halla agora busca silenciosamente novas atualizações diretamente nas Releases do GitHub e exibe um prompt com barra de porcentagem de download e instalação automatizada!
+            ### 🎙️ Outras Melhorias Robustas
+            * **Círculo Verde de Fala Instantâneo:** O indicador de fala responde 100% à tecla de PTT do usuário sem sofrer atrasos ou ficar "preso" por ecos de rede do servidor.
+            * **Mapeamento de Hardware de Áudio:** Menus de captura e reprodução totalmente habilitados, permitindo que você selecione e alterne microfones e headsets de verdade!
+            * **Atualização Automática:** O aplicativo busca atualizações silenciosamente no GitHub e atualiza a si mesmo de forma autônoma com barra de progresso!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
