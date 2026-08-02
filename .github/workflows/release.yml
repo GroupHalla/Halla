@@ -51,15 +51,31 @@ jobs:
           # Deploy Qt dependencies using MSYS2's native windeployqt
           windeployqt --release --no-translations --no-compiler-runtime --dir dist/Halla dist/Halla/Halla.exe
           
-          # Copy MinGW/MSYS2 runtime DLLs directly from MSYS2
+          # Copy MinGW runtime DLLs
           cp /mingw64/bin/libgcc_s_seh-1.dll dist/Halla/
           cp /mingw64/bin/libstdc++-6.dll dist/Halla/
           cp /mingw64/bin/libwinpthread-1.dll dist/Halla/
           
-          # Copy extra required libraries that are needed by MSYS2 Qt6
-          cp /mingw64/bin/libdouble-conversion.dll dist/Halla/ || true
-          cp /mingw64/bin/libpcre2-16.dll dist/Halla/ || true
-          cp /mingw64/bin/libzstd.dll dist/Halla/ || true
+          # Recursively resolve and copy ALL DLL dependencies from /mingw64/bin!
+          # This guarantees libbrotlidec, zlib1, libb2, libicuin, and any other system-provided libraries are included!
+          echo ">> Resolvendo e copiando dependências recursivas de DLLs do sistema..."
+          COPIED=true
+          while [ "$COPIED" = true ]; do
+            COPIED=false
+            for f in $(find dist/Halla -type f \( -name "*.exe" -o -name "*.dll" \)); do
+              for dep in $(ldd "$f" | grep -i "mingw" | awk '{print $3}'); do
+                if [ ! -z "$dep" ]; then
+                  dep_unix=$(cygpath -u "$dep" 2>/dev/null || echo "$dep")
+                  dep_name=$(basename "$dep_unix")
+                  if [ ! -f "dist/Halla/$dep_name" ] && [ -f "$dep_unix" ]; then
+                    echo "Copiando dependência encontrada: $dep_name de $dep_unix"
+                    cp "$dep_unix" dist/Halla/
+                    COPIED=true
+                  fi
+                fi
+              done
+            done
+          done
           
           # Copy Readme and License
           cp packaging/LEIA-ME.txt dist/Halla/
@@ -75,10 +91,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.1
-          name: Halla v3.13.1
+          tag_name: v3.13.2
+          name: Halla v3.13.2
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.1.exe
+          files: Halla-Setup-3.13.2.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
