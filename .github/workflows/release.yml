@@ -91,13 +91,22 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.12
-          name: Halla v3.13.12 — Canais Spacers e Siglas de Cargos
+          tag_name: v3.13.13
+          name: Halla v3.13.13 — Múltiplos Distintivos e Ordenação Hierárquica de Cargos
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.12.exe
+          files: Halla-Setup-3.13.13.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.12
+            ## 🚀 Novidades e Correções do Halla v3.13.13
+
+            Esta release traz o suporte a múltiplos distintivos visuais (badges/emojis) para cargos e ordenação hierárquica automática dos usuários na lista de conectados!
+
+            ### 🏷️ Múltiplos Distintivos e Ícones de Cargos (Item 9)
+            * **Múltiplos Cargos por Usuário:** Agora, se um usuário tiver múltiplos cargos (definidos por strings de ícones/emojis separadas por vírgula no servidor), o cliente renderiza cada um deles sequencialmente após o apelido do usuário na lista.
+            * **Badges Customizadas Automáticas:** Cargos em forma de texto viram badges coloridas e estilizadas com a primeira letra maiúscula do cargo em fundo colorido dinâmico, simulando o visual clássico do TeamSpeak 3 / Discord!
+
+            ### 📊 Ordenação Hierárquica Automática (Item 11)
+            * **Ordenação de Conectados:** Os usuários de um canal agora são classificados de forma inteligente: membros com maior prioridade hierárquica (menor valor numérico de `order`) ficam posicionados no topo do canal, e em caso de empate, são ordenados de forma alfabética.
 
             Esta release consolida o suporte completo a canais visuais Spacers e siglas de cargos integradas com o Halla Server v3.2.1, além do suporte a múltiplos idiomas com detecção automática e fechamento imediato para atualizações automáticas!
 

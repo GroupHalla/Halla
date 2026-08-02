@@ -341,6 +341,7 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.serverGroups = u["group"].toString("normal");
     usr.sigla = u["sigla"].toString();
     usr.groupIcon = u["icon"].toString();
+    usr.groupOrder = u["order"].toInt(0);
     usr.inputMuted = u["mic"].toBool();
     usr.outputMuted = u["spk"].toBool();
     usr.away = u["away"].toBool();
@@ -520,6 +521,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             if (obj.contains("group")) u.serverGroups = obj["group"].toString();
             if (obj.contains("sigla")) u.sigla = obj["sigla"].toString();
             if (obj.contains("icon")) u.groupIcon = obj["icon"].toString();
+            if (obj.contains("order")) u.groupOrder = obj["order"].toInt(0);
         }
         emit stateChanged();
         return;

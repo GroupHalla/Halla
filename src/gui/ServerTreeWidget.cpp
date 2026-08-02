@@ -10,6 +10,48 @@
 #include <QSet>
 #include <QStyle>
 #include <QRegularExpression>
+#include <algorithm>
+
+static QPixmap createGroupIconPixmap(const QString& iconText) {
+    if (iconText.isEmpty()) return QPixmap();
+    
+    QPixmap pm(16, 14);
+    pm.fill(Qt::transparent);
+    QPainter painter(&pm);
+    painter.setRenderHint(QPainter::TextAntialiasing);
+    
+    if (iconText.length() <= 2) {
+        QFont font = painter.font();
+        font.setPixelSize(11);
+        painter.setFont(font);
+        painter.setPen(Qt::black);
+        painter.drawText(QRect(0, 0, 16, 14), Qt::AlignCenter, iconText);
+    } else {
+        int hash = 0;
+        for (QChar c : iconText) {
+            hash += c.unicode();
+        }
+        
+        QColor bgColors[] = {
+            QColor("#E25C5C"), QColor("#3D9BE9"), QColor("#33B46B"), 
+            QColor("#F0A020"), QColor("#995DE8"), QColor("#1ABC9C")
+        };
+        QColor bgColor = bgColors[hash % 6];
+        
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(bgColor);
+        painter.drawRoundedRect(QRectF(1, 1, 14, 12), 3, 3);
+        
+        painter.setPen(Qt::white);
+        QFont font = painter.font();
+        font.setPixelSize(9);
+        font.setBold(true);
+        painter.setFont(font);
+        painter.drawText(QRect(0, 0, 16, 14), Qt::AlignCenter, iconText.left(1).toUpper());
+    }
+    
+    return pm;
+}
 
 // ============================================================== Delegado
 void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
@@ -25,7 +67,42 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
 
     QPixmap minis = HIcons::userStatusMinis(u.inputMuted, u.outputMuted || u.locallyMuted,
                                             u.away, u.recording, u.commander, u.op);
-    if (minis.isNull()) return;
+
+    // Separamos e renderizamos múltiplos ícones/cargos se existirem (separados por vírgula ou ponto e vírgula)
+    QStringList icons = u.groupIcon.split(QRegularExpression("[,;]"), Qt::SkipEmptyParts);
+    QList<QPixmap> iconPms;
+    for (const QString& ic : icons) {
+        QString trimmed = ic.trimmed();
+        if (!trimmed.isEmpty()) {
+            QPixmap pm = createGroupIconPixmap(trimmed);
+            if (!pm.isNull()) {
+                iconPms << pm;
+            }
+        }
+    }
+
+    int totalW = 0;
+    for (const QPixmap& pm : iconPms) {
+        totalW += pm.width() + 4;
+    }
+    if (!minis.isNull()) {
+        totalW += minis.width();
+    }
+
+    if (totalW == 0) return;
+
+    QPixmap combined(totalW, 14);
+    combined.fill(Qt::transparent);
+    QPainter cp(&combined);
+
+    int currentX = 0;
+    for (const QPixmap& pm : iconPms) {
+        cp.drawPixmap(currentX, 0, pm);
+        currentX += pm.width() + 4;
+    }
+    if (!minis.isNull()) {
+        cp.drawPixmap(currentX, 0, minis);
+    }
 
     QStyleOptionViewItem o = opt;
     initStyleOption(&o, index);
@@ -38,10 +115,10 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
 
     int x = textRect.left() + iconW + 6 + textW + 8;
     const int maxX = o.rect.right() - 4;
-    const int y = o.rect.top() + (o.rect.height() - minis.height()) / 2;
-    int w = minis.width();
+    const int y = o.rect.top() + (o.rect.height() - combined.height()) / 2;
+    int w = combined.width();
     if (x + w > maxX) w = maxX - x;
-    if (w > 0) p->drawPixmap(x, y, minis.copy(0, 0, w, minis.height()));
+    if (w > 0) p->drawPixmap(x, y, combined.copy(0, 0, w, combined.height()));
 }
 
 // ============================================================== Árvore
@@ -233,20 +310,36 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
         }
     }
 
+    // Ordena os usuários do canal baseado na propriedade groupOrder (ordem hierárquica dos cargos)
+    // Menor valor de groupOrder significa maior prioridade/mais alto no topo.
+    // Se empatado, ordena em ordem alfabética de apelido.
+    QList<int> sortedUsers;
+    for (int uid : c.users) {
+        if (m_data->users.contains(uid)) {
+            sortedUsers << uid;
+        }
+    }
+    std::sort(sortedUsers.begin(), sortedUsers.end(), [&](int uidA, int uidB) {
+        const User& uA = m_data->users[uidA];
+        const User& uB = m_data->users[uidB];
+        if (uA.groupOrder != uB.groupOrder) {
+            return uA.groupOrder < uB.groupOrder;
+        }
+        return uA.name.localeAwareCompare(uB.name) < 0;
+    });
+
     // Halla: por padrão clientes aparecem acima dos subcanais; com a opção
     // "Classificar clientes abaixo dos canais" os subcanais vêm primeiro.
     if (!m_sortClientsBelow) {
-        for (int uid : c.users)
-            if (m_data->users.contains(uid))
-                addUserItem(item, m_data->users[uid]);
+        for (int uid : sortedUsers)
+            addUserItem(item, m_data->users[uid]);
         for (int cid : m_data->childChannels(c.id))
             buildChannelItem(m_data->channels[cid], item);
     } else {
         for (int cid : m_data->childChannels(c.id))
             buildChannelItem(m_data->channels[cid], item);
-        for (int uid : c.users)
-            if (m_data->users.contains(uid))
-                addUserItem(item, m_data->users[uid]);
+        for (int uid : sortedUsers)
+            addUserItem(item, m_data->users[uid]);
     }
 
     return item;
