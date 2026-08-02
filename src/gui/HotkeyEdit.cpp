@@ -138,7 +138,29 @@ public:
         }
     }
 };
-#endif // Q_OS_WIN
+
+static HHOOK hMouseHook = NULL;
+static HotkeyEdit* activeCaptureEdit = nullptr;
+
+LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0 && activeCaptureEdit) {
+        if (wParam == WM_XBUTTONDOWN) {
+            MSLLHOOKSTRUCT* hs = (MSLLHOOKSTRUCT*)lParam;
+            int button = HIWORD(hs->mouseData);
+            QString name = (button == XBUTTON1) ? QStringLiteral("Mouse4") : QStringLiteral("Mouse5");
+            activeCaptureEdit->acceptSpec(name);
+            activeCaptureEdit->clearFocus();
+            return 1; // engole o clique
+        }
+        else if (wParam == WM_MBUTTONDOWN) {
+            activeCaptureEdit->acceptSpec(QStringLiteral("MouseMeio"));
+            activeCaptureEdit->clearFocus();
+            return 1; // engole o clique
+        }
+    }
+    return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
+}
+#endif
 
 // ============================================================================
 HotkeyEdit::HotkeyEdit(QWidget* parent) : QLineEdit(parent) {
@@ -184,10 +206,23 @@ void HotkeyEdit::setArmed(bool on) {
         qApp->installEventFilter(this);
         setPlaceholderText(tr("Pressione uma tecla ou botão do mouse...  (Esc limpa)"));
         setStyleSheet(QStringLiteral("HotkeyEdit { border: 1px solid #0078D7; }"));
+#ifdef Q_OS_WIN
+        activeCaptureEdit = this;
+        hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, GlobalMouseProc, GetModuleHandle(NULL), 0);
+#endif
     } else {
         qApp->removeEventFilter(this);
         setPlaceholderText(tr("Clique aqui e pressione uma tecla ou botão do mouse"));
         setStyleSheet(QString());
+#ifdef Q_OS_WIN
+        if (hMouseHook) {
+            UnhookWindowsHookEx(hMouseHook);
+            hMouseHook = NULL;
+        }
+        if (activeCaptureEdit == this) {
+            activeCaptureEdit = nullptr;
+        }
+#endif
     }
 }
 

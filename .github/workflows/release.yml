@@ -91,23 +91,23 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.8
-          name: Halla v3.13.8
+          tag_name: v3.13.9
+          name: Halla v3.13.9
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.8.exe
+          files: Halla-Setup-3.13.9.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.8
+            ## 🚀 Novidades e Correções do Halla v3.13.9
 
-            Esta release traz a paridade definitiva e a captura direta de teclas de atalho e botões do mouse sem modais (removendo qualquer risco de congelamento), além de uma limpeza completa de referências a softwares terceiros em toda a base de código e documentação!
+            Esta release traz a captura direta ultra leve e inteligente de atalhos e botões de mouse inline (sem menus modais), aliada à completa remoção de marcas e termos terceiros de todo o repositório!
 
-            ### 🖱️ Captura Direct-Inline Inteligente de Botões Laterais do Mouse (Mouse 4/5/Meio)
-            * **Fim das Modais e Hooks de Travamento:** Removemos o mini-menu dialog e todos os hooks globais de baixo nível de teclado e mouse que causavam conflitos com o loop de mensagens em algumas instalações do Windows, eliminando 100% qualquer travamento ou congelamento (freeze/crash)!
-            * **Instalação do Hook de Mouse Nativizado:** Agora, o Hook de Mouse nativo do Windows (`WH_MOUSE_LL`) é ativado diretamente e unicamente enquanto o widget `HotkeyEdit` está focado/armado de forma inline, capturando de forma ultra leve cliques de `Mouse 4`, `Mouse 5` e `MouseMeio`.
-            * **Foco Snappy e Desarme:** Basta clicar no campo de texto para focá-lo/armá-lo, clicar com o botão lateral do mouse e a captura é realizada instantaneamente, chamando `clearFocus()` para desarmar o widget na hora sem causar navegação ou perda de foco indesejada!
+            ### 🖱️ Captura Direct-Inline de Botões do Mouse via Hook Nativizado (Leve e Sem Diálogos)
+            * **Sem Popups Modais:** Removemos por completo a caixa de diálogo/mini-menu de captura de atalhos que causava travamento em algumas instalações do Windows. A interface agora é 100% direta e inline!
+            * **Hook de Mouse Nativizado:** O Hook de Mouse global (`WH_MOUSE_LL`) agora é instalado **unicamente de forma temporária enquanto o campo de texto `HotkeyEdit` está focado/armado**.
+            * **Captura Impecável:** Ao clicar no campo, ele é armado. Basta pressionar qualquer botão do mouse (`Mouse 4`, `Mouse 5` ou `MouseMeio`) que o clique é interceptado globalmente pelo hook de baixo nível (garantindo que o driver não mude o foco ou cause retrocesso de página) e gravado na hora, chamando `clearFocus()` para desarmar instantaneamente!
 
-            ### 🧹 Revisão Completa da Marca e Referências
-            * **Limpeza Geral:** Realizamos uma varredura completa em toda a base de código, cabeçalhos, arquivos de recursos do Windows (`.rc`), scripts de instalação e documentação, removendo qualquer menção ou referência a softwares de terceiros (como TeamSpeak, Mumble ou suas siglas). O aplicativo agora possui sua identidade visual e textual limpa e profissional como um produto 100% autônomo e de desenvolvimento exclusivo!
+            ### 🧹 Limpeza Geral de Marcas e Nomes de Terceiros
+            * **Revisão Completa:** Realizamos uma revisão textual profunda de ponta a ponta em toda a base de código (arquivos `.cpp`, `.h`, `.rc`), readmes e arquivos de instalação do repositório, removendo e adaptando qualquer referência a termos de terceiros (como TeamSpeak, Mumble ou siglas relacionadas). O Halla agora apresenta uma identidade visual e textual limpa, independente e profissional!
 
             ### 🎨 Barra de Ferramentas e UI no Padrão Clássico Flat
             * Botões com dropdown se auto-ajustam ao tamanho do ícone + seta com espaçamento elegante.
