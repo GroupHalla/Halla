@@ -1,10 +1,10 @@
 #include <windows.h>
 
-IDI_ICON1 ICON DISCARDABLE "/home/user/Halla/src/halla.ico"
+IDI_ICON1 ICON DISCARDABLE "halla.ico"
 
 1 VERSIONINFO
- FILEVERSION    3,6,2,0
- PRODUCTVERSION 3,6,2,0
+ FILEVERSION    3,13,0,0
+ PRODUCTVERSION 3,13,0,0
  FILEFLAGSMASK  0x3fL
  FILEFLAGS      0x0L
  FILEOS         0x40004L
@@ -17,12 +17,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "Halla"
             VALUE "FileDescription",  "Halla - Cliente de comunicação de voz"
-            VALUE "FileVersion",      "3.6.2"
+            VALUE "FileVersion",      "3.13.0"
             VALUE "InternalName",     "Halla"
             VALUE "LegalCopyright",   "© 2026 Halla"
             VALUE "OriginalFilename", "Halla.exe"
             VALUE "ProductName",      "Halla"
-            VALUE "ProductVersion",   "3.6.2"
+            VALUE "ProductVersion",   "3.13.0"
         END
     END
     BLOCK "VarFileInfo"
