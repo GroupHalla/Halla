@@ -140,6 +140,50 @@ public:
 #include <QLabel>
 #include <QVBoxLayout>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+
+class HotkeyCaptureDialog;
+static HHOOK hMouseHook = NULL;
+static HHOOK hKeyboardHook = NULL;
+static HotkeyCaptureDialog* activeCaptureDlg = nullptr;
+
+LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0 && activeCaptureDlg) {
+        if (wParam == WM_XBUTTONDOWN) {
+            MSLLHOOKSTRUCT* hs = (MSLLHOOKSTRUCT*)lParam;
+            int button = HIWORD(hs->mouseData);
+            QString name = (button == XBUTTON1) ? QStringLiteral("Mouse4") : QStringLiteral("Mouse5");
+            activeCaptureDlg->onCaptured(name);
+            return 1;
+        }
+        else if (wParam == WM_MBUTTONDOWN) {
+            activeCaptureDlg->onCaptured(QStringLiteral("MouseMeio"));
+            return 1;
+        }
+    }
+    return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
+}
+
+LRESULT CALLBACK GlobalKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0 && activeCaptureDlg) {
+        KBDLLHOOKSTRUCT* hs = (KBDLLHOOKSTRUCT*)lParam;
+        if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
+            if (hs->vkCode == VK_ESCAPE) {
+                activeCaptureDlg->onCancelled();
+                return 1;
+            }
+            QString spec = NativeCapture::specFromVk(hs->vkCode);
+            if (!spec.isEmpty() && spec != QStringLiteral("!ignore")) {
+                activeCaptureDlg->onCaptured(spec);
+                return 1;
+            }
+        }
+    }
+    return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
+}
+#endif
+
 class HotkeyCaptureDialog : public QDialog {
     Q_OBJECT
 public:
@@ -167,15 +211,47 @@ public:
         
         connect(m_captureEdit, &HotkeyEdit::specChanged, this, [this](const QString& spec) {
             if (!spec.isEmpty()) {
-                m_capturedSpec = spec;
-                accept();
+                onCaptured(spec);
             }
         });
     }
     
     QString capturedSpec() const { return m_capturedSpec; }
     
+    void onCaptured(const QString& spec) {
+        m_capturedSpec = spec;
+        accept();
+    }
+    
+    void onCancelled() {
+        reject();
+    }
+    
 protected:
+    void showEvent(QShowEvent* e) override {
+        QDialog::showEvent(e);
+#ifdef Q_OS_WIN
+        activeCaptureDlg = this;
+        hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, GlobalMouseProc, GetModuleHandle(NULL), 0);
+        hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, GlobalKeyboardProc, GetModuleHandle(NULL), 0);
+#endif
+    }
+    
+    void closeEvent(QCloseEvent* e) override {
+#ifdef Q_OS_WIN
+        if (hMouseHook) {
+            UnhookWindowsHookEx(hMouseHook);
+            hMouseHook = NULL;
+        }
+        if (hKeyboardHook) {
+            UnhookWindowsHookEx(hKeyboardHook);
+            hKeyboardHook = NULL;
+        }
+        activeCaptureDlg = nullptr;
+#endif
+        QDialog::closeEvent(e);
+    }
+    
     void keyPressEvent(QKeyEvent* e) override {
         if (e->key() == Qt::Key_Escape) {
             reject();
@@ -193,8 +269,7 @@ protected:
         default: break;
         }
         if (!name.isEmpty()) {
-            m_capturedSpec = name;
-            accept();
+            onCaptured(name);
         } else {
             QDialog::mousePressEvent(e);
         }

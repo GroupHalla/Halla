@@ -91,20 +91,21 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.5
-          name: Halla v3.13.5
+          tag_name: v3.13.6
+          name: Halla v3.13.6
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.5.exe
+          files: Halla-Setup-3.13.6.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.5
+            ## 🚀 Novidades e Correções do Halla v3.13.6
 
-            Esta release corrige o bug crítico de captura duplicada de atalhos e botões do mouse e traz melhorias de estabilidade incríveis!
+            Esta release traz a correção definitiva de captura de botões do mouse usando Hooks Globais de baixo nível de forma idêntica ao Mumble!
 
-            ### 🖱️ Correção Definitiva da Captura de Botões Laterais do Mouse
-            * **Fim dos Diálogos Duplicados (Bug do focusInEvent):** Corrigimos o conflito de eventos de foco e clique no Qt. Antes, ao clicar no campo de atalho, o Qt disparava o `focusInEvent` (abrindo o Diálogo #1) e, após fechar, continuava o fluxo disparando o `mousePressEvent` (abrindo o Diálogo #2 vazio por cima, o que acabava sobrescrevendo o botão lateral já capturado).
-            * **Controle Inteligente de Foco:** Agora o `focusInEvent` detecta se o foco veio de um clique físico (`Qt::MouseFocusReason`) e cede o controle para o `mousePressEvent` abrir o diálogo uma **única vez** de forma limpa e direta!
-            * **Fácil Associação:** Você pode associar qualquer tecla ou botão lateral (`Mouse 4`, `Mouse 5` ou `Botão do Meio`) com um clique único e limpo!
+            ### 🐭 Captura Global de PTT e Botões do Mouse via Hooks de Baixo Nível (Mumble Style)
+            * **Fim do foco perdido:** Implementamos Hooks Globais de Teclado e Mouse (`SetWindowsHookEx` com `WH_KEYBOARD_LL` e `WH_MOUSE_LL` no Windows) ativos unicamente durante a exibição do diálogo de captura de atalhos.
+            * **Captura Universal:** Agora, o aplicativo intercepta e captura perfeitamente qualquer clique físico de botões do mouse (`Mouse 4`, `Mouse 5` e `MouseMeio`), além de qualquer tecla do teclado, **independente de qual widget esteja focado** ou se o mouse foi clicado fora do campo de texto!
+            * **Correção do focusInEvent:** Corrigido o conflito de eventos de foco e clique no Qt, garantindo que o diálogo de captura se abra uma única vez sem sobreposições.
+            * **ESC Cancela:** Mantido o clássico atalho de cancelar e fechar a modal de captura pressionando `ESC`.
 
             ### 🎨 Barra de Ferramentas e UI no Padrão TS3 Clássico
             * Botões com dropdown se auto-ajustam ao tamanho do ícone + seta com espaçamento elegante.
