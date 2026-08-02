@@ -270,7 +270,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                       [this] { ContactsDialog dlg(this); dlg.exec(); });
 
     // ---- sussurro (voz direcionada a usuários específicos)
-    m_actWhisper = mTools->addAction(tr("Ativar sussurro"), this, [this](bool on) {
+    m_actWhisper = mTools->addAction(HIcons::contacts(), tr("Ativar sussurro"), this, [this](bool on) {
         ServerTab* t = currentTab();
         if (!t) return;
         if (on) {
@@ -391,14 +391,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     grpMenu->addAction(m_actComplaints);
     addDropButton(m_actServerGroups, grpMenu);
 
-    // --- sussurro (com seta: listas de sussurro)
+    // --- sussurro (botão com ícone + TEXTO + seta, tudo lado a lado)
     QMenu* whMenu = new QMenu(this);
     whMenu->addAction(tr("Listas de sussurro..."), this, [this] {
         ServerTab* t = currentTab();
         WhisperDialog dlg(t ? &t->data() : nullptr, this);
         dlg.exec();
     });
-    addDropButton(m_actWhisper, whMenu);
+    QToolButton* whBtn = addDropButton(m_actWhisper, whMenu);
+    whBtn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     tb->addSeparator();
 
     QToolButton* logBtn = new QToolButton(tb);

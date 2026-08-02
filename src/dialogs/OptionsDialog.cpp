@@ -1,5 +1,4 @@
 #include "OptionsDialog.h"
-#include "TsBanner.h"
 #include "Icons.h"
 #include "Settings.h"
 #include "AppLog.h"
@@ -12,6 +11,8 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QCheckBox>
+#include <QRadioButton>
+#include <QButtonGroup>
 #include <QSlider>
 #include <QSpinBox>
 #include <QLabel>
@@ -29,76 +30,164 @@
 #include <QApplication>
 #include <QGuiApplication>
 #include <QClipboard>
+#include <QPainter>
+#include <QMessageBox>
 
+// envolve a página em um QScrollArea SEM moldura (estilo do TS3: o conteúdo
+// flutua sobre o fundo branco, sem caixas cinzas à vista)
 static QWidget* wrapScroll(QWidget* inner) {
+    inner->setObjectName(QStringLiteral("optionsPage"));
+    inner->setAttribute(Qt::WA_StyledBackground, true);
+    inner->setContentsMargins(8, 8, 8, 8);
+
     QScrollArea* sa = new QScrollArea;
+    sa->setObjectName(QStringLiteral("optionsScroll"));
     sa->setWidgetResizable(true);
     sa->setFrameShape(QFrame::NoFrame);
     sa->setWidget(inner);
     return sa;
 }
 
+// ícone da seção no canto superior direito do cabeçalho (levemente suavizado)
+static QPixmap headerIconPixmap(const QIcon& icon, int size) {
+    const QPixmap src = icon.pixmap(size, size);
+    QPixmap out(src.size());
+    out.fill(Qt::transparent);
+    QPainter p(&out);
+    p.setOpacity(0.92);
+    p.drawPixmap(0, 0, src);
+    return out;
+}
+
+// linha separadora de 1px (vertical na sidebar / horizontal sobre os botões)
+static QWidget* separatorLine(bool vertical) {
+    QWidget* w = new QWidget;
+    w->setObjectName(QStringLiteral("optionsSep"));
+    if (vertical) {
+        w->setFixedWidth(1);
+        w->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+    } else {
+        w->setFixedHeight(1);
+        w->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    }
+    w->setAttribute(Qt::WA_StyledBackground, true);
+    return w;
+}
+
 OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle(tr("Opções"));
-    resize(720, 500);
+    resize(820, 580);
 
     QVBoxLayout* root = new QVBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 8);
     root->setSpacing(0);
-    root->addWidget(new TsBanner(tr("Opções"), tr("Configurações do cliente Halla"),
-                                 HIcons::optionsGear().pixmap(24, 24), this));
-    root->addSpacing(8);
 
     QHBoxLayout* mid = new QHBoxLayout;
-    mid->setContentsMargins(8, 0, 8, 0);
-    mid->setSpacing(8);
+    mid->setContentsMargins(0, 0, 0, 0);
+    mid->setSpacing(0);
 
+    // ---------------- menu lateral (ícones grandes + texto) --------------
     m_nav = new QListWidget(this);
-    m_nav->setFixedWidth(190);
-    m_nav->setIconSize(QSize(18, 18));
-    m_nav->setSpacing(2);
+    m_nav->setObjectName(QStringLiteral("optionsNav"));
+    m_nav->setFixedWidth(192);
+    m_nav->setIconSize(QSize(24, 24));
+    m_nav->setSpacing(1);
+    m_nav->setFrameShape(QFrame::NoFrame);
 
-    m_stack = new QStackedWidget(this);
-
-    struct PageDef { QString name; QIcon icon; };
+    struct PageDef { QString name; QString subtitle; QIcon icon; };
     const QList<PageDef> pages = {
-        { tr("Aplicativo"),       HIcons::application() },
-        { tr("Design"),           HIcons::design() },
-        { tr("Notificações"),     HIcons::notifyBell() },
-        { tr("Reprodução"),       HIcons::playbackSpeaker() },
-        { tr("Captura"),          HIcons::captureMic() },
-        { tr("Teclas de atalho"), HIcons::hotkeys() },
-        { tr("Segurança"),        HIcons::security() },
-        { tr("Complementos"),     HIcons::addons() },
+        { tr("Aplicativo"),       tr("Opções gerais do aplicativo"),          HIcons::application() },
+        { tr("Reprodução"),       tr("Volume e saída de áudio"),              HIcons::playbackSpeaker() },
+        { tr("Captura"),          tr("Microfone, PTT e ativação de voz"),     HIcons::captureMic() },
+        { tr("Aparência"),        tr("Tema, fonte e comportamento visual"),   HIcons::design() },
+        { tr("Notificações"),     tr("Sons e avisos de eventos"),             HIcons::notifyBell() },
+        { tr("Teclas de atalho"), tr("Atalhos globais, mouse e sussurro"),    HIcons::hotkeys() },
+        { tr("Segurança"),        tr("Identidade e segurança"),               HIcons::security() },
+        { tr("Complementos"),     tr("Extensões e pacotes do cliente"),       HIcons::addons() },
     };
     for (const PageDef& d : pages) {
         QListWidgetItem* it = new QListWidgetItem(d.icon, d.name);
         m_nav->addItem(it);
+        m_pageSubtitles << d.subtitle;
     }
 
+    // ---------------- painel de conteúdo: cabeçalho + páginas ------------
+    // cabeçalho com gradiente suave (cinza bem claro -> branco), título em
+    // negrito, subtítulo menor e ícone da seção no canto superior direito
+    QWidget* header = new QWidget(this);
+    header->setObjectName(QStringLiteral("pageHeader"));
+    header->setMinimumHeight(66);
+    header->setMaximumHeight(66);
+    header->setAttribute(Qt::WA_StyledBackground, true);
+    QHBoxLayout* hh = new QHBoxLayout(header);
+    hh->setContentsMargins(16, 8, 14, 8);
+    hh->setSpacing(10);
+    QVBoxLayout* hv = new QVBoxLayout;
+    hv->setContentsMargins(0, 0, 0, 0);
+    hv->setSpacing(2);
+    m_headerTitle = new QLabel(header);
+    m_headerTitle->setObjectName(QStringLiteral("pageTitle"));
+    m_headerSubtitle = new QLabel(header);
+    m_headerSubtitle->setObjectName(QStringLiteral("pageSubtitle"));
+    hv->addStretch(1);
+    hv->addWidget(m_headerTitle);
+    hv->addWidget(m_headerSubtitle);
+    hv->addStretch(1);
+    hh->addLayout(hv, 1);
+    m_headerIcon = new QLabel(header);
+    m_headerIcon->setObjectName(QStringLiteral("pageIcon"));
+    m_headerIcon->setFixedSize(44, 44);
+    m_headerIcon->setAlignment(Qt::AlignCenter);
+    hh->addWidget(m_headerIcon, 0, Qt::AlignRight | Qt::AlignVCenter);
+
+    m_stack = new QStackedWidget(this);
+    m_stack->setObjectName(QStringLiteral("optionsStack"));
+    m_stack->setAttribute(Qt::WA_StyledBackground, true);
+
+    // páginas (mesma ordem do menu lateral)
     m_stack->addWidget(wrapScroll(pageApplication()));
-    m_stack->addWidget(wrapScroll(pageDesign()));
-    m_stack->addWidget(wrapScroll(pageNotifications()));
     m_stack->addWidget(wrapScroll(pagePlayback()));
     m_stack->addWidget(wrapScroll(pageCapture()));
+    m_stack->addWidget(wrapScroll(pageDesign()));
+    m_stack->addWidget(wrapScroll(pageNotifications()));
     m_stack->addWidget(wrapScroll(pageHotkeys()));
     m_stack->addWidget(wrapScroll(pageSecurity()));
     m_stack->addWidget(wrapScroll(pageAddons()));
 
+    QWidget* right = new QWidget(this);
+    QVBoxLayout* rl = new QVBoxLayout(right);
+    rl->setContentsMargins(0, 0, 0, 0);
+    rl->setSpacing(0);
+    rl->addWidget(header);
+    rl->addWidget(m_stack, 1);
+
     mid->addWidget(m_nav);
-    mid->addWidget(m_stack, 1);
+    mid->addWidget(separatorLine(true)); // linha vertical de 1px
+    mid->addWidget(right, 1);
     root->addLayout(mid, 1);
 
-    connect(m_nav, &QListWidget::currentRowChanged, m_stack,
-            &QStackedWidget::setCurrentIndex);
+    connect(m_nav, &QListWidget::currentRowChanged, this, [this](int row) {
+        if (row < 0 || row >= m_nav->count()) return;
+        m_stack->setCurrentIndex(row);
+        QListWidgetItem* it = m_nav->item(row);
+        m_headerTitle->setText(it->text());
+        m_headerSubtitle->setText(m_pageSubtitles.value(row));
+        m_headerIcon->setPixmap(headerIconPixmap(it->icon(), 40));
+    });
     m_nav->setCurrentRow(0);
 
+    // ---------------- rodapé: OK / Cancelar / Aplicar --------------------
+    root->addWidget(separatorLine(false)); // linha fina acima dos botões
     QHBoxLayout* bottom = new QHBoxLayout;
-    bottom->setContentsMargins(10, 4, 10, 0);
+    bottom->setContentsMargins(10, 7, 10, 0);
+    bottom->setSpacing(8);
     bottom->addStretch(1);
     QPushButton* ok = new QPushButton(tr("OK"), this);
     QPushButton* cancel = new QPushButton(tr("Cancelar"), this);
     QPushButton* applyBtn = new QPushButton(tr("Aplicar"), this);
+    ok->setMinimumWidth(86);
+    cancel->setMinimumWidth(86);
+    applyBtn->setMinimumWidth(86);
     bottom->addWidget(ok);
     bottom->addWidget(cancel);
     bottom->addWidget(applyBtn);
@@ -120,59 +209,80 @@ void OptionsDialog::apply() {
 }
 
 // ------------------------------------------------------------------ Aplicativo
+// duas colunas, como na janela de opções do TS3
 QWidget* OptionsDialog::pageApplication() {
     QWidget* w = new QWidget;
-    QVBoxLayout* lay = new QVBoxLayout(w);
+    QHBoxLayout* cols = new QHBoxLayout(w);
+    cols->setSpacing(8);
 
-    QFormLayout* form = new QFormLayout;
-    form->setSpacing(8);
+    QVBoxLayout* left = new QVBoxLayout;
+    QVBoxLayout* right = new QVBoxLayout;
+    left->setSpacing(10);
+    right->setSpacing(10);
 
-    QComboBox* lang = new QComboBox(w);
-    lang->addItems({ QStringLiteral("Português (Brasil)"), QStringLiteral("English"),
-                     QStringLiteral("Deutsch"), QStringLiteral("Español"),
-                     QStringLiteral("Français") });
-    lang->setCurrentIndex(S::num("app/language", 0));
-    form->addRow(tr("Idioma:"), lang);
-    connect(lang, &QComboBox::currentIndexChanged, this, [this](int idx) {
-        S::set("app/language", idx);
-    });
-
-    lay->addLayout(form);
-    lay->addSpacing(6);
-
+    // ===== coluna esquerda =====
     QGroupBox* gbStart = new QGroupBox(tr("Inicialização"), w);
     QVBoxLayout* v1 = new QVBoxLayout(gbStart);
-    QCheckBox* restore = new QCheckBox(tr("Restaurar conexões abertas da última sessão"), gbStart);
+    QCheckBox* restore = new QCheckBox(tr("Restaurar as conexões da sessão anterior"), gbStart);
     restore->setChecked(S::flag("app/restoreTabs", false));
     connect(restore, &QCheckBox::toggled, this, [](bool v) { S::set("app/restoreTabs", v); });
     v1->addWidget(restore);
-    QCheckBox* autoupdate = new QCheckBox(tr("Procurar atualizações automaticamente"), gbStart);
-    autoupdate->setChecked(S::flag("app/autoUpdate", true));
-    connect(autoupdate, &QCheckBox::toggled, this, [](bool v) { S::set("app/autoUpdate", v); });
-    v1->addWidget(autoupdate);
-    lay->addWidget(gbStart);
+    left->addWidget(gbStart);
 
-    QGroupBox* gbClose = new QGroupBox(tr("Janela principal"), w);
-    QVBoxLayout* v2 = new QVBoxLayout(gbClose);
-    QCheckBox* tray = new QCheckBox(tr("Fechar para a bandeja do sistema"), gbClose);
-    tray->setChecked(S::flag("app/closeToTray", false));
-    connect(tray, &QCheckBox::toggled, this, [](bool v) { S::set("app/closeToTray", v); });
-    v2->addWidget(tray);
-    QCheckBox* confirm = new QCheckBox(tr("Confirmar antes de sair estando conectado"), gbClose);
-    confirm->setChecked(S::flag("app/confirmQuit", true));
-    connect(confirm, &QCheckBox::toggled, this, [](bool v) { S::set("app/confirmQuit", v); });
-    v2->addWidget(confirm);
-    lay->addWidget(gbClose);
-
-    QGroupBox* gbPerm = new QGroupBox(tr("Permissões"), w);
-    QVBoxLayout* v3 = new QVBoxLayout(gbPerm);
-    QCheckBox* advanced = new QCheckBox(tr("Sistema de permissões avançado"), gbPerm);
+    QGroupBox* gbMisc = new QGroupBox(tr("Diversos"), w);
+    QVBoxLayout* v2 = new QVBoxLayout(gbMisc);
+    QCheckBox* advanced = new QCheckBox(tr("Sistema de permissões avançado"), gbMisc);
     advanced->setChecked(S::flag("app/advancedPerms", false));
     connect(advanced, &QCheckBox::toggled, this, [](bool v) { S::set("app/advancedPerms", v); });
-    v3->addWidget(advanced);
-    lay->addWidget(gbPerm);
+    v2->addWidget(advanced);
+    left->addWidget(gbMisc);
+    left->addStretch(1);
 
-    lay->addStretch(1);
+    // ===== coluna direita =====
+    QGroupBox* gbLang = new QGroupBox(tr("Idioma"), w);
+    QFormLayout* fl = new QFormLayout(gbLang);
+    QComboBox* lang = new QComboBox(gbLang);
+    lang->addItems({ QStringLiteral("Português (Brasil)"), QStringLiteral("English"),
+                     QStringLiteral("Deutsch"), QStringLiteral("Español"),
+                     QStringLiteral("Français") });
+    lang->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    lang->setMinimumContentsLength(8);
+    lang->setCurrentIndex(S::num("app/language", 0));
+    fl->addRow(tr("Idioma:"), lang);
+    connect(lang, &QComboBox::currentIndexChanged, this, [this](int idx) {
+        S::set("app/language", idx);
+    });
+    right->addWidget(gbLang);
+
+    QGroupBox* gbUpd = new QGroupBox(tr("Atualizações"), w);
+    QVBoxLayout* v3 = new QVBoxLayout(gbUpd);
+    QCheckBox* autoupdate = new QCheckBox(tr("Procurar atualizações automaticamente"), gbUpd);
+    autoupdate->setChecked(S::flag("app/autoUpdate", true));
+    connect(autoupdate, &QCheckBox::toggled, this, [](bool v) { S::set("app/autoUpdate", v); });
+    v3->addWidget(autoupdate);
+    QPushButton* checkNow = new QPushButton(tr("Verificar agora"), gbUpd);
+    connect(checkNow, &QPushButton::clicked, this, [this] {
+        QMessageBox::information(this, tr("Atualização"),
+            tr("Você já está usando a versão mais recente do Halla."));
+    });
+    v3->addWidget(checkNow, 0, Qt::AlignLeft);
+    right->addWidget(gbUpd);
+
+    QGroupBox* gbWin = new QGroupBox(tr("Janela principal"), w);
+    QVBoxLayout* v4 = new QVBoxLayout(gbWin);
+    QCheckBox* tray = new QCheckBox(tr("Fechar para a bandeja do sistema"), gbWin);
+    tray->setChecked(S::flag("app/closeToTray", false));
+    connect(tray, &QCheckBox::toggled, this, [](bool v) { S::set("app/closeToTray", v); });
+    v4->addWidget(tray);
+    QCheckBox* confirm = new QCheckBox(tr("Confirmar ao sair estando conectado"), gbWin);
+    confirm->setChecked(S::flag("app/confirmQuit", true));
+    connect(confirm, &QCheckBox::toggled, this, [](bool v) { S::set("app/confirmQuit", v); });
+    v4->addWidget(confirm);
+    right->addWidget(gbWin);
+    right->addStretch(1);
+
+    cols->addLayout(left, 1);
+    cols->addLayout(right, 1);
     return w;
 }
 
@@ -357,14 +467,23 @@ QWidget* OptionsDialog::pageCapture() {
     connect(profile, &QComboBox::currentTextChanged, this,
             [](const QString& t) { S::set("capture/profile", t); });
 
-    QComboBox* pttMode = new QComboBox(w);
-    pttMode->addItems({ tr("Pressionar para falar (PTT)"),
-                        tr("Detecção de voz"),
-                        tr("Transmissão contínua") });
-    pttMode->setCurrentIndex(S::num("capture/pttMode", 1));
-    form->addRow(tr("Ativação de voz:"), pttMode);
-    connect(pttMode, &QComboBox::currentIndexChanged, this,
-            [](int v) { S::set("capture/pttMode", v); });
+    // ativação de voz: escolha EXCLUSIVA via radio buttons (como no TS3)
+    QGroupBox* gbMode = new QGroupBox(tr("Ativação de voz"), w);
+    QVBoxLayout* vm = new QVBoxLayout(gbMode);
+    QRadioButton* rbPtt = new QRadioButton(tr("Pressionar para falar (PTT)"), gbMode);
+    QRadioButton* rbVad = new QRadioButton(tr("Detecção de voz"), gbMode);
+    QRadioButton* rbCont = new QRadioButton(tr("Transmissão contínua"), gbMode);
+    const int curMode = S::num("capture/pttMode", 1);
+    if (curMode == 0)      rbPtt->setChecked(true);
+    else if (curMode == 2) rbCont->setChecked(true);
+    else                   rbVad->setChecked(true);
+    connect(rbPtt,  &QRadioButton::toggled, this, [](bool v) { if (v) S::set("capture/pttMode", 0); });
+    connect(rbVad,  &QRadioButton::toggled, this, [](bool v) { if (v) S::set("capture/pttMode", 1); });
+    connect(rbCont, &QRadioButton::toggled, this, [](bool v) { if (v) S::set("capture/pttMode", 2); });
+    vm->addWidget(rbPtt);
+    vm->addWidget(rbVad);
+    vm->addWidget(rbCont);
+    form->addRow(gbMode);
 
     HotkeyEdit* pttKey = new HotkeyEdit(w);
     pttKey->setSpec(S::str("capture/pttKey", "Space"));

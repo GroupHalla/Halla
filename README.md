@@ -16,6 +16,19 @@ de chat ocupando 100% da largura embaixo e barra de status em três zonas
 
 ![Halla](shots/demo.png)
 
+## Novidades da 3.12.0
+
+- **Janela de Opções redesenhada no padrão do TS3**: a faixa azul foi
+  substituída por um cabeçalho com gradiente claro (título em negrito +
+  subtítulo + ícone da seção à direita), menu lateral com ícones grandes
+  e destaque suave com separador de 1px, grupos estilo *fieldset*
+  clássico (linha fina cortada pelo título, interior transparente),
+  páginas organizadas em duas colunas e OK/Cancelar/Aplicar alinhados à
+  direita. A ativação de voz virou botões de opção, como no TS3.
+- **Toolbar corrigida**: setas de menu suspenso ao lado (com área e
+  divisor próprios, nunca sobrepostas), botões mais altos e espaçados,
+  e o botão "Ativar sussurro" com ícone + texto + seta lado a lado.
+
 ## Novidades da 3.11.0
 
 - **Interface redesenhada no estilo clássico do TeamSpeak 3**: tema claro
