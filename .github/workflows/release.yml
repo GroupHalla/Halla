@@ -91,23 +91,32 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.11
-          name: Halla v3.13.11
+          tag_name: v3.13.12
+          name: Halla v3.13.12 — Canais Spacers e Siglas de Cargos
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.11.exe
+          files: Halla-Setup-3.13.12.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.11
+            ## 🚀 Novidades e Correções do Halla v3.13.12
 
-            Esta release traz o suporte completo a múltiplos idiomas com detecção automática de sistema, além da correção de encerramento imediato durante a atualização automática!
+            Esta release consolida o suporte completo a canais visuais Spacers e siglas de cargos integradas com o Halla Server v3.2.1, além do suporte a múltiplos idiomas com detecção automática e fechamento imediato para atualizações automáticas!
+
+            ### 🎨 Canais "Spacers" Visuais (Organização de Servidor)
+            * **Organização Visual:** O Halla agora interpreta e renderiza perfeitamente canais fictícios com padrões como `[spacer0]`, `[cspacer123]` ou `[*spacerA]` (estilo linhas e textos centralizados do TeamSpeak 3)!
+              - **Spacers Normais:** Ocultam o ícone de canal padrão e exibem o texto formatado.
+              - **Spacers Centralizados (`cspacer`):** Centralizam o texto do canal perfeitamente no meio do painel do servidor.
+              - **Spacers Repetidos (`*spacer`):** Se o spacer começa com `*`, ele repete o caractere fornecido (ex.: `-` ou `=`) por toda a largura do painel para criar uma linha sólida divisória!
+              - **Bloqueio de Acesso:** Canais do tipo spacer são marcados como desabilitados, impedindo que usuários entrem ou cliquem neles, servindo estritamente para organização visual.
+
+            ### 🏷️ Suporte a Tags/Siglas de Cargos Integradas (Client & Server)
+            * **Exibição Hierárquica:** O `ServerTreeWidget::addUserItem` agora processa a sigla do cargo enviada pelo Halla Server v3.2.1 e **exibe automaticamente antes do nome do usuário conectado** (ex.: `[Admin] Farley Barbosa`), oferecendo maior nível de prestígio e visualização de hierarquia de moderadores!
 
             ### 🌐 Suporte Internacional Integrado (Português, Inglês e Espanhol)
-            * **Detecção Automática:** Implementamos o tradutor nativo `HallaTranslator` herdado de `QTranslator`. Ao inicializar o aplicativo, ele detecta automaticamente o idioma padrão do seu sistema operacional (`QLocale::system()`).
-            * **Tradução Dinâmica On-the-Fly:** Todo o aplicativo se traduz dinamicamente para o **Inglês** ou **Espanhol** caso seu computador esteja configurado em um desses idiomas, mantendo o Português como padrão de fallback caso contrário, de forma extremamente leve e sem necessidade de arquivos externos adicionais!
+            * **Detecção Automática:** Ao inicializar o aplicativo, ele detecta automaticamente o idioma padrão do seu sistema operacional (`QLocale::system()`).
+            * **Tradução Dinâmica On-the-Fly:** Todo o aplicativo se traduz dinamicamente para o **Inglês** ou **Espanhol** caso seu computador esteja configurado em um desses idiomas, de forma extremamente leve e sem necessidade de arquivos externos adicionais!
 
             ### 🔄 Fechamento Instantâneo para Atualizações Automáticas (Instalação Sem Avisos)
-            * **Fim do bloqueio por aviso de conexão:** Corrigimos o fluxo de encerramento da aplicação quando o instalador da atualização automática é executado.
-            * **Forçar Saída Limpa:** Agora, ao concluir o download da nova versão temporária, o app seta a flag de salvamento e encerramento forçado `S::set("app/forceQuit", true)`, o que permite que o Halla feche instantaneamente no mesmo milissegundo, **bypassando e silenciando por completo o popup de confirmação** (*Você ainda está conectado a servidores. Deseja realmente sair?*). O instalador roda em seguida de forma limpa, rápida e livre de qualquer erro de arquivo em uso!
+            * **Forçar Saída Limpa:** Ao concluir o download da nova versão temporária, o app seta a flag de salvamento e encerramento forçado `S::set("app/forceQuit", true)`, o que permite que o Halla feche instantaneamente no mesmo milissegundo, **bypassando e silenciando por completo o popup de confirmação** (*Você ainda está conectado a servidores. Deseja realmente sair?*). O instalador roda em seguida de forma limpa, rápida e livre de qualquer erro de arquivo em uso!
 
             ### 🎧 Lógica Automatizada de Silenciamento (Auto-Mute Microfone)
             * **Fones/Microfone em Sincronia:** Ao silenciar os fones de ouvido (alto-falantes), o microfone agora é silenciado automaticamente também! Da mesma forma, ao reativar os fones, o microfone é reativado perfeitamente.

@@ -49,6 +49,8 @@ struct User {
     bool    commander = false;
     bool    op = false;              // operador do canal em que está (v3)
     QString avatarHash;              // hash do avatar no servidor (v3)
+    QString sigla;                   // prefixo/sigla do cargo (ex: "[Mod]")
+    QString groupIcon;               // ícone do cargo (nome ou emoji)
     bool    talking = false;
     QDateTime connectedAt = QDateTime::currentDateTime();
 };

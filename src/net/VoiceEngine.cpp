@@ -150,12 +150,31 @@ void VoiceEngine::setSpeakersEnabled(bool on) {
 }
 
 // ------------------------------------------------------------------ captura
+void VoiceEngine::updateCodecSettings() {
+    if (!m_encoder || !m_data) return;
+    int myChanId = m_data->channelOfUser(m_data->selfId);
+    if (!m_data->channels.contains(myChanId)) return;
+    
+    const Channel& c = m_data->channels[myChanId];
+    int bitrate = 8000 + (c.codecQuality * 8000);
+    
+    int app = OPUS_APPLICATION_VOIP;
+    if (c.codec == 5) { // Opus Music
+        app = OPUS_APPLICATION_AUDIO;
+    }
+    
+    opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(bitrate));
+    opus_encoder_ctl(m_encoder, OPUS_SET_SIGNAL(app == OPUS_APPLICATION_AUDIO ? OPUS_SIGNAL_MUSIC : OPUS_SIGNAL_VOICE));
+}
+
 void VoiceEngine::captureTick() {
     if (!m_srcDev || !m_txEnabled) {
         if (m_srcDev) m_srcDev->readAll(); // drena p/ não estourar o buffer
         return;
     }
     if (!m_encoder) return;
+
+    updateCodecSettings();
 
     // ativação de voz (Opções > Captura): 0 = PTT, 1 = detecção de voz, 2 = contínuo
     // (obs.: "capture/mode" é o backend de áudio — não confundir)

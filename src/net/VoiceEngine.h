@@ -44,6 +44,7 @@ signals:
 private:
     // fluxo de captura disparado por timer de 20 ms
     void captureTick();
+    void updateCodecSettings();
     // consumo da fila de jitter para reprodução
     void playbackTick();
 

@@ -9,6 +9,7 @@
 #include <QPainter>
 #include <QSet>
 #include <QStyle>
+#include <QRegularExpression>
 
 // ============================================================== Delegado
 void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
@@ -184,22 +185,52 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
     QTreeWidgetItem* item = new QTreeWidgetItem(parentItem);
 
     bool full = (c.maxClients >= 0 && c.users.size() >= c.maxClients);
-    QString label = c.name;
-    if (m_showCounts && !c.users.isEmpty())
-        label += QStringLiteral("  (%1)").arg(c.users.size());
-    item->setText(0, label);
-    item->setIcon(0, HIcons::channel(c.hasPassword, c.moderated, c.isDefault, full));
-    item->setData(0, RoleKind, NodeChannel);
-    item->setData(0, RoleId, c.id);
-    item->setToolTip(0, channelTooltip(c));
-    item->setFlags((item->flags() | Qt::ItemIsDropEnabled) & ~Qt::ItemIsDragEnabled);
-    if (c.isDefault) {
-        QFont f = item->font(0);
-        f.setBold(true);
-        item->setFont(0, f);
+    
+    // ---- Lógica de Canais "Spacers" (Organização Visual do Servidor)
+    bool isSpacer = false;
+    bool isCentered = false;
+    bool isRepeating = false;
+    QString spacerText = c.name;
+    
+    QRegularExpression rx(QStringLiteral("\\[(\\*?)(c)?spacer[^\\]]*\\](.*)"));
+    QRegularExpressionMatch match = rx.match(c.name);
+    if (match.hasMatch()) {
+        isSpacer = true;
+        isCentered = !match.captured(2).isEmpty();
+        isRepeating = !match.captured(1).isEmpty();
+        spacerText = match.captured(3);
+        if (isRepeating && !spacerText.isEmpty()) {
+            spacerText = spacerText.at(0).repeated(50);
+        }
     }
-    if (c.type == 0) { // temporário: nome em cinza-azulado, como no Halla
-        item->setForeground(0, QColor("#5C7285"));
+    
+    QString label = isSpacer ? spacerText : c.name;
+    if (!isSpacer && m_showCounts && !c.users.isEmpty())
+        label += QStringLiteral("  (%1)").arg(c.users.size());
+        
+    item->setText(0, label);
+    
+    if (isSpacer) {
+        item->setIcon(0, QIcon()); // Sem ícone para spacers
+        if (isCentered) {
+            item->setTextAlignment(0, Qt::AlignCenter);
+        }
+        item->setFlags((item->flags() & ~Qt::ItemIsEnabled & ~Qt::ItemIsSelectable & ~Qt::ItemIsDragEnabled & ~Qt::ItemIsDropEnabled));
+        item->setForeground(0, QColor("#8A939B")); // Cinza suave etched
+    } else {
+        item->setIcon(0, HIcons::channel(c.hasPassword, c.moderated, c.isDefault, full));
+        item->setData(0, RoleKind, NodeChannel);
+        item->setData(0, RoleId, c.id);
+        item->setToolTip(0, channelTooltip(c));
+        item->setFlags((item->flags() | Qt::ItemIsDropEnabled) & ~Qt::ItemIsDragEnabled);
+        if (c.isDefault) {
+            QFont f = item->font(0);
+            f.setBold(true);
+            item->setFont(0, f);
+        }
+        if (c.type == 0) { // temporário: nome em cinza-azulado, como no Halla
+            item->setForeground(0, QColor("#5C7285"));
+        }
     }
 
     // Halla: por padrão clientes aparecem acima dos subcanais; com a opção
@@ -247,7 +278,13 @@ void ServerTreeWidget::expandOwnChannelOnly(int channelId) {
 
 void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
     QTreeWidgetItem* item = new QTreeWidgetItem(chanItem);
-    item->setText(0, u.name);
+    
+    // ---- Se o usuário possui sigla (prefixo de cargo), exibe antes do nome!
+    QString displayName = u.name;
+    if (!u.sigla.isEmpty()) {
+        displayName = u.sigla + " " + displayName;
+    }
+    item->setText(0, displayName);
     item->setIcon(0, HIcons::user(u.talking, u.away));
     item->setData(0, RoleKind, NodeUser);
     item->setData(0, RoleId, u.id);
