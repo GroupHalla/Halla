@@ -46,3 +46,9 @@ private:
     QSlider* m_slider;
     class QLabel* m_label;
 };
+
+class ServerConnectionInfoDialog : public QDialog {
+    Q_OBJECT
+public:
+    ServerConnectionInfoDialog(const struct ServerData* data, class NetSession* net, QWidget* parent = nullptr);
+};

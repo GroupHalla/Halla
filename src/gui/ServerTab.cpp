@@ -860,6 +860,7 @@ void ServerTab::setSpeakersMuted(bool on) {
     if (self.outputMuted == on) return;
     self.outputMuted = on;
     if (m_voice) m_voice->setSpeakersEnabled(!on);
+    setMicMuted(on);
     if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
     systemMsgChannel(on ? tr("Alto-falantes mudos.") : tr("Alto-falantes reativados."));
     m_tree->rebuild();

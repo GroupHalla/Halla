@@ -135,3 +135,54 @@ VolumeDialog::VolumeDialog(const QString& target, int currentDb, QWidget* parent
 }
 
 int VolumeDialog::volume() const { return m_slider->value(); }
+
+// ------------------------------------------------------------------ informações de conexão do servidor
+#include "core/Models.h"
+#include "net/NetSession.h"
+#include <QDateTime>
+
+ServerConnectionInfoDialog::ServerConnectionInfoDialog(const ServerData* data, NetSession* net, QWidget* parent)
+    : QDialog(parent) {
+    setWindowTitle(tr("Informações de Conexão do Servidor"));
+    setMinimumWidth(400);
+
+    QVBoxLayout* root = new QVBoxLayout(this);
+    root->setContentsMargins(0, 0, 0, 8);
+    root->setSpacing(0);
+    root->addWidget(new TsBanner(tr("Informações de Conexão"),
+                                 data ? data->name : tr("Desconectado"),
+                                 HIcons::info().pixmap(24, 24), this));
+    root->addSpacing(10);
+
+    QFormLayout* form = new QFormLayout;
+    form->setContentsMargins(15, 5, 15, 5);
+    form->setSpacing(8);
+
+    if (data) {
+        form->addRow(tr("Nome do Servidor:"), new QLabel(data->name, this));
+        form->addRow(tr("Endereço:"), new QLabel(data->address, this));
+        form->addRow(tr("Versão do Servidor:"), new QLabel(data->version, this));
+        form->addRow(tr("Plataforma:"), new QLabel(data->platform, this));
+        form->addRow(tr("Clientes Conectados:"), new QLabel(QString::number(data->totalClients()), this));
+        
+        qint64 secs = data->connectedAt.secsTo(QDateTime::currentDateTime());
+        int h = secs / 3600;
+        int m = (secs % 3600) / 60;
+        int s = secs % 60;
+        form->addRow(tr("Tempo de Conexão (Uptime):"), new QLabel(tr("%1h %2m %3s").arg(h).arg(m).arg(s), this));
+        
+        int ping = net ? net->pingMs() : 0;
+        form->addRow(tr("Ping atual:"), new QLabel(tr("%1 ms").arg(ping), this));
+    } else {
+        form->addRow(new QLabel(tr("Você não está conectado a nenhum servidor."), this));
+    }
+    root->addLayout(form);
+
+    QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Close, this);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    QHBoxLayout* brow = new QHBoxLayout;
+    brow->setContentsMargins(12, 5, 12, 0);
+    brow->addStretch(1);
+    brow->addWidget(bb);
+    root->addLayout(brow);
+}

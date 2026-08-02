@@ -91,32 +91,31 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.9
-          name: Halla v3.13.9
+          tag_name: v3.13.10
+          name: Halla v3.13.10
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.9.exe
+          files: Halla-Setup-3.13.10.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.9
+            ## 🚀 Novidades e Correções do Halla v3.13.10
 
-            Esta release traz a captura direta ultra leve e inteligente de atalhos e botões de mouse inline (sem menus modais), aliada à completa remoção de marcas e termos terceiros de todo o repositório!
+            Esta release traz novas funcionalidades para elevar a paridade de recursos ao estado-da-arte, incluindo a automatização inteligente de silenciamento e o novo painel de Informações de Conexão!
 
-            ### 🖱️ Captura Direct-Inline de Botões do Mouse via Hook Nativizado (Leve e Sem Diálogos)
-            * **Sem Popups Modais:** Removemos por completo a caixa de diálogo/mini-menu de captura de atalhos que causava travamento em algumas instalações do Windows. A interface agora é 100% direta e inline!
-            * **Hook de Mouse Nativizado:** O Hook de Mouse global (`WH_MOUSE_LL`) agora é instalado **unicamente de forma temporária enquanto o campo de texto `HotkeyEdit` está focado/armado**.
-            * **Captura Impecável:** Ao clicar no campo, ele é armado. Basta pressionar qualquer botão do mouse (`Mouse 4`, `Mouse 5` ou `MouseMeio`) que o clique é interceptado globalmente pelo hook de baixo nível (garantindo que o driver não mude o foco ou cause retrocesso de página) e gravado na hora, chamando `clearFocus()` para desarmar instantaneamente!
+            ### 🎧 Lógica Automatizada de Silenciamento (Auto-Mute Microfone)
+            * **Fones/Microfone em Harmonia:** Implementamos a lógica inteligente de mutar o fone. Agora, sempre que você silenciar os fones de ouvido (alto-falantes), **o microfone será silenciado automaticamente também**!
+            * **Desarme de Segurança:** Ao reativar os fones de ouvido, o microfone também é reativado de forma automática e integrada, facilitando a troca e garantindo usabilidade máxima.
+
+            ### 📊 Novo Diálogo de Informações de Conexão do Servidor
+            * **Status Completo:** Adicionamos a opção **Informações de conexão...** ao menu de **Conexões**.
+            * **Painel Informativo:** Abre um painel que lista dinamicamente:
+              - Nome do Servidor conectado
+              - Endereço de IP e Porta do servidor
+              - Versão e Plataforma da máquina servidora
+              - Quantidade total de clientes conectados
+              - Tempo total de Conexão (Uptime) medido em horas, minutos e segundos
+              - Latência de rede (Ping em ms) atualizada dinamicamente.
 
             ### 🧹 Limpeza Geral de Marcas e Nomes de Terceiros
-            * **Revisão Completa:** Realizamos uma revisão textual profunda de ponta a ponta em toda a base de código (arquivos `.cpp`, `.h`, `.rc`), readmes e arquivos de instalação do repositório, removendo e adaptando qualquer referência a termos de terceiros (como TeamSpeak, Mumble ou siglas relacionadas). O Halla agora apresenta uma identidade visual e textual limpa, independente e profissional!
-
-            ### 🎨 Barra de Ferramentas e UI no Padrão Clássico Flat
-            * Botões com dropdown se auto-ajustam ao tamanho do ícone + seta com espaçamento elegante.
-            * O efeito visual de hover e o clique cobrem todo o botão como um bloco sólido indivisível.
-            * Separadores 3D etched independentes que separam visualmente os grupos de botões.
-
-            ### 🎙️ Outras Melhorias Robustas
-            * **Círculo Verde de Fala Instantâneo:** O indicador de fala responde 100% à tecla de PTT do usuário sem sofrer atrasos ou ficar "preso" por ecos de rede do servidor.
-            * **Mapeamento de Hardware de Áudio:** Menus de captura e reprodução totalmente habilitados, permitindo que você selecione e alterne microfones e headsets de verdade!
-            * **Atualização Automática:** O aplicativo busca atualizações silenciosamente no GitHub e atualiza a si mesmo de forma autônoma com barra de progresso!
+            * Concluímos a revisão textual em toda a base de código e documentações do repositório, garantindo uma identidade textual limpa, independente e totalmente autônoma.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

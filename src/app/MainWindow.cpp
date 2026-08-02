@@ -77,6 +77,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                                                                     m_tabs->widget(0)), false);
                                           });
     m_recentMenu = mConn->addMenu(tr("Conexões recentes"));
+    mConn->addAction(HIcons::info(), tr("Informações de conexão..."), this, [this] {
+        ServerTab* t = currentTab();
+        ServerConnectionInfoDialog dlg(t ? &t->data() : nullptr, t ? t->net() : nullptr, this);
+        dlg.exec();
+    });
     mConn->addSeparator();
     mConn->addAction(tr("Sair"), this, &MainWindow::close)
         ->setShortcut(QKeySequence(QStringLiteral("Ctrl+Q")));
