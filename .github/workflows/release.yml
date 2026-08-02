@@ -108,30 +108,5 @@ jobs:
 
             ### 📊 Ordenação Hierárquica Automática (Item 11)
             * **Ordenação de Conectados:** Os usuários de um canal agora são classificados de forma inteligente: membros com maior prioridade hierárquica (menor valor numérico de `order`) ficam posicionados no topo do canal, e em caso de empate, são ordenados de forma alfabética.
-
-            Esta release consolida o suporte completo a canais visuais Spacers e siglas de cargos integradas com o Halla Server v3.2.1, além do suporte a múltiplos idiomas com detecção automática e fechamento imediato para atualizações automáticas!
-
-            ### 🎨 Canais "Spacers" Visuais (Organização de Servidor)
-            * **Organização Visual:** O Halla agora interpreta e renderiza perfeitamente canais fictícios com padrões como `[spacer0]`, `[cspacer123]` ou `[*spacerA]` (estilo linhas e textos centralizados do TeamSpeak 3)!
-              - **Spacers Normais:** Ocultam o ícone de canal padrão e exibem o texto formatado.
-              - **Spacers Centralizados (`cspacer`):** Centralizam o texto do canal perfeitamente no meio do painel do servidor.
-              - **Spacers Repetidos (`*spacer`):** Se o spacer começa com `*`, ele repete o caractere fornecido (ex.: `-` ou `=`) por toda a largura do painel para criar uma linha sólida divisória!
-              - **Bloqueio de Acesso:** Canais do tipo spacer são marcados como desabilitados, impedindo que usuários entrem ou cliquem neles, servindo estritamente para organização visual.
-
-            ### 🏷️ Suporte a Tags/Siglas de Cargos Integradas (Client & Server)
-            * **Exibição Hierárquica:** O `ServerTreeWidget::addUserItem` agora processa a sigla do cargo enviada pelo Halla Server v3.2.1 e **exibe automaticamente antes do nome do usuário conectado** (ex.: `[Admin] Farley Barbosa`), oferecendo maior nível de prestígio e visualização de hierarquia de moderadores!
-
-            ### 🌐 Suporte Internacional Integrado (Português, Inglês e Espanhol)
-            * **Detecção Automática:** Ao inicializar o aplicativo, ele detecta automaticamente o idioma padrão do seu sistema operacional (`QLocale::system()`).
-            * **Tradução Dinâmica On-the-Fly:** Todo o aplicativo se traduz dinamicamente para o **Inglês** ou **Espanhol** caso seu computador esteja configurado em um desses idiomas, de forma extremamente leve e sem necessidade de arquivos externos adicionais!
-
-            ### 🔄 Fechamento Instantâneo para Atualizações Automáticas (Instalação Sem Avisos)
-            * **Forçar Saída Limpa:** Ao concluir o download da nova versão temporária, o app seta a flag de salvamento e encerramento forçado `S::set("app/forceQuit", true)`, o que permite que o Halla feche instantaneamente no mesmo milissegundo, **bypassando e silenciando por completo o popup de confirmação** (*Você ainda está conectado a servidores. Deseja realmente sair?*). O instalador roda em seguida de forma limpa, rápida e livre de qualquer erro de arquivo em uso!
-
-            ### 🎧 Lógica Automatizada de Silenciamento (Auto-Mute Microfone)
-            * **Fones/Microfone em Sincronia:** Ao silenciar os fones de ouvido (alto-falantes), o microfone agora é silenciado automaticamente também! Da mesma forma, ao reativar os fones, o microfone é reativado perfeitamente.
-
-            ### 📊 Diálogo de Informações de Conexão do Servidor
-            * Painel informativo sob o menu *Conexões* que exibe o Uptime, Ping dinâmico, Clientes conectados, plataforma, versão e IP do servidor.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
