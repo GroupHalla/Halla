@@ -126,6 +126,16 @@ void ServerTab::attachNetwork(NetSession* net) {
     for (const User& u : m_data.users) m_knownUsers << u.id;
     m_myChan = m_data.channelOfUser(m_data.selfId);
 
+    connect(net, &NetSession::iconDataReceived, this, [this](const QString& name, const QByteArray& bytes) {
+        QDir().mkpath(QStringLiteral("cache/icons"));
+        QFile f(QStringLiteral("cache/icons/") + name);
+        if (f.open(QIODevice::WriteOnly)) {
+            f.write(bytes);
+            f.close();
+            m_tree->viewport()->update();
+        }
+    });
+
     // estado vindo do servidor -> redesenha a árvore/informações
     connect(net, &NetSession::stateChanged, this, [this] {
         // detecção de entrada/saída (sons estilo Halla)
@@ -238,6 +248,11 @@ void ServerTab::applyDisplayOptions() {
 }
 
 void ServerTab::hookSignals() {
+    connect(m_tree, &ServerTreeWidget::iconRequested, this, [this](const QString& name) {
+        if (m_net) {
+            m_net->iconGet(name);
+        }
+    });
     connect(m_tree, &ServerTreeWidget::selectionChanged,
             this, &ServerTab::selectionChanged);
     connect(m_tree, &ServerTreeWidget::joinChannelRequested,

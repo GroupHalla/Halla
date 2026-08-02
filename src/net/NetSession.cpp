@@ -232,6 +232,12 @@ void NetSession::avatarGet(const QString& uid) {
     send(m);
 }
 
+void NetSession::iconGet(const QString& name) {
+    QJsonObject m = HProto::msg("icon_get");
+    m["name"] = name;
+    send(m);
+}
+
 void NetSession::offlineSend(const QString& uid, const QString& text) {
     QJsonObject m = HProto::msg("offline_send");
     m["uid"] = uid;
@@ -550,6 +556,11 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     if (t == "avatar_data") {
         emit avatarDataReceived(obj["uid"].toString(),
                                 QByteArray::fromBase64(obj["data"].toString().toLatin1()));
+        return;
+    }
+    if (t == "icon_data") {
+        emit iconDataReceived(obj["name"].toString(),
+                              QByteArray::fromBase64(obj["data"].toString().toLatin1()));
         return;
     }
     if (t == "offline_msg") {

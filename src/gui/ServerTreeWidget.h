@@ -72,6 +72,7 @@ signals:
     void disconnectRequested();
     void addBookmarkRequested();
     void editVirtualServerRequested();
+    void iconRequested(const QString& name);
 
 protected:
     void contextMenuEvent(QContextMenuEvent* e) override;

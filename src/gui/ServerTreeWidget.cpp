@@ -11,9 +11,37 @@
 #include <QStyle>
 #include <QRegularExpression>
 #include <algorithm>
+#include <QFile>
+#include <QDir>
 
-static QPixmap createGroupIconPixmap(const QString& iconText) {
+static QPixmap createGroupIconPixmap(const QString& iconText, ServerTreeWidget* tree) {
     if (iconText.isEmpty()) return QPixmap();
+    
+    // Se o ícone for uma imagem (extensão de arquivo)
+    if (iconText.endsWith(".png", Qt::CaseInsensitive) || 
+        iconText.endsWith(".jpg", Qt::CaseInsensitive) || 
+        iconText.endsWith(".jpeg", Qt::CaseInsensitive) || 
+        iconText.endsWith(".gif", Qt::CaseInsensitive)) {
+        
+        QString path = QStringLiteral("cache/icons/") + iconText;
+        if (QFile::exists(path)) {
+            QPixmap pm;
+            pm.load(path);
+            if (!pm.isNull()) {
+                return pm.scaled(16, 14, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            }
+        } else {
+            // Solicita o ícone se ainda não foi solicitado nesta sessão
+            static QSet<QString> requested;
+            if (!requested.contains(iconText)) {
+                requested.insert(iconText);
+                if (tree) {
+                    emit tree->iconRequested(iconText);
+                }
+            }
+        }
+        return QPixmap();
+    }
     
     QPixmap pm(16, 14);
     pm.fill(Qt::transparent);
@@ -68,13 +96,15 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     QPixmap minis = HIcons::userStatusMinis(u.inputMuted, u.outputMuted || u.locallyMuted,
                                             u.away, u.recording, u.commander, u.op);
 
+    ServerTreeWidget* tree = qobject_cast<ServerTreeWidget*>(const_cast<QObject*>(parent()));
+
     // Separamos e renderizamos múltiplos ícones/cargos se existirem (separados por vírgula ou ponto e vírgula)
     QStringList icons = u.groupIcon.split(QRegularExpression("[,;]"), Qt::SkipEmptyParts);
     QList<QPixmap> iconPms;
     for (const QString& ic : icons) {
         QString trimmed = ic.trimmed();
         if (!trimmed.isEmpty()) {
-            QPixmap pm = createGroupIconPixmap(trimmed);
+            QPixmap pm = createGroupIconPixmap(trimmed, tree);
             if (!pm.isNull()) {
                 iconPms << pm;
             }

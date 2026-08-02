@@ -63,6 +63,7 @@ public:
     void ftDownload(int channel, const QString& name);
     void ftDelete(int channel, const QString& name);
     void requestBanList();
+    void iconGet(const QString& name);
     void unban(const QString& uid);
     void requestGroupList();
     void groupSet(int id, const QString& name, const QJsonObject& perms); // id 0 = criar
@@ -89,6 +90,7 @@ signals:
 
     // ---- v3
     void avatarDataReceived(const QString& uid, const QByteArray& bytes);
+    void iconDataReceived(const QString& name, const QByteArray& bytes);
     void userAvatarChanged(int userId, const QString& hash);
     void offlineMsgReceived(const QString& fromName, const QString& text, const QString& ts);
     void offlineSendConfirmed(const QString& uid);
