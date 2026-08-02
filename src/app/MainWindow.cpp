@@ -318,7 +318,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     mHelp->addAction(tr("Sobre o Halla"), this,
                      [this] { AboutDialog dlg(this); dlg.exec(); });
     mHelp->addSeparator();
-    mHelp->addAction(tr("Verificar atualizações"), this, [this] { checkUpdates(); });
+    mHelp->addAction(tr("Verificar atualizações"), this, [this] { checkUpdates(true); });
 
     // ------------------------- barra de ferramentas ---------------------
     // Custom grabber style Windows clássico
@@ -371,12 +371,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
     // Fundo e borda cinza claro sólido com 1px cinza escuro inferior
     tb->setStyleSheet(
-        "QToolBar { background-color: #F0F0F0; border-bottom: 1px solid #A0A0A0; spacing: 0px; padding: 2px; }"
-        "QToolButton { background-color: transparent; border: 1px solid transparent; border-radius: 2px; padding: 2px; margin: 0px; width: 24px; height: 24px; }"
+        "QToolBar { background-color: #F0F0F0; border-bottom: 1px solid #A0A0A0; spacing: 4px; padding: 2px; }"
+        "QToolButton { background-color: transparent; border: 1px solid transparent; border-radius: 2px; padding: 2px 4px; margin: 0px; height: 24px; }"
         "QToolButton:hover { background-color: #E0E0E0; border: 1px solid #A0A0A0; }"
         "QToolButton:pressed { background-color: #D0D0D0; border: 1px solid #808080; }"
-        "QToolButton::menu-button { border-left: 1px solid #A0A0A0; width: 12px; background: transparent; }"
-        "QToolButton::menu-button:hover { background-color: #D8D8D8; }"
+        "QToolButton::menu-button { border: none; background: transparent; width: 12px; }"
     );
 
     // Adiciona Grabber
@@ -576,6 +575,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowOpacity(qBound(0.5, S::num("design/opacity", 100) / 100.0, 1.0));
 
     AppLog::info(tr("Halla %1 iniciado").arg(QString::fromUtf8(halla::kAppVersion)));
+    
+    // Silently check for updates 3 seconds after startup
+    QTimer::singleShot(3000, this, [this]{ checkUpdates(false); });
 }
 
 // ======================================================================
@@ -786,9 +788,133 @@ void MainWindow::rebuildRecentMenu() {
 }
 
 // ======================================================================
-void MainWindow::checkUpdates() {
-    QMessageBox::information(this, tr("Atualização"),
-                             tr("Você já está usando a versão mais recente do Halla."));
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QDialog>
+#include <QProgressBar>
+#include <QProcess>
+#include <QStandardPaths>
+#include <QFile>
+#include <QVBoxLayout>
+#include <QLabel>
+
+void MainWindow::checkUpdates(bool manual) {
+    QNetworkAccessManager* nam = new QNetworkAccessManager(this);
+    QNetworkRequest req(QUrl(QStringLiteral("https://api.github.com/repos/farleybarbosa320-oss/Halla/releases/latest")));
+    req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("HallaUpdater"));
+    
+    QNetworkReply* reply = nam->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, nam, manual] {
+        reply->deleteLater();
+        nam->deleteLater();
+        
+        if (reply->error() != QNetworkReply::NoError) {
+            if (manual) {
+                QMessageBox::warning(this, tr("Verificar atualizações"),
+                                     tr("Erro ao conectar ao servidor de atualizações."));
+            }
+            return;
+        }
+        
+        QByteArray data = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) return;
+        
+        QJsonObject obj = doc.object();
+        QString latestVersion = obj["tag_name"].toString();
+        if (latestVersion.startsWith('v')) latestVersion.remove(0, 1);
+        
+        QString currentVersion = QString::fromUtf8(halla::kAppVersion);
+        
+        if (latestVersion != currentVersion && !latestVersion.isEmpty()) {
+            QString downloadUrl;
+            QJsonArray assets = obj["assets"].toArray();
+            for (const QJsonValue& val : assets) {
+                QJsonObject assetObj = val.toObject();
+                QString assetName = assetObj["name"].toString();
+                if (assetName.contains("Setup") && assetName.endsWith(".exe")) {
+                    downloadUrl = assetObj["browser_download_url"].toString();
+                    break;
+                }
+            }
+            
+            if (downloadUrl.isEmpty() && !assets.isEmpty()) {
+                downloadUrl = assets[0].toObject()["browser_download_url"].toString();
+            }
+            
+            if (!downloadUrl.isEmpty()) {
+                int ret = QMessageBox::question(this, tr("Nova atualização disponível"),
+                    tr("Uma nova versão (%1) está disponível!\nDeseja baixar e instalar agora?").arg(latestVersion),
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+                if (ret == QMessageBox::Yes) {
+                    downloadAndInstallUpdate(downloadUrl, latestVersion);
+                }
+            }
+        } else {
+            if (manual) {
+                QMessageBox::information(this, tr("Atualização"),
+                                         tr("Você já está usando a versão mais recente do Halla."));
+            }
+        }
+    });
+}
+
+void MainWindow::downloadAndInstallUpdate(const QString& url, const QString& version) {
+    QDialog* dlg = new QDialog(this);
+    dlg->setWindowTitle(tr("Baixando atualização"));
+    dlg->resize(350, 100);
+    
+    QVBoxLayout* lay = new QVBoxLayout(dlg);
+    QLabel* label = new QLabel(tr("Baixando Halla v%1...").arg(version), dlg);
+    lay->addWidget(label);
+    
+    QProgressBar* bar = new QProgressBar(dlg);
+    bar->setRange(0, 100);
+    bar->setValue(0);
+    lay->addWidget(bar);
+    
+    dlg->show();
+    
+    QNetworkAccessManager* nam = new QNetworkAccessManager(dlg);
+    QNetworkRequest req((QUrl(url)));
+    req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("HallaUpdater"));
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    
+    QNetworkReply* reply = nam->get(req);
+    
+    connect(reply, &QNetworkReply::downloadProgress, dlg, [bar](qint64 bytesReceived, qint64 bytesTotal) {
+        if (bytesTotal > 0) {
+            bar->setValue(int((bytesReceived * 100) / bytesTotal));
+        }
+    });
+    
+    connect(reply, &QNetworkReply::finished, dlg, [this, reply, dlg, version] {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            QMessageBox::critical(this, tr("Erro de download"), tr("Não foi possível baixar o instalador da atualização."));
+            dlg->close();
+            return;
+        }
+        
+        QString tempDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+        QString installerPath = tempDir + QStringLiteral("/Halla-Setup-") + version + QStringLiteral(".exe");
+        
+        QFile file(installerPath);
+        if (file.open(QIODevice::WriteOnly)) {
+            file.write(reply->readAll());
+            file.close();
+            
+            QMessageBox::information(this, tr("Download concluído"),
+                tr("O download foi concluído com sucesso. O instalador será executado agora."));
+                
+            QProcess::startDetached(installerPath, QStringList());
+            qApp->quit();
+        } else {
+            QMessageBox::critical(this, tr("Erro"), tr("Não foi possível salvar o arquivo de atualização no diretório temporário."));
+        }
+        dlg->close();
+    });
 }
 
 void MainWindow::showNotifications() {

@@ -50,7 +50,8 @@ private:
     void openConnectDialog(bool newTab = false);
     void openBookmarksDialog(const QString& prefillLabel = QString(),
                              const QString& prefillAddr = QString());
-    void checkUpdates();
+    void checkUpdates(bool manual = false);
+    void downloadAndInstallUpdate(const QString& url, const QString& version);
     void showNotifications();
     void applyTheme();
     void applyHotkeys();

@@ -791,8 +791,23 @@ QWidget* OptionsDialog::pagePlayback() {
             [](int v) { S::set("playback/mode", v); });
 
     QComboBox* dev = new QComboBox(w);
-    dev->addItem(tr("Padrão"));
-    dev->setEnabled(false);
+    dev->addItem(tr("Padrão"), QString());
+    const auto outputs = QMediaDevices::audioOutputs();
+    for (const QAudioDevice& output : outputs) {
+        dev->addItem(output.description(), output.id());
+    }
+    const QString savedDevId = S::str("playback/device");
+    int selIdx = 0;
+    for (int i = 1; i < dev->count(); ++i) {
+        if (dev->itemData(i).toString() == savedDevId) {
+            selIdx = i;
+            break;
+        }
+    }
+    dev->setCurrentIndex(selIdx);
+    connect(dev, &QComboBox::currentIndexChanged, this, [dev](int index) {
+        S::set("playback/device", dev->itemData(index).toString());
+    });
     form->addRow(tr("Dispositivo de reprodução:"), dev);
 
     form->addRow(tr("Ajuste de volume de voz:"),
@@ -883,8 +898,23 @@ QWidget* OptionsDialog::pageCapture() {
             [](int v) { S::set("capture/mode", v); });
 
     QComboBox* dev = new QComboBox(w);
-    dev->addItem(tr("Padrão"));
-    dev->setEnabled(false);
+    dev->addItem(tr("Padrão"), QString());
+    const auto inputs = QMediaDevices::audioInputs();
+    for (const QAudioDevice& input : inputs) {
+        dev->addItem(input.description(), input.id());
+    }
+    const QString savedDevId = S::str("capture/device");
+    int selIdx = 0;
+    for (int i = 1; i < dev->count(); ++i) {
+        if (dev->itemData(i).toString() == savedDevId) {
+            selIdx = i;
+            break;
+        }
+    }
+    dev->setCurrentIndex(selIdx);
+    connect(dev, &QComboBox::currentIndexChanged, this, [dev](int index) {
+        S::set("capture/device", dev->itemData(index).toString());
+    });
     form->addRow(tr("Dispositivo de captura:"), dev);
 
     right->addLayout(form);

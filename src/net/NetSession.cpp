@@ -346,7 +346,11 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.commander = u["cc"].toBool();
     usr.avatarHash = u["av"].toString();               // v3
     usr.op = d.users.value(usr.id).op;                 // preserva flag de operador
-    usr.talking = u["talking"].toBool();
+    if (usr.id == d.selfId) {
+        usr.talking = d.users.value(d.selfId).talking; // preserva estado de fala local ultra responsivo
+    } else {
+        usr.talking = u["talking"].toBool();
+    }
     d.users[usr.id] = usr;
     refreshOperators();                                // recalcula ops por canal
 }
@@ -504,7 +508,11 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             if (obj.contains("away")) u.away = obj["away"].toBool();
             if (obj.contains("rec")) u.recording = obj["rec"].toBool();
             if (obj.contains("cc")) u.commander = obj["cc"].toBool();
-            if (obj.contains("talking")) u.talking = obj["talking"].toBool();
+            if (obj.contains("talking")) {
+                if (id != d.selfId) {
+                    u.talking = obj["talking"].toBool();
+                }
+            }
             if (obj.contains("name")) u.name = obj["name"].toString();
             if (obj.contains("text")) u.description = obj["text"].toString();
             if (obj.contains("group")) u.serverGroups = obj["group"].toString();

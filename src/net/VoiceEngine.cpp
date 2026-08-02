@@ -36,8 +36,29 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     fmt.setChannelCount(1);
     fmt.setSampleFormat(QAudioFormat::Int16);
 
-    const QAudioDevice inDev = QMediaDevices::defaultAudioInput();
-    const QAudioDevice outDev = QMediaDevices::defaultAudioOutput();
+    QAudioDevice inDev = QMediaDevices::defaultAudioInput();
+    const QString savedInId = S::str("capture/device");
+    if (!savedInId.isEmpty()) {
+        const auto inputs = QMediaDevices::audioInputs();
+        for (const QAudioDevice& input : inputs) {
+            if (input.id() == savedInId) {
+                inDev = input;
+                break;
+            }
+        }
+    }
+
+    QAudioDevice outDev = QMediaDevices::defaultAudioOutput();
+    const QString savedOutId = S::str("playback/device");
+    if (!savedOutId.isEmpty()) {
+        const auto outputs = QMediaDevices::audioOutputs();
+        for (const QAudioDevice& output : outputs) {
+            if (output.id() == savedOutId) {
+                outDev = output;
+                break;
+            }
+        }
+    }
 
     if (!inDev.isNull()) {
         m_source = new QAudioSource(inDev, fmt, this);

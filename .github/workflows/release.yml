@@ -91,10 +91,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.2
-          name: Halla v3.13.2
+          tag_name: v3.13.3
+          name: Halla v3.13.3
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.2.exe
+          files: Halla-Setup-3.13.3.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
