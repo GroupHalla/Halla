@@ -91,19 +91,20 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.13
-          name: Halla v3.13.13 — Múltiplos Distintivos e Ordenação Hierárquica de Cargos
+          tag_name: v3.13.14
+          name: Halla v3.13.14 — Múltiplos Distintivos e Ordenação Hierárquica de Cargos
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.13.exe
+          files: Halla-Setup-3.13.14.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.13
+            ## 🚀 Novidades e Correções do Halla v3.13.14
 
-            Esta release traz o suporte a múltiplos distintivos visuais (badges/emojis) para cargos e ordenação hierárquica automática dos usuários na lista de conectados!
+            Esta release consolida o suporte a múltiplos distintivos visuais (badges/emojis) para cargos, ordenação hierárquica automática dos usuários na lista de conectados e sincronização em Base64 de imagens de cargos armazenadas no servidor!
 
             ### 🏷️ Múltiplos Distintivos e Ícones de Cargos (Item 9)
             * **Múltiplos Cargos por Usuário:** Agora, se um usuário tiver múltiplos cargos (definidos por strings de ícones/emojis separadas por vírgula no servidor), o cliente renderiza cada um deles sequencialmente após o apelido do usuário na lista.
             * **Badges Customizadas Automáticas:** Cargos em forma de texto viram badges coloridas e estilizadas com a primeira letra maiúscula do cargo em fundo colorido dinâmico, simulando o visual clássico do TeamSpeak 3 / Discord!
+            * **Ícones de Imagem do Servidor:** Se o ícone corresponder a uma extensão de imagem (ex.: `.png`), o cliente carrega a imagem do cache local ou a solicita Base64 de forma totalmente automática ao servidor!
 
             ### 📊 Ordenação Hierárquica Automática (Item 11)
             * **Ordenação de Conectados:** Os usuários de um canal agora são classificados de forma inteligente: membros com maior prioridade hierárquica (menor valor numérico de `order`) ficam posicionados no topo do canal, e em caso de empate, são ordenados de forma alfabética.
