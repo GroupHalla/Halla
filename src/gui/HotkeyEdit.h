@@ -20,7 +20,7 @@ class QFocusEvent;
 class HotkeyEdit : public QLineEdit {
     Q_OBJECT
 public:
-    explicit HotkeyEdit(QWidget* parent = nullptr, bool isCaptureTarget = false);
+    explicit HotkeyEdit(QWidget* parent = nullptr);
     ~HotkeyEdit() override;
 
     QString spec() const { return m_spec; }
@@ -49,6 +49,5 @@ private:
 
     QString m_spec;
     bool m_armed = false;
-    bool m_isCaptureTarget = false;
     class NativeCapture* m_native = nullptr; // filtro nativo (Windows)
 };

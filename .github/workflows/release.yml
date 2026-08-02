@@ -91,21 +91,20 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.6
-          name: Halla v3.13.6
+          tag_name: v3.13.7
+          name: Halla v3.13.7
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.6.exe
+          files: Halla-Setup-3.13.7.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.6
+            ## 🚀 Novidades e Correções do Halla v3.13.7
 
-            Esta release traz a correção definitiva de captura de botões do mouse usando Hooks Globais de baixo nível de forma idêntica ao Mumble!
+            Esta release traz a simplificação e robustez definitiva para a captura de atalhos/PTT inline direta (sem diálogos modais de travamento), além do polimento completo da UI!
 
-            ### 🐭 Captura Global de PTT e Botões do Mouse via Hooks de Baixo Nível (Mumble Style)
-            * **Fim do foco perdido:** Implementamos Hooks Globais de Teclado e Mouse (`SetWindowsHookEx` com `WH_KEYBOARD_LL` e `WH_MOUSE_LL` no Windows) ativos unicamente durante a exibição do diálogo de captura de atalhos.
-            * **Captura Universal:** Agora, o aplicativo intercepta e captura perfeitamente qualquer clique físico de botões do mouse (`Mouse 4`, `Mouse 5` e `MouseMeio`), além de qualquer tecla do teclado, **independente de qual widget esteja focado** ou se o mouse foi clicado fora do campo de texto!
-            * **Correção do focusInEvent:** Corrigido o conflito de eventos de foco e clique no Qt, garantindo que o diálogo de captura se abra uma única vez sem sobreposições.
-            * **ESC Cancela:** Mantido o clássico atalho de cancelar e fechar a modal de captura pressionando `ESC`.
+            ### ⌨️ Captura de Atalhos Direct-Inline Ultra Fluida (Sem Modais)
+            * **Remoção da Modal de Captura:** Removemos a mini-janela/diálogo modal de captura e todos os hooks globais de baixo nível (`WH_MOUSE_LL` / `WH_KEYBOARD_LL`) que causavam conflitos com o loop de mensagens do Windows em algumas máquinas, eliminando completamente qualquer travamento ou congelamento (freeze/crash)!
+            * **Foco e Captura Direta:** Agora, o campo de atalho funciona em modo de captura inline diretamente focado. Basta clicar no campo de texto para focá-lo/armá-lo, pressionar a tecla ou botão lateral do mouse (`Mouse 4`, `Mouse 5` ou `MouseMeio`) que o atalho é capturado instantaneamente!
+            * **Desarme Automático Snappy:** No exato momento em que o atalho é capturado, o widget chama automaticamente `clearFocus()` para desarmar a captura de forma ultra rápida e devolver o comportamento normal do teclado/mouse de forma 100% segura e leve!
 
             ### 🎨 Barra de Ferramentas e UI no Padrão TS3 Clássico
             * Botões com dropdown se auto-ajustam ao tamanho do ícone + seta com espaçamento elegante.

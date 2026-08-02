@@ -108,11 +108,13 @@ public:
             const WORD b = HIWORD(msg->wParam);
             edit->acceptSpec(QString::fromLatin1(b == XBUTTON1 ? HotkeyEdit::kMouse4
                                                               : HotkeyEdit::kMouse5));
+            edit->clearFocus();
             if (result) *result = TRUE;
             return true;
         }
         case WM_MBUTTONDOWN:
             edit->acceptSpec(QString::fromLatin1(HotkeyEdit::kMouseMiddle));
+            edit->clearFocus();
             if (result) *result = 0;
             return true;
         case WM_APPCOMMAND: {
@@ -120,11 +122,13 @@ public:
             const int cmd = GET_APPCOMMAND_LPARAM(msg->lParam);
             if (cmd == APPCOMMAND_BROWSER_BACKWARD) {
                 edit->acceptSpec(QString::fromLatin1(HotkeyEdit::kMouse4));
+                edit->clearFocus();
                 if (result) *result = TRUE;
                 return true;
             }
             if (cmd == APPCOMMAND_BROWSER_FORWARD) {
                 edit->acceptSpec(QString::fromLatin1(HotkeyEdit::kMouse5));
+                edit->clearFocus();
                 if (result) *result = TRUE;
                 return true;
             }
@@ -136,167 +140,16 @@ public:
 };
 #endif // Q_OS_WIN
 
-#include <QDialog>
-#include <QLabel>
-#include <QVBoxLayout>
-
-#ifdef Q_OS_WIN
-#include <windows.h>
-
-class HotkeyCaptureDialog;
-static HHOOK hMouseHook = NULL;
-static HHOOK hKeyboardHook = NULL;
-static HotkeyCaptureDialog* activeCaptureDlg = nullptr;
-
-LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK GlobalKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
-#endif
-
-class HotkeyCaptureDialog : public QDialog {
-    Q_OBJECT
-public:
-    explicit HotkeyCaptureDialog(QWidget* parent = nullptr) : QDialog(parent) {
-        setWindowTitle(tr("Capturar atalho"));
-        setFixedSize(340, 110);
-        setWindowFlags((windowFlags() & ~Qt::WindowContextHelpButtonHint) | Qt::MSWindowsFixedSizeDialogHint);
-        
-        QVBoxLayout* lay = new QVBoxLayout(this);
-        lay->setContentsMargins(15, 15, 15, 15);
-        lay->setSpacing(8);
-        
-        QLabel* label = new QLabel(tr("Pressione uma tecla ou botão do mouse..."), this);
-        label->setAlignment(Qt::AlignCenter);
-        QFont f = label->font();
-        f.setPointSize(10);
-        label->setFont(f);
-        lay->addWidget(label);
-        
-        m_captureEdit = new HotkeyEdit(this, true); // m_isCaptureTarget = true
-        m_captureEdit->setMinimumWidth(280);
-        m_captureEdit->setVisible(true); // Deve estar visível para receber foco e armar o NativeCapture!
-        lay->addWidget(m_captureEdit);
-        m_captureEdit->setFocus();
-        
-        connect(m_captureEdit, &HotkeyEdit::specChanged, this, [this](const QString& spec) {
-            if (!spec.isEmpty()) {
-                onCaptured(spec);
-            }
-        });
-    }
-    
-    QString capturedSpec() const { return m_capturedSpec; }
-    
-    void onCaptured(const QString& spec) {
-        m_capturedSpec = spec;
-        accept();
-    }
-    
-    void onCancelled() {
-        reject();
-    }
-    
-protected:
-    void showEvent(QShowEvent* e) override {
-        QDialog::showEvent(e);
-#ifdef Q_OS_WIN
-        activeCaptureDlg = this;
-        hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, GlobalMouseProc, GetModuleHandle(NULL), 0);
-        hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, GlobalKeyboardProc, GetModuleHandle(NULL), 0);
-#endif
-    }
-    
-    void closeEvent(QCloseEvent* e) override {
-#ifdef Q_OS_WIN
-        if (hMouseHook) {
-            UnhookWindowsHookEx(hMouseHook);
-            hMouseHook = NULL;
-        }
-        if (hKeyboardHook) {
-            UnhookWindowsHookEx(hKeyboardHook);
-            hKeyboardHook = NULL;
-        }
-        activeCaptureDlg = nullptr;
-#endif
-        QDialog::closeEvent(e);
-    }
-    
-    void keyPressEvent(QKeyEvent* e) override {
-        if (e->key() == Qt::Key_Escape) {
-            reject();
-        } else {
-            m_captureEdit->event(e);
-        }
-    }
-    
-    void mousePressEvent(QMouseEvent* e) override {
-        QString name;
-        switch (e->button()) {
-        case Qt::XButton1:     name = QString::fromLatin1(HotkeyEdit::kMouse4);      break;
-        case Qt::XButton2:     name = QString::fromLatin1(HotkeyEdit::kMouse5);      break;
-        case Qt::MiddleButton: name = QString::fromLatin1(HotkeyEdit::kMouseMiddle); break;
-        default: break;
-        }
-        if (!name.isEmpty()) {
-            onCaptured(name);
-        } else {
-            QDialog::mousePressEvent(e);
-        }
-    }
-private:
-    HotkeyEdit* m_captureEdit;
-    QString m_capturedSpec;
-};
-
-#ifdef Q_OS_WIN
-LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && activeCaptureDlg) {
-        if (wParam == WM_XBUTTONDOWN) {
-            MSLLHOOKSTRUCT* hs = (MSLLHOOKSTRUCT*)lParam;
-            int button = HIWORD(hs->mouseData);
-            QString name = (button == XBUTTON1) ? QStringLiteral("Mouse4") : QStringLiteral("Mouse5");
-            activeCaptureDlg->onCaptured(name);
-            return 1;
-        }
-        else if (wParam == WM_MBUTTONDOWN) {
-            activeCaptureDlg->onCaptured(QStringLiteral("MouseMeio"));
-            return 1;
-        }
-    }
-    return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
-}
-
-LRESULT CALLBACK GlobalKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && activeCaptureDlg) {
-        KBDLLHOOKSTRUCT* hs = (KBDLLHOOKSTRUCT*)lParam;
-        if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-            if (hs->vkCode == VK_ESCAPE) {
-                activeCaptureDlg->onCancelled();
-                return 1;
-            }
-            QString spec = NativeCapture::specFromVk(hs->vkCode);
-            if (!spec.isEmpty() && spec != QStringLiteral("!ignore")) {
-                activeCaptureDlg->onCaptured(spec);
-                return 1;
-            }
-        }
-    }
-    return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
-}
-#endif
-
 // ============================================================================
-HotkeyEdit::HotkeyEdit(QWidget* parent, bool isCaptureTarget) 
-    : QLineEdit(parent), m_isCaptureTarget(isCaptureTarget) {
+HotkeyEdit::HotkeyEdit(QWidget* parent) : QLineEdit(parent) {
     setReadOnly(true);
     setClearButtonEnabled(false);
     setFocusPolicy(Qt::StrongFocus);
     setPlaceholderText(tr("Clique aqui e pressione uma tecla ou botão do mouse"));
 #ifdef Q_OS_WIN
-    if (m_isCaptureTarget) {
-        m_native = new NativeCapture;
-        m_native->edit = this;
-        qApp->installNativeEventFilter(m_native);
-    }
+    m_native = new NativeCapture;
+    m_native->edit = this;
+    qApp->installNativeEventFilter(m_native);
 #endif
 }
 
@@ -351,6 +204,7 @@ bool HotkeyEdit::eventFilter(QObject* obj, QEvent* ev) {
         }
         if (!name.isEmpty()) {
             acceptSpec(name);
+            clearFocus(); // desarma imediatamente ao capturar!
             return true; // consome: evita navegação/fechar diálogo com o botão
         }
     }
@@ -362,6 +216,7 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* e) {
     const int key = e->key();
     if (key == Qt::Key_Escape || key == Qt::Key_Backspace || key == Qt::Key_Delete) {
         acceptSpec(QString());
+        clearFocus(); // desarma imediatamente!
         e->accept();
         return;
     }
@@ -379,60 +234,33 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* e) {
                                  Qt::ControlModifier | Qt::AltModifier |
                                  Qt::MetaModifier));
     acceptSpec(QKeySequence(combined).toString());
+    clearFocus(); // desarma imediatamente ao capturar!
     e->accept();
 }
 
 void HotkeyEdit::mousePressEvent(QMouseEvent* e) {
-    if (m_isCaptureTarget) {
-        QString name;
-        switch (e->button()) {
-        case Qt::XButton1:     name = QString::fromLatin1(kMouse4);      break;
-        case Qt::XButton2:     name = QString::fromLatin1(kMouse5);      break;
-        case Qt::MiddleButton: name = QString::fromLatin1(kMouseMiddle); break;
-        default: break;
-        }
-        if (!name.isEmpty()) {
-            acceptSpec(name);
-            e->accept();
-            return;
-        }
-        QLineEdit::mousePressEvent(e);
-    } else {
-        HotkeyCaptureDialog dlg(this);
-        if (dlg.exec() == QDialog::Accepted) {
-            acceptSpec(dlg.capturedSpec());
-        }
-        e->accept();
+    QString name;
+    switch (e->button()) {
+    case Qt::XButton1:     name = QString::fromLatin1(kMouse4);      break;
+    case Qt::XButton2:     name = QString::fromLatin1(kMouse5);      break;
+    case Qt::MiddleButton: name = QString::fromLatin1(kMouseMiddle); break;
+    default: break;
     }
+    if (!name.isEmpty()) {
+        acceptSpec(name);
+        clearFocus(); // desarma imediatamente ao capturar!
+        e->accept();
+        return;
+    }
+    QLineEdit::mousePressEvent(e);
 }
 
 void HotkeyEdit::focusInEvent(QFocusEvent* e) {
-    if (m_isCaptureTarget) {
-        setArmed(true);
-        QLineEdit::focusInEvent(e);
-    } else {
-        // Se o foco veio de um clique do mouse, o mousePressEvent
-        // (que roda logo depois) já vai abrir o diálogo de captura.
-        // Abrir aqui TAMBÉM causava um segundo diálogo em sequência,
-        // que acabava sobrescrevendo o botão do mouse já capturado
-        // com o que o usuário apertasse depois (normalmente uma tecla).
-        if (e->reason() == Qt::MouseFocusReason) {
-            QLineEdit::focusInEvent(e);
-            return;
-        }
-        HotkeyCaptureDialog dlg(this);
-        if (dlg.exec() == QDialog::Accepted) {
-            acceptSpec(dlg.capturedSpec());
-        }
-        clearFocus();
-    }
+    setArmed(true);
+    QLineEdit::focusInEvent(e);
 }
 
 void HotkeyEdit::focusOutEvent(QFocusEvent* e) {
-    if (m_isCaptureTarget) {
-        setArmed(false);
-        QLineEdit::focusOutEvent(e);
-    }
+    setArmed(false);
+    QLineEdit::focusOutEvent(e);
 }
-
-#include "HotkeyEdit.moc"
