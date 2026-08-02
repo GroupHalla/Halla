@@ -467,7 +467,11 @@ QWidget* OptionsDialog::pageHotkeys() {
         tr("Alternar transmissão contínua"),
     };
 
-    auto editRow = [&](int row) {
+    // IMPORTANTE: capturar por CÓPIA — esta lambda escapa para o connect()
+    // dos botões e é chamada depois que pageHotkeys() retorna. Com [&] as
+    // referências ficariam penduradas (stack morto) e o app fecha/crash,
+    // principalmente no Windows.
+    auto editRow = [=, this](int row) {
         QDialog d(w);
         d.setWindowTitle(row < 0 ? tr("Adicionar tecla de atalho") : tr("Editar tecla de atalho"));
         QFormLayout* f = new QFormLayout(&d);

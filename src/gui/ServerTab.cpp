@@ -5,13 +5,33 @@
 #include "AppLog.h"
 #include "dialogs/ChannelDialog.h"
 #include "dialogs/MiniDialogs.h"
+#include "net/NetSession.h"
+#include "net/VoiceEngine.h"
 
 #include <QVBoxLayout>
 #include <QSplitter>
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QApplication>
+#include <QJsonObject>
 #include <algorithm>
+
+// ServerData::Channel -> JSON do protocolo
+static QJsonObject chanToJson(const Channel& c) {
+    QJsonObject o;
+    o["id"] = c.id;
+    o["parent"] = c.parentId;
+    o["name"] = c.name;
+    o["topic"] = c.topic;
+    o["desc"] = c.description;
+    o["pass"] = c.passwordHash;
+    o["type"] = c.type;
+    o["moderated"] = c.moderated;
+    o["codec"] = c.codec;
+    o["quality"] = c.codecQuality;
+    o["max"] = c.maxClients;
+    return o;
+}
 
 ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     : QWidget(parent), m_data(initial) {
@@ -41,6 +61,70 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
 }
 
 QString ServerTab::tabTitle() const { return m_data.name; }
+
+// ============================================================ modo de rede
+void ServerTab::attachNetwork(NetSession* net) {
+    m_net = net;
+    net->attachTo(&m_data);
+
+    // estado vindo do servidor -> redesenha a árvore/informações
+    connect(net, &NetSession::stateChanged, this, [this] {
+        m_tree->rebuild();
+        emit statusChanged();
+    });
+
+    connect(net, &NetSession::chatReceived, this,
+            [this](const QString& scope, int fromId, const QString& fromName, const QString& text) {
+                if (scope == "server") {
+                    m_chat->addServerChat(fromName, text);
+                } else if (scope == "private") {
+                    m_chat->addPrivateTab(fromId, fromName);
+                    m_chat->addPrivateChat(fromId, fromName, text);
+                    if (S::flag("notify/messageSound", true)) QApplication::beep();
+                } else {
+                    m_chat->addChannelChat(fromName, text);
+                }
+            });
+
+    connect(net, &NetSession::systemEvent, this, [this](const QString& text) {
+        systemMsgServer(text);
+    });
+
+    connect(net, &NetSession::pokeReceived, this,
+            [this](const QString& fromName, const QString& msg) {
+                systemMsgServer(tr("Você foi cutucado por %1: %2").arg(fromName, msg));
+                if (S::flag("notify/pokeSound", true)) QApplication::beep();
+            });
+
+    connect(net, &NetSession::errorOccurred, this,
+            [this](const QString& code, const QString& msg) {
+                Q_UNUSED(code);
+                systemMsgServer(tr("Erro do servidor: %1").arg(msg));
+            });
+
+    connect(net, &NetSession::kickedReceived, this,
+            [this](const QString& reason, bool ban, int minutes) {
+                if (ban) {
+                    QMessageBox::warning(this, tr("Você foi banido"),
+                        tr("Você foi banido deste servidor%1%2.")
+                            .arg(reason.isEmpty() ? QString() : tr(".\nMotivo: %1").arg(reason))
+                            .arg(minutes > 0 ? tr("\nDuração: %1 minutos").arg(minutes)
+                                             : QString()));
+                } else if (!reason.isEmpty()) {
+                    systemMsgServer(tr("Você foi expulso%1").arg(tr(": %1").arg(reason)));
+                }
+            });
+
+    // ---- voz
+    m_voice = new VoiceEngine(net, &m_data, this);
+    if (m_voice->isActive()) {
+        connect(m_voice, &VoiceEngine::talkingChanged, this, [this](bool on) {
+            m_data.users[m_data.selfId].talking = on;
+            m_tree->rebuild();
+        });
+        emit statusChanged();
+    }
+}
 
 void ServerTab::applyDisplayOptions() {
     m_tree->setShowCounts(S::flag("design/showCounts", true));
@@ -88,6 +172,7 @@ void ServerTab::hookSignals() {
     connect(m_tree, &ServerTreeWidget::commanderToggled, this, [this] {
         User& self = m_data.users[m_data.selfId];
         self.commander = !self.commander;
+        if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
         systemMsgChannel(self.commander
             ? tr("Você agora é o comandante do canal.")
             : tr("Você não é mais o comandante do canal."));
@@ -112,6 +197,11 @@ void ServerTab::hookSignals() {
                                 : (fromServer ? KickBanDialog::KickServer
                                               : KickBanDialog::KickChannel), this);
         if (dlg.exec() != QDialog::Accepted) return;
+        if (m_net) {
+            if (isBan) m_net->ban(uid, dlg.reason(), dlg.banMinutes());
+            else       m_net->kick(uid, fromServer, dlg.reason());
+            return;
+        }
         User& self = m_data.users[m_data.selfId];
         if (uid == self.id) {
             systemMsgServer(tr("Você foi %1 do servidor.").arg(isBan ? tr("banido")
@@ -137,6 +227,7 @@ void ServerTab::hookSignals() {
         if (!m_data.users.contains(uid)) return;
         PokeDialog dlg(m_data.users[uid].name, this);
         if (dlg.exec() == QDialog::Accepted) {
+            if (m_net) { m_net->poke(uid, dlg.message()); return; }
             systemMsgChannel(tr("Você cutucou \"%1\": %2")
                                  .arg(m_data.users[uid].name, dlg.message()));
             if (S::flag("notify/pokeSound", true)) QApplication::beep();
@@ -145,6 +236,12 @@ void ServerTab::hookSignals() {
 
     connect(m_tree, &ServerTreeWidget::moveToMyChannelRequested, this, [this](int uid) {
         if (!m_data.users.contains(uid)) return;
+        if (m_net) {
+            // v2: o servidor move quem tem a permissão "move"
+            const int myChan = m_data.channelOfUser(m_data.selfId);
+            m_net->moveOther(uid, myChan);
+            return;
+        }
         const int myChan = m_data.channelOfUser(m_data.selfId);
         for (Channel& c : m_data.channels) c.users.removeAll(uid);
         m_data.channels[myChan].users << uid;
@@ -158,6 +255,10 @@ void ServerTab::hookSignals() {
 
     connect(m_chat, &ChatPanel::messageSent, this,
             [this](const QString& target, int targetId, const QString& text) {
+                if (m_net) {
+                    m_net->sendChat(target, targetId, text);
+                    return;
+                }
                 const QString& me = m_data.users[m_data.selfId].name;
                 if (target == "server") {
                     m_chat->addServerChat(me, text);
@@ -177,6 +278,22 @@ void ServerTab::joinChannel(int channelId) {
     User& self = m_data.users[m_data.selfId];
     const int oldChan = m_data.channelOfUser(self.id);
     if (oldChan == channelId) return;
+
+    // modo de rede: pergunta a senha (se houver) e envia ao servidor
+    if (m_net) {
+        Channel& c = m_data.channels[channelId];
+        QString pass;
+        if (c.hasPassword) {
+            bool ok = false;
+            pass = QInputDialog::getText(this, tr("Senha do canal"),
+                                         tr("O canal \"%1\" é protegido por senha.\nDigite a senha:")
+                                             .arg(c.name),
+                                         QLineEdit::Password, QString(), &ok);
+            if (!ok) return;
+        }
+        m_net->moveToChannel(channelId, pass);
+        return;
+    }
 
     Channel& c = m_data.channels[channelId];
     if (c.maxClients >= 0 && c.users.size() >= c.maxClients) {
@@ -213,6 +330,12 @@ void ServerTab::createChannel(int parentId) {
     if (dlg.exec() != QDialog::Accepted) return;
 
     Channel c = dlg.resultChannel();
+    if (m_net) {
+        c.parentId = parentId;
+        m_net->createChannel(chanToJson(c));
+        return;
+    }
+
     c.id = m_data.nextChannelId++;
     c.parentId = parentId;
     m_data.channels[c.id] = c;
@@ -229,6 +352,14 @@ void ServerTab::editChannel(int channelId) {
     if (dlg.exec() != QDialog::Accepted) return;
 
     Channel c = dlg.resultChannel();
+    if (m_net) {
+        QJsonObject o = chanToJson(c);
+        o["id"] = channelId;
+        o["parent"] = m_data.channels[channelId].parentId;
+        m_net->editChannel(o);
+        return;
+    }
+
     c.id = channelId;
     c.parentId = m_data.channels[channelId].parentId;
     c.users = m_data.channels[channelId].users;
@@ -260,6 +391,11 @@ void ServerTab::deleteChannel(int channelId) {
         != QMessageBox::Yes)
         return;
 
+    if (m_net) {
+        m_net->deleteChannel(channelId);
+        return;
+    }
+
     for (int uid : c.users)
         if (m_data.users.contains(uid)) {
             // move usuários para o canal padrão
@@ -281,6 +417,10 @@ void ServerTab::renameSelf() {
                                          self.name, &ok);
     if (!ok || name.trimmed().isEmpty()) return;
     name = name.trimmed().left(30);
+    if (m_net) {
+        m_net->rename(name);
+        return;
+    }
     systemMsgServer(tr("Você alterou o apelido de \"%1\" para \"%2\".").arg(self.name, name));
     AppLog::info(tr("Apelido alterado para \"%1\"").arg(name));
     self.name = name;
@@ -295,6 +435,10 @@ void ServerTab::setSelfDescription() {
     QString desc = QInputDialog::getMultiLineText(this, tr("Descrição do cliente"),
                                                   tr("Descrição:"), self.description, &ok);
     if (!ok) return;
+    if (m_net) {
+        m_net->setDescription(desc);
+        return;
+    }
     self.description = desc;
     m_tree->rebuild();
     emit statusChanged();
@@ -317,6 +461,7 @@ void ServerTab::setAway(bool on) {
     User& self = m_data.users[m_data.selfId];
     if (self.away == on) return;
     self.away = on;
+    if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
     systemMsgChannel(on ? tr("Você está ausente agora.") : tr("Você não está mais ausente."));
     AppLog::info(on ? tr("Estado: ausente") : tr("Estado: de volta"));
     m_tree->rebuild();
@@ -327,6 +472,8 @@ void ServerTab::setMicMuted(bool on) {
     User& self = m_data.users[m_data.selfId];
     if (self.inputMuted == on) return;
     self.inputMuted = on;
+    if (m_voice) m_voice->setTransmitEnabled(!on);
+    if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
     systemMsgChannel(on ? tr("Microfone mudo ativado.") : tr("Microfone mudo desativado."));
     m_tree->rebuild();
     emit statusChanged();
@@ -336,6 +483,8 @@ void ServerTab::setSpeakersMuted(bool on) {
     User& self = m_data.users[m_data.selfId];
     if (self.outputMuted == on) return;
     self.outputMuted = on;
+    if (m_voice) m_voice->setSpeakersEnabled(!on);
+    if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
     systemMsgChannel(on ? tr("Alto-falantes mudos.") : tr("Alto-falantes reativados."));
     m_tree->rebuild();
     emit statusChanged();

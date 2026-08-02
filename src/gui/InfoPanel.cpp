@@ -1,5 +1,6 @@
 #include "InfoPanel.h"
 #include "Icons.h"
+#include "app/Theme.h"
 
 #include <QVBoxLayout>
 
@@ -16,10 +17,8 @@ InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
     lay->addWidget(m_banner);
 
     m_view = new QTextBrowser(this);
+    m_view->setObjectName(QStringLiteral("infoView"));
     m_view->setOpenLinks(false);
-    m_view->setStyleSheet(QStringLiteral(
-        "QTextBrowser { background: #FFFFFF; color: #202020; border: 1px solid #C9CDD2; "
-        "border-top: none; font-size: 13px; }"));
     lay->addWidget(m_view, 1);
 
     m_timer = new QTimer(this);
@@ -61,9 +60,12 @@ QString InfoPanel::serverHtml() const {
     h += row(tr("Canais:"), QString::number(m_data->channels.size()));
     h += row(tr("Perda de pacotes:"), QStringLiteral("0,00%"));
     h += QStringLiteral("</table>");
-    h += QStringLiteral("<hr style=\"border:none; border-top:1px solid #DDD\">");
-    h += QStringLiteral("<div style=\"color:#333\">%1</div>")
-             .arg(m_data->motd.toHtmlEscaped());
+    const QString hrColor = HTheme::isDark() ? QStringLiteral("#4A4F56")
+                                             : QStringLiteral("#DDDDDD");
+    h += QStringLiteral("<hr style=\"border:none; border-top:1px solid ")
+         + hrColor + QStringLiteral("\">");
+    // MOTD: sem cor fixa — herda a cor do documento (funciona claro/escuro)
+    h += QStringLiteral("<div>%1</div>").arg(m_data->motd.toHtmlEscaped());
     return h;
 }
 
@@ -84,9 +86,9 @@ QString InfoPanel::channelHtml(const Channel& c) const {
     if (c.isDefault) h += row(tr("Canal padrão:"), tr("Sim"));
     h += QStringLiteral("</table>");
     if (!c.topic.isEmpty())
-        h += QStringLiteral("<p style=\"color:#333\"><b>%1</b></p>").arg(c.topic.toHtmlEscaped());
+        h += QStringLiteral("<p><b>%1</b></p>").arg(c.topic.toHtmlEscaped());
     if (!c.description.isEmpty())
-        h += QStringLiteral("<p style=\"color:#333\">%1</p>").arg(c.description.toHtmlEscaped());
+        h += QStringLiteral("<p>%1</p>").arg(c.description.toHtmlEscaped());
     return h;
 }
 
@@ -111,7 +113,7 @@ QString InfoPanel::userHtml(const User& u) const {
     if (!flags.isEmpty()) h += row(tr("Estado:"), flags.join(QStringLiteral(", ")));
     h += QStringLiteral("</table>");
     if (!u.description.isEmpty())
-        h += QStringLiteral("<p style=\"color:#333\"><i>%1</i></p>")
+        h += QStringLiteral("<p><i>%1</i></p>")
                  .arg(u.description.toHtmlEscaped());
     return h;
 }

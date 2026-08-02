@@ -134,11 +134,10 @@ ChatPanel::ChatPanel(QWidget* parent) : QWidget(parent) {
 
 QTextBrowser* ChatPanel::makeBrowser() {
     QTextBrowser* b = new QTextBrowser(m_tabs);
+    b->setObjectName(QStringLiteral("chatBrowser"));
     b->setOpenLinks(false);
     b->setReadOnly(true);
-    b->setStyleSheet(QStringLiteral(
-        "QTextBrowser { background: #FFFFFF; color: #202020; border: 1px solid #C9CDD2; "
-        "  font-size: 13px; }"));
+    // cores e borda vêm do tema global (HTheme)
     return b;
 }
 

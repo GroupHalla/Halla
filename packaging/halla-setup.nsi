@@ -1,6 +1,6 @@
 ; ============================================================================
 ; Halla — Instalador NSIS (Windows 64-bit)
-; Produz Halla-Setup-3.6.2.exe, um instalador clássico no estilo dos
+; Produz Halla-Setup-3.8.0.exe, um instalador clássico no estilo dos
 ; aplicativos Windows: licença, pasta de destino, atalhos e desinstalador.
 ; ============================================================================
 
@@ -8,7 +8,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !define APP_NAME      "Halla"
-!define APP_VERSION   "3.6.2"
+!define APP_VERSION   "3.8.0"
 !define APP_PUBLISHER "Halla"
 !define APP_EXE       "Halla.exe"
 !define APP_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${APP_EXE}"

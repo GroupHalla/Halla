@@ -59,14 +59,9 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     m_delegate = new ServerRowDelegate(this);
     setItemDelegate(m_delegate);
 
-    setStyleSheet(QStringLiteral(
-        "QTreeWidget { background: #FFFFFF; color: #202020; alternate-background-color: #F7F9FB; "
-        "  border: 1px solid #C9CDD2; }"
-        "QTreeWidget::item { height: 21px; padding: 0px; }"
-        "QTreeWidget::item:selected { background: #3B76B0; color: #FFFFFF; }"
-        "QTreeWidget::item:hover:!selected { background: #E4EEF8; }"
-        "QTreeWidget::branch { background: transparent; }"
-        "QTreeWidget::branch:has-children:closed { image: none; border-image: none; }"));
+    // as cores vêm do tema global (HTheme) — stylesheet fixo aqui impedia
+    // o tema escuro no Windows
+    setObjectName(QStringLiteral("serverTree"));
 
     connect(this, &QTreeWidget::currentItemChanged, this,
             [this](QTreeWidgetItem* cur, QTreeWidgetItem*) {
@@ -121,12 +116,13 @@ QString ServerTreeWidget::channelTooltip(const Channel& c) const {
 void ServerTreeWidget::rebuild() {
     if (!m_data) return;
 
-    // preserva estado de expansão
-    QSet<int> expanded;
+    // preserva itens COLAPSADOS (padrão TS3: tudo expandido — assim usuários
+    // que entram depois do primeiro rebuild nunca ficam invisíveis)
+    QSet<int> collapsed;
     std::function<void(QTreeWidgetItem*)> save = [&](QTreeWidgetItem* it) {
         if (!it) return;
-        if (it->isExpanded()) expanded.insert((it->data(0, RoleKind).toInt() << 24) |
-                                              it->data(0, RoleId).toInt());
+        if (!it->isExpanded()) collapsed.insert((it->data(0, RoleKind).toInt() << 24) |
+                                                it->data(0, RoleId).toInt());
         for (int i = 0; i < it->childCount(); ++i) save(it->child(i));
     };
     for (int i = 0; i < topLevelItemCount(); ++i) save(topLevelItem(i));
@@ -153,7 +149,7 @@ void ServerTreeWidget::rebuild() {
         buildChannelItem(m_data->channels[cid], root);
 
     addTopLevelItem(root);
-    root->setExpanded(expanded.isEmpty() || expanded.contains(NodeServer << 24));
+    root->setExpanded(!collapsed.contains(NodeServer << 24));
 
     blockSignals(false);
 
@@ -175,10 +171,10 @@ void ServerTreeWidget::rebuild() {
         setCurrentItem(root);
     }
 
-    // expandir de acordo com estado salvo
+    // reexpandir tudo, exceto o que o usuário colapsou explicitamente
     std::function<void(QTreeWidgetItem*)> expand = [&](QTreeWidgetItem* it) {
         const int key = (it->data(0, RoleKind).toInt() << 24) | it->data(0, RoleId).toInt();
-        if (expanded.contains(key)) it->setExpanded(true);
+        it->setExpanded(!collapsed.contains(key));
         for (int i = 0; i < it->childCount(); ++i) expand(it->child(i));
     };
     for (int i = 0; i < topLevelItemCount(); ++i) expand(topLevelItem(i));

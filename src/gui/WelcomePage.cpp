@@ -8,10 +8,9 @@
 #include <QStyle>
 
 WelcomePage::WelcomePage(QWidget* parent) : QWidget(parent) {
+    // fundo/cores vêm do tema global (HTheme) via objectName
+    setObjectName(QStringLiteral("welcomePage"));
     setAutoFillBackground(true);
-    QPalette pal = palette();
-    pal.setColor(QPalette::Window, QColor("#E8EAED"));
-    setPalette(pal);
 
     QVBoxLayout* lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
@@ -23,11 +22,11 @@ WelcomePage::WelcomePage(QWidget* parent) : QWidget(parent) {
     lay->addWidget(logo);
 
     QLabel* title = new QLabel(QStringLiteral("Halla"), this);
+    title->setObjectName(QStringLiteral("welcomeTitle"));
     QFont f = title->font();
     f.setPixelSize(30);
     f.setBold(true);
     title->setFont(f);
-    title->setStyleSheet(QStringLiteral("color:#5A6B7A"));
     title->setAlignment(Qt::AlignHCenter);
     lay->addWidget(title);
 
@@ -35,7 +34,7 @@ WelcomePage::WelcomePage(QWidget* parent) : QWidget(parent) {
     f.setPixelSize(13);
     f.setBold(false);
     hint->setFont(f);
-    hint->setStyleSheet(QStringLiteral("color:#8A939B"));
+    hint->setObjectName(QStringLiteral("welcomeHint"));
     hint->setAlignment(Qt::AlignHCenter);
     lay->addWidget(hint);
 

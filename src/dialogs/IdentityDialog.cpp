@@ -40,8 +40,13 @@ QList<QStringList> IdentityDialog::loadAll() {
                                  o["uid"].toString() };
         }
     }
-    if (rows.isEmpty()) // identidade inicial
+    if (rows.isEmpty()) {
+        // identidade inicial: gerar UMA vez e persistir — o ID único precisa
+        // ser estável entre execuções (o servidor o usa para bans, grupos e
+        // chaves de privilégio)
         rows << QStringList{ "1", tr("HallaUser"), QString(), generateUniqueId() };
+        saveAll(rows);
+    }
     return rows;
 }
 

@@ -1,10 +1,12 @@
 #include "MainWindow.h"
+#include "Theme.h"
 #include "gui/ServerTab.h"
 #include "gui/ServerTreeWidget.h"
 #include "gui/ChatPanel.h"
 #include "gui/WelcomePage.h"
 #include "gui/InfoPanel.h"
 #include "gui/Icons.h"
+#include "net/NetSession.h"
 #include "core/Settings.h"
 #include "core/AppLog.h"
 #include "dialogs/ConnectDialog.h"
@@ -346,40 +348,64 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 // ======================================================================
 void MainWindow::connectTo(const QString& address, quint16 port, const QString& nickname,
                            const QString& password) {
-    Q_UNUSED(password);
+    const QString nick = nickname.isEmpty() ? IdentityDialog::defaultNickname() : nickname;
+    // ID único da identidade PADRÃO (estável — gerado e persistido uma vez)
+    QString uid;
+    for (const QStringList& r : IdentityDialog::loadAll())
+        if (r.value(0) == "1") { uid = r.value(3); break; }
+    if (uid.isEmpty()) uid = IdentityDialog::loadAll().value(0).value(3);
 
-    ServerData d;
-    d.address = port == 9987 ? address : QStringLiteral("%1:%2").arg(address).arg(port);
-    d.name = address;
-    d.connectedAt = QDateTime::currentDateTime();
+    NetSession* net = new NetSession(this);
+    net->connectToServer(address, port, nick, uid, password);
 
-    User self;
-    self.id = 1;
-    self.name = nickname.isEmpty() ? IdentityDialog::defaultNickname() : nickname;
-    self.uniqueId = IdentityDialog::loadAll().isEmpty()
-                        ? QStringLiteral("HALLAself00000000000000000000=")
-                        : IdentityDialog::loadAll().first().value(3);
-    self.connectedAt = QDateTime::currentDateTime();
-    d.users[self.id] = self;
+    // falha de conexão / login recusado
+    connect(net, &NetSession::connectionFailed, this, [this, net, address, port](const QString& reason) {
+        QMessageBox::warning(this, tr("Erro ao conectar"),
+                             tr("<b>Falha ao conectar ao servidor %1:%2</b><br>%3")
+                                 .arg(address).arg(port).arg(reason.toHtmlEscaped()));
+        net->deleteLater();
+    });
 
-    Channel def;
-    def.id = d.nextChannelId++;
-    def.parentId = 0;
-    def.name = tr("Canal padrão");
-    def.isDefault = true;
-    def.type = 2;
-    def.codec = 4;
-    def.codecQuality = 6;
-    def.maxClients = -1;
-    def.users << self.id;
-    d.channels[def.id] = def;
+    // login aceito: cria a aba do servidor
+    connect(net, &NetSession::welcomeReceived, this, [this, net, address, port] {
+        ServerTab* tab = new ServerTab(net->data(), m_tabs);
+        ServerData& d = tab->data();
+        // copia tudo que o NetSession já descarregou no welcome
+        d = net->data();
+        tab->attachNetwork(net);
 
-    ServerTab* tab = new ServerTab(d, m_tabs);
-    const int idx = m_tabs->addTab(tab, HIcons::server(), d.name);
-    m_tabs->setCurrentIndex(idx);
-    m_tabs->setTabToolTip(idx, tr("Servidor: %1").arg(d.address));
+        const int idx = m_tabs->addTab(tab, HIcons::server(), d.name);
+        m_tabs->setCurrentIndex(idx);
+        m_tabs->setTabToolTip(idx, tr("Servidor: %1").arg(d.address));
+        wireTab(tab);
 
-    // sinais da aba
+        tab->chat()->addServerSystem(tr("Conectado ao servidor: %1").arg(d.address));
+
+        // ping real -> barra de status
+        connect(net, &NetSession::pingUpdated, this,
+                [this, net](int) { updateStatusBar(); });
+        connect(net, &NetSession::disconnectedUnexpected, this, [this, tab] {
+            tab->chat()->addServerSystem(tr("Desconectado do servidor."));
+            disconnectTab(tab, false);
+        });
+
+        if (S::flag("notify/connectSound", true)) QApplication::beep();
+
+        m_info->setData(&tab->data());
+        m_info->setSelection(0, 0);
+
+        S::set("connect/nickname", net->data().users[net->data().selfId].name);
+        addRecent(address, port);
+        saveSession();
+
+        m_stack->setCurrentWidget(m_center);
+        updateConnectionUi();
+        updateStatusBar();
+    });
+}
+
+// fiações comuns de uma aba (local ou de rede)
+void MainWindow::wireTab(ServerTab* tab) {
     connect(tab, &ServerTab::disconnectRequested, this, [this, tab] { disconnectTab(tab); });
     connect(tab, &ServerTab::addBookmarkRequested, this, [this, tab] {
         openBookmarksDialog(tab->data().name, tab->data().address);
@@ -401,21 +427,19 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
             m_info->refresh();
         }
     });
+}
 
-    tab->chat()->addServerSystem(tr("Conectado ao servidor: %1").arg(d.address));
-    tab->chat()->addChannelSystem(tr("Você entrou no canal \"%1\".").arg(def.name));
-
-    if (S::flag("notify/connectSound", true)) QApplication::beep();
-
+// aba local offline (modo --demo para capturas de tela)
+void MainWindow::createLocalTab(const ServerData& initial) {
+    ServerTab* tab = new ServerTab(initial, m_tabs);
+    const int idx = m_tabs->addTab(tab, HIcons::server(), initial.name);
+    m_tabs->setCurrentIndex(idx);
+    wireTab(tab);
+    tab->chat()->addServerSystem(tr("Conectado ao servidor: %1").arg(initial.address));
+    tab->chat()->addChannelSystem(tr("Você entrou no canal \"%1\".")
+                                      .arg(initial.channels.first().name));
     m_info->setData(&tab->data());
     m_info->setSelection(0, 0);
-
-    S::set("connect/nickname", self.name);
-    addRecent(address, port);
-    saveSession();
-
-    AppLog::info(tr("Conectado a %1 como %2").arg(d.address, self.name));
-
     m_stack->setCurrentWidget(m_center);
     updateConnectionUi();
     updateStatusBar();
@@ -423,6 +447,7 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
 
 void MainWindow::disconnectTab(ServerTab* tab, bool notify) {
     if (!tab) return;
+    if (tab->net()) tab->net()->quit();
     const int idx = m_tabs->indexOf(tab);
     const QString addr = tab->data().address;
     m_tabs->removeTab(idx);
@@ -604,9 +629,12 @@ void MainWindow::updateStatusBar() {
         m_statusText->setText(tr("Conectado a %1 como %2")
                                   .arg(t->data().address,
                                        t->data().users[t->data().selfId].name));
-        m_pingLabel->setText(tr("Ping: %1 ms   Perda de pacotes: %2%")
-                                 .arg(QRandomGenerator::global()->bounded(0, 2))
-                                 .arg(QStringLiteral("0,00")));
+        if (NetSession* net = t->net()) {
+            m_pingLabel->setText(tr("Ping: %1 ms   Perda de pacotes: %2%")
+                                     .arg(net->pingMs()).arg(QStringLiteral("0,00")));
+        } else {
+            m_pingLabel->setText(tr("Ping: --"));
+        }
     } else if (m_tabs->count() > 0) {
         m_statusIcon->setPixmap(HIcons::connectPlug().pixmap(14, 14));
         m_statusText->setText(tr("%1 conexões abertas").arg(m_tabs->count()));
@@ -620,31 +648,11 @@ void MainWindow::updateStatusBar() {
 
 // ======================================================================
 void MainWindow::applyTheme() {
-    const bool dark = S::num("design/theme", 0) == 1;
-    QApplication::setStyle(QStringLiteral("fusion"));
-    QPalette pal;
-    if (dark) {
-        pal.setColor(QPalette::Window, QColor("#2B2E33"));
-        pal.setColor(QPalette::WindowText, QColor("#DCDFE3"));
-        pal.setColor(QPalette::Base, QColor("#24272C"));
-        pal.setColor(QPalette::AlternateBase, QColor("#2B2E33"));
-        pal.setColor(QPalette::ToolTipBase, QColor("#1D1F23"));
-        pal.setColor(QPalette::ToolTipText, QColor("#DCDFE3"));
-        pal.setColor(QPalette::Text, QColor("#DCDFE3"));
-        pal.setColor(QPalette::Button, QColor("#33373D"));
-        pal.setColor(QPalette::ButtonText, QColor("#DCDFE3"));
-        pal.setColor(QPalette::BrightText, Qt::red);
-        pal.setColor(QPalette::Link, QColor("#5EA3E0"));
-        pal.setColor(QPalette::Highlight, QColor("#3B6E9E"));
-        pal.setColor(QPalette::HighlightedText, Qt::white);
-        pal.setColor(QPalette::PlaceholderText, QColor("#7A828B"));
-    } else {
-        pal = QApplication::style()->standardPalette();
-        pal.setColor(QPalette::Link, HIcons::blue());
-        pal.setColor(QPalette::Highlight, QColor("#3B76B0"));
-        pal.setColor(QPalette::HighlightedText, Qt::white);
-    }
-    QApplication::setPalette(pal);
+    // tema centralizado: estilo + paleta + stylesheet global (funciona
+    // também no Windows, onde stylesheet fixo ignorava a paleta)
+    HTheme::apply();
+    // força repintura dos widgets que pintam manualmente
+    if (m_welcome) m_welcome->update();
 }
 
 void MainWindow::applyHotkeys() {
@@ -728,7 +736,19 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
 
 // ======================================================================
 void MainWindow::loadDemoState() {
-    connectTo(QStringLiteral("meuservidor.exemplo.com"), 9987, QStringLiteral("Admin"));
+    // estado local offline para capturas de tela
+    ServerData init;
+    init.name = QStringLiteral("meuservidor.exemplo.com");
+    init.address = init.name;
+    User self;
+    self.id = 1; self.name = QStringLiteral("Admin");
+    Channel def; def.id = 1; def.name = tr("Canal padrão"); def.isDefault = true;
+    def.users << 1;
+    init.users[1] = self;
+    init.channels[1] = def;
+    init.nextChannelId = 2;
+    createLocalTab(init);
+
     ServerTab* t = currentTab();
     if (!t) return;
     ServerData& d = t->data();
@@ -747,3 +767,5 @@ void MainWindow::loadDemoState() {
     t->chat()->addServerChat(QStringLiteral("Admin"), QStringLiteral("Olá! [b]Bem-vindo[/b] ao Halla =)"));
     t->chat()->addChannelSystem(tr("Você entrou no canal \"Canal padrão\"."));
 }
+
+// -- restauração de sessão usa a rede (já era) ---------------------------
