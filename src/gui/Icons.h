@@ -37,7 +37,7 @@ QIcon server();
 QIcon channel(bool hasPassword, bool moderated, bool isDefault, bool full);
 QIcon user(bool talking, bool away, int size = 20);
 QPixmap userStatusMinis(bool inputMuted, bool outputMuted, bool away,
-                        bool recording, bool commander);
+                        bool recording, bool commander, bool op = false);
 
 // menus / diálogos
 QIcon identity();
@@ -58,5 +58,6 @@ QIcon fileNew();
 QIcon editPencil();
 QIcon trash();
 QIcon check();
+QIcon record(bool on);
 
 } // namespace HIcons

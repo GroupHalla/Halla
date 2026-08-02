@@ -219,6 +219,115 @@ void NetSession::quit() {
     m_tcp->disconnectFromHost();
 }
 
+// ================================================== ações v3
+void NetSession::avatarSet(const QByteArray& imageBytes) {
+    QJsonObject m = HProto::msg("avatar_set");
+    m["data"] = QString::fromLatin1(imageBytes.toBase64());
+    send(m);
+}
+
+void NetSession::avatarGet(const QString& uid) {
+    QJsonObject m = HProto::msg("avatar_get");
+    m["uid"] = uid;
+    send(m);
+}
+
+void NetSession::offlineSend(const QString& uid, const QString& text) {
+    QJsonObject m = HProto::msg("offline_send");
+    m["uid"] = uid;
+    m["text"] = text;
+    send(m);
+}
+
+void NetSession::complaintAdd(int userId, const QString& text) {
+    QJsonObject m = HProto::msg("complaint_add");
+    m["id"] = userId;
+    m["text"] = text;
+    send(m);
+}
+
+void NetSession::complaintList() { send(HProto::msg("complaint_list")); }
+
+void NetSession::complaintClear(const QString& uid) {
+    QJsonObject m = HProto::msg("complaint_clear");
+    if (!uid.isEmpty()) m["uid"] = uid;
+    send(m);
+}
+
+void NetSession::setWhisperIds(const QList<int>& ids) {
+    QJsonObject m = HProto::msg("whisper");
+    QJsonArray arr;
+    for (int id : ids) arr << id;
+    m["ids"] = arr;
+    send(m);
+}
+
+void NetSession::ftUpload(int channel, const QString& name, const QByteArray& data) {
+    QJsonObject m = HProto::msg("ft_upload");
+    m["channel"] = channel;
+    m["name"] = name;
+    m["data"] = QString::fromLatin1(data.toBase64());
+    send(m);
+}
+
+void NetSession::ftList(int channel) {
+    QJsonObject m = HProto::msg("ft_list");
+    m["channel"] = channel;
+    send(m);
+}
+
+void NetSession::ftDownload(int channel, const QString& name) {
+    QJsonObject m = HProto::msg("ft_download");
+    m["channel"] = channel;
+    m["name"] = name;
+    send(m);
+}
+
+void NetSession::ftDelete(int channel, const QString& name) {
+    QJsonObject m = HProto::msg("ft_delete");
+    m["channel"] = channel;
+    m["name"] = name;
+    send(m);
+}
+
+void NetSession::requestBanList() { send(HProto::msg("banlist")); }
+
+void NetSession::unban(const QString& uid) {
+    QJsonObject m = HProto::msg("unban");
+    m["uid"] = uid;
+    send(m);
+}
+
+void NetSession::requestGroupList() { send(HProto::msg("group_list")); }
+
+void NetSession::groupSet(int id, const QString& name, const QJsonObject& perms) {
+    QJsonObject m = HProto::msg("group_set");
+    if (id > 0) m["id"] = id;
+    if (!name.isEmpty()) m["name"] = name;
+    if (!perms.isEmpty()) m["perms"] = perms;
+    send(m);
+}
+
+void NetSession::groupDelete(int id) {
+    QJsonObject m = HProto::msg("group_delete");
+    m["id"] = id;
+    send(m);
+}
+
+void NetSession::clientSetGroup(int userId, int gid) {
+    QJsonObject m = HProto::msg("client_set_group");
+    m["id"] = userId;
+    m["gid"] = gid;
+    send(m);
+}
+
+void NetSession::serverEdit(const QString& name, const QString& motd) {
+    QJsonObject m = HProto::msg("server_edit");
+    if (!name.isEmpty()) m["name"] = name;
+    m["motd"] = motd;
+    send(m);
+}
+
 // ==================================================================== estado
 void NetSession::applyUserJson(const QJsonObject& u) {
     ServerData& d = target();
@@ -235,8 +344,11 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.away = u["away"].toBool();
     usr.recording = u["rec"].toBool();
     usr.commander = u["cc"].toBool();
+    usr.avatarHash = u["av"].toString();               // v3
+    usr.op = d.users.value(usr.id).op;                 // preserva flag de operador
     usr.talking = u["talking"].toBool();
     d.users[usr.id] = usr;
+    refreshOperators();                                // recalcula ops por canal
 }
 
 void NetSession::applyChanJson(const QJsonObject& c) {
@@ -256,8 +368,22 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     ch.maxClients = c["max"].toInt(-1);
     ch.users.clear();
     for (const QJsonValue& v : c["users"].toArray()) ch.users << v.toInt();
+    ch.opUids.clear();
+    for (const QJsonValue& v : c["ops"].toArray()) ch.opUids << v.toString(); // v3
     d.channels[ch.id] = ch;
     if (ch.id >= d.nextChannelId) d.nextChannelId = ch.id + 1;
+    refreshOperators();
+}
+
+// v3: marca user.op conforme a lista de operadores (UID) do canal em que ele está
+void NetSession::refreshOperators() {
+    ServerData& d = target();
+    for (User& u : d.users) u.op = false;
+    for (const Channel& ch : d.channels)
+        for (int uid : ch.users)
+            if (d.users.contains(uid)
+                    && ch.opUids.contains(d.users[uid].uniqueId))
+                d.users[uid].op = true;
 }
 
 void NetSession::handleMessage(const QJsonObject& obj) {
@@ -291,6 +417,10 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         d.channels.clear();
         d.nextChannelId = 1;
         for (const QJsonValue& v : obj["channels"].toArray()) applyChanJson(v.toObject());
+
+        // v3: minhas permissões + lista de grupos do servidor
+        m_myPerms = obj["myPerms"].toObject();
+        m_groups  = obj["groups"].toArray();
 
         QJsonObject voice = obj["voice"].toObject();
         m_udpPort = quint16(voice["udp"].toInt());
@@ -394,6 +524,70 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "poke") {
         emit pokeReceived(obj["fromName"].toString(""), obj["msg"].toString());
+        return;
+    }
+    if (t == "user_avatar") {
+        const int id = obj["id"].toInt();
+        if (d.users.contains(id)) d.users[id].avatarHash = obj["av"].toString();
+        emit userAvatarChanged(id, obj["av"].toString());
+        emit stateChanged();
+        return;
+    }
+    if (t == "avatar_data") {
+        emit avatarDataReceived(obj["uid"].toString(),
+                                QByteArray::fromBase64(obj["data"].toString().toLatin1()));
+        return;
+    }
+    if (t == "offline_msg") {
+        emit offlineMsgReceived(obj["fromName"].toString(), obj["text"].toString(),
+                                obj["ts"].toString());
+        return;
+    }
+    if (t == "offline_sent") {
+        emit offlineSendConfirmed(obj["uid"].toString());
+        return;
+    }
+    if (t == "complaint_list") {
+        emit complaintListReceived(obj["complaints"].toArray());
+        return;
+    }
+    if (t == "complaint_added" || t == "complaint_cleared") {
+        emit systemEvent(t == "complaint_added"
+                             ? QStringLiteral("Reclamação registrada")
+                             : QStringLiteral("Reclamações limpas"));
+        return;
+    }
+    if (t == "banlist") {
+        emit banListReceived(obj["bans"].toArray());
+        return;
+    }
+    if (t == "ban_removed") {
+        emit systemEvent(QStringLiteral("Banimento removido"));
+        return;
+    }
+    if (t == "group_list") {
+        emit groupListReceived(obj["groups"].toArray());
+        return;
+    }
+    if (t == "ft_list") {
+        emit ftListReceived(obj["channel"].toInt(), obj["files"].toArray());
+        return;
+    }
+    if (t == "ft_data") {
+        emit ftDataReceived(obj["channel"].toInt(), obj["name"].toString(),
+                            QByteArray::fromBase64(obj["data"].toString().toLatin1()));
+        return;
+    }
+    if (t == "ft_uploaded") {
+        emit ftUploadConfirmed(obj["channel"].toInt(), obj["name"].toString());
+        return;
+    }
+    if (t == "ft_deleted") {
+        emit ftDeleteConfirmed(obj["channel"].toInt(), obj["name"].toString());
+        return;
+    }
+    if (t == "whisper_ok") {
+        emit whisperConfirmed(obj["count"].toInt());
         return;
     }
     if (t == "kicked") {

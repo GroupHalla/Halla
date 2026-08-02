@@ -17,7 +17,10 @@
 #include "dialogs/MiniDialogs.h"
 #include "dialogs/LogDialog.h"
 #include "dialogs/ToolsDialogs.h"
+#include "dialogs/AdminDialogs.h"
 #include "dialogs/AboutDialog.h"
+#include "net/VoiceEngine.h"
+#include "SoundPack.h"
 #include "version.h"
 
 #include <QMenuBar>
@@ -38,6 +41,9 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QRandomGenerator>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(QString::fromUtf8(halla::kAppName));
@@ -99,22 +105,61 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                                          [this] {
                                              ServerTab* t = currentTab();
                                              if (!t) return;
-                                             GroupsDialog dlg(&t->data(), this);
-                                             dlg.exec();
+                                             if (t->isNetworked()) {
+                                                 ServerGroupsDialog dlg(t->net(), &t->data(), this);
+                                                 dlg.exec();
+                                             } else {
+                                                 GroupsDialog dlg(&t->data(), this);
+                                                 dlg.exec();
+                                             }
                                              t->tree()->rebuild();
                                              m_info->refresh();
                                          });
-    QMenu* mChanGroups = mPerm->addMenu(tr("Grupos de canais"));
-    mChanGroups->addAction(tr("(edição disponível na janela Grupos de servidores)"))
-        ->setEnabled(false);
-    mPerm->addSeparator();
-    mPerm->addAction(tr("Mostrar permissões do usuário..."), this,
+    m_actMyPerms = mPerm->addAction(tr("Mostrar permissões do usuário..."), this,
                      [this] {
                          ServerTab* t = currentTab();
                          if (!t) return;
-                         GroupsDialog dlg(&t->data(), this);
+                         if (t->isNetworked()) {
+                             const ServerData& d = t->data();
+                             PermissionsOverviewDialog dlg(
+                                 t->net()->myPerms(),
+                                 d.users.value(d.selfId).serverGroups, this);
+                             dlg.exec();
+                         } else {
+                             GroupsDialog dlg(&t->data(), this);
+                             dlg.exec();
+                         }
+                     });
+    m_actBanList = mPerm->addAction(tr("Lista de banidos..."), this,
+                     [this] {
+                         ServerTab* t = currentTab();
+                         if (!t || !t->isNetworked()) {
+                             QMessageBox::information(this, tr("Lista de banidos"),
+                                 tr("A lista de banidos está disponível apenas conectado "
+                                    "a um Halla Server."));
+                             return;
+                         }
+                         BanListDialog dlg(t->net(), this);
                          dlg.exec();
                      });
+    m_actComplaints = mPerm->addAction(tr("Reclamações..."), this,
+                     [this] {
+                         ServerTab* t = currentTab();
+                         if (!t || !t->isNetworked()) {
+                             QMessageBox::information(this, tr("Reclamações"),
+                                 tr("Reclamações estão disponíveis apenas conectado "
+                                    "a um Halla Server."));
+                             return;
+                         }
+                         ComplaintsDialog dlg(t->net(), this);
+                         dlg.exec();
+                     });
+    mPerm->addSeparator();
+    QMenu* mChanGroups = mPerm->addMenu(tr("Grupos de canais"));
+    mChanGroups->addAction(tr("Operador de canal: quem cria o canal gerencia"))
+        ->setEnabled(false);
+    mChanGroups->addAction(tr("(membros temporários de canais seguem o grupo global)"))
+        ->setEnabled(false);
 
     QMenu* mTools = menuBar()->addMenu(tr("Fer&ramentas"));
     mTools->addAction(HIcons::logPage(), tr("Registro do cliente"), this,
@@ -125,14 +170,73 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                           m_log->activateWindow();
                       });
     mTools->addAction(HIcons::transfer(), tr("Transferência de arquivos..."), this,
-                      [this] { FileTransferDialog dlg(this); dlg.exec(); });
+                      [this] {
+                          ServerTab* t = currentTab();
+                          if (!t || !t->isNetworked()) {
+                              QMessageBox::information(this, tr("Transferência de arquivos"),
+                                  tr("Conecte-se a um Halla Server para compartilhar "
+                                     "arquivos por canal."));
+                              return;
+                          }
+                          FileTransferDialog dlg(t->net(), &t->data(), this);
+                          dlg.exec();
+                      });
+    mTools->addAction(HIcons::contacts(), tr("Mensagens offline..."), this,
+                      [this] {
+                          if (ServerTab* t = currentTab()) t->openOfflineMessages();
+                      });
     mTools->addSeparator();
+
+    // ---- gravação local (compartilhada com a barra de ferramentas)
+    m_actRecord = mTools->addAction(HIcons::record(false), tr("Iniciar gravação"), this,
+                                    [this] {
+                                        ServerTab* t = currentTab();
+                                        if (!t) return;
+                                        t->toggleRecording();
+                                        updateConnectionUi();
+                                    });
+    m_actRecord->setCheckable(true);
+    mTools->addSeparator();
+
+    // ---- avatar
+    QMenu* mAvatar = mTools->addMenu(tr("Avatar"));
+    mAvatar->addAction(tr("Definir avatar..."), this, [this] {
+        if (ServerTab* t = currentTab()) t->setAvatarInteractive();
+    });
+    mAvatar->addAction(tr("Remover avatar"), this, [this] {
+        if (ServerTab* t = currentTab()) t->removeAvatar();
+    });
+
     mTools->addAction(HIcons::identity(), tr("Identidades..."), this,
                       [this] { IdentityDialog dlg(this); dlg.exec(); });
     mTools->addAction(HIcons::contacts(), tr("Contatos..."), this,
                       [this] { ContactsDialog dlg(this); dlg.exec(); });
+
+    // ---- sussurro (voz direcionada a usuários específicos)
+    m_actWhisper = mTools->addAction(tr("Ativar sussurro"), this, [this](bool on) {
+        ServerTab* t = currentTab();
+        if (!t) return;
+        if (on) {
+            const QStringList uids = WhisperDialog::activeWhisperUids();
+            if (uids.isEmpty()) {
+                m_actWhisper->setChecked(false);
+                QMessageBox::information(this, tr("Sussurro"),
+                    tr("Configure uma lista em \"Listas de sussurro...\" e clique "
+                       "em \"Usar esta lista\"."));
+                return;
+            }
+            t->setWhisperUids(uids);
+        } else {
+            t->setWhisperUids({});
+        }
+    });
+    m_actWhisper->setCheckable(true);
     mTools->addAction(tr("Listas de sussurro..."), this,
-                      [this] { WhisperDialog dlg(this); dlg.exec(); });
+                      [this] {
+                          ServerTab* t = currentTab();
+                          WhisperDialog dlg(t ? &t->data() : nullptr, this);
+                          dlg.exec();
+                      });
     mTools->addSeparator();
     mTools->addAction(HIcons::optionsGear(), tr("Opções..."), this,
                       [this] {
@@ -188,6 +292,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                                      updateConnectionUi();
                                  });
     m_actMuteSpk->setCheckable(true);
+
+    tb->addAction(m_actRecord);
+    m_actRecord->setToolTip(tr("Iniciar/parar gravação (arquivo WAV local)"));
 
     tb->addSeparator();
     QToolButton* logBtn = new QToolButton(tb);
@@ -389,7 +496,7 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
             disconnectTab(tab, false);
         });
 
-        if (S::flag("notify/connectSound", true)) QApplication::beep();
+        if (S::flag("notify/connectSound", true)) HSound::play(QStringLiteral("connected"));
 
         m_info->setData(&tab->data());
         m_info->setSelection(0, 0);
@@ -454,7 +561,8 @@ void MainWindow::disconnectTab(ServerTab* tab, bool notify) {
     tab->deleteLater();
 
     AppLog::info(tr("Desconectado de %1").arg(addr));
-    if (notify && S::flag("notify/disconnectSound", true)) QApplication::beep();
+    if (notify && S::flag("notify/disconnectSound", true))
+        HSound::play(QStringLiteral("disconnected"));
 
     saveSession();
     if (m_tabs->count() == 0) {
@@ -605,20 +713,31 @@ void MainWindow::updateConnectionUi() {
     m_actAway->setEnabled(connected);
     m_actMuteMic->setEnabled(connected);
     m_actMuteSpk->setEnabled(connected);
+    m_actRecord->setEnabled(connected);
+    m_actWhisper->setEnabled(connected);
 
     if (connected) {
         m_actAway->blockSignals(true);
         m_actMuteMic->blockSignals(true);
         m_actMuteSpk->blockSignals(true);
+        m_actRecord->blockSignals(true);
+        m_actWhisper->blockSignals(true);
         m_actAway->setChecked(t->isAway());
         m_actMuteMic->setChecked(t->isMicMuted());
         m_actMuteSpk->setChecked(t->isSpkMuted());
+        m_actRecord->setChecked(t->isRecording());
+        m_actWhisper->setChecked(t->whisperActive());
+        m_actRecord->setText(t->isRecording() ? tr("Parar gravação")
+                                              : tr("Iniciar gravação"));
         m_actAway->blockSignals(false);
         m_actMuteMic->blockSignals(false);
         m_actMuteSpk->blockSignals(false);
+        m_actRecord->blockSignals(false);
+        m_actWhisper->blockSignals(false);
         m_actAway->setIcon(HIcons::away(t->isAway()));
         m_actMuteMic->setIcon(HIcons::muteMic(t->isMicMuted()));
         m_actMuteSpk->setIcon(HIcons::muteSpeaker(t->isSpkMuted()));
+        m_actRecord->setIcon(HIcons::record(t->isRecording()));
     }
 }
 
@@ -701,6 +820,9 @@ void MainWindow::applyHotkeys() {
         }
         m_hotkeyShortcuts << sc;
     }
+
+    // (re)registra a tecla PTT global do sistema (Windows)
+    registerPttHotkey();
 }
 
 // ======================================================================
@@ -732,6 +854,87 @@ void MainWindow::closeEvent(QCloseEvent* e) {
 
 bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
     return QMainWindow::eventFilter(obj, ev);
+}
+
+// ======================================================================
+// PTT global: RegisterHotKey funciona com a janela EM SEGUNDO PLANO
+// (equivale ao push-to-talk do TeamSpeak no Windows)
+// ======================================================================
+bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
+                             qintptr* result) {
+#ifdef Q_OS_WIN
+    if (eventType == QByteArrayLiteral("windows_generic_MSG") ||
+        eventType == QByteArrayLiteral("windows_dispatcher_MSG")) {
+        MSG* msg = static_cast<MSG*>(message);
+        if (msg->message == WM_HOTKEY && msg->wParam == 1) {
+            pttSetHeld(true); // a soltura é detectada por polling (GetAsyncKeyState)
+        }
+    }
+#endif
+    return QMainWindow::nativeEvent(eventType, message, result);
+}
+
+void MainWindow::registerPttHotkey() {
+#ifdef Q_OS_WIN
+    unregisterPttHotkey();
+    const QKeySequence ks =
+        QKeySequence::fromString(S::str("capture/pttKey", QStringLiteral("Space")));
+    if (ks.isEmpty()) return;
+    const QKeyCombination comb = ks[0];
+    const int k = comb.toCombined();
+    const int key = k & ~int(Qt::KeyboardModifierMask);
+    UINT vk = 0;
+    if (key >= Qt::Key_A && key <= Qt::Key_Z)      vk = UINT(key);
+    else if (key >= Qt::Key_0 && key <= Qt::Key_9) vk = UINT(key);
+    else if (key == Qt::Key_Space)     vk = VK_SPACE;
+    else if (key == Qt::Key_Tab)       vk = VK_TAB;
+    else if (key == Qt::Key_CapsLock)  vk = VK_CAPITAL;
+    else if (key == Qt::Key_Return)    vk = VK_RETURN;
+    else if (key >= Qt::Key_F1 && key <= Qt::Key_F12)
+        vk = VK_F1 + UINT(key - Qt::Key_F1);
+    UINT mods = MOD_NOREPEAT;
+    if (k & int(Qt::ShiftModifier))   mods |= MOD_SHIFT;
+    if (k & int(Qt::ControlModifier)) mods |= MOD_CONTROL;
+    if (k & int(Qt::AltModifier))     mods |= MOD_ALT;
+    if (!vk) return;
+    if (RegisterHotKey(HWND(winId()), 1, mods, vk)) {
+        m_pttRegistered = true;
+        m_pttVk = vk;
+        if (!m_pttPoll) {
+            m_pttPoll = new QTimer(this);
+            m_pttPoll->setInterval(50);
+            connect(m_pttPoll, &QTimer::timeout, this, [this] {
+                if (!(GetAsyncKeyState(int(m_pttVk)) & 0x8000)) pttSetHeld(false);
+            });
+        }
+        AppLog::info(tr("Tecla PTT global registrada: %1").arg(ks.toString()));
+    } else {
+        AppLog::info(tr("Não foi possível registrar a tecla PTT: %1").arg(ks.toString()));
+    }
+#endif
+}
+
+void MainWindow::unregisterPttHotkey() {
+#ifdef Q_OS_WIN
+    if (m_pttRegistered) {
+        UnregisterHotKey(HWND(winId()), 1);
+        m_pttRegistered = false;
+    }
+#endif
+    pttSetHeld(false);
+}
+
+void MainWindow::pttSetHeld(bool held) {
+    if (m_pttHeld == held) return;
+    // só faz efeito no modo "Pressionar para falar" (Opções > Captura)
+    if (S::num("capture/pttMode", 1) != 0) return;
+    m_pttHeld = held;
+    if (ServerTab* t = currentTab())
+        if (VoiceEngine* v = t->voice()) v->setPttHeld(held);
+    if (m_pttPoll) {
+        if (held) m_pttPoll->start();
+        else      m_pttPoll->stop();
+    }
 }
 
 // ======================================================================

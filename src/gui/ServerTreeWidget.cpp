@@ -23,7 +23,7 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     const User& u = m_data->users[uid];
 
     QPixmap minis = HIcons::userStatusMinis(u.inputMuted, u.outputMuted || u.locallyMuted,
-                                            u.away, u.recording, u.commander);
+                                            u.away, u.recording, u.commander, u.op);
     if (minis.isNull()) return;
 
     QStyleOptionViewItem o = opt;
@@ -268,7 +268,8 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
             [this, id] { emit privateMessageRequested(id); });
         msg->setEnabled(!self);
 
-        menu.addAction(tr("Ver avatar"), this, [this] { emit viewAvatarRequested(); });
+        menu.addAction(tr("Ver avatar"), this,
+                       [this, id] { emit viewAvatarRequested(id); });
         menu.addSeparator();
 
         if (self) {
@@ -277,6 +278,8 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
                            [this] { emit setDescriptionRequested(); });
         } else {
             menu.addAction(tr("Cutucar"), this, [this, id] { emit pokeRequested(id); });
+            menu.addAction(tr("Registrar reclamação..."), this,
+                           [this, id] { emit complaintRequested(id); });
             menu.addSeparator();
             menu.addAction(tr("Definir volume..."), this,
                            [this, id] { emit volumeRequested(id); });

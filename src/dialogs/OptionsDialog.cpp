@@ -3,6 +3,7 @@
 #include "Icons.h"
 #include "Settings.h"
 #include "AppLog.h"
+#include "SoundPack.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -245,6 +246,8 @@ QWidget* OptionsDialog::pageNotifications() {
     const QList<QPair<QString, QString>> events = {
         { "notify/connectSound",    tr("Ao conectar a um servidor") },
         { "notify/disconnectSound", tr("Ao desconectar de um servidor") },
+        { "notify/userJoinSound",   tr("Quando um cliente entra no servidor") },
+        { "notify/userLeftSound",   tr("Quando um cliente sai do servidor") },
         { "notify/pokeSound",       tr("Ao ser cutucado") },
         { "notify/messageSound",    tr("Ao receber mensagem privada") },
         { "notify/channelSwitchSound", tr("Ao trocar de canal") },
@@ -264,7 +267,7 @@ QWidget* OptionsDialog::pageNotifications() {
     row->addWidget(test);
     row->addStretch(1);
     lay->addLayout(row);
-    connect(test, &QPushButton::clicked, this, [] { QApplication::beep(); });
+    connect(test, &QPushButton::clicked, this, [] { HSound::play(QStringLiteral("test")); });
 
     lay->addStretch(1);
     return w;
@@ -313,7 +316,7 @@ QWidget* OptionsDialog::pagePlayback() {
 
     QPushButton* test = new QPushButton(tr("Testar reprodução"), w);
     form->addRow(QString(), test);
-    connect(test, &QPushButton::clicked, this, [] { QApplication::beep(); });
+    connect(test, &QPushButton::clicked, this, [] { HSound::play(QStringLiteral("test")); });
 
     form->addItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
     return w;

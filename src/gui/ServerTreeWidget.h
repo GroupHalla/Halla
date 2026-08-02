@@ -53,7 +53,8 @@ signals:
     void deleteChannelRequested(int channelId);
     void renameRequested();
     void setDescriptionRequested();
-    void viewAvatarRequested();
+    void viewAvatarRequested(int userId);
+    void complaintRequested(int userId);
     void pokeRequested(int userId);
     void volumeRequested(int userId);
     void localMuteToggled(int userId, bool muted);

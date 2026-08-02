@@ -3,17 +3,28 @@
 #include "ChatPanel.h"
 #include "Settings.h"
 #include "AppLog.h"
+#include "SoundPack.h"
 #include "dialogs/ChannelDialog.h"
 #include "dialogs/MiniDialogs.h"
 #include "net/NetSession.h"
 #include "net/VoiceEngine.h"
 
 #include <QVBoxLayout>
+#include <QFormLayout>
 #include <QSplitter>
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QApplication>
 #include <QJsonObject>
+#include <QFileDialog>
+#include <QImage>
+#include <QBuffer>
+#include <QStandardPaths>
+#include <QDateTime>
+#include <QDir>
+#include <QLabel>
+#include <QDialogButtonBox>
+#include <QLineEdit>
 #include <algorithm>
 
 // ServerData::Channel -> JSON do protocolo
@@ -67,8 +78,33 @@ void ServerTab::attachNetwork(NetSession* net) {
     m_net = net;
     net->attachTo(&m_data);
 
+    // usuários já presentes no login (não tocar som para eles)
+    for (const User& u : m_data.users) m_knownUsers << u.id;
+    m_myChan = m_data.channelOfUser(m_data.selfId);
+
     // estado vindo do servidor -> redesenha a árvore/informações
     connect(net, &NetSession::stateChanged, this, [this] {
+        // detecção de entrada/saída (sons estilo TS3)
+        QSet<int> now;
+        for (const User& u : m_data.users) now << u.id;
+        for (int id : now)
+            if (!m_knownUsers.contains(id) && id != m_data.selfId) {
+                if (S::flag("notify/userJoinSound", true)) HSound::play(QStringLiteral("user_joined"));
+            }
+        for (int id : m_knownUsers)
+            if (!now.contains(id) && id != m_data.selfId) {
+                if (S::flag("notify/userLeftSound", true)) HSound::play(QStringLiteral("user_left"));
+            }
+        m_knownUsers = now;
+
+        // minha própria troca de canal
+        const int myChan = m_data.channelOfUser(m_data.selfId);
+        if (m_myChan >= 0 && myChan != m_myChan && S::flag("notify/channelSwitchSound", true))
+            HSound::play(QStringLiteral("user_joined"));
+        m_myChan = myChan;
+
+        applyWhisper(); // mantém o alvo do sussurro sincronizado (ids mudam a cada login)
+
         m_tree->rebuild();
         emit statusChanged();
     });
@@ -80,7 +116,7 @@ void ServerTab::attachNetwork(NetSession* net) {
                 } else if (scope == "private") {
                     m_chat->addPrivateTab(fromId, fromName);
                     m_chat->addPrivateChat(fromId, fromName, text);
-                    if (S::flag("notify/messageSound", true)) QApplication::beep();
+                    if (S::flag("notify/messageSound", true)) HSound::play(QStringLiteral("message"));
                 } else {
                     m_chat->addChannelChat(fromName, text);
                 }
@@ -93,7 +129,16 @@ void ServerTab::attachNetwork(NetSession* net) {
     connect(net, &NetSession::pokeReceived, this,
             [this](const QString& fromName, const QString& msg) {
                 systemMsgServer(tr("Você foi cutucado por %1: %2").arg(fromName, msg));
-                if (S::flag("notify/pokeSound", true)) QApplication::beep();
+                if (S::flag("notify/pokeSound", true)) HSound::play(QStringLiteral("poke"));
+            });
+
+    // ---- v3: caixa de entrada offline (mensagens deixadas enquanto ausente)
+    connect(net, &NetSession::offlineMsgReceived, this,
+            [this](const QString& fromName, const QString& text, const QString& ts) {
+                m_offlineInbox << OfflineMsgItem{fromName, text, ts};
+                systemMsgServer(tr("Mensagem offline de %1 — abra Ferramentas > Mensagens offline.")
+                                    .arg(fromName));
+                if (S::flag("notify/messageSound", true)) HSound::play(QStringLiteral("message"));
             });
 
     connect(net, &NetSession::errorOccurred, this,
@@ -154,9 +199,24 @@ void ServerTab::hookSignals() {
     connect(m_tree, &ServerTreeWidget::addBookmarkRequested,
             this, &ServerTab::addBookmarkRequested);
 
-    connect(m_tree, &ServerTreeWidget::viewAvatarRequested, this, [this] {
-        QMessageBox::information(this, tr("Avatar"),
-                                 tr("Nenhum avatar definido para este cliente."));
+    connect(m_tree, &ServerTreeWidget::viewAvatarRequested, this,
+            [this](int userId) { viewAvatar(userId); });
+
+    connect(m_tree, &ServerTreeWidget::complaintRequested, this, [this](int uid) {
+        if (!m_data.users.contains(uid)) return;
+        const QString target = m_data.users[uid].name;
+        bool ok = false;
+        const QString text = QInputDialog::getMultiLineText(
+            this, tr("Registrar reclamação"),
+            tr("Descreva a reclamação sobre \\\"%1\\\":").arg(target),
+            QString(), &ok);
+        if (!ok || text.trimmed().isEmpty()) return;
+        if (m_net) {
+            m_net->complaintAdd(uid, text.trimmed());
+            systemMsgServer(tr("Reclamação sobre \\\"%1\\\" foi registrada.").arg(target));
+        } else {
+            systemMsgServer(tr("Reclamação sobre \\\"%1\\\" foi registrada.").arg(target));
+        }
     });
 
     connect(m_tree, &ServerTreeWidget::localMuteToggled, this, [this](int uid, bool muted) {
@@ -230,7 +290,7 @@ void ServerTab::hookSignals() {
             if (m_net) { m_net->poke(uid, dlg.message()); return; }
             systemMsgChannel(tr("Você cutucou \"%1\": %2")
                                  .arg(m_data.users[uid].name, dlg.message()));
-            if (S::flag("notify/pokeSound", true)) QApplication::beep();
+            if (S::flag("notify/pokeSound", true)) HSound::play(QStringLiteral("poke"));
         }
     });
 
@@ -445,16 +505,179 @@ void ServerTab::setSelfDescription() {
 }
 
 void ServerTab::editVirtualServerName() {
-    bool ok = false;
-    QString name = QInputDialog::getText(this, tr("Editar servidor virtual"),
-                                         tr("Nome do servidor:"), QLineEdit::Normal,
-                                         m_data.name, &ok);
-    if (!ok || name.trimmed().isEmpty()) return;
-    m_data.name = name.trimmed();
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("Editar servidor virtual"));
+    QFormLayout* f = new QFormLayout(&dlg);
+    QLineEdit* name = new QLineEdit(m_data.name, &dlg);
+    QLineEdit* motd = new QLineEdit(m_data.motd, &dlg);
+    f->addRow(tr("Nome do servidor:"), name);
+    f->addRow(tr("Mensagem do dia:"), motd);
+    QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                                                &dlg);
+    f->addRow(bb);
+    QObject::connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    if (dlg.exec() != QDialog::Accepted) return;
+    const QString n = name->text().trimmed();
+    if (n.isEmpty()) return;
+
+    if (m_net) {
+        // v3: editar o servidor virtual de verdade (requer permissão serverEdit)
+        m_net->serverEdit(n, motd->text());
+        systemMsgServer(tr("Solicitação de edição do servidor virtual enviada."));
+        return; // o estado atualizado chega do servidor
+    }
+
+    m_data.name = n;
+    m_data.motd = motd->text();
     systemMsgServer(tr("Servidor renomeado para \"%1\".").arg(m_data.name));
     m_tree->rebuild();
     emit titleChanged();
     emit statusChanged();
+}
+
+// ==================================================================== v3: avatar
+void ServerTab::viewAvatar(int userId) {
+    if (!m_data.users.contains(userId)) return;
+    const User& u = m_data.users[userId];
+    if (!m_net || u.avatarHash.isEmpty()) {
+        QMessageBox::information(this, tr("Avatar"),
+                                 tr("Nenhum avatar definido para este cliente."));
+        return;
+    }
+    // v3: busca a imagem no servidor e mostra quando chegar
+    const QString uid = u.uniqueId;
+    QObject* ctx = new QObject(this);
+    connect(m_net, &NetSession::avatarDataReceived, ctx,
+            [this, ctx, uid, name = u.name](const QString& uid2, const QByteArray& bytes) {
+                if (uid2 != uid) return;
+                ctx->deleteLater();
+                QImage img = QImage::fromData(bytes);
+                if (img.isNull()) {
+                    QMessageBox::information(this, tr("Avatar"),
+                        tr("Nenhum avatar definido para este cliente."));
+                    return;
+                }
+                QDialog dlg(this);
+                dlg.setWindowTitle(tr("Avatar de %1").arg(name));
+                QVBoxLayout* l = new QVBoxLayout(&dlg);
+                QLabel* pic = new QLabel(&dlg);
+                pic->setPixmap(QPixmap::fromImage(img.scaled(256, 256, Qt::KeepAspectRatio,
+                                                             Qt::SmoothTransformation)));
+                pic->setAlignment(Qt::AlignCenter);
+                l->addWidget(pic);
+                QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
+                l->addWidget(bb);
+                QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+                dlg.exec();
+            });
+    m_net->avatarGet(uid);
+}
+
+void ServerTab::setAvatarInteractive() {
+    if (!m_net) {
+        QMessageBox::information(this, tr("Avatar"),
+            tr("Avatares exigem conexão com um Halla Server."));
+        return;
+    }
+    const QString path = QFileDialog::getOpenFileName(
+        this, tr("Definir avatar"), QString(),
+        tr("Imagens (*.png *.jpg *.jpeg *.bmp *.webp)"));
+    if (path.isEmpty()) return;
+    QImage img(path);
+    if (img.isNull()) {
+        QMessageBox::warning(this, tr("Avatar"), tr("Não foi possível ler a imagem."));
+        return;
+    }
+    img = img.scaled(192, 192, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QByteArray bytes;
+    for (int q = 85; q >= 40 && (bytes.size() > 96 * 1024 || bytes.isEmpty()); q -= 15) {
+        bytes.clear();
+        QBuffer buf(&bytes);
+        buf.open(QIODevice::WriteOnly);
+        img.save(&buf, "JPEG", q);
+    }
+    m_net->avatarSet(bytes);
+    systemMsgServer(tr("Avatar enviado ao servidor."));
+}
+
+void ServerTab::removeAvatar() {
+    if (!m_net) return;
+    m_net->avatarSet(QByteArray());
+    systemMsgServer(tr("Avatar removido."));
+}
+
+// ==================================================================== v3: gravação
+bool ServerTab::isRecording() const { return m_voice && m_voice->isRecording(); }
+
+void ServerTab::toggleRecording() {
+    if (isRecording()) {
+        m_voice->stopRecording();
+        m_data.users[m_data.selfId].recording = false;
+        if (m_net) m_net->sendStatus();
+        systemMsgChannel(tr("Gravação interrompida."));
+        m_tree->rebuild();
+        emit statusChanged();
+        return;
+    }
+    if (!m_voice || !m_voice->isActive()) {
+        systemMsgChannel(tr("A gravação requer uma conexão ativa com captura de áudio."));
+        return;
+    }
+    const QString dirPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
+                            + QStringLiteral("/Halla");
+    QDir().mkpath(dirPath);
+    const QString path = dirPath + QStringLiteral("/gravacao-%1.wav")
+        .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-hhmmss")));
+    if (!m_voice->startRecording(path)) {
+        QMessageBox::warning(this, tr("Gravação"),
+                             tr("Não foi possível criar o arquivo:\n%1").arg(path));
+        return;
+    }
+    m_data.users[m_data.selfId].recording = true;
+    if (m_net) m_net->sendStatus();
+    HSound::play(QStringLiteral("recording"));
+    systemMsgChannel(tr("Gravação iniciada: %1").arg(path));
+    AppLog::info(tr("Gravação iniciada em %1").arg(path));
+    m_tree->rebuild();
+    emit statusChanged();
+}
+
+// ==================================================================== v3: offline
+void ServerTab::openOfflineMessages() {
+    if (!m_net) {
+        QMessageBox::information(this, tr("Mensagens offline"),
+            tr("Mensagens offline exigem conexão com um Halla Server."));
+        return;
+    }
+    OfflineMessagesDialog dlg(m_net, &m_data, m_offlineInbox, this);
+    dlg.exec();
+}
+
+// ==================================================================== v3: sussurro
+void ServerTab::setWhisperUids(const QStringList& uids) {
+    m_whisperUids = uids;
+    if (!m_net) return;
+    if (uids.isEmpty()) {
+        m_net->setWhisperIds({});
+        systemMsgChannel(tr("Sussurro desativado. Sua voz segue para o canal."));
+        return;
+    }
+    applyWhisper();
+    QStringList names;
+    for (const User& u : m_data.users)
+        if (m_whisperUids.contains(u.uniqueId) && u.id != m_data.selfId) names << u.name;
+    systemMsgChannel(names.isEmpty()
+        ? tr("Sussurro ativado (nenhum destinatário está conectado no momento).")
+        : tr("Sussurro ativado para: %1").arg(names.join(QStringLiteral(", "))));
+}
+
+void ServerTab::applyWhisper() {
+    if (!m_net || m_whisperUids.isEmpty()) return;
+    QList<int> ids;
+    for (const User& u : m_data.users)
+        if (m_whisperUids.contains(u.uniqueId) && u.id != m_data.selfId) ids << u.id;
+    m_net->setWhisperIds(ids);
 }
 
 void ServerTab::setAway(bool on) {
@@ -473,6 +696,8 @@ void ServerTab::setMicMuted(bool on) {
     if (self.inputMuted == on) return;
     self.inputMuted = on;
     if (m_voice) m_voice->setTransmitEnabled(!on);
+    if (S::flag("notify/muteSound", true))
+        HSound::play(on ? QStringLiteral("mic_muted") : QStringLiteral("mic_unmuted"));
     if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
     systemMsgChannel(on ? tr("Microfone mudo ativado.") : tr("Microfone mudo desativado."));
     m_tree->rebuild();

@@ -9,6 +9,7 @@
 #include <QAudioFormat>
 #include <QMediaDevices>
 #include <QTimer>
+#include <QFile>
 #include <QtMath>
 #include <cstring>
 
@@ -99,6 +100,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 }
 
 VoiceEngine::~VoiceEngine() {
+    stopRecording();
     if (m_source) m_source->stop();
     if (m_sink) m_sink->stop();
     if (m_encoder) opus_encoder_destroy(m_encoder);
@@ -127,6 +129,20 @@ void VoiceEngine::captureTick() {
     }
     if (!m_encoder) return;
 
+    // ativação de voz (Opções > Captura): 0 = PTT, 1 = detecção de voz, 2 = contínuo
+    // (obs.: "capture/mode" é o backend de áudio — não confundir)
+    const int mode = S::num("capture/pttMode", 1);
+    if (mode == 0 && !m_pttHeld) {
+        m_captureBuf.clear();
+        m_srcDev->readAll();
+        if (m_talking) {
+            m_talking = false;
+            m_net->sendTalking(false);
+            emit talkingChanged(false);
+        }
+        return;
+    }
+
     m_captureBuf.append(m_srcDev->readAll());
 
     while (m_captureBuf.size() >= 960 * 2) {
@@ -138,7 +154,9 @@ void VoiceEngine::captureTick() {
         const double rms = qSqrt(sum / 960.0);
         const int levelDb = S::num("capture/voiceLevel", -45);
         const double threshold = qPow(10.0, levelDb / 20.0) * 32767.0;
-        const bool voiceNow = rms > threshold;
+        bool voiceNow = rms > threshold;
+        if (mode == 0) voiceNow = true;       // PTT segurado: envia tudo
+        else if (mode == 2) voiceNow = true;  // contínuo
 
         if (voiceNow != m_talking) {
             if (voiceNow) {
@@ -163,9 +181,69 @@ void VoiceEngine::captureTick() {
         const int n = opus_encode(m_encoder, pcm, 960, out, sizeof(out));
         if (n > 0) m_net->sendVoiceFrame(QByteArray(reinterpret_cast<char*>(out), n), ++m_seq);
 
+        if (m_recFile) recWrite(reinterpret_cast<const char*>(pcm), 960 * 2); // próprio mic
+
         m_captureBuf.remove(0, 960 * 2);
     }
     if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // segurança
+}
+
+// ==================================================================== PTT
+void VoiceEngine::setPttHeld(bool held) {
+    if (m_pttHeld == held) return;
+    m_pttHeld = held;
+    if (!held && m_talking) { // soltou a tecla: para de transmitir
+        m_talking = false;
+        m_net->sendTalking(false);
+        emit talkingChanged(false);
+    }
+}
+
+// ==================================================== gravação local (WAV)
+bool VoiceEngine::startRecording(const QString& wavPath) {
+    stopRecording();
+    QFile* f = new QFile(wavPath, this);
+    if (!f->open(QIODevice::WriteOnly)) { delete f; return false; }
+    m_recFile = f;
+    m_recBytes = 0;
+    // cabeçalho WAV de 44 bytes (tamanhos corrigidos em recFinalize)
+    QByteArray h(44, 0);
+    memcpy(h.data() + 0, "RIFF", 4);
+    memcpy(h.data() + 8, "WAVEfmt ", 8);
+    quint32 fmtLen = 16; memcpy(h.data() + 16, &fmtLen, 4);
+    quint16 audioFmt = 1, ch = 1; quint32 rate = 48000, byteRate = 48000 * 2;
+    quint16 align = 2, bits = 16;
+    memcpy(h.data() + 20, &audioFmt, 2); memcpy(h.data() + 22, &ch, 2);
+    memcpy(h.data() + 24, &rate, 4); memcpy(h.data() + 28, &byteRate, 4);
+    memcpy(h.data() + 32, &align, 2); memcpy(h.data() + 34, &bits, 2);
+    memcpy(h.data() + 36, "data", 4);
+    f->write(h);
+    emit recordingChanged(true);
+    return true;
+}
+
+void VoiceEngine::recWrite(const char* pcm, int bytes) {
+    if (!m_recFile) return;
+    m_recFile->write(pcm, bytes);
+    m_recBytes += quint32(bytes);
+}
+
+void VoiceEngine::recFinalize() {
+    if (!m_recFile) return;
+    m_recFile->seek(4);
+    quint32 riff = 36 + m_recBytes;
+    m_recFile->write(reinterpret_cast<const char*>(&riff), 4);
+    m_recFile->seek(40);
+    m_recFile->write(reinterpret_cast<const char*>(&m_recBytes), 4);
+    m_recFile->close();
+}
+
+void VoiceEngine::stopRecording() {
+    if (!m_recFile) return;
+    recFinalize();
+    delete m_recFile;
+    m_recFile = nullptr;
+    emit recordingChanged(false);
 }
 
 // ------------------------------------------------------------------ reprodução
@@ -184,5 +262,6 @@ void VoiceEngine::playbackTick() {
     if (!chunk.isEmpty()) {
         const int free = int(m_sink->bytesFree());
         m_sinkDev->write(chunk.constData(), qMin<qint64>(chunk.size(), free));
+        if (m_recFile) recWrite(chunk.constData(), chunk.size()); // grava o que sai nos fones
     }
 }

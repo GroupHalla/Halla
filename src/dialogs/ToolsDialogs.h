@@ -4,13 +4,18 @@
 #include <QTableWidget>
 #include <QLineEdit>
 
-// Janela "Listas de sussurro" (Whisper Lists)
+struct ServerData;
+
+// Janela "Listas de sussurro" (Whisper Lists) — destinos por ID único
 class WhisperDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit WhisperDialog(QWidget* parent = nullptr);
+    explicit WhisperDialog(const ServerData* data, QWidget* parent = nullptr);
+    // uids da lista de sussurro ATIVA (0 se nenhuma)
+    static QStringList activeWhisperUids();
 private:
     QTableWidget* m_table;
+    const ServerData* m_data;
     void reload();
 };
 
@@ -24,11 +29,22 @@ private:
     void reload();
 };
 
-// Janela "Transferência de arquivos"
+class QComboBox;
+class QProgressBar;
+class NetSession;
+struct ServerData;
+
+// Janela "Transferência de arquivos" — arquivos por canal no servidor (v3)
 class FileTransferDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit FileTransferDialog(QWidget* parent = nullptr);
+    explicit FileTransferDialog(NetSession* net, ServerData* data,
+                                QWidget* parent = nullptr);
 private:
+    void refresh();
+    int currentChannel() const;
+    NetSession* m_net;
+    ServerData* m_data;
+    QComboBox* m_channels;
     QTableWidget* m_table;
 };

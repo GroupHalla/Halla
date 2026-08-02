@@ -37,6 +37,7 @@ public:
 protected:
     void closeEvent(QCloseEvent* e) override;
     bool eventFilter(QObject* obj, QEvent* ev) override;
+    bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
 
 private:
     ServerTab* currentTab() const;
@@ -71,9 +72,14 @@ private:
     QAction* m_actAway = nullptr;
     QAction* m_actMuteMic = nullptr;
     QAction* m_actMuteSpk = nullptr;
+    QAction* m_actRecord = nullptr;
+    QAction* m_actWhisper = nullptr;
     QAction* m_actBookmarkAdd = nullptr;
     QAction* m_actPrivilegeKey = nullptr;
     QAction* m_actServerGroups = nullptr;
+    QAction* m_actBanList = nullptr;
+    QAction* m_actComplaints = nullptr;
+    QAction* m_actMyPerms = nullptr;
 
     QMenu* m_bookmarksMenu = nullptr;
     QMenu* m_recentMenu = nullptr;
@@ -83,6 +89,15 @@ private:
     QLabel* m_pingLabel = nullptr;
 
     void wireTab(ServerTab* tab);
+
+    // ---- PTT global (hotkey de todo o sistema no Windows)
+    void registerPttHotkey();
+    void unregisterPttHotkey();
+    void pttSetHeld(bool held);
+    unsigned int m_pttVk = 0;
+    bool m_pttRegistered = false;
+    bool m_pttHeld = false;
+    class QTimer* m_pttPoll = nullptr;
 
     QList<QPointer<QShortcut>> m_hotkeyShortcuts;
 };

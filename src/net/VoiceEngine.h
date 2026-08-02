@@ -28,8 +28,18 @@ public:
     void setTransmitEnabled(bool on); // false = microfone localmente mudo/PTT suspenso
     void setSpeakersEnabled(bool on);
 
+    // ---- PTT (push-to-talk) — segurado pela hotkey (global no Windows)
+    void setPttHeld(bool held);
+    bool pttHeld() const { return m_pttHeld; }
+
+    // ---- gravação local (WAV 48 kHz mono): recebidos + próprio microfone
+    bool startRecording(const QString& wavPath);
+    void stopRecording();
+    bool isRecording() const { return m_recFile != nullptr; }
+
 signals:
     void talkingChanged(bool talking);
+    void recordingChanged(bool on);
 
 private:
     // fluxo de captura disparado por timer de 20 ms
@@ -58,5 +68,11 @@ private:
     QByteArray m_captureBuf;
     quint16 m_seq = 0;
     bool m_talking = false;
+    bool m_pttHeld = false;
     QElapsedTimer m_silenceClock;
+
+    void recWrite(const char* pcm, int bytes);
+    void recFinalize();
+    class QFile* m_recFile = nullptr;
+    quint32 m_recBytes = 0;
 };

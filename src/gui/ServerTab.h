@@ -1,7 +1,9 @@
 #pragma once
 
 #include <QWidget>
+#include <QSet>
 #include "core/Models.h"
+#include "dialogs/AdminDialogs.h"
 
 class ServerTreeWidget;
 class ChatPanel;
@@ -20,6 +22,7 @@ public:
     ServerTreeWidget* tree() const { return m_tree; }
     ChatPanel* chat() const { return m_chat; }
     NetSession* net() const { return m_net; }
+    VoiceEngine* voice() const { return m_voice; }
     bool isNetworked() const { return m_net != nullptr; }
 
     // conecta a aba a uma sessão de rede (modo conectado ao Halla Server)
@@ -35,6 +38,15 @@ public:
     void renameSelf();
     void setSelfDescription();
     void editVirtualServerName();
+
+    // ---- v3: TS3 feature parity
+    void setAvatarInteractive();          // escolher imagem e enviar ao servidor
+    void removeAvatar();
+    void toggleRecording();               // gravação local WAV
+    bool isRecording() const;
+    void openOfflineMessages();           // caixa de entrada offline
+    void setWhisperUids(const QStringList& uids); // vazio = desligar sussurro
+    bool whisperActive() const { return !m_whisperUids.isEmpty(); }
 
     void setAway(bool on);
     void setMicMuted(bool on);
@@ -60,7 +72,14 @@ private:
     NetSession* m_net = nullptr;
     VoiceEngine* m_voice = nullptr;
 
+    QSet<int> m_knownUsers;               // detector de entrada/saída (sons)
+    int m_myChan = -1;                    // meu canal (som de troca de canal)
+    QVector<OfflineMsgItem> m_offlineInbox;
+    QStringList m_whisperUids;
+
     void hookSignals();
+    void applyWhisper();                  // mapeia uids -> ids e envia ao servidor
+    void viewAvatar(int userId);
     void systemMsgServer(const QString& msg);
     void systemMsgChannel(const QString& msg);
 };

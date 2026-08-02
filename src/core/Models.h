@@ -47,6 +47,8 @@ struct User {
     bool    away = false;
     bool    recording = false;
     bool    commander = false;
+    bool    op = false;              // operador do canal em que está (v3)
+    QString avatarHash;              // hash do avatar no servidor (v3)
     bool    talking = false;
     QDateTime connectedAt = QDateTime::currentDateTime();
 };
@@ -63,6 +65,7 @@ struct Channel {
     int     type = 2;                // 0 = temporário, 1 = semi-permanente, 2 = permanente
     bool    moderated = false;
     int     codec = 4;               // Opus Voice
+    QStringList opUids;              // UIDs dos operadores deste canal (v3)
     int     codecQuality = 6;        // 0..10
     int     maxClients = -1;         // -1 = ilimitado
     QList<int> users;

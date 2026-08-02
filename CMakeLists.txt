@@ -54,9 +54,11 @@ set(HALLA_SOURCES
     src/dialogs/MiniDialogs.cpp
     src/dialogs/LogDialog.cpp
     src/dialogs/ToolsDialogs.cpp
+    src/dialogs/AdminDialogs.cpp
     src/dialogs/AboutDialog.cpp
     src/app/MainWindow.cpp
     src/app/Theme.cpp
+    src/app/SoundPack.cpp
     src/net/NetSession.cpp
     src/net/VoiceEngine.cpp
 )

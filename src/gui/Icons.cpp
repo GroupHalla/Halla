@@ -437,6 +437,26 @@ static QPixmap miniStar() {
     });
 }
 
+// v3: escudo do operador de canal
+static QPixmap miniOp() {
+    return mk(14, [&](QPainter& p) {
+        QPainterPath path;
+        path.moveTo(7, 1.2);
+        path.lineTo(12.2, 3.2);
+        path.lineTo(12.2, 7.2);
+        path.quadTo(12.2, 11.2, 7, 13.2);
+        path.quadTo(1.8, 11.2, 1.8, 7.2);
+        path.lineTo(1.8, 3.2);
+        path.closeSubpath();
+        p.setPen(QPen(QColor("#1E5E2E"), 0.8));
+        p.setBrush(QColor("#3FA85C"));
+        p.drawPath(path);
+        p.setPen(QPen(Qt::white, 1.4));
+        p.drawLine(QPointF(4.2, 7.0), QPointF(6.2, 9.2));
+        p.drawLine(QPointF(6.2, 9.2), QPointF(10.0, 4.6));
+    });
+}
+
 static QPixmap miniAway() {
     return mk(14, [&](QPainter& p) {
         p.setPen(QPen(QColor("#2F5877"), 0.8));
@@ -453,13 +473,14 @@ static QPixmap miniAway() {
 }
 
 QPixmap userStatusMinis(bool inputMuted, bool outputMuted, bool away,
-                        bool recording, bool commander) {
+                        bool recording, bool commander, bool op) {
     QList<QPixmap> minis;
     if (inputMuted)  minis << miniMicSlash();
     if (outputMuted) minis << miniHeadphoneSlash();
     if (away)        minis << miniAway();
     if (recording)   minis << miniRec();
     if (commander)   minis << miniStar();
+    if (op)          minis << miniOp();
     if (minis.isEmpty()) return QPixmap();
 
     QPixmap pm(minis.size() * 16, 14);
@@ -705,6 +726,14 @@ QIcon check() {
         p.setPen(QPen(green().darker(130), 2.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         p.drawPolyline(QPolygonF() << QPointF(2.5, 8.5) << QPointF(6.5, 12.4)
                                    << QPointF(13.5, 3.5));
+    }));
+}
+
+QIcon record(bool on) {
+    return QIcon(mk(16, [&](QPainter& p) {
+        p.setPen(QPen(on ? QColor("#8f1d1d") : QColor("#666666"), 1.2));
+        p.setBrush(on ? QColor("#d63b3b") : QColor("#9a9a9a"));
+        p.drawEllipse(QRectF(2.5, 2.5, 11, 11));
     }));
 }
 

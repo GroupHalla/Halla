@@ -7,13 +7,49 @@ plugues de conexão, abas de servidor, árvore de canais/usuários com mini-íco
 de estado, chat com BBCode, painel de informações à direita, barra de status com
 ping e diálogos com a faixa azul-marinho característica.
 
-> **Observação sobre o protocolo:** o Halla é o **aplicativo cliente** (a
-> interface e toda a lógica do lado do cliente). O protocolo de rede do
-> TeamSpeak 3 é proprietário e não faz parte deste projeto — as conexões criam
-> o estado local exatamente como o cliente mantém em memória (canais, usuário
-> local, chat, permissões), sem servidor e sem simulação de outros clientes.
+> **Observação sobre o protocolo:** o Halla é o **aplicativo cliente**. Ele
+> conecta a servidores **[Halla Server](https://github.com/farleybarbosa320-oss/HallaServer)**
+> (protocolo aberto e documentado — TCP/JSON para controle, UDP/Opus para
+> voz). O protocolo do TeamSpeak 3 é proprietário e não faz parte deste
+> projeto.
 
 ![Halla](shots/demo.png)
+
+## Novidades da 3.9.0 — paridade de recursos com o TeamSpeak 3
+
+Em conjunto com o **Halla Server 3.0.0**:
+
+- **Avatares**: defina, remova e veja avatares — enviados ao servidor e
+  distribuídos aos outros clientes (menu Ferramentas > Avatar / "Ver avatar"
+  no menu de contexto do usuário).
+- **Pressionar-para-falar (PTT)** de verdade: escolha a tecla em Opções >
+  Captura e segure-a para transmitir — funciona até com o Halla **em segundo
+  plano** (hotkey global do Windows). Modos: PTT, detecção de voz e contínuo.
+- **Notificações sonoras** estilo TS3: entrar/sair do servidor, cliente
+  entrou/saiu, cutucada, mensagem privada, troca de canal, mudo — sons gerados
+  localmente, configuráveis em Opções > Notificações.
+- **Gravação de chamadas**: grava a conversa (sua voz + todos os outros) em
+  WAV na pasta Documentos/Halla, com indicador de "gravando" — botão na barra
+  de ferramentas ou Ferramentas > Iniciar gravação.
+- **Sussurro**: direcione sua voz a uma lista de usuários específicos
+  (Ferramentas > Listas de sussurro... / Ativar sussurro).
+- **Mensagens offline**: deixe recados para usuários ausentes — eles recebem
+  ao conectar (Ferramentas > Mensagens offline...).
+- **Reclamações**: registre reclamações sobre usuários (menu de contexto) e
+  administre-as em Permissões > Reclamações....
+- **Lista de banidos**: veja e remova banimentos (Permissões > Lista de
+  banidos...).
+- **Grupos de servidores reais**: crie grupos, edite permissões por caixa de
+  seleção e poder de fala, atribua a usuários — tudo com efeito imediato no
+  servidor (Permissões > Grupos de servidores...).
+- **Mostrar permissões do usuário**: visão real das suas permissões atuais.
+- **Operadores de canal**: quem cria um canal vira operador dele (escudo
+  verde) e pode editá-lo e expulsar usuários dele.
+- **Transferência de arquivos**: compostilhe arquivos por canal
+  (Ferramentas > Transferência de arquivos... — upload, download e exclusão
+  no servidor).
+- **Editar servidor virtual** renomeia de fato o servidor (nome + mensagem do
+  dia) — com permissão de administrador.
 
 ## Recursos
 
