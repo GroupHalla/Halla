@@ -30,6 +30,7 @@ private:
     QWidget* pagePlayback();
     QWidget* pageCapture();
     QWidget* pageHotkeys();
+    QWidget* pageWhisper();
     QWidget* pageSecurity();
     QWidget* pageAddons();
 

@@ -1,25 +1,64 @@
 ========================================================================
-  HALLA 3.12.0 — Cliente de comunicação por voz
+  HALLA 3.13.0 — Cliente de comunicação por voz
 ========================================================================
 
 O Halla é um aplicativo de voz sobre IP no estilo do TeamSpeak 3,
 com cliente para Windows e servidor auto-hospedável (Halla Server).
 
-NOVIDADES DA VERSÃO 3.12.0
+NOVIDADES DA VERSÃO 3.13.0
 --------------------------
-* JANELA DE OPÇÕES REDESENHADA no estilo da janela de opções do
-  TeamSpeak 3: sem a faixa azul; cabeçalho com gradiente claro, título
-  em negrito + subtítulo e ícone da seção à direita; menu lateral com
-  ícones grandes e destaque suave; separador vertical de 1px; grupos
-  estilo "fieldset" (linha fina com o título cortando, interior
-  transparente); conteúdo em duas colunas; botões OK/Cancelar/Aplicar
-  no canto inferior direito.
-* Ativação de voz agora usa botões de opção (PTT / detecção de voz /
-  transmissão contínua), como no TS3.
-* BARRA DE FERRAMENTAS CORRIGIDA: as setas dos menus suspensos ficam
-  ao LADO do ícone/texto (com área própria e divisor sutil), botões
-  mais altos e com mais espaçamento entre si; o botão "Ativar sussurro"
-  exibe ícone + texto + seta lado a lado, sem sobreposição.
+* OPÇÕES COMPLETAS NO PADRÃO TS3, seção por seção:
+
+  - REPRODUÇÃO: perfis de reprodução com botão "+", modo e dispositivo
+    de reprodução, ajuste de volume de voz (Baixo/Alto, em dB), volume
+    do pacote de som (em dB, aplicado na hora aos avisos sonoros),
+    botão "Reproduzir som de teste", opções de nivelamento automático,
+    cliques de microfone, posições 3D e ruído de conforto com ajuste
+    (Quieto/Alto) e expansão de som mono (estéreo/central/surround).
+
+  - CAPTURAR: perfis de captura com botão "+", modo e dispositivo de
+    captura, ativação por PTT (com tecla configurável, link direto para
+    as teclas de atalho, ATRASO AO SOLTAR a tecla de 0 a 3 segundos e
+    opção de somar a detecção de voz), transmissão contínua ou detecção
+    de voz (Automático/.../Restrito) com controle de sensibilidade em
+    dB, MEDIDOR VISUAL DE VOLUME com régua de -50 a +50 dB, limiar em
+    vermelho e LED de ativação (botão "Iniciar teste"), e o grupo de
+    Processamento Digital de Sinal: atenuação de digitação, remoção de
+    ruído de fundo com intensidade (mín/máx), cancelamento de eco e
+    REDUÇÃO DE ECO (ducking) com valor em dB — que agora abaixa o
+    volume dos outros de verdade enquanto você fala.
+
+  - APARÊNCIA: estilo, tema, pacote de ícones, fonte e tamanho,
+    TRANSPARÊNCIA da janela (50–100 %), expansão da árvore ao entrar
+    (todos os canais / até um nível / só o próprio canal), classificação
+    de clientes abaixo dos canais, bandeiras de país, ícones Overwolf e
+    de emblema, grupos nos menus de contexto, contadores, mini-ícones
+    de status, mensagem de ausência e dicas de ferramenta; ícone da
+    bandeja (minimizar/fechar) e suporte a GIF animado.
+
+  - TECLAS DE ATALHO: perfis sincronizados (myHalla) e perfis LOCAIS
+    com botão "+", tabela Tecla de atalho x Ação (a primeira linha
+    mostra o PTT do perfil de captura ativo, ex.: "MOUSE BUTTON 5 |
+    Push-to-Talk"), botões Adicionar / Remover / Editar e seletor de
+    perfil ativo no canto inferior direito. Cada perfil guarda seus
+    próprios atalhos.
+
+  - SUSSURRO (nova página): permissões para receber sussurros (usar a
+    configuração do contato / negar por padrão / negar a todos),
+    aviso sonoro ao receber, histórico sempre visível, remoção de
+    clientes do histórico após N minutos e atalho para a Lista de
+    sussurros.
+
+* Volume mestre de voz: o ajuste de Reprodução vale para todos os
+  usuários ao mesmo tempo (além do volume individual por usuário).
+* Atraso do PTT funciona de verdade: ao soltar a tecla, a transmissão
+  continua pelo tempo configurado antes de desligar.
+* Ícones dos cabeçalhos das opções agora são marca d'água (esmaecidos),
+  como no TS3.
+
+(da 3.12.0) Janela de Opções redesenhada no estilo TS3 (cabeçalho com
+gradiente, grupos "fieldset", duas colunas), ativação de voz com botões
+de opção e barra de ferramentas com setas ao lado dos botões.
 
 (da 3.11.0) Interface no estilo clássico do TS3 (tema claro nativo),
 menu "Si mesmo", corpo 50/50 com chat embaixo, barra de status em
@@ -57,3 +96,9 @@ REQUISITOS
 ----------
 * Windows 10 ou superior (64 bits)
 * Microfone e alto-falantes/fones para voz
+
+SUPORTE E CÓDIGO-FONTE
+----------------------
+https://github.com/farleybarbosa320-oss/Halla
+
+O Halla é gratuito. Bom papo!

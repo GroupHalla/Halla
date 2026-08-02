@@ -69,6 +69,7 @@ private:
     quint16 m_seq = 0;
     bool m_talking = false;
     bool m_pttHeld = false;
+    quint32 m_pttGen = 0; // geração de transições (atraso de soltura do PTT)
     QElapsedTimer m_silenceClock;
 
     void recWrite(const char* pcm, int bytes);

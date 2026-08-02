@@ -38,7 +38,7 @@
 static QWidget* wrapScroll(QWidget* inner) {
     inner->setObjectName(QStringLiteral("optionsPage"));
     inner->setAttribute(Qt::WA_StyledBackground, true);
-    inner->setContentsMargins(8, 8, 8, 8);
+    inner->setContentsMargins(6, 6, 6, 6);
 
     QScrollArea* sa = new QScrollArea;
     sa->setObjectName(QStringLiteral("optionsScroll"));
@@ -48,13 +48,13 @@ static QWidget* wrapScroll(QWidget* inner) {
     return sa;
 }
 
-// ícone da seção no canto superior direito do cabeçalho (levemente suavizado)
+// ícone da seção no canto superior direito do cabeçalho (estilo marca d'água)
 static QPixmap headerIconPixmap(const QIcon& icon, int size) {
     const QPixmap src = icon.pixmap(size, size);
     QPixmap out(src.size());
     out.fill(Qt::transparent);
     QPainter p(&out);
-    p.setOpacity(0.92);
+    p.setOpacity(0.45);
     p.drawPixmap(0, 0, src);
     return out;
 }
@@ -74,9 +74,253 @@ static QWidget* separatorLine(bool vertical) {
     return w;
 }
 
+// ============================================================================
+//  WIDGETS AUXILIARES DAS PÁGINAS (estilo TS3)
+// ============================================================================
+#include "ToolsDialogs.h"
+
+#include <QInputDialog>
+#include <QAudioSource>
+#include <QMediaDevices>
+#include <QAudioFormat>
+#include <QTimer>
+#include <cmath>
+
+// "+0,0 dB" / "-17,0 dB" (locale do usuário)
+static QString fmtDb(double db) {
+    return (db >= 0 ? QStringLiteral("+") : QString())
+           + QLocale().toString(db, 'f', 1) + QStringLiteral(" dB");
+}
+
+// slider rotulado em dB, com legendas "Baixo/Alto" (ou Quiet/Loud) nas pontas.
+// Persiste o valor em décimos de dB na chave passada.
+static QWidget* dbSliderRow(QWidget* parent, const QString& key, int defX10,
+                            int minDb, int maxDb, const QString& low,
+                            const QString& high) {
+    QWidget* box = new QWidget(parent);
+    QVBoxLayout* v = new QVBoxLayout(box);
+    v->setContentsMargins(0, 0, 0, 0);
+    v->setSpacing(0);
+
+    QHBoxLayout* h = new QHBoxLayout;
+    QSlider* s = new QSlider(Qt::Horizontal, box);
+    s->setRange(minDb * 10, maxDb * 10);
+    s->setValue(S::num(key, defX10));
+    QLabel* val = new QLabel(box);
+    val->setMinimumWidth(70);
+    val->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    auto upd = [=](int x10) { val->setText(fmtDb(x10 / 10.0)); };
+    upd(s->value());
+    h->addWidget(s, 1);
+    h->addWidget(val);
+    v->addLayout(h);
+
+    QHBoxLayout* caps = new QHBoxLayout;
+    QLabel* l = new QLabel(low, box);
+    l->setObjectName(QStringLiteral("captionLabel"));
+    QLabel* r = new QLabel(high, box);
+    r->setObjectName(QStringLiteral("captionLabel"));
+    r->setAlignment(Qt::AlignRight);
+    caps->addWidget(l);
+    caps->addStretch(1);
+    caps->addWidget(r);
+    v->addLayout(caps);
+
+    QObject::connect(s, &QSlider::valueChanged, box, [key, upd](int x10) {
+        S::set(key, x10);
+        upd(x10);
+    });
+    return box;
+}
+
+// Painel "Perfis" (lado esquerdo das páginas Reprodução/Capturar): lista de
+// perfis + botão "+" para adicionar. Persiste a lista e o perfil ativo.
+class ProfilesPanel : public QGroupBox {
+public:
+    ProfilesPanel(const QString& storeKey, const QString& activeKey,
+                  const std::function<void(const QString&)>& onActivate,
+                  QWidget* parent = nullptr)
+        : QGroupBox(tr("Perfis"), parent), m_storeKey(storeKey), m_activeKey(activeKey),
+          m_onActivate(onActivate) {
+        QVBoxLayout* v = new QVBoxLayout(this);
+        v->setContentsMargins(6, 10, 6, 6);
+        v->setSpacing(4);
+
+        m_list = new QListWidget(this);
+        const QString stored = S::str(storeKey);
+        const QStringList names = stored.isEmpty()
+                ? QStringList{ tr("Padrão") }
+                : stored.split(QLatin1Char('|'), Qt::SkipEmptyParts);
+        m_list->addItems(names);
+        const int row = names.indexOf(S::str(activeKey, tr("Padrão")));
+        m_list->setCurrentRow(row >= 0 ? row : 0);
+        v->addWidget(m_list, 1);
+
+        QHBoxLayout* h = new QHBoxLayout;
+        h->setContentsMargins(0, 0, 0, 0);
+        QPushButton* plus = new QPushButton(QStringLiteral("+"), this);
+        plus->setFixedSize(28, 24);
+        plus->setToolTip(tr("Adicionar perfil"));
+        h->addWidget(plus, 0, Qt::AlignLeft);
+        h->addStretch(1);
+        v->addLayout(h);
+
+        setFixedWidth(168);
+        setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+
+        QObject::connect(plus, &QPushButton::clicked, this, [this] {
+            bool ok = false;
+            const QString name = QInputDialog::getText(
+                this, tr("Novo perfil"), tr("Nome do perfil:"),
+                QLineEdit::Normal, tr("Novo perfil"), &ok);
+            if (!ok || name.trimmed().isEmpty()) return;
+            if (!m_list->findItems(name, Qt::MatchExactly).isEmpty()) return;
+            m_list->addItem(name.trimmed());
+            m_list->setCurrentRow(m_list->count() - 1);
+            saveNames();
+        });
+        QObject::connect(m_list, &QListWidget::currentRowChanged, this, [this](int) {
+            saveNames();
+            activate();
+        });
+        activate(); // perfil inicial
+    }
+
+private:
+    void saveNames() {
+        QStringList names;
+        for (int i = 0; i < m_list->count(); ++i) names << m_list->item(i)->text();
+        S::set(m_storeKey, names.join(QLatin1Char('|')));
+    }
+    void activate() {
+        QListWidgetItem* it = m_list->currentItem();
+        if (!it) return;
+        S::set(m_activeKey, it->text());
+        if (m_onActivate) m_onActivate(it->text());
+    }
+
+    QListWidget* m_list = nullptr;
+    QString m_storeKey, m_activeKey;
+    std::function<void(const QString&)> m_onActivate;
+};
+
+// Medidor visual de volume (régua -50 a +50 dB com barra de nível e LED),
+// usado no teste de captura — lê o microfone padrão de verdade via QAudioSource.
+class CaptureMeter : public QWidget {
+public:
+    explicit CaptureMeter(QWidget* parent = nullptr) : QWidget(parent) {
+        setMinimumHeight(86);
+        m_timer = new QTimer(this);
+        m_timer->setInterval(80);
+        QObject::connect(m_timer, &QTimer::timeout, this, [this] { readLevel(); });
+    }
+    ~CaptureMeter() override { stop(); }
+
+    bool isTesting() const { return m_dev != nullptr; }
+
+    void start() {
+        stop();
+        QAudioFormat fmt;
+        fmt.setSampleRate(16000);
+        fmt.setChannelCount(1);
+        fmt.setSampleFormat(QAudioFormat::Int16);
+        m_source = new QAudioSource(QMediaDevices::defaultAudioInput(), fmt, this);
+        m_dev = m_source->start();
+        if (!m_dev) {
+            delete m_source;
+            m_source = nullptr;
+            return;
+        }
+        m_timer->start();
+    }
+
+    void stop() {
+        m_timer->stop();
+        if (m_source) { m_source->stop(); m_source->deleteLater(); m_source = nullptr; }
+        m_dev = nullptr;
+        m_led = false;
+        m_db = -50.0;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.fillRect(rect(), palette().base());
+        const QRect scale = rect().adjusted(30, 10, -24, -26);
+
+        // moldura da régua
+        p.setPen(QPen(palette().color(QPalette::Mid), 1));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(scale);
+
+        // barra de nível (verde -> amarelo na zona de voz)
+        const double frac = qBound(0.0, (m_db + 50.0) / 100.0, 1.0);
+        const int barW = int(scale.width() * frac);
+        if (barW > 0) {
+            const double vadFrac = double(S::num("capture/voiceLevel", -45) + 50) / 100.0;
+            const int vadX = int(scale.width() * vadFrac);
+            p.fillRect(scale.left() + 1, scale.top() + 1,
+                       qMin(barW, vadX) - 1, scale.height() - 2, QColor(52, 168, 83));
+            if (barW > vadX)
+                p.fillRect(scale.left() + vadX, scale.top() + 1,
+                           barW - vadX - 1, scale.height() - 2, QColor(251, 188, 5));
+        }
+
+        // marca do limiar de ativação de voz
+        {
+            const double vf = double(S::num("capture/voiceLevel", -45) + 50) / 100.0;
+            const int x = scale.left() + int(scale.width() * vf);
+            p.setPen(QPen(QColor(234, 67, 53), 2));
+            p.drawLine(x, scale.top(), x, scale.bottom());
+        }
+
+        // graduação
+        p.setPen(QPen(palette().color(QPalette::Text), 1));
+        QFont f = p.font();
+        f.setPixelSize(9);
+        p.setFont(f);
+        for (int db = -50; db <= 50; db += 10) {
+            const int x = scale.left() + int((db + 50) / 100.0 * scale.width());
+            p.drawLine(x, scale.bottom() - 4, x, scale.bottom());
+            p.drawText(x - 14, scale.bottom() + 2, 28, 12, Qt::AlignHCenter,
+                       QString::number(db));
+        }
+
+        // LED de atividade (acende quando o nível passa do limiar)
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush(m_led ? QColor(52, 168, 83) : QColor(154, 160, 166));
+        p.drawEllipse(QPointF(rect().right() - 14, 12), 5, 5);
+    }
+
+private:
+    void readLevel() {
+        if (!m_dev) return;
+        const QByteArray d = m_dev->readAll();
+        if (d.size() < 2) return;
+        const int16_t* s = reinterpret_cast<const int16_t*>(d.constData());
+        const int n = d.size() / 2;
+        double sum = 0;
+        for (int i = 0; i < n; ++i) sum += double(s[i]) * double(s[i]);
+        const double rms = std::sqrt(sum / n);
+        double db = 20.0 * std::log10(rms / 32767.0 + 1e-9);
+        db = qBound(-50.0, db, 50.0);
+        m_db = m_db < 0 ? qMax(m_db, db) * 0.3 + db * 0.7 : db; // suavização leve
+        m_led = db >= S::num("capture/voiceLevel", -45);
+        update();
+    }
+
+    QAudioSource* m_source = nullptr;
+    QIODevice* m_dev = nullptr;
+    QTimer* m_timer = nullptr;
+    double m_db = -50.0;
+    bool m_led = false;
+};
+
 OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle(tr("Opções"));
-    resize(820, 580);
+    resize(970, 640);
 
     QVBoxLayout* root = new QVBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 8);
@@ -89,7 +333,7 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent) {
     // ---------------- menu lateral (ícones grandes + texto) --------------
     m_nav = new QListWidget(this);
     m_nav->setObjectName(QStringLiteral("optionsNav"));
-    m_nav->setFixedWidth(192);
+    m_nav->setFixedWidth(184);
     m_nav->setIconSize(QSize(24, 24));
     m_nav->setSpacing(1);
     m_nav->setFrameShape(QFrame::NoFrame);
@@ -97,11 +341,12 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent) {
     struct PageDef { QString name; QString subtitle; QIcon icon; };
     const QList<PageDef> pages = {
         { tr("Aplicativo"),       tr("Opções gerais do aplicativo"),          HIcons::application() },
-        { tr("Reprodução"),       tr("Volume e saída de áudio"),              HIcons::playbackSpeaker() },
-        { tr("Captura"),          tr("Microfone, PTT e ativação de voz"),     HIcons::captureMic() },
-        { tr("Aparência"),        tr("Tema, fonte e comportamento visual"),   HIcons::design() },
+        { tr("Reprodução"),       tr("Configure o sistema de reprodução de áudio"), HIcons::playbackSpeaker() },
+        { tr("Capturar"),         tr("Configure o sistema de captura de áudio"),    HIcons::captureMic() },
+        { tr("Aparência"),        tr("Configure a aparência"),                  HIcons::design() },
         { tr("Notificações"),     tr("Sons e avisos de eventos"),             HIcons::notifyBell() },
-        { tr("Teclas de atalho"), tr("Atalhos globais, mouse e sussurro"),    HIcons::hotkeys() },
+        { tr("Teclas de atalho"), tr("Configure teclas de atalho"),           HIcons::hotkeys() },
+        { tr("Sussurro"),         tr("Configure o recurso de sussurros"),     HIcons::contacts() },
         { tr("Segurança"),        tr("Identidade e segurança"),               HIcons::security() },
         { tr("Complementos"),     tr("Extensões e pacotes do cliente"),       HIcons::addons() },
     };
@@ -151,6 +396,7 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent) {
     m_stack->addWidget(wrapScroll(pageDesign()));
     m_stack->addWidget(wrapScroll(pageNotifications()));
     m_stack->addWidget(wrapScroll(pageHotkeys()));
+    m_stack->addWidget(wrapScroll(pageWhisper()));
     m_stack->addWidget(wrapScroll(pageSecurity()));
     m_stack->addWidget(wrapScroll(pageAddons()));
 
@@ -287,12 +533,36 @@ QWidget* OptionsDialog::pageApplication() {
 }
 
 // ------------------------------------------------------------------ Design
+// ------------------------------------------------------------------ Aparência
+// duas colunas, como na janela de opções do TS3: à esquerda estilo/tema/ícones/
+// transparência; à direita os grupos "Árvore do canal", "Ícone da bandeja" e
+// "Suporte a GIF animado"
 QWidget* OptionsDialog::pageDesign() {
     QWidget* w = new QWidget;
-    QFormLayout* form = new QFormLayout(w);
+    QHBoxLayout* cols = new QHBoxLayout(w);
+    cols->setSpacing(12);
+
+    // ============ coluna esquerda ============
+    QVBoxLayout* left = new QVBoxLayout;
+    left->setSpacing(8);
+
+    QFormLayout* form = new QFormLayout;
     form->setSpacing(8);
 
+    QComboBox* style = new QComboBox(w);
+    style->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    style->setMinimumContentsLength(12);
+    style->addItems({ tr("Automático (nativo do sistema)"), tr("Fusion") });
+    style->setCurrentIndex(S::str("design/style") == QLatin1String("fusion") ? 1 : 0);
+    form->addRow(tr("Estilo:"), style);
+    connect(style, &QComboBox::currentIndexChanged, this, [this](int idx) {
+        S::set("design/style", idx == 1 ? QStringLiteral("fusion") : QString());
+        emit themeChanged(); // reaplica estilo + tema
+    });
+
     QComboBox* theme = new QComboBox(w);
+    theme->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    theme->setMinimumContentsLength(12);
     theme->addItems({ tr("Claro (padrão)"), tr("Escuro") });
     theme->setCurrentIndex(S::num("design/theme", 0));
     form->addRow(tr("Tema:"), theme);
@@ -300,6 +570,20 @@ QWidget* OptionsDialog::pageDesign() {
         S::set("design/theme", idx);
         emit themeChanged();
     });
+
+    QComboBox* iconPack = new QComboBox(w);
+    iconPack->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    iconPack->setMinimumContentsLength(12);
+    iconPack->addItem(tr("Padrão"));
+    form->addRow(tr("Pacote de ícones:"), iconPack);
+    connect(iconPack, &QComboBox::currentTextChanged, this,
+            [](const QString& t) { S::set("design/iconPack", t); });
+
+    QLabel* moreIcons = new QLabel(
+        QStringLiteral("<a href=\"https://github.com/farleybarbosa320-oss/Halla\">%1</a>")
+            .arg(tr("Obter mais folhas de estilos && ícones")), w);
+    moreIcons->setOpenExternalLinks(true);
+    form->addRow(QString(), moreIcons);
 
     QFontComboBox* font = new QFontComboBox(w);
     const QString savedFont = S::str("design/font", QFont().defaultFamily());
@@ -320,28 +604,113 @@ QWidget* OptionsDialog::pageDesign() {
         emit designChanged();
     });
 
-    QCheckBox* counts = new QCheckBox(tr("Mostrar número de clientes ao lado dos canais"), w);
-    counts->setChecked(S::flag("design/showCounts", true));
-    connect(counts, &QCheckBox::toggled, this, [this](bool v) {
-        S::set("design/showCounts", v);
+    // transparência da janela principal (50% a 100%)
+    QHBoxLayout* orow = new QHBoxLayout;
+    QSlider* opacity = new QSlider(Qt::Horizontal, w);
+    opacity->setRange(50, 100);
+    opacity->setValue(S::num("design/opacity", 100));
+    QLabel* olabel = new QLabel(QStringLiteral("%1%").arg(opacity->value()), w);
+    olabel->setMinimumWidth(40);
+    orow->addWidget(opacity, 1);
+    orow->addWidget(olabel);
+    QWidget* ow = new QWidget(w);
+    ow->setLayout(orow);
+    form->addRow(tr("Transparência:"), ow);
+    connect(opacity, &QSlider::valueChanged, this, [this, olabel](int v) {
+        S::set("design/opacity", v);
+        olabel->setText(QStringLiteral("%1%").arg(v));
         emit designChanged();
     });
-    form->addRow(QString(), counts);
 
-    QCheckBox* minis = new QCheckBox(tr("Mostrar mini-ícones de estado dos clientes"), w);
-    minis->setChecked(S::flag("design/showMinis", true));
-    connect(minis, &QCheckBox::toggled, this, [this](bool v) {
-        S::set("design/showMinis", v);
+    left->addLayout(form);
+    left->addStretch(1);
+
+    // ============ coluna direita ============
+    QVBoxLayout* right = new QVBoxLayout;
+    right->setSpacing(10);
+
+    QGroupBox* gbTree = new QGroupBox(tr("Árvore do canal"), w);
+    QVBoxLayout* vt = new QVBoxLayout(gbTree);
+    vt->setSpacing(4);
+
+    QRadioButton* expAll   = new QRadioButton(tr("Expandir todos os canais ao fazer login"), gbTree);
+    QRadioButton* expLevel = new QRadioButton(tr("Expandir canais até este nível:"), gbTree);
+    QRadioButton* expOwn   = new QRadioButton(tr("Expandir o próprio canal ao fazer login"), gbTree);
+    const int expMode = S::num("design/expandMode", 0);
+    if (expMode == 0)      expAll->setChecked(true);
+    else if (expMode == 1) expLevel->setChecked(true);
+    else                   expOwn->setChecked(true);
+    auto setExpMode = [this](int m) { S::set("design/expandMode", m); emit designChanged(); };
+    connect(expAll,   &QRadioButton::toggled, this, [setExpMode](bool v) { if (v) setExpMode(0); });
+    connect(expLevel, &QRadioButton::toggled, this, [setExpMode](bool v) { if (v) setExpMode(1); });
+    connect(expOwn,   &QRadioButton::toggled, this, [setExpMode](bool v) { if (v) setExpMode(2); });
+    vt->addWidget(expAll);
+
+    QHBoxLayout* lvl = new QHBoxLayout;
+    lvl->addWidget(expLevel);
+    QSpinBox* expandLevel = new QSpinBox(gbTree);
+    expandLevel->setRange(0, 99);
+    expandLevel->setValue(S::num("design/expandLevel", 0));
+    expandLevel->setEnabled(expMode == 1);
+    lvl->addWidget(expandLevel);
+    lvl->addStretch(1);
+    vt->addLayout(lvl);
+    connect(expLevel, &QRadioButton::toggled, expandLevel, &QWidget::setEnabled);
+    connect(expandLevel, &QSpinBox::valueChanged, this, [this](int v) {
+        S::set("design/expandLevel", v);
         emit designChanged();
     });
-    form->addRow(QString(), minis);
+    vt->addWidget(expOwn);
 
-    QCheckBox* tooltips = new QCheckBox(tr("Mostrar dicas de ferramentas na árvore do servidor"), w);
-    tooltips->setChecked(S::flag("design/tooltips", true));
-    connect(tooltips, &QCheckBox::toggled, this, [](bool v) { S::set("design/tooltips", v); });
-    form->addRow(QString(), tooltips);
+    auto treeCb = [this, gbTree, vt](const QString& key, const QString& text,
+                                     bool def, bool emitSignal) {
+        QCheckBox* cb = new QCheckBox(text, gbTree);
+        cb->setChecked(S::flag(key, def));
+        connect(cb, &QCheckBox::toggled, this, [this, key, emitSignal](bool v) {
+            S::set(key, v);
+            if (emitSignal) emit designChanged();
+        });
+        vt->addWidget(cb);
+    };
+    treeCb(QStringLiteral("design/sortClientsBelow"), tr("Classificar clientes abaixo dos canais"), false, true);
+    treeCb(QStringLiteral("design/showCountryFlags"), tr("Exibir bandeira de país nos clientes"), false, false);
+    treeCb(QStringLiteral("design/showOverwolfIcons"), tr("Exibir ícones do Overwolf nos clientes"), false, false);
+    treeCb(QStringLiteral("design/showBadgeIcons"), tr("Exibir ícones de emblema nos clientes"), false, false);
+    treeCb(QStringLiteral("design/showGroupIconsMenu"), tr("Exibir ícones de grupo nos menus de contexto"), true, false);
+    treeCb(QStringLiteral("design/hideInaccessibleGroups"), tr("Ocultar grupos inacessíveis nos menus de contexto"), true, false);
+    treeCb(QStringLiteral("design/showCounts"), tr("Mostrar número de clientes ao lado dos canais"), true, true);
+    treeCb(QStringLiteral("design/showMinis"), tr("Mostrar mini-ícones de estado dos clientes"), true, true);
+    treeCb(QStringLiteral("design/showAwayMessage"), tr("Mostrar mensagem de ausência ao lado do apelido"), true, true);
+    treeCb(QStringLiteral("design/tooltips"), tr("Mostrar dica de ferramenta ao passar o mouse"), true, true);
+    right->addWidget(gbTree);
 
-    form->addItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    QGroupBox* gbTray = new QGroupBox(tr("Ícone da bandeja"), w);
+    QVBoxLayout* vy = new QVBoxLayout(gbTray);
+    QCheckBox* minTray = new QCheckBox(tr("Minimizar na bandeja"), gbTray);
+    minTray->setChecked(S::flag("app/minimizeToTray", false));
+    connect(minTray, &QCheckBox::toggled, this, [](bool v) { S::set("app/minimizeToTray", v); });
+    vy->addWidget(minTray);
+    QCheckBox* closeTray = new QCheckBox(tr("Fechar na bandeja"), gbTray);
+    closeTray->setChecked(S::flag("app/closeToTray", false));
+    connect(closeTray, &QCheckBox::toggled, this, [](bool v) { S::set("app/closeToTray", v); });
+    vy->addWidget(closeTray);
+    right->addWidget(gbTray);
+
+    QGroupBox* gbGif = new QGroupBox(tr("Suporte a GIF animado"), w);
+    QVBoxLayout* vg = new QVBoxLayout(gbGif);
+    QCheckBox* gifAv = new QCheckBox(tr("Ativar avatares animados"), gbGif);
+    gifAv->setChecked(S::flag("design/animatedAvatars", true));
+    connect(gifAv, &QCheckBox::toggled, this, [](bool v) { S::set("design/animatedAvatars", v); });
+    vg->addWidget(gifAv);
+    QCheckBox* gifImg = new QCheckBox(tr("Ativar imagens animadas"), gbGif);
+    gifImg->setChecked(S::flag("design/animatedImages", true));
+    connect(gifImg, &QCheckBox::toggled, this, [](bool v) { S::set("design/animatedImages", v); });
+    vg->addWidget(gifImg);
+    right->addWidget(gbGif);
+    right->addStretch(1);
+
+    cols->addLayout(left, 4);
+    cols->addLayout(right, 6);
     return w;
 }
 
@@ -393,13 +762,28 @@ QWidget* OptionsDialog::pageNotifications() {
 }
 
 // ------------------------------------------------------------------ Reprodução
+// estilo TS3: perfis à esquerda; modo/dispositivo; sliders de volume em dB;
+// teste de som; grupo "Opções" (com slider de ruído) e grupo "Expansão de som mono"
 QWidget* OptionsDialog::pagePlayback() {
     QWidget* w = new QWidget;
-    QFormLayout* form = new QFormLayout(w);
+    QHBoxLayout* main = new QHBoxLayout(w);
+    main->setSpacing(10);
+
+    // ---- painel de perfis (esquerda)
+    ProfilesPanel* profiles = new ProfilesPanel(
+        QStringLiteral("playback/profiles"), QStringLiteral("playback/profile"),
+        nullptr, w);
+    main->addWidget(profiles);
+
+    // ---- coluna principal (direita)
+    QVBoxLayout* right = new QVBoxLayout;
+    right->setSpacing(8);
+
+    QFormLayout* form = new QFormLayout;
     form->setSpacing(8);
 
     QComboBox* mode = new QComboBox(w);
-    mode->addItems({ tr("Automaticamente selecionar melhor modo"), tr("Direct Sound"),
+    mode->addItems({ tr("Usar o melhor modo automaticamente"), tr("Direct Sound"),
                      tr("Windows Audio Session"), tr("PulseAudio"), tr("ALSA") });
     mode->setCurrentIndex(S::num("playback/mode", 0));
     form->addRow(tr("Modo de reprodução:"), mode);
@@ -407,48 +791,91 @@ QWidget* OptionsDialog::pagePlayback() {
             [](int v) { S::set("playback/mode", v); });
 
     QComboBox* dev = new QComboBox(w);
-    dev->addItem(tr("Padrão (dispositivo do sistema)"));
+    dev->addItem(tr("Padrão"));
     dev->setEnabled(false);
     form->addRow(tr("Dispositivo de reprodução:"), dev);
 
-    QHBoxLayout* vrow = new QHBoxLayout;
-    QSlider* vol = new QSlider(Qt::Horizontal, w);
-    vol->setRange(-40, 12);
-    vol->setValue(S::num("playback/volumeDb", 0));
-    QLabel* volLabel = new QLabel(QStringLiteral("%1 dB").arg(vol->value()), w);
-    vrow->addWidget(vol, 1);
-    vrow->addWidget(volLabel);
-    QWidget* vw = new QWidget(w);
-    vw->setLayout(vrow);
-    form->addRow(tr("Volume:"), vw);
-    connect(vol, &QSlider::valueChanged, this, [volLabel](int v) {
-        S::set("playback/volumeDb", v);
-        volLabel->setText(QStringLiteral("%1 dB").arg(v));
-    });
+    form->addRow(tr("Ajuste de volume de voz:"),
+                 dbSliderRow(w, QStringLiteral("playback/volumeDb"), 0, -15, 15,
+                             tr("Baixo"), tr("Alto")));
+    form->addRow(tr("Volume do pacote de som:"),
+                 dbSliderRow(w, QStringLiteral("playback/soundPackVolume"), -170, -40, 0,
+                             tr("Baixo"), tr("Alto")));
 
-    QCheckBox* duck = new QCheckBox(
-        tr("Reduzir o volume de outros aplicativos quando alguém estiver falando"), w);
-    duck->setChecked(S::flag("playback/ducking", false));
-    connect(duck, &QCheckBox::toggled, this,
-            [](bool v) { S::set("playback/ducking", v); });
-    form->addRow(QString(), duck);
-
-    QPushButton* test = new QPushButton(tr("Testar reprodução"), w);
-    form->addRow(QString(), test);
+    QHBoxLayout* trow = new QHBoxLayout;
+    QPushButton* test = new QPushButton(tr("▶ Reproduzir som de teste"), w);
+    trow->addWidget(test, 0, Qt::AlignLeft);
+    trow->addStretch(1);
+    form->addRow(QString(), trow);
     connect(test, &QPushButton::clicked, this, [] { HSound::play(QStringLiteral("test")); });
 
-    form->addItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    right->addLayout(form);
+
+    // ---- grupo "Opções"
+    QGroupBox* gbOpts = new QGroupBox(tr("Opções"), w);
+    QVBoxLayout* vo = new QVBoxLayout(gbOpts);
+    vo->setSpacing(4);
+    auto opt = [this, gbOpts, vo](const QString& key, const QString& text, bool def) {
+        QCheckBox* cb = new QCheckBox(text, gbOpts);
+        cb->setChecked(S::flag(key, def));
+        connect(cb, &QCheckBox::toggled, this,
+                [key](bool v) mutable { S::set(key, v); });
+        vo->addWidget(cb);
+    };
+    opt(QStringLiteral("playback/autoLeveling"),    tr("Nivelamento automático de volume de voz"), false);
+    opt(QStringLiteral("playback/selfMicClicks"),   tr("O próprio cliente reproduz cliques do microfone"), false);
+    opt(QStringLiteral("playback/always3d"),        tr("Sempre definir posições 3D de clientes quando disponível"), false);
+    opt(QStringLiteral("playback/othersMicClicks"), tr("Outros clientes reproduzem cliques do microfone"), true);
+    opt(QStringLiteral("playback/comfortNoise"),    tr("Ruído de conforto (comfort noise)"), true);
+    QLabel* noiseCap = new QLabel(tr("Ajuste do ruído de conforto:"), gbOpts);
+    noiseCap->setObjectName(QStringLiteral("captionLabel"));
+    vo->addWidget(noiseCap);
+    vo->addWidget(dbSliderRow(gbOpts, QStringLiteral("playback/comfortNoiseDb"), -360, -60, 0,
+                              tr("Quieto"), tr("Alto")));
+    right->addWidget(gbOpts);
+
+    // ---- grupo "Expansão de som mono"
+    QGroupBox* gbMono = new QGroupBox(tr("Expansão de som mono"), w);
+    QVBoxLayout* vm = new QVBoxLayout(gbMono);
+    vm->setSpacing(4);
+    const QStringList monoOpts = { tr("Mono para estéreo (padrão)"),
+                                   tr("Mono para alto-falante central (quando disponível)"),
+                                   tr("Mono para surround (quando disponível)") };
+    for (int i = 0; i < monoOpts.size(); ++i) {
+        QRadioButton* rb = new QRadioButton(monoOpts[i], gbMono);
+        rb->setChecked(S::num("playback/monoExpansion", 0) == i);
+        connect(rb, &QRadioButton::toggled, this,
+                [i](bool v) { if (v) S::set("playback/monoExpansion", i); });
+        vm->addWidget(rb);
+    }
+    right->addWidget(gbMono);
+    right->addStretch(1);
+
+    main->addLayout(right, 1);
     return w;
 }
 
 // ------------------------------------------------------------------ Captura
 QWidget* OptionsDialog::pageCapture() {
     QWidget* w = new QWidget;
-    QFormLayout* form = new QFormLayout(w);
+    QHBoxLayout* main = new QHBoxLayout(w);
+    main->setSpacing(10);
+
+    // ---- painel de perfis (esquerda)
+    ProfilesPanel* profiles = new ProfilesPanel(
+        QStringLiteral("capture/profiles"), QStringLiteral("capture/profile"),
+        nullptr, w);
+    main->addWidget(profiles);
+
+    // ---- coluna principal (direita)
+    QVBoxLayout* right = new QVBoxLayout;
+    right->setSpacing(8);
+
+    QFormLayout* form = new QFormLayout;
     form->setSpacing(8);
 
     QComboBox* mode = new QComboBox(w);
-    mode->addItems({ tr("Automaticamente selecionar melhor modo"), tr("Direct Sound"),
+    mode->addItems({ tr("Usar o melhor modo automaticamente"), tr("Direct Sound"),
                      tr("Windows Audio Session"), tr("PulseAudio"), tr("ALSA") });
     mode->setCurrentIndex(S::num("capture/mode", 0));
     form->addRow(tr("Modo de captura:"), mode);
@@ -456,81 +883,214 @@ QWidget* OptionsDialog::pageCapture() {
             [](int v) { S::set("capture/mode", v); });
 
     QComboBox* dev = new QComboBox(w);
-    dev->addItem(tr("Padrão (dispositivo do sistema)"));
+    dev->addItem(tr("Padrão"));
     dev->setEnabled(false);
     form->addRow(tr("Dispositivo de captura:"), dev);
 
-    QComboBox* profile = new QComboBox(w);
-    profile->setEditable(true);
-    profile->addItem(S::str("capture/profile", tr("Padrão")));
-    form->addRow(tr("Perfil de captura:"), profile);
-    connect(profile, &QComboBox::currentTextChanged, this,
-            [](const QString& t) { S::set("capture/profile", t); });
+    right->addLayout(form);
 
-    // ativação de voz: escolha EXCLUSIVA via radio buttons (como no TS3)
+    // ==================== grupo "Ativação de voz" ====================
     QGroupBox* gbMode = new QGroupBox(tr("Ativação de voz"), w);
     QVBoxLayout* vm = new QVBoxLayout(gbMode);
-    QRadioButton* rbPtt = new QRadioButton(tr("Pressionar para falar (PTT)"), gbMode);
-    QRadioButton* rbVad = new QRadioButton(tr("Detecção de voz"), gbMode);
-    QRadioButton* rbCont = new QRadioButton(tr("Transmissão contínua"), gbMode);
+    vm->setSpacing(5);
+
     const int curMode = S::num("capture/pttMode", 1);
+
+    // --- Radio 1: Push-to-Talk (com sub-opções recuadas, como no TS3)
+    QRadioButton* rbPtt = new QRadioButton(tr("Pressionar para falar (PTT)"), gbMode);
+    vm->addWidget(rbPtt);
+
+    QWidget* pttSub = new QWidget(gbMode);
+    QVBoxLayout* vs = new QVBoxLayout(pttSub);
+    vs->setContentsMargins(22, 0, 0, 0);
+    vs->setSpacing(5);
+
+    QHBoxLayout* keyRow = new QHBoxLayout;
+    HotkeyEdit* pttKey = new HotkeyEdit(pttSub);
+    pttKey->setSpec(S::str("capture/pttKey", "Space"));
+    pttKey->setMaximumWidth(230);
+    connect(pttKey, &HotkeyEdit::specChanged, this,
+            [](const QString& s) { S::set("capture/pttKey", s); });
+    QLabel* moreKeys = new QLabel(
+        QStringLiteral("<a href=\"hotkeys\">%1</a>").arg(tr("Definir mais teclas de atalho")),
+        pttSub);
+    keyRow->addWidget(pttKey);
+    keyRow->addWidget(moreKeys);
+    keyRow->addStretch(1);
+    vs->addLayout(keyRow);
+    connect(moreKeys, &QLabel::linkActivated, this, [this] {
+        selectPage(tr("Teclas de atalho"));
+    });
+
+    QHBoxLayout* delayRow = new QHBoxLayout;
+    QCheckBox* pttDelay = new QCheckBox(tr("Atraso ao soltar a tecla do Push-to-Talk:"), pttSub);
+    pttDelay->setChecked(S::flag("capture/pttDelayEnabled", false));
+    QDoubleSpinBox* delaySpin = new QDoubleSpinBox(pttSub);
+    delaySpin->setRange(0.0, 3.0);
+    delaySpin->setSingleStep(0.1);
+    delaySpin->setDecimals(1);
+    delaySpin->setSuffix(QStringLiteral(" s"));
+    delaySpin->setValue(S::num("capture/pttDelayMs", 300) / 1000.0);
+    delaySpin->setEnabled(pttDelay->isChecked());
+    delayRow->addWidget(pttDelay);
+    delayRow->addWidget(delaySpin);
+    delayRow->addStretch(1);
+    vs->addLayout(delayRow);
+    connect(pttDelay, &QCheckBox::toggled, this, [delaySpin](bool v) {
+        S::set("capture/pttDelayEnabled", v);
+        delaySpin->setEnabled(v);
+    });
+    connect(delaySpin, &QDoubleSpinBox::valueChanged, this,
+            [](double v) { S::set("capture/pttDelayMs", int(v * 1000)); });
+
+    QCheckBox* pttVad = new QCheckBox(tr("Adicionar detecção de atividade de voz"), pttSub);
+    pttVad->setChecked(S::flag("capture/pttWithVad", false));
+    connect(pttVad, &QCheckBox::toggled, this,
+            [](bool v) { S::set("capture/pttWithVad", v); });
+    vs->addWidget(pttVad);
+    vm->addWidget(pttSub);
+
+    // --- Radio 2: transmissão contínua
+    QRadioButton* rbCont = new QRadioButton(tr("Transmissão contínua"), gbMode);
+    vm->addWidget(rbCont);
+
+    // --- Radio 3: detecção de ativação por voz (+ dropdown de modo)
+    QHBoxLayout* vadRow = new QHBoxLayout;
+    QRadioButton* rbVad = new QRadioButton(tr("Detecção de ativação por voz"), gbMode);
+    QComboBox* vadMode = new QComboBox(gbMode);
+    vadMode->addItems({ tr("Automático"), tr("Sensível"), tr("Moderado"), tr("Restrito") });
+    vadMode->setCurrentIndex(S::num("capture/vadMode", 0));
+    vadRow->addWidget(rbVad);
+    vadRow->addWidget(vadMode);
+    vadRow->addStretch(1);
+    vm->addLayout(vadRow);
+    connect(vadMode, &QComboBox::currentIndexChanged, this,
+            [](int v) { S::set("capture/vadMode", v); });
+
     if (curMode == 0)      rbPtt->setChecked(true);
     else if (curMode == 2) rbCont->setChecked(true);
     else                   rbVad->setChecked(true);
     connect(rbPtt,  &QRadioButton::toggled, this, [](bool v) { if (v) S::set("capture/pttMode", 0); });
     connect(rbVad,  &QRadioButton::toggled, this, [](bool v) { if (v) S::set("capture/pttMode", 1); });
     connect(rbCont, &QRadioButton::toggled, this, [](bool v) { if (v) S::set("capture/pttMode", 2); });
-    vm->addWidget(rbPtt);
-    vm->addWidget(rbVad);
-    vm->addWidget(rbCont);
-    form->addRow(gbMode);
 
-    HotkeyEdit* pttKey = new HotkeyEdit(w);
-    pttKey->setSpec(S::str("capture/pttKey", "Space"));
-    form->addRow(tr("Tecla PTT:"), pttKey);
-    connect(pttKey, &HotkeyEdit::specChanged, this,
-            [](const QString& s) { S::set("capture/pttKey", s); });
-    QLabel* pttHint = new QLabel(tr("Aceita teclas e botões laterais do mouse "
-                                    "(Mouse4/Mouse5). Funciona em segundo plano."), w);
-    pttHint->setWordWrap(true);
-    pttHint->setObjectName(QStringLiteral("captionLabel"));
-    form->addRow(QString(), pttHint);
+    // sub-opções habilitadas apenas com o modo correspondente
+    auto syncSubs = [=] {
+        pttSub->setEnabled(rbPtt->isChecked());
+        vadMode->setEnabled(rbVad->isChecked());
+    };
+    connect(rbPtt, &QRadioButton::toggled, this, [syncSubs](bool) { syncSubs(); });
+    connect(rbVad, &QRadioButton::toggled, this, [syncSubs](bool) { syncSubs(); });
+    connect(rbCont, &QRadioButton::toggled, this, [syncSubs](bool) { syncSubs(); });
+    syncSubs();
 
+    // sensibilidade da detecção (linha fina na régua do medidor)
     QHBoxLayout* srow = new QHBoxLayout;
-    QSlider* level = new QSlider(Qt::Horizontal, w);
+    srow->setContentsMargins(22, 0, 0, 0);
+    QLabel* sensLabel = new QLabel(tr("Sensibilidade:"), gbMode);
+    QSlider* level = new QSlider(Qt::Horizontal, gbMode);
     level->setRange(-60, 0);
     level->setValue(S::num("capture/voiceLevel", -45));
-    QLabel* levelLabel = new QLabel(QStringLiteral("%1 dB").arg(level->value()), w);
+    QLabel* levelLabel = new QLabel(fmtDb(level->value()), gbMode);
+    levelLabel->setMinimumWidth(70);
+    levelLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    srow->addWidget(sensLabel);
     srow->addWidget(level, 1);
     srow->addWidget(levelLabel);
-    QWidget* sw = new QWidget(w);
-    sw->setLayout(srow);
-    form->addRow(tr("Nível de ativação de voz:"), sw);
+    vm->addLayout(srow);
     connect(level, &QSlider::valueChanged, this, [levelLabel](int v) {
         S::set("capture/voiceLevel", v);
-        levelLabel->setText(QStringLiteral("%1 dB").arg(v));
+        levelLabel->setText(fmtDb(v));
     });
 
-    QGroupBox* gbEcho = new QGroupBox(tr("Opções avançadas"), w);
-    QVBoxLayout* gv = new QVBoxLayout(gbEcho);
-    QCheckBox* echo = new QCheckBox(tr("Redução de eco"), gbEcho);
-    echo->setChecked(S::flag("capture/echoReduction", true));
-    connect(echo, &QCheckBox::toggled, this,
-            [](bool v) { S::set("capture/echoReduction", v); });
-    QCheckBox* cancel = new QCheckBox(tr("Cancelamento de eco acústico"), gbEcho);
+    // --- medidor visual de volume (régua -50 a +50 dB + botão de teste + LED)
+    QHBoxLayout* meterRow = new QHBoxLayout;
+    meterRow->setContentsMargins(22, 2, 0, 0);
+    CaptureMeter* meter = new CaptureMeter(gbMode);
+    QVBoxLayout* btns = new QVBoxLayout;
+    QPushButton* testBtn = new QPushButton(tr("Iniciar teste"), gbMode);
+    testBtn->setCheckable(true);
+    btns->addWidget(testBtn, 0, Qt::AlignTop);
+    btns->addStretch(1);
+    meterRow->addWidget(meter, 1);
+    meterRow->addLayout(btns);
+    vm->addLayout(meterRow);
+    connect(testBtn, &QPushButton::toggled, this, [meter, testBtn](bool on) {
+        if (on) {
+            meter->start();
+            testBtn->setText(meter->isTesting() ? tr("Parar teste") : tr("Iniciar teste"));
+        } else {
+            meter->stop();
+            testBtn->setText(tr("Iniciar teste"));
+        }
+    });
+
+    right->addWidget(gbMode);
+
+    // ============ grupo "Processamento digital de sinal" (DSP) ============
+    QGroupBox* gbDsp = new QGroupBox(tr("Processamento digital de sinal"), w);
+    QVBoxLayout* vd = new QVBoxLayout(gbDsp);
+    vd->setSpacing(5);
+
+    QCheckBox* typing = new QCheckBox(tr("Atenuação de digitação"), gbDsp);
+    typing->setChecked(S::flag("capture/typingAttenuation", false));
+    connect(typing, &QCheckBox::toggled, this,
+            [](bool v) { S::set("capture/typingAttenuation", v); });
+    vd->addWidget(typing);
+
+    QHBoxLayout* dnRow = new QHBoxLayout;
+    QCheckBox* denoise = new QCheckBox(tr("Remover ruídos de fundo"), gbDsp);
+    denoise->setChecked(S::flag("capture/denoise", true));
+    QSlider* dnLevel = new QSlider(Qt::Horizontal, gbDsp);
+    dnLevel->setRange(0, 100);
+    dnLevel->setValue(S::num("capture/denoiseLevel", 50));
+    QLabel* dnMin = new QLabel(tr("min"), gbDsp);
+    dnMin->setObjectName(QStringLiteral("captionLabel"));
+    QLabel* dnMax = new QLabel(tr("max"), gbDsp);
+    dnMax->setObjectName(QStringLiteral("captionLabel"));
+    dnLevel->setEnabled(denoise->isChecked());
+    dnRow->addWidget(denoise);
+    dnRow->addSpacing(16);
+    dnRow->addWidget(dnMin);
+    dnRow->addWidget(dnLevel, 1);
+    dnRow->addWidget(dnMax);
+    vd->addLayout(dnRow);
+    connect(denoise, &QCheckBox::toggled, this, [dnLevel](bool v) {
+        S::set("capture/denoise", v);
+        dnLevel->setEnabled(v);
+    });
+    connect(dnLevel, &QSlider::valueChanged, this,
+            [](int v) { S::set("capture/denoiseLevel", v); });
+
+    QCheckBox* cancel = new QCheckBox(tr("Cancelamento do eco"), gbDsp);
     cancel->setChecked(S::flag("capture/echoCancellation", false));
     connect(cancel, &QCheckBox::toggled, this,
             [](bool v) { S::set("capture/echoCancellation", v); });
-    QCheckBox* denoise = new QCheckBox(tr("Remover ruído de fundo"), gbEcho);
-    denoise->setChecked(S::flag("capture/denoise", true));
-    connect(denoise, &QCheckBox::toggled, this,
-            [](bool v) { S::set("capture/denoise", v); });
-    gv->addWidget(echo);
-    gv->addWidget(cancel);
-    gv->addWidget(denoise);
-    form->addRow(gbEcho);
+    vd->addWidget(cancel);
 
-    form->addItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    QHBoxLayout* duckRow = new QHBoxLayout;
+    QCheckBox* duck = new QCheckBox(tr("Redução de eco (Ducking):"), gbDsp);
+    duck->setChecked(S::flag("capture/ducking", false));
+    QSpinBox* duckDb = new QSpinBox(gbDsp);
+    duckDb->setRange(1, 60);
+    duckDb->setSuffix(QStringLiteral(" dB"));
+    duckDb->setValue(S::num("capture/duckingDb", 10));
+    duckDb->setEnabled(duck->isChecked());
+    duckRow->addWidget(duck);
+    duckRow->addWidget(duckDb);
+    duckRow->addStretch(1);
+    vd->addLayout(duckRow);
+    connect(duck, &QCheckBox::toggled, this, [duckDb](bool v) {
+        S::set("capture/ducking", v);
+        duckDb->setEnabled(v);
+    });
+    connect(duckDb, &QSpinBox::valueChanged, this,
+            [](int v) { S::set("capture/duckingDb", v); });
+
+    right->addWidget(gbDsp);
+    right->addStretch(1);
+
+    main->addLayout(right, 1);
     return w;
 }
 
@@ -542,80 +1102,228 @@ static QStringList whisperScopeNames() {
              OptionsDialog::tr("Lista de usuários") };
 }
 
+// chave do perfil ativo de hotkeys ("Padrão" quando não definido)
+static QString activeHotkeyProfile() {
+    return S::str(QStringLiteral("hotkeys/profile"),
+                  OptionsDialog::tr("Padrão"));
+}
+// chave de armazenamento da lista de atalhos de um perfil
+static QString hotkeysStoreKey(const QString& profile) {
+    return QStringLiteral("hotkeys/list.") + profile;
+}
+// migração da chave legada "hotkeys/list" (pré-3.13) para o perfil Padrão
+static void migrateLegacyHotkeys() {
+    const QString def = OptionsDialog::tr("Padrão");
+    const QString legacy = S::str(QStringLiteral("hotkeys/list"));
+    const QString newKey = hotkeysStoreKey(def);
+    if (!legacy.isEmpty() && S::str(newKey).isEmpty())
+        S::set(newKey, legacy);
+}
+
+// "MOUSE BUTTON 5" estilo TS3 para exibição (Mouse5 -> MOUSE BUTTON 5)
+static QString keyDisplayName(const QString& canonical) {
+    if (canonical == QLatin1String(HotkeyEdit::kMouse4))      return QStringLiteral("MOUSE BUTTON 4");
+    if (canonical == QLatin1String(HotkeyEdit::kMouse5))      return QStringLiteral("MOUSE BUTTON 5");
+    if (canonical == QLatin1String(HotkeyEdit::kMouseMiddle)) return QStringLiteral("MOUSE BUTTON MIDDLE");
+    return canonical;
+}
+
 QWidget* OptionsDialog::pageHotkeys() {
+    migrateLegacyHotkeys();
+
     QWidget* w = new QWidget;
-    QVBoxLayout* lay = new QVBoxLayout(w);
+    QHBoxLayout* lay = new QHBoxLayout(w);
+    lay->setSpacing(10);
 
-    QHBoxLayout* top = new QHBoxLayout;
-    QLabel* l = new QLabel(tr("Perfil de teclas de atalho:"), w);
-    QComboBox* profile = new QComboBox(w);
-    profile->addItem(S::str("hotkeys/profile", tr("Padrão")));
-    profile->setEditable(true);
-    top->addWidget(l);
-    top->addWidget(profile, 1);
-    lay->addLayout(top);
-    connect(profile, &QComboBox::currentTextChanged, this,
-            [](const QString& t) { S::set("hotkeys/profile", t); });
-
-    QTableWidget* table = new QTableWidget(0, 2, w);
-    table->setHorizontalHeaderLabels({ tr("Ação"), tr("Atalho") });
-    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    lay->addWidget(table, 1);
-
+    const QString defProfile = tr("Padrão");
     const QString whisperAction = tr("Sussurrar (segurar para falar)");
 
-    // texto de exibição da ação (adiciona o alvo do sussurro entre parênteses)
+    // ================= coluna esquerda: perfis =================
+    QVBoxLayout* left = new QVBoxLayout;
+    left->setSpacing(8);
+
+    QGroupBox* gbSynced = new QGroupBox(tr("Perfis sincronizados"), w);
+    QVBoxLayout* vs = new QVBoxLayout(gbSynced);
+    QListWidget* synced = new QListWidget(gbSynced);
+    synced->addItem(tr("Predefinição"));
+    vs->addWidget(synced);
+    left->addWidget(gbSynced);
+
+    QGroupBox* gbLocal = new QGroupBox(tr("Perfis locais"), w);
+    QVBoxLayout* vl = new QVBoxLayout(gbLocal);
+    QListWidget* locals = new QListWidget(gbLocal);
+    QStringList names = S::str(QStringLiteral("hotkeys/profiles"))
+                            .split(QLatin1Char('|'), Qt::SkipEmptyParts);
+    if (names.isEmpty()) names << defProfile;
+    locals->addItems(names);
+    const QString activeProf = activeHotkeyProfile();
+    int lr = names.indexOf(activeProf);
+    locals->setCurrentRow(lr >= 0 ? lr : 0);
+    vl->addWidget(locals, 1);
+    QHBoxLayout* pl = new QHBoxLayout;
+    QPushButton* plus = new QPushButton(QStringLiteral("+"), gbLocal);
+    plus->setFixedSize(28, 24);
+    plus->setToolTip(tr("Adicionar perfil local"));
+    pl->addWidget(plus, 0, Qt::AlignLeft);
+    pl->addStretch(1);
+    vl->addLayout(pl);
+    left->addWidget(gbLocal, 1);
+    left->addStretch(1);
+    lay->addLayout(left, 0);
+
+    // ================= painel principal: tabela de atalhos =================
+    QVBoxLayout* right = new QVBoxLayout;
+    right->setSpacing(6);
+
+    QTableWidget* table = new QTableWidget(0, 2, w);
+    table->verticalHeader()->setVisible(false);
+    table->setHorizontalHeaderLabels({ tr("Tecla de atalho"), tr("Ação") });
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    right->addWidget(table, 1);
+
+    // linha informativa (não editável) com o PTT do perfil de captura ativo,
+    // como o TS3 mostra: "MOUSE BUTTON 5 | Push-to-Talk ("Padrão")"
+    auto addPttRow = [table, defProfile] {
+        const QString cap = S::str(QStringLiteral("capture/profile"), defProfile);
+        const QString key = S::str(QStringLiteral("capture/pttKey"),
+                                   QStringLiteral("Space"));
+        table->insertRow(0);
+        QTableWidgetItem* k = new QTableWidgetItem(keyDisplayName(key));
+        k->setData(Qt::UserRole, QStringLiteral("!ptt")); // marcador interno
+        QTableWidgetItem* a = new QTableWidgetItem(
+            QStringLiteral("Push-to-Talk (\"%1\")").arg(cap));
+        const QFont f = k->font();
+        k->setFont(f);
+        a->setFont(f);
+        table->setItem(0, 0, k);
+        table->setItem(0, 1, a);
+    };
+
+    // texto da ação com o alvo do sussurro entre parênteses
     auto displayAction = [whisperAction](const QString& raw, int scope) {
         if (raw == whisperAction && scope >= 0 && scope <= 2)
             return QStringLiteral("%1 — %2").arg(raw, whisperScopeNames().value(scope));
         return raw;
     };
 
-    auto loadTable = [table, displayAction] {
+    auto loadTable = [table, displayAction, addPttRow] {
         table->setRowCount(0);
-        QJsonDocument doc = QJsonDocument::fromJson(S::str("hotkeys/list").toUtf8());
+        addPttRow();
+        QJsonDocument doc = QJsonDocument::fromJson(
+            S::str(hotkeysStoreKey(activeHotkeyProfile())).toUtf8());
         if (!doc.isArray()) return;
         for (const QJsonValue& v : doc.array()) {
             QJsonObject o = v.toObject();
-            const QString raw = o["action"].toString();
-            const int scope = o.contains("scope") ? o["scope"].toInt(1) : -1;
-            int r = table->rowCount();
+            const QString raw  = o["action"].toString();
+            const int scope    = o.contains("scope") ? o["scope"].toInt(1) : -1;
+            const int r = table->rowCount();
             table->insertRow(r);
+            QTableWidgetItem* k = new QTableWidgetItem(
+                keyDisplayName(o["key"].toString()));
+            k->setData(Qt::UserRole, o["key"].toString()); // chave canônica
             QTableWidgetItem* a = new QTableWidgetItem(displayAction(raw, scope));
-            a->setData(Qt::UserRole, raw);       // ação "cru" (sem o alvo)
-            a->setData(Qt::UserRole + 1, scope); // alvo do sussurro (-1 = n/a)
-            table->setItem(r, 0, a);
-            table->setItem(r, 1, new QTableWidgetItem(o["key"].toString()));
+            a->setData(Qt::UserRole, raw);                 // ação "cru"
+            a->setData(Qt::UserRole + 1, scope);           // alvo (-1 = n/a)
+            table->setItem(r, 0, k);
+            table->setItem(r, 1, a);
         }
     };
     loadTable();
 
-    auto saveTable = [table, this] {
+    auto saveTable = [table, addPttRow, this] {
         QJsonArray arr;
         for (int r = 0; r < table->rowCount(); ++r) {
+            // ignora a linha informativa do PTT
+            if (table->item(r, 0)->data(Qt::UserRole).toString() == QLatin1String("!ptt"))
+                continue;
             QJsonObject o;
-            o["action"] = table->item(r, 0)->data(Qt::UserRole).toString();
-            o["key"] = table->item(r, 1)->text();
-            const int scope = table->item(r, 0)->data(Qt::UserRole + 1).toInt();
+            o["key"]    = table->item(r, 0)->data(Qt::UserRole).toString();
+            o["action"] = table->item(r, 1)->data(Qt::UserRole).toString();
+            const int scope = table->item(r, 1)->data(Qt::UserRole + 1).toInt();
             if (scope >= 0) o["scope"] = scope;
             arr << o;
         }
-        S::set("hotkeys/list",
+        S::set(hotkeysStoreKey(activeHotkeyProfile()),
                QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
         emit hotkeysChanged();
     };
+    Q_UNUSED(addPttRow);
 
+    // seleção do perfil ativo troca a tabela de verdade
+    auto switchProfile = [locals, loadTable, this](const QString& name, bool save) {
+        if (name.isEmpty()) return;
+        if (save) { // grava a tabela no perfil ANTERIOR antes de trocar
+            // (saveTable já usa activeHotkeyProfile() — chama antes de mudar)
+        }
+        S::set(QStringLiteral("hotkeys/profile"), name);
+        loadTable();
+        emit hotkeysChanged();
+    };
+    connect(locals, &QListWidget::currentTextChanged, this, [this, loadTable](const QString& name) {
+        if (name.isEmpty()) return;
+        S::set(QStringLiteral("hotkeys/profile"), name);
+        loadTable();
+        emit hotkeysChanged();
+    });
+    Q_UNUSED(switchProfile);
+    connect(synced, &QListWidget::itemClicked, this, [this, locals, synced](QListWidgetItem*) {
+        // perfis sincronizados exigem conta myHalla — volta para o local
+        QMessageBox::information(this, tr("Perfis sincronizados"),
+            tr("A sincronização de perfis em nuvem requer uma conta myHalla. "
+               "Por enquanto, use os perfis locais."));
+        synced->clearSelection();
+        synced->setCurrentItem(nullptr);
+        if (locals->currentRow() < 0) locals->setCurrentRow(0);
+    });
+    connect(plus, &QPushButton::clicked, this, [this, locals, loadTable] {
+        bool ok = false;
+        const QString name = QInputDialog::getText(
+            this, tr("Novo perfil local"), tr("Nome do perfil:"),
+            QLineEdit::Normal, tr("Novo perfil"), &ok);
+        if (!ok || name.trimmed().isEmpty()) return;
+        if (!locals->findItems(name.trimmed(), Qt::MatchExactly).isEmpty()) return;
+        locals->addItem(name.trimmed());
+        QStringList names;
+        for (int i = 0; i < locals->count(); ++i) names << locals->item(i)->text();
+        S::set(QStringLiteral("hotkeys/profiles"), names.join(QLatin1Char('|')));
+        locals->setCurrentRow(locals->count() - 1); // dispara a troca p/ o novo perfil
+    });
+
+    // ---- botões: + Adicionar  X Remover  Editar ... combo do perfil ativo
     QHBoxLayout* btns = new QHBoxLayout;
-    QPushButton* add = new QPushButton(tr("Adicionar"), w);
+    QPushButton* add = new QPushButton(tr("+ Adicionar"), w);
+    QPushButton* del = new QPushButton(tr("X Remover"), w);
     QPushButton* edit = new QPushButton(tr("Editar"), w);
-    QPushButton* del = new QPushButton(tr("Excluir"), w);
     btns->addWidget(add);
-    btns->addWidget(edit);
     btns->addWidget(del);
+    btns->addWidget(edit);
     btns->addStretch(1);
-    lay->addLayout(btns);
+    QComboBox* profSel = new QComboBox(w);
+    profSel->addItems(names);
+    {
+        const int idx = names.indexOf(activeProf);
+        profSel->setCurrentIndex(idx >= 0 ? idx : 0);
+    }
+    btns->addWidget(profSel);
+    right->addLayout(btns);
+    connect(profSel, &QComboBox::currentTextChanged, this,
+            [locals](const QString& name) {
+                auto items = locals->findItems(name, Qt::MatchExactly);
+                if (!items.isEmpty())
+                    locals->setCurrentRow(locals->row(items.first()));
+            });
+    // combo acompanha a lista de perfis
+    connect(locals, &QListWidget::currentTextChanged, this,
+            [profSel](const QString& name) {
+                const int idx = profSel->findText(name, Qt::MatchExactly);
+                if (idx >= 0) {
+                    QSignalBlocker sb(profSel);
+                    profSel->setCurrentIndex(idx);
+                }
+            });
 
     const QStringList actions = {
         tr("Alternar mudo do microfone"),
@@ -632,6 +1340,13 @@ QWidget* OptionsDialog::pageHotkeys() {
     // referências ficariam penduradas (stack morto) e o app fecha/crash,
     // principalmente no Windows.
     auto editRow = [=, this](int row) {
+        if (row >= 0 && table->item(row, 0)->data(Qt::UserRole).toString()
+                            == QLatin1String("!ptt")) {
+            QMessageBox::information(this, tr("Push-to-Talk"),
+                tr("A tecla de PTT é configurada na página \"Capturar\"."));
+            selectPage(tr("Capturar"));
+            return;
+        }
         QDialog d(w);
         d.setWindowTitle(row < 0 ? tr("Adicionar tecla de atalho") : tr("Editar tecla de atalho"));
         QFormLayout* f = new QFormLayout(&d);
@@ -645,10 +1360,9 @@ QWidget* OptionsDialog::pageHotkeys() {
 
         int curScope = 1;
         if (row >= 0) {
-            const QString raw = table->item(row, 0)->data(Qt::UserRole).toString();
-            action->setCurrentText(raw);
-            key->setSpec(table->item(row, 1)->text());
-            curScope = table->item(row, 0)->data(Qt::UserRole + 1).toInt();
+            action->setCurrentText(table->item(row, 1)->data(Qt::UserRole).toString());
+            key->setSpec(table->item(row, 0)->data(Qt::UserRole).toString());
+            curScope = table->item(row, 1)->data(Qt::UserRole + 1).toInt();
             if (curScope < 0) curScope = 1;
             scope->setCurrentIndex(curScope);
         }
@@ -681,6 +1395,7 @@ QWidget* OptionsDialog::pageHotkeys() {
         QObject::connect(cancel, &QPushButton::clicked, &d, &QDialog::reject);
         if (d.exec() != QDialog::Accepted) return;
 
+        // grava na tabela, APÓS a linha do PTT
         const QString raw = action->currentText();
         const bool isWhisper = (raw == whisperAction);
         const int sc = isWhisper ? scope->currentIndex() : -1;
@@ -689,11 +1404,13 @@ QWidget* OptionsDialog::pageHotkeys() {
             row = table->rowCount();
             table->insertRow(row);
         }
+        QTableWidgetItem* k = new QTableWidgetItem(keyDisplayName(key->spec()));
+        k->setData(Qt::UserRole, key->spec());
         QTableWidgetItem* a = new QTableWidgetItem(displayAction(raw, sc));
         a->setData(Qt::UserRole, raw);
         a->setData(Qt::UserRole + 1, sc);
-        table->setItem(row, 0, a);
-        table->setItem(row, 1, new QTableWidgetItem(key->spec()));
+        table->setItem(row, 0, k);
+        table->setItem(row, 1, a);
         saveTable();
     };
 
@@ -705,6 +1422,9 @@ QWidget* OptionsDialog::pageHotkeys() {
     connect(del, &QPushButton::clicked, this, [=] {
         auto items = table->selectedItems();
         if (items.isEmpty()) return;
+        if (table->item(items.first()->row(), 0)->data(Qt::UserRole).toString()
+                == QLatin1String("!ptt"))
+            return; // a linha do PTT não é removível
         table->removeRow(items.first()->row());
         saveTable();
     });
@@ -717,7 +1437,76 @@ QWidget* OptionsDialog::pageHotkeys() {
         w);
     note->setObjectName(QStringLiteral("captionLabel"));
     note->setWordWrap(true);
-    lay->addWidget(note);
+    right->addWidget(note);
+
+    lay->addLayout(right, 1);
+    return w;
+}
+
+// ------------------------------------------------------------------ Sussurro
+QWidget* OptionsDialog::pageWhisper() {
+    QWidget* w = new QWidget;
+    QVBoxLayout* lay = new QVBoxLayout(w);
+    lay->setSpacing(10);
+
+    // ---- permissões para recebimento
+    QGroupBox* gbPerm = new QGroupBox(tr("Permissões para recebimento de sussurros"), w);
+    QVBoxLayout* vp = new QVBoxLayout(gbPerm);
+    const QStringList permOpts = {
+        tr("Usar a configuração do contato; se não houver nenhuma, permitir (padrão)"),
+        tr("Usar a configuração do contato; se não houver nenhuma, negar"),
+        tr("Negar a todos"),
+    };
+    for (int i = 0; i < permOpts.size(); ++i) {
+        QRadioButton* rb = new QRadioButton(permOpts[i], gbPerm);
+        rb->setChecked(S::num("whisper/recvMode", 0) == i);
+        connect(rb, &QRadioButton::toggled, this,
+                [i](bool v) { if (v) S::set("whisper/recvMode", i); });
+        vp->addWidget(rb);
+    }
+    lay->addWidget(gbPerm);
+
+    // ---- configurações para recebimento
+    QGroupBox* gbRecv = new QGroupBox(tr("Configurações para recebimento de sussurros"), w);
+    QVBoxLayout* vr = new QVBoxLayout(gbRecv);
+    QCheckBox* sound = new QCheckBox(
+        tr("Reproduzir áudio de notificação ao receber um sussurro"), gbRecv);
+    sound->setChecked(S::flag("whisper/notifySound", true));
+    connect(sound, &QCheckBox::toggled, this,
+            [](bool v) { S::set("whisper/notifySound", v); });
+    vr->addWidget(sound);
+    QCheckBox* hist = new QCheckBox(
+        tr("Sempre permitir mostrar o histórico de sussurros ao receber um sussurro"), gbRecv);
+    hist->setChecked(S::flag("whisper/alwaysHistory", false));
+    connect(hist, &QCheckBox::toggled, this,
+            [](bool v) { S::set("whisper/alwaysHistory", v); });
+    vr->addWidget(hist);
+    QHBoxLayout* hr = new QHBoxLayout;
+    QLabel* hlabel = new QLabel(tr("Remover clientes no histórico de sussurros após"), gbRecv);
+    QSpinBox* mins = new QSpinBox(gbRecv);
+    mins->setRange(1, 60);
+    mins->setSuffix(QStringLiteral(" min"));
+    mins->setValue(S::num("whisper/historyMinutes", 5));
+    hr->addWidget(hlabel);
+    hr->addWidget(mins);
+    hr->addStretch(1);
+    vr->addLayout(hr);
+    connect(mins, &QSpinBox::valueChanged, this,
+            [](int v) { S::set("whisper/historyMinutes", v); });
+    lay->addWidget(gbRecv);
+
+    // ---- ação extra: lista de sussurros
+    QHBoxLayout* lr = new QHBoxLayout;
+    QPushButton* lists = new QPushButton(tr("Lista de sussurros"), w);
+    lr->addWidget(lists, 0, Qt::AlignLeft);
+    lr->addStretch(1);
+    lay->addLayout(lr);
+    connect(lists, &QPushButton::clicked, this, [this] {
+        WhisperDialog dlg(nullptr, this);
+        dlg.exec();
+    });
+
+    lay->addStretch(1);
     return w;
 }
 

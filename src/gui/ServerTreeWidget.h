@@ -40,6 +40,11 @@ public:
     void rebuild();
     void setShowCounts(bool on)  { m_showCounts = on; }
     void setShowMinis(bool on);
+    void setSortClientsBelow(bool on) { m_sortClientsBelow = on; }
+
+    // modos de expansão (Opções → Aparência → Árvore do canal)
+    void expandChannelsToLevel(int level);     // recolhe tudo e expande até o nível
+    void expandOwnChannelOnly(int channelId);  // recolhe tudo, expande só o próprio canal
 
     // seleção atual
     int  currentKind() const;
@@ -85,4 +90,5 @@ private:
     ServerData* m_data = nullptr;
     ServerRowDelegate* m_delegate = nullptr;
     bool m_showCounts = true;
+    bool m_sortClientsBelow = false;
 };

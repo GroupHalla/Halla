@@ -1,4 +1,5 @@
 #include "SoundPack.h"
+#include "core/Settings.h"
 
 #include <QStandardPaths>
 #include <QDir>
@@ -95,8 +96,13 @@ void play(const QString& name) {
         e = new QSoundEffect;
         e->setSource(QUrl::fromLocalFile(dir() + QLatin1Char('/') + name +
                                          QStringLiteral(".wav")));
-        e->setVolume(0.65f);
         fx.insert(name, e);
+    }
+    // Volume do pacote de som (Opções → Reprodução), armazenado em dB ×10.
+    // Aplicado a cada reprodução: mudanças nas opções valem imediatamente.
+    {
+        const double db = S::num("playback/soundPackVolume", -170) / 10.0;
+        e->setVolume(float(qBound(0.0, qPow(10.0, db / 20.0), 1.0)));
     }
     if (e->isLoaded()) e->play();
     else if (e->status() == QSoundEffect::Error) { // sem áudio: ignora silenciosamente

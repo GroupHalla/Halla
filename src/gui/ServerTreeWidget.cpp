@@ -202,14 +202,47 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
         item->setForeground(0, QColor("#5C7285"));
     }
 
-    for (int uid : c.users)
-        if (m_data->users.contains(uid))
-            addUserItem(item, m_data->users[uid]);
-
-    for (int cid : m_data->childChannels(c.id))
-        buildChannelItem(m_data->channels[cid], item);
+    // TS3: por padrão clientes aparecem acima dos subcanais; com a opção
+    // "Classificar clientes abaixo dos canais" os subcanais vêm primeiro.
+    if (!m_sortClientsBelow) {
+        for (int uid : c.users)
+            if (m_data->users.contains(uid))
+                addUserItem(item, m_data->users[uid]);
+        for (int cid : m_data->childChannels(c.id))
+            buildChannelItem(m_data->channels[cid], item);
+    } else {
+        for (int cid : m_data->childChannels(c.id))
+            buildChannelItem(m_data->channels[cid], item);
+        for (int uid : c.users)
+            if (m_data->users.contains(uid))
+                addUserItem(item, m_data->users[uid]);
+    }
 
     return item;
+}
+
+// ------------------------------------------------------------------ expansão
+void ServerTreeWidget::expandChannelsToLevel(int level) {
+    collapseAll();
+    if (QTreeWidgetItem* root = topLevelItem(0)) root->setExpanded(true);
+    expandToDepth(qMax(0, level));
+}
+
+void ServerTreeWidget::expandOwnChannelOnly(int channelId) {
+    collapseAll();
+    std::function<bool(QTreeWidgetItem*)> find = [&](QTreeWidgetItem* it) -> bool {
+        if (it->data(0, RoleKind).toInt() == NodeChannel &&
+            it->data(0, RoleId).toInt() == channelId) {
+            for (QTreeWidgetItem* p = it; p; p = p->parent()) p->setExpanded(true);
+            return true;
+        }
+        for (int i = 0; i < it->childCount(); ++i)
+            if (find(it->child(i))) return true;
+        return false;
+    };
+    for (int i = 0; i < topLevelItemCount(); ++i)
+        if (find(topLevelItem(i))) break;
+    if (QTreeWidgetItem* root = topLevelItem(0)) root->setExpanded(true);
 }
 
 void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {

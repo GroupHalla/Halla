@@ -86,7 +86,14 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
                     muted = m_data->users[fromId].locallyMuted;
                 }
                 if (muted) return;
-                const float gain = vol == 0 ? 1.0f : qPow(10.0f, vol / 20.0f);
+                float gain = vol == 0 ? 1.0f : qPow(10.0f, vol / 20.0f);
+                // volume MESTRE de reprodução (Opções > Reprodução), em dB x10
+                const int masterX10 = S::num("playback/volumeDb", 0);
+                if (masterX10 != 0) gain *= qPow(10.0f, (masterX10 / 10.0f) / 20.0f);
+                // DUCKING (Opções > Capturar > DSP): reduz a reprodução em N dB
+                // enquanto EU estiver transmitindo (evita realimentação de eco)
+                if (m_talking && S::flag("capture/ducking", false))
+                    gain *= qPow(10.0f, -float(S::num("capture/duckingDb", 10)) / 20.0f);
                 if (gain != 1.0f) {
                     for (int i = 0; i < n; ++i) {
                         float s = pcm[i] * gain;
@@ -190,9 +197,33 @@ void VoiceEngine::captureTick() {
 
 // ==================================================================== PTT
 void VoiceEngine::setPttHeld(bool held) {
-    if (m_pttHeld == held) return;
-    m_pttHeld = held;
-    if (!held && m_talking) { // soltou a tecla: para de transmitir
+    const quint32 gen = ++m_pttGen; // marca esta transição (cancela timers velhos)
+
+    if (held) {
+        m_pttHeld = true; // uma nova pressão cancela qualquer soltura atrasada
+        return;
+    }
+    if (!m_pttHeld) return;
+
+    // "Atraso ao soltar a tecla do Push-to-Talk" (Opções > Capturar)
+    if (S::flag("capture/pttDelayEnabled", false)) {
+        const int ms = S::num("capture/pttDelayMs", 300);
+        if (ms > 0) {
+            QTimer::singleShot(ms, this, [this, gen] {
+                if (gen != m_pttGen) return; // o usuário pressionou de novo
+                m_pttHeld = false;
+                if (m_talking) {
+                    m_talking = false;
+                    m_net->sendTalking(false);
+                    emit talkingChanged(false);
+                }
+            });
+            return; // continua "segurado" até o timer disparar
+        }
+    }
+
+    m_pttHeld = false;
+    if (m_talking) { // soltou a tecla: para de transmitir
         m_talking = false;
         m_net->sendTalking(false);
         emit talkingChanged(false);

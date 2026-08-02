@@ -223,7 +223,18 @@ void ServerTab::attachNetwork(NetSession* net) {
 void ServerTab::applyDisplayOptions() {
     m_tree->setShowCounts(S::flag("design/showCounts", true));
     m_tree->setShowMinis(S::flag("design/showMinis", true));
+    m_tree->setSortClientsBelow(S::flag("design/sortClientsBelow", false));
     m_tree->rebuild();
+
+    // Expansão ao fazer login (Opções → Aparência → Árvore do canal)
+    const int mode = S::num("design/expandMode", 0);
+    if (mode == 0) {
+        m_tree->expandAll();
+    } else if (mode == 1) {
+        m_tree->expandChannelsToLevel(S::num("design/expandLevel", 0));
+    } else {
+        m_tree->expandOwnChannelOnly(m_data.channelOfUser(m_data.selfId));
+    }
 }
 
 void ServerTab::hookSignals() {

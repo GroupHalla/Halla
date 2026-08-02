@@ -43,8 +43,10 @@ static int takeShot(QApplication& app, const QString& path, const QString& what)
             dlg->grab().save(path);
             app.quit();
         });
-    } else if (what == "options") {
+    } else if (what.startsWith(QStringLiteral("options"))) {
         OptionsDialog* dlg = new OptionsDialog(&w);
+        const int colon = what.indexOf(QLatin1Char(':'));
+        if (colon >= 0) dlg->selectPage(what.mid(colon + 1));
         w.resize(900, 600);
         w.show();
         dlg->show();

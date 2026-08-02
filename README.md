@@ -16,6 +16,43 @@ de chat ocupando 100% da largura embaixo e barra de status em três zonas
 
 ![Halla](shots/demo.png)
 
+## Novidades da 3.13.0
+
+- **Opções agora completas, no padrão controle-a-controle do TS3**, em
+  cinco páginas retrabalhadas/novas:
+  - **Reprodução** — perfis com botão "+", modo e dispositivo, ajuste de
+    volume de voz e volume do pacote de som (sliders em dB, Baixo/Alto),
+    "Reproduzir som de teste", nivelamento automático, cliques de
+    microfone, posições 3D, ruído de conforto (Quieto/Alto) e expansão
+    de som mono (estéreo/central/surround).
+  - **Capturar** — perfis com "+", PTT com tecla configurável, **atraso
+    ao soltar** (0–3 s, funciona de verdade na transmissão), PTT+detecção
+    combinados, transmissão contínua, detecção de voz com sensibilidade
+    em dB, **medidor visual de volume** (régua −50…+50 dB, limiar em
+    vermelho, LED, botão "Iniciar teste") e o grupo de DSP: atenuação de
+    digitação, remoção de ruído com intensidade, cancelamento de eco e
+    **redução de eco (ducking)** que abaixa os demais enquanto você fala.
+  - **Aparência** — estilo, tema, pacote de ícones, fonte, transparência
+    da janela e o grupo **Árvore do canal** (expandir todos / até um
+    nível / só o próprio canal — aplicado de verdade ao entrar —,
+    clientes abaixo dos canais, bandeiras, Overwolf, emblemas, grupos
+    nos menus, contadores, mini-ícones, mensagem de ausência, dicas),
+    bandeja (minimizar/fechar) e GIF animado.
+  - **Teclas de atalho** — perfis sincronizados (myHalla) + **perfis
+    locais** com "+", tabela *Tecla de atalho × Ação* mostrando o PTT do
+    perfil de captura (ex.: `MOUSE BUTTON 5 | Push-to-Talk`), botões
+    Adicionar/Remover/Editar e seletor de perfil ativo; cada perfil
+    guarda seus próprios atalhos, com migração automática dos antigos.
+  - **Sussurro** *(nova página)* — quem pode sussurrar com você
+    (contato / permitir / negar), aviso sonoro, histórico e atalho para
+    a Lista de sussurros.
+- **Volume mestre de voz e volume do pacote de som aplicados de verdade**
+  (em dB, com efeito imediato); cabeçalhos das páginas com ícone em
+  marca d'água, como no TS3.
+
+![Opções — Reprodução](shots/opt-playback.png)
+![Opções — Capturar](shots/opt-capture.png)
+
 ## Novidades da 3.12.0
 
 - **Janela de Opções redesenhada no padrão do TS3**: a faixa azul foi

@@ -301,6 +301,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                           connect(&dlg, &OptionsDialog::themeChanged, this,
                                   &MainWindow::applyTheme);
                           connect(&dlg, &OptionsDialog::designChanged, this, [this] {
+                              // transparência da janela (Opções > Aparência)
+                              setWindowOpacity(S::num("design/opacity", 100) / 100.0);
                               for (int i = 0; i < m_tabs->count(); ++i)
                                   if (ServerTab* t = qobject_cast<ServerTab*>(m_tabs->widget(i)))
                                       t->applyDisplayOptions();
@@ -365,7 +367,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     Q_UNUSED(actCont);
     micMenu->addAction(tr("Opções de captura..."), this, [this] {
         OptionsDialog dlg(this);
-        dlg.selectPage(tr("Captura"));
+        dlg.selectPage(tr("Capturar"));
         dlg.exec();
     });
     addDropButton(m_actMuteMic, micMenu);
@@ -570,6 +572,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     updateStatusBar();
     applyTheme();
     applyHotkeys();
+    // Transparência da janela (Opções → Aparência)
+    setWindowOpacity(qBound(0.5, S::num("design/opacity", 100) / 100.0, 1.0));
 
     AppLog::info(tr("Halla %1 iniciado").arg(QString::fromUtf8(halla::kAppVersion)));
 }
@@ -945,7 +949,12 @@ void MainWindow::applyHotkeys() {
     m_whisperHolds.clear();
 #endif
 
-    QJsonDocument doc = QJsonDocument::fromJson(S::str("hotkeys/list").toUtf8());
+    // lista do PERFIL ativo (migração da chave legada "hotkeys/list")
+    const QString prof = S::str(QStringLiteral("hotkeys/profile"), tr("Padrão"));
+    QString listJson = S::str(QStringLiteral("hotkeys/list.") + prof);
+    if (listJson.isEmpty() && prof == tr("Padrão"))
+        listJson = S::str(QStringLiteral("hotkeys/list")); // legado
+    QJsonDocument doc = QJsonDocument::fromJson(listJson.toUtf8());
     if (doc.isArray()) {
         int idx = 0;
         for (const QJsonValue& v : doc.array()) {
@@ -1052,6 +1061,20 @@ void MainWindow::closeEvent(QCloseEvent* e) {
 
 bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
     return QMainWindow::eventFilter(obj, ev);
+}
+
+// "Minimizar na bandeja" (Opções > Aparência > Ícone da bandeja)
+void MainWindow::changeEvent(QEvent* e) {
+    if (e->type() == QEvent::WindowStateChange && isMinimized() &&
+        S::flag("app/minimizeToTray", false) && m_tray && m_tray->isVisible()) {
+        QTimer::singleShot(0, this, [this] {
+            hide();
+            m_tray->showMessage(QStringLiteral("Halla"),
+                                tr("O Halla continua em execução na bandeja do sistema."),
+                                QSystemTrayIcon::Information, 1800);
+        });
+    }
+    QMainWindow::changeEvent(e);
 }
 
 // ======================================================================

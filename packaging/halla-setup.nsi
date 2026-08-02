@@ -1,6 +1,6 @@
 ; ============================================================================
 ; Halla — Instalador NSIS (Windows 64-bit)
-; Produz Halla-Setup-3.9.0.exe, um instalador clássico no estilo dos
+; Produz Halla-Setup-3.13.0.exe, um instalador clássico no estilo dos
 ; aplicativos Windows: licença, pasta de destino, atalhos e desinstalador.
 ; ============================================================================
 
@@ -8,7 +8,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !define APP_NAME      "Halla"
-!define APP_VERSION   "3.12.0"
+!define APP_VERSION   "3.13.0"
 !define APP_PUBLISHER "Halla"
 !define APP_EXE       "Halla.exe"
 !define APP_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${APP_EXE}"
@@ -81,15 +81,28 @@ Section "Uninstall"
     Delete "$INSTDIR\Qt6Core.dll"
     Delete "$INSTDIR\Qt6Gui.dll"
     Delete "$INSTDIR\Qt6Widgets.dll"
+    Delete "$INSTDIR\Qt6Network.dll"
+    Delete "$INSTDIR\Qt6Multimedia.dll"
+    Delete "$INSTDIR\Qt6TextToSpeech.dll"
     Delete "$INSTDIR\libgcc_s_seh-1.dll"
     Delete "$INSTDIR\libstdc++-6.dll"
     Delete "$INSTDIR\libwinpthread-1.dll"
     Delete "$INSTDIR\LEIA-ME.txt"
     Delete "$INSTDIR\platforms\qwindows.dll"
     Delete "$INSTDIR\styles\qmodernwindowsstyle.dll"
+    Delete "$INSTDIR\multimedia\windowsmediaplugin.dll"
+    Delete "$INSTDIR\tls\qschannelbackend.dll"
+    Delete "$INSTDIR\texttospeech\qtexttospeech_sapi.dll"
+    Delete "$INSTDIR\imageformats\qgif.dll"
+    Delete "$INSTDIR\imageformats\qjpeg.dll"
+    Delete "$INSTDIR\imageformats\qico.dll"
     Delete "$INSTDIR\Desinstalar.exe"
     RMDir  "$INSTDIR\platforms"
     RMDir  "$INSTDIR\styles"
+    RMDir  "$INSTDIR\multimedia"
+    RMDir  "$INSTDIR\tls"
+    RMDir  "$INSTDIR\texttospeech"
+    RMDir  "$INSTDIR\imageformats"
     RMDir  "$INSTDIR"
 
     ; atalhos
