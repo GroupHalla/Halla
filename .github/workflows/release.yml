@@ -68,7 +68,7 @@ jobs:
 
       - name: Build Installer with NSIS
         run: |
-          makensis packaging/halla-setup.nsi
+          & "C:\Program Files (x86)\NSIS\makensis.exe" packaging/halla-setup.nsi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
