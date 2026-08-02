@@ -91,31 +91,28 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.10
-          name: Halla v3.13.10
+          tag_name: v3.13.11
+          name: Halla v3.13.11
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.10.exe
+          files: Halla-Setup-3.13.11.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.10
+            ## 🚀 Novidades e Correções do Halla v3.13.11
 
-            Esta release traz novas funcionalidades para elevar a paridade de recursos ao estado-da-arte, incluindo a automatização inteligente de silenciamento e o novo painel de Informações de Conexão!
+            Esta release traz o suporte completo a múltiplos idiomas com detecção automática de sistema, além da correção de encerramento imediato durante a atualização automática!
+
+            ### 🌐 Suporte Internacional Integrado (Português, Inglês e Espanhol)
+            * **Detecção Automática:** Implementamos o tradutor nativo `HallaTranslator` herdado de `QTranslator`. Ao inicializar o aplicativo, ele detecta automaticamente o idioma padrão do seu sistema operacional (`QLocale::system()`).
+            * **Tradução Dinâmica On-the-Fly:** Todo o aplicativo se traduz dinamicamente para o **Inglês** ou **Espanhol** caso seu computador esteja configurado em um desses idiomas, mantendo o Português como padrão de fallback caso contrário, de forma extremamente leve e sem necessidade de arquivos externos adicionais!
+
+            ### 🔄 Fechamento Instantâneo para Atualizações Automáticas (Instalação Sem Avisos)
+            * **Fim do bloqueio por aviso de conexão:** Corrigimos o fluxo de encerramento da aplicação quando o instalador da atualização automática é executado.
+            * **Forçar Saída Limpa:** Agora, ao concluir o download da nova versão temporária, o app seta a flag de salvamento e encerramento forçado `S::set("app/forceQuit", true)`, o que permite que o Halla feche instantaneamente no mesmo milissegundo, **bypassando e silenciando por completo o popup de confirmação** (*Você ainda está conectado a servidores. Deseja realmente sair?*). O instalador roda em seguida de forma limpa, rápida e livre de qualquer erro de arquivo em uso!
 
             ### 🎧 Lógica Automatizada de Silenciamento (Auto-Mute Microfone)
-            * **Fones/Microfone em Harmonia:** Implementamos a lógica inteligente de mutar o fone. Agora, sempre que você silenciar os fones de ouvido (alto-falantes), **o microfone será silenciado automaticamente também**!
-            * **Desarme de Segurança:** Ao reativar os fones de ouvido, o microfone também é reativado de forma automática e integrada, facilitando a troca e garantindo usabilidade máxima.
+            * **Fones/Microfone em Sincronia:** Ao silenciar os fones de ouvido (alto-falantes), o microfone agora é silenciado automaticamente também! Da mesma forma, ao reativar os fones, o microfone é reativado perfeitamente.
 
-            ### 📊 Novo Diálogo de Informações de Conexão do Servidor
-            * **Status Completo:** Adicionamos a opção **Informações de conexão...** ao menu de **Conexões**.
-            * **Painel Informativo:** Abre um painel que lista dinamicamente:
-              - Nome do Servidor conectado
-              - Endereço de IP e Porta do servidor
-              - Versão e Plataforma da máquina servidora
-              - Quantidade total de clientes conectados
-              - Tempo total de Conexão (Uptime) medido em horas, minutos e segundos
-              - Latência de rede (Ping em ms) atualizada dinamicamente.
-
-            ### 🧹 Limpeza Geral de Marcas e Nomes de Terceiros
-            * Concluímos a revisão textual em toda a base de código e documentações do repositório, garantindo uma identidade textual limpa, independente e totalmente autônoma.
+            ### 📊 Diálogo de Informações de Conexão do Servidor
+            * Painel informativo sob o menu *Conexões* que exibe o Uptime, Ping dinâmico, Clientes conectados, plataforma, versão e IP do servidor.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -913,6 +913,7 @@ void MainWindow::downloadAndInstallUpdate(const QString& url, const QString& ver
             QMessageBox::information(this, tr("Download concluído"),
                 tr("O download foi concluído com sucesso. O instalador será executado agora."));
                 
+            S::set("app/forceQuit", true); // Bypassa todos os diálogos de confirmação de saída!
             QProcess::startDetached(installerPath, QStringList());
             qApp->quit();
         } else {
@@ -1188,7 +1189,7 @@ void MainWindow::closeEvent(QCloseEvent* e) {
         e->ignore();
         return;
     }
-    if (m_tabs->count() > 0 && S::flag("app/confirmQuit", true)) {
+    if (m_tabs->count() > 0 && S::flag("app/confirmQuit", true) && !S::flag("app/forceQuit", false)) {
         const auto ret = QMessageBox::question(
             this, tr("Sair"),
             tr("Você ainda está conectado a servidores.\nDeseja realmente sair?"),
