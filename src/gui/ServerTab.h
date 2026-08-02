@@ -6,6 +6,8 @@
 class ServerTreeWidget;
 class ChatPanel;
 class QSplitter;
+class NetSession;
+class VoiceEngine;
 
 // Uma "conexão" do Halla = uma aba do servidor com árvore + chat (visual do TS3)
 class ServerTab : public QWidget {
@@ -17,6 +19,11 @@ public:
     const ServerData& data() const { return m_data; }
     ServerTreeWidget* tree() const { return m_tree; }
     ChatPanel* chat() const { return m_chat; }
+    NetSession* net() const { return m_net; }
+    bool isNetworked() const { return m_net != nullptr; }
+
+    // conecta a aba a uma sessão de rede (modo conectado ao Halla Server)
+    void attachNetwork(NetSession* net);
 
     QString tabTitle() const;
 
@@ -50,6 +57,8 @@ private:
     ServerTreeWidget* m_tree = nullptr;
     ChatPanel* m_chat = nullptr;
     QSplitter* m_split = nullptr;
+    NetSession* m_net = nullptr;
+    VoiceEngine* m_voice = nullptr;
 
     void hookSignals();
     void systemMsgServer(const QString& msg);

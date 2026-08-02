@@ -9,15 +9,30 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-# Qt 6 (com fallback para Qt 5.15)
-find_package(Qt6 6.2 QUIET COMPONENTS Widgets)
+# Qt 6
+find_package(Qt6 6.2 QUIET COMPONENTS Widgets Network Multimedia)
 if (Qt6_FOUND)
-    set(QT_LIBS Qt6::Widgets)
+    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia)
     message(STATUS "Halla: usando Qt ${Qt6_VERSION}")
 else()
-    find_package(Qt5 5.15 REQUIRED COMPONENTS Widgets)
-    set(QT_LIBS Qt5::Widgets)
-    message(STATUS "Halla: usando Qt 5")
+    find_package(Qt6 REQUIRED COMPONENTS Widgets Network Multimedia)
+    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia)
+endif()
+
+# Opus (biblioteca do sistema no Linux, estática incluída no Windows)
+if (WIN32)
+    add_library(opus STATIC IMPORTED GLOBAL)
+    set_target_properties(opus PROPERTIES
+        IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/third_party/opus/libopus.a
+        INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/opus/include)
+    set(OPUS_LIBS opus)
+else()
+    find_path(OPUS_INCLUDE_DIR opus.h PATH_SUFFIXES opus REQUIRED)
+    find_library(OPUS_LIBRARY opus REQUIRED)
+    add_library(opus SHARED IMPORTED GLOBAL)
+    set_target_properties(opus PROPERTIES IMPORTED_LOCATION ${OPUS_LIBRARY})
+    target_include_directories(opus INTERFACE ${OPUS_INCLUDE_DIR})
+    set(OPUS_LIBS opus)
 endif()
 
 set(HALLA_SOURCES
@@ -41,6 +56,8 @@ set(HALLA_SOURCES
     src/dialogs/ToolsDialogs.cpp
     src/dialogs/AboutDialog.cpp
     src/app/MainWindow.cpp
+    src/net/NetSession.cpp
+    src/net/VoiceEngine.cpp
 )
 
 add_executable(Halla ${HALLA_SOURCES})
@@ -51,9 +68,10 @@ target_include_directories(Halla PRIVATE
     src/gui
     src/dialogs
     src/app
+    src/net
 )
 
-target_link_libraries(Halla PRIVATE ${QT_LIBS})
+target_link_libraries(Halla PRIVATE ${QT_LIBS} ${OPUS_LIBS})
 
 if (MSVC)
     target_compile_options(Halla PRIVATE /W3 /utf-8)

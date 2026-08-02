@@ -24,10 +24,13 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
 
-    // abre uma conexão (cria a aba do servidor). Usado pelo diálogo Conectar,
-    // favoritos, conexões recentes e restauração de sessão.
+    // abre uma conexão REAL com um Halla Server (rede TCP+UDP).
+    // Usado pelo diálogo Conectar, favoritos, conexões recentes e --auto-connect.
     void connectTo(const QString& address, quint16 port, const QString& nickname,
                    const QString& password = QString());
+
+    // cria uma aba local (offline, usada apenas no modo --demo de capturas)
+    void createLocalTab(const ServerData& initial);
 
     void loadDemoState(); // usado apenas pelo modo --demo (capturas de tela)
 
@@ -78,6 +81,8 @@ private:
     QLabel* m_statusIcon = nullptr;
     QLabel* m_statusText = nullptr;
     QLabel* m_pingLabel = nullptr;
+
+    void wireTab(ServerTab* tab);
 
     QList<QPointer<QShortcut>> m_hotkeyShortcuts;
 };

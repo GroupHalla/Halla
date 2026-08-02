@@ -101,5 +101,29 @@ int main(int argc, char* argv[]) {
 
     MainWindow w;
     w.show();
+
+    // conexão automática (testes): --auto-connect host:porta,apelido[,senha]
+    const int acIdx = args.indexOf(QStringLiteral("--auto-connect"));
+    if (acIdx >= 0 && acIdx + 1 < args.size()) {
+        const QString spec = args.at(acIdx + 1);
+        const QStringList parts = spec.split(',');
+        const QStringList hp = parts.value(0).split(':');
+        const QString host = hp.value(0);
+        const quint16 port = hp.value(1) == "9987" ? 9987 : quint16(hp.value(1, "9987").toUShort());
+        QTimer::singleShot(300, &w, [&w, host, port, parts] {
+            w.connectTo(host, port, parts.value(1, QStringLiteral("HallaUser")),
+                        parts.value(2));
+        });
+        // modo --shot-live <arquivo>: captura a janela após conectar
+        const int shotLive = args.indexOf(QStringLiteral("--shot-live"));
+        if (shotLive >= 0 && shotLive + 1 < args.size()) {
+            const QString out = args.at(shotLive + 1);
+            QTimer::singleShot(1800, &w, [&w, out, &app] {
+                w.grab().save(out);
+                app.quit();
+            });
+        }
+    }
+
     return app.exec();
 }

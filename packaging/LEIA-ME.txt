@@ -1,0 +1,42 @@
+========================================================================
+  HALLA 3.7.0 — Cliente de comunicação por voz
+========================================================================
+
+O Halla é um aplicativo de voz sobre IP no estilo do TeamSpeak 3,
+com cliente para Windows e servidor auto-hospedável (Halla Server).
+
+NOVIDADES DA VERSÃO 3.7.0
+-------------------------
+* Conexão REAL a servidores Halla Server (protocolo próprio
+  TCP/UDP na porta 9987).
+* Voz funcionando: captura e reprodução de áudio com codec Opus,
+  indicador de quem está falando, controle de volume por usuário.
+* Chat do servidor, do canal e mensagens privadas em tempo real.
+* Cutucar (poke), expulsar, banir e chaves de privilégio.
+* Aviso sonoro de mensagem, ping e perda de pacotes na barra
+  de status.
+
+COMO USAR
+---------
+1. Abra o Halla.exe
+2. Menu Conexões > Conectar (ou clique no botão de conectar)
+3. Digite o endereço do servidor (ex.: meuservidor.com:9987),
+   o seu apelido e, se houver, a senha do servidor.
+4. Clique em Conectar. Pronto: entre em um canal e converse!
+
+PARA HOSPEDAR SEU PRÓPRIO SERVIDOR
+----------------------------------
+Baixe o Halla Server (Windows e Linux) em:
+  https://github.com/farleybarbosa320-oss/HallaServer/releases
+
+Execute halla-server.exe (ou o binário Linux) e passe o endereço
+IP da máquina para os seus amigos. O arquivo halla-server.ini
+permite configurar nome, senha, chaves de privilégio etc.
+
+REQUISITOS
+----------
+* Windows 10 ou superior (64 bits)
+* Microfone e alto-falantes/fones para voz
+
+O Halla é software livre e gratuito.
+========================================================================
