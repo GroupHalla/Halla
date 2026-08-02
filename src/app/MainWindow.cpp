@@ -158,6 +158,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                                              PrivilegeKeyDialog dlg(this);
                                              if (dlg.exec() == QDialog::Accepted &&
                                                  !dlg.key().isEmpty()) {
+                                                 if (t->isNetworked() && t->net()) {
+                                                     t->net()->usePrivilegeKey(dlg.key());
+                                                 }
                                                  t->chat()->addServerSystem(
                                                      tr("Chave de privilégio usada."));
                                                  AppLog::info(tr("Chave de privilégio usada"));

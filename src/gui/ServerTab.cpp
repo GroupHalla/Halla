@@ -202,8 +202,10 @@ void ServerTab::attachNetwork(NetSession* net) {
 
     connect(net, &NetSession::errorOccurred, this,
             [this](const QString& code, const QString& msg) {
-                Q_UNUSED(code);
                 systemMsgServer(tr("Erro do servidor: %1").arg(msg));
+                if (code == QStringLiteral("bad_privkey") || code == QStringLiteral("privkey_used")) {
+                    QMessageBox::critical(this, tr("Chave de privilégio"), msg);
+                }
             });
 
     connect(net, &NetSession::kickedReceived, this,
