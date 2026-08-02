@@ -4,6 +4,25 @@
 #include "app/Theme.h"
 
 #include <QVBoxLayout>
+#include <QPainter>
+
+// QTextBrowser com a marca d'água discreta do Halla no canto superior direito
+// (como o logo de fundo do painel de informações do TeamSpeak 3)
+class InfoView : public QTextBrowser {
+public:
+    explicit InfoView(QWidget* parent = nullptr) : QTextBrowser(parent) {}
+
+protected:
+    void paintEvent(QPaintEvent* e) override {
+        QTextBrowser::paintEvent(e);
+        static const QPixmap wm = HIcons::appIcon(96);
+        if (wm.isNull()) return;
+        QPainter p(viewport());
+        p.setOpacity(HTheme::isDark() ? 0.10 : 0.07);
+        const int m = 12;
+        p.drawPixmap(viewport()->width() - wm.width() - m, m, wm);
+    }
+};
 
 InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
     QVBoxLayout* lay = new QVBoxLayout(this);
@@ -17,7 +36,7 @@ InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
     m_banner->setMaximumHeight(58);
     lay->addWidget(m_banner);
 
-    m_view = new QTextBrowser(this);
+    m_view = new InfoView(this);
     m_view->setObjectName(QStringLiteral("infoView"));
     m_view->setOpenLinks(false);
     lay->addWidget(m_view, 1);

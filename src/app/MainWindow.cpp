@@ -43,6 +43,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QRandomGenerator>
+#include <utility>
 #ifdef Q_OS_WIN
 #include <windows.h>
 // definida mais abaixo (mesmo arquivo)
@@ -79,17 +80,69 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     mConn->addAction(tr("Sair"), this, &MainWindow::close)
         ->setShortcut(QKeySequence(QStringLiteral("Ctrl+Q")));
 
-    m_bookmarksMenu = menuBar()->addMenu(tr("Fa&voritos"));
+    m_bookmarksMenu = menuBar()->addMenu(tr("&Marcadores"));
     m_actBookmarkAdd = m_bookmarksMenu->addAction(
-        HIcons::bookmarkStar(), tr("Adicionar aos favoritos..."), this,
+        HIcons::bookmarkStar(), tr("Adicionar aos marcadores..."), this,
         [this] {
             ServerTab* t = currentTab();
             openBookmarksDialog(t ? t->data().name : QString(),
                                 t ? t->data().address : QString());
         });
-    m_bookmarksMenu->addAction(tr("Gerenciar favoritos..."), this,
+    m_bookmarksMenu->addAction(tr("Gerenciar marcadores..."), this,
                                [this] { openBookmarksDialog(); });
     // entradas dinâmicas são inseridas por rebuildBookmarksMenu()
+
+    // ------------------------- Si mesmo (estado do próprio cliente) ------
+    // ações de estado criadas aqui: usadas no menu "Si mesmo", na barra de
+    // ferramentas e nos atalhos globais
+    m_actAway = new QAction(HIcons::away(false), tr("Ausente"), this);
+    m_actAway->setCheckable(true);
+    m_actAway->setToolTip(tr("Definir como ausente"));
+    connect(m_actAway, &QAction::triggered, this, [this] {
+        if (ServerTab* t = currentTab()) t->setAway(m_actAway->isChecked());
+        updateConnectionUi();
+    });
+
+    m_actMuteMic = new QAction(HIcons::muteMic(false), tr("Mudo (microfone)"), this);
+    m_actMuteMic->setCheckable(true);
+    m_actMuteMic->setToolTip(tr("Silenciar o microfone"));
+    connect(m_actMuteMic, &QAction::triggered, this, [this] {
+        if (ServerTab* t = currentTab()) t->setMicMuted(m_actMuteMic->isChecked());
+        updateConnectionUi();
+    });
+
+    m_actMuteSpk = new QAction(HIcons::muteSpeaker(false), tr("Mudo (alto-falantes)"), this);
+    m_actMuteSpk->setCheckable(true);
+    m_actMuteSpk->setToolTip(tr("Silenciar os alto-falantes"));
+    connect(m_actMuteSpk, &QAction::triggered, this, [this] {
+        if (ServerTab* t = currentTab()) t->setSpeakersMuted(m_actMuteSpk->isChecked());
+        updateConnectionUi();
+    });
+
+    m_actRenameSelf = new QAction(HIcons::identity(), tr("Alterar apelido..."), this);
+    connect(m_actRenameSelf, &QAction::triggered, this, [this] {
+        if (ServerTab* t = currentTab()) t->renameSelf();
+    });
+
+    m_actCommander = new QAction(tr("Alternar comandante do canal"), this);
+    connect(m_actCommander, &QAction::triggered, this, [this] {
+        if (ServerTab* t = currentTab()) t->toggleCommander();
+    });
+
+    QMenu* mSelf = menuBar()->addMenu(tr("&Si mesmo"));
+    mSelf->addAction(m_actAway);
+    mSelf->addAction(m_actMuteMic);
+    mSelf->addAction(m_actMuteSpk);
+    mSelf->addSeparator();
+    mSelf->addAction(m_actRenameSelf);
+    mSelf->addAction(m_actCommander);
+    mSelf->addSeparator();
+    mSelf->addAction(tr("Definir avatar..."), this, [this] {
+        if (ServerTab* t = currentTab()) t->setAvatarInteractive();
+    });
+    mSelf->addAction(tr("Remover avatar"), this, [this] {
+        if (ServerTab* t = currentTab()) t->removeAvatar();
+    });
 
     QMenu* mPerm = menuBar()->addMenu(tr("&Permissões"));
     m_actPrivilegeKey = mPerm->addAction(HIcons::key(), tr("Usar chave de privilégio..."), this,
@@ -117,7 +170,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                                                  dlg.exec();
                                              }
                                              t->tree()->rebuild();
-                                             m_info->refresh();
+                                             t->info()->refresh();
                                          });
     m_actMyPerms = mPerm->addAction(tr("Mostrar permissões do usuário..."), this,
                      [this] {
@@ -242,7 +295,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                           dlg.exec();
                       });
     mTools->addSeparator();
-    mTools->addAction(HIcons::optionsGear(), tr("Opções..."), this,
+    m_actOptions = mTools->addAction(HIcons::optionsGear(), tr("Opções..."), this,
                       [this] {
                           OptionsDialog dlg(this);
                           connect(&dlg, &OptionsDialog::themeChanged, this,
@@ -255,7 +308,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                           connect(&dlg, &OptionsDialog::hotkeysChanged, this,
                                   &MainWindow::applyHotkeys);
                           dlg.exec();
-                      })->setShortcut(QKeySequence(QStringLiteral("Alt+P")));
+                      });
+    m_actOptions->setShortcut(QKeySequence(QStringLiteral("Alt+P")));
 
     QMenu* mHelp = menuBar()->addMenu(tr("A&juda"));
     mHelp->addAction(tr("Sobre o Halla"), this,
@@ -264,43 +318,89 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     mHelp->addAction(tr("Verificar atualizações"), this, [this] { checkUpdates(); });
 
     // ------------------------- barra de ferramentas ---------------------
+    // ícones pequenos com setas suspensas, como no TeamSpeak 3
     QToolBar* tb = addToolBar(tr("Principal"));
     tb->setObjectName(QStringLiteral("mainToolBar"));
     tb->setMovable(false);
-    tb->setIconSize(QSize(18, 18));
+    tb->setIconSize(QSize(16, 16));
     tb->setToolButtonStyle(Qt::ToolButtonIconOnly);
 
-    tb->addAction(m_actConnect);
-    tb->addAction(m_actDisconnect);
+    // auxiliar: botão de ação principal + seta com menu suspenso
+    auto addDropButton = [tb](QAction* main, QMenu* menu) -> QToolButton* {
+        QToolButton* b = new QToolButton(tb);
+        b->setDefaultAction(main);
+        if (menu) {
+            b->setPopupMode(QToolButton::MenuButtonPopup);
+            b->setMenu(menu);
+        }
+        tb->addWidget(b);
+        return b;
+    };
+
+    // --- bloco conexão
+    addDropButton(m_actConnect, nullptr);
+    QMenu* disMenu = new QMenu(this);
+    disMenu->addAction(m_actDisconnectAll);
+    addDropButton(m_actDisconnect, disMenu);
     tb->addSeparator();
-    tb->addAction(m_actBookmarkAdd);
+
+    // --- marcadores
+    QMenu* bmMenu = new QMenu(this);
+    bmMenu->addAction(tr("Gerenciar marcadores..."), this,
+                      [this] { openBookmarksDialog(); });
+    addDropButton(m_actBookmarkAdd, bmMenu);
     tb->addSeparator();
 
-    m_actAway = tb->addAction(HIcons::away(false), tr("Ausente"), this, [this] {
-        if (ServerTab* t = currentTab()) t->setAway(m_actAway->isChecked());
-        updateConnectionUi();
-    });
-    m_actAway->setCheckable(true);
-    m_actAway->setToolTip(tr("Definir como ausente"));
+    // --- estado: ausente (com seta: apelido/comandante)
+    QMenu* awayMenu = new QMenu(this);
+    awayMenu->addAction(m_actRenameSelf);
+    awayMenu->addAction(m_actCommander);
+    addDropButton(m_actAway, awayMenu);
 
-    m_actMuteMic = tb->addAction(HIcons::muteMic(false), tr("Mudo (microfone)"), this, [this] {
-        if (ServerTab* t = currentTab()) t->setMicMuted(m_actMuteMic->isChecked());
-        updateConnectionUi();
+    // --- microfone (com seta: transmissão contínua + opções de captura)
+    QMenu* micMenu = new QMenu(this);
+    QAction* actCont = micMenu->addAction(tr("Alternar transmissão contínua"), this, [this] {
+        runConfiguredAction(tr("Alternar transmissão contínua"));
     });
-    m_actMuteMic->setCheckable(true);
+    Q_UNUSED(actCont);
+    micMenu->addAction(tr("Opções de captura..."), this, [this] {
+        OptionsDialog dlg(this);
+        dlg.selectPage(tr("Captura"));
+        dlg.exec();
+    });
+    addDropButton(m_actMuteMic, micMenu);
 
-    m_actMuteSpk = tb->addAction(HIcons::muteSpeaker(false), tr("Mudo (alto-falantes)"), this,
-                                 [this] {
-                                     if (ServerTab* t = currentTab())
-                                         t->setSpeakersMuted(m_actMuteSpk->isChecked());
-                                     updateConnectionUi();
-                                 });
-    m_actMuteSpk->setCheckable(true);
+    // --- alto-falantes (com seta: opções de reprodução)
+    QMenu* spkMenu = new QMenu(this);
+    spkMenu->addAction(tr("Opções de reprodução..."), this, [this] {
+        OptionsDialog dlg(this);
+        dlg.selectPage(tr("Reprodução"));
+        dlg.exec();
+    });
+    addDropButton(m_actMuteSpk, spkMenu);
 
     tb->addAction(m_actRecord);
     m_actRecord->setToolTip(tr("Iniciar/parar gravação (arquivo WAV local)"));
-
     tb->addSeparator();
+
+    // --- gerenciar grupos (com seta: chave/banidos/permissões)
+    QMenu* grpMenu = new QMenu(this);
+    grpMenu->addAction(m_actPrivilegeKey);
+    grpMenu->addAction(m_actMyPerms);
+    grpMenu->addAction(m_actBanList);
+    grpMenu->addAction(m_actComplaints);
+    addDropButton(m_actServerGroups, grpMenu);
+
+    // --- sussurro (com seta: listas de sussurro)
+    QMenu* whMenu = new QMenu(this);
+    whMenu->addAction(tr("Listas de sussurro..."), this, [this] {
+        ServerTab* t = currentTab();
+        WhisperDialog dlg(t ? &t->data() : nullptr, this);
+        dlg.exec();
+    });
+    addDropButton(m_actWhisper, whMenu);
+    tb->addSeparator();
+
     QToolButton* logBtn = new QToolButton(tb);
     logBtn->setIcon(HIcons::logPage());
     logBtn->setToolTip(tr("Registro do cliente"));
@@ -326,7 +426,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(bellBtn, &QToolButton::clicked, this, [this] { showNotifications(); });
 
     connect(optBtn, &QToolButton::clicked, this, [this] {
-        menuBar()->actions().at(3)->menu()->actions().last()->trigger();
+        if (m_actOptions) m_actOptions->trigger();
     });
 
     // ------------------------- área central -----------------------------
@@ -346,14 +446,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_tabs->setTabsClosable(true);
     m_tabs->setMovable(true);
     m_tabs->setDocumentMode(false);
+    // cada aba já traz o layout TS3 completo: árvore 50% | informações 50%
+    // em cima e chat ocupando 100% da largura embaixo
     m_center->addWidget(m_tabs);
-
-    m_info = new InfoPanel(m_center);
-    m_info->setMinimumWidth(240);
-    m_center->addWidget(m_info);
     m_center->setStretchFactor(0, 1);
-    m_center->setStretchFactor(1, 0);
-    m_center->setSizes({ 860, 320 });
 
     m_stack->addWidget(m_center);
 
@@ -367,10 +463,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_tabs, &QTabWidget::currentChanged, this, [this](int) {
         updateConnectionUi();
         updateStatusBar();
-        if (ServerTab* t = currentTab()) {
-            m_info->setData(&t->data());
-            m_info->setSelection(t->tree()->currentKind(), t->tree()->currentId());
-        }
     });
 
     // menu de contexto nas abas (como no TS3)
@@ -393,11 +485,36 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             });
 
     // ------------------------- barra de status --------------------------
+    // três zonas, como no TS3:
+    // [aba do servidor atual]  |  [linha de notícias]  |  [ícone + conexão + ping]
+    m_serverMenu = new QMenu(this);
+    m_serverMenu->addAction(m_actDisconnect);
+    m_serverMenu->addAction(m_actBookmarkAdd);
+    m_serverMenu->addSeparator();
+    m_serverMenu->addAction(m_actConnect);
+
+    m_serverButton = new QToolButton(this);
+    m_serverButton->setObjectName(QStringLiteral("serverTabButton"));
+    m_serverButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_serverButton->setIcon(HIcons::server());
+    m_serverButton->setText(tr("Nenhum servidor"));
+    m_serverButton->setPopupMode(QToolButton::InstantPopup);
+    m_serverButton->setMenu(m_serverMenu);
+    statusBar()->addWidget(m_serverButton, 0);
+
+    m_newsLabel = new QLabel(
+        tr("Bem-vindo ao Halla!  •  Cliente de voz livre estilo TeamSpeak 3  •  "
+           "github.com/farleybarbosa320-oss/Halla"), this);
+    m_newsLabel->setObjectName(QStringLiteral("newsLabel"));
+    m_newsLabel->setAlignment(Qt::AlignCenter);
+    m_newsLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    statusBar()->addWidget(m_newsLabel, 1);
+
     m_statusIcon = new QLabel(this);
     m_statusIcon->setPixmap(HIcons::disconnectPlug().pixmap(14, 14));
-    m_statusText = new QLabel(tr("Não conectado"), this);
-    statusBar()->addWidget(m_statusIcon, 0);
-    statusBar()->addWidget(m_statusText, 1);
+    statusBar()->addPermanentWidget(m_statusIcon, 0);
+    m_statusText = new QLabel(tr("Desconectado"), this);
+    statusBar()->addPermanentWidget(m_statusText, 0);
     m_pingLabel = new QLabel(QString(), this);
     statusBar()->addPermanentWidget(m_pingLabel, 0);
 
@@ -503,9 +620,6 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         if (S::flag("notify/connectSound", true)) HSound::play(QStringLiteral("connected"));
         HSpeech::say(tr("Conectado ao servidor"));
 
-        m_info->setData(&tab->data());
-        m_info->setSelection(0, 0);
-
         S::set("connect/nickname", net->data().users[net->data().selfId].name);
         addRecent(address, port);
         saveSession();
@@ -526,17 +640,10 @@ void MainWindow::wireTab(ServerTab* tab) {
         int i = m_tabs->indexOf(tab);
         if (i >= 0) m_tabs->setTabText(i, tab->tabTitle());
     });
-    connect(tab, &ServerTab::selectionChanged, this, [this, tab](int kind, int id) {
-        if (m_tabs->currentWidget() == tab) {
-            m_info->setData(&tab->data());
-            m_info->setSelection(kind, id);
-        }
-    });
     connect(tab, &ServerTab::statusChanged, this, [this, tab] {
         if (m_tabs->currentWidget() == tab) {
             updateConnectionUi();
             updateStatusBar();
-            m_info->refresh();
         }
     });
 }
@@ -550,8 +657,6 @@ void MainWindow::createLocalTab(const ServerData& initial) {
     tab->chat()->addServerSystem(tr("Conectado ao servidor: %1").arg(initial.address));
     tab->chat()->addChannelSystem(tr("Você entrou no canal \"%1\".")
                                       .arg(initial.channels.first().name));
-    m_info->setData(&tab->data());
-    m_info->setSelection(0, 0);
     m_stack->setCurrentWidget(m_center);
     updateConnectionUi();
     updateStatusBar();
@@ -573,7 +678,6 @@ void MainWindow::disconnectTab(ServerTab* tab, bool notify) {
     saveSession();
     if (m_tabs->count() == 0) {
         m_stack->setCurrentWidget(m_welcome);
-        m_info->setData(nullptr);
     }
     updateConnectionUi();
     updateStatusBar();
@@ -721,6 +825,9 @@ void MainWindow::updateConnectionUi() {
     m_actMuteSpk->setEnabled(connected);
     m_actRecord->setEnabled(connected);
     m_actWhisper->setEnabled(connected);
+    m_actRenameSelf->setEnabled(connected);
+    m_actCommander->setEnabled(connected);
+    m_whisperToggleOn = (t && t->whisperHoldActive());
 
     if (connected) {
         m_actAway->blockSignals(true);
@@ -749,11 +856,15 @@ void MainWindow::updateConnectionUi() {
 
 void MainWindow::updateStatusBar() {
     ServerTab* t = currentTab();
+    // zona esquerda: "aba" com o nome do servidor atual
+    m_serverButton->setText(t ? t->data().name : tr("Nenhum servidor"));
+    m_serverButton->setIcon(HIcons::server());
+
+    // zona direita: estado da conexão + ping/perda
     if (t) {
         m_statusIcon->setPixmap(HIcons::connectPlug().pixmap(14, 14));
-        m_statusText->setText(tr("Conectado a %1 como %2")
-                                  .arg(t->data().address,
-                                       t->data().users[t->data().selfId].name));
+        m_statusText->setText(tr("Conectado como %1")
+                                  .arg(t->data().users[t->data().selfId].name));
         if (NetSession* net = t->net()) {
             m_pingLabel->setText(tr("Ping: %1 ms   Perda de pacotes: %2%")
                                      .arg(net->pingMs()).arg(QStringLiteral("0,00")));
@@ -761,12 +872,13 @@ void MainWindow::updateStatusBar() {
             m_pingLabel->setText(tr("Ping: --"));
         }
     } else if (m_tabs->count() > 0) {
+        m_serverButton->setText(tr("%1 servidores").arg(m_tabs->count()));
         m_statusIcon->setPixmap(HIcons::connectPlug().pixmap(14, 14));
         m_statusText->setText(tr("%1 conexões abertas").arg(m_tabs->count()));
         m_pingLabel->clear();
     } else {
         m_statusIcon->setPixmap(HIcons::disconnectPlug().pixmap(14, 14));
-        m_statusText->setText(tr("Não conectado"));
+        m_statusText->setText(tr("Desconectado"));
         m_pingLabel->clear();
     }
 }
@@ -783,6 +895,14 @@ void MainWindow::applyTheme() {
 // executa uma ação configurada em "Teclas de atalho" (independente da origem:
 // atalho local do Qt no Linux ou hotkey GLOBAL do sistema no Windows)
 void MainWindow::runConfiguredAction(const QString& action) {
+    if (action.contains(QStringLiteral("ussurr"), Qt::CaseInsensitive)) {
+        // sussurro por TOGGLE (usado no Linux/atalhos de janela); no Windows
+        // o comportamento principal é "segurar para falar" (ver applyHotkeys)
+        ServerTab* t = currentTab();
+        if (!t) return;
+        t->setWhisperHold(!t->whisperHoldActive(), S::num("hotkeys/whisperScope", 1));
+        return;
+    }
     if (action.contains(tr("microfone"))) {
         if (ServerTab* t = currentTab()) t->setMicMuted(!t->isMicMuted());
         updateConnectionUi();
@@ -821,6 +941,7 @@ void MainWindow::applyHotkeys() {
     for (int id : m_globalHotkeyActions.keys())
         UnregisterHotKey(HWND(winId()), id);
     m_globalHotkeyActions.clear();
+    m_whisperHolds.clear();
 #endif
 
     QJsonDocument doc = QJsonDocument::fromJson(S::str("hotkeys/list").toUtf8());
@@ -829,7 +950,42 @@ void MainWindow::applyHotkeys() {
         for (const QJsonValue& v : doc.array()) {
             QJsonObject o = v.toObject();
             const QString action = o["action"].toString();
-            const QKeySequence seq = QKeySequence::fromString(o["key"].toString());
+            const QString keyStr = o["key"].toString();
+            if (keyStr.isEmpty()) continue;
+
+            // ---- v3.11: "Sussurrar" é um atalho de SEGURAR (como o PTT do TS3)
+            if (action.contains(QStringLiteral("ussurr"), Qt::CaseInsensitive)) {
+                const int scope = o["scope"].toInt(1);
+#ifdef Q_OS_WIN
+                HoldKey hk;
+                hk.scope = scope;
+                if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         hk.mouseBtn = 4;
+                else if (keyStr == QLatin1String(HotkeyEdit::kMouse5))    hk.mouseBtn = 5;
+                else if (keyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) hk.mouseBtn = 3;
+                else {
+                    UINT vk = 0, mods = 0;
+                    if (!specToVk(QKeySequence::fromString(keyStr), vk, mods)) continue;
+                    hk.vk = vk;
+                    hk.mods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN);
+                }
+                m_whisperHolds << hk; // pressão/soltura detectadas pelo timer global
+#else
+                Q_UNUSED(scope); // o alvo vem de "hotkeys/whisperScope" no toggle
+                // Linux: sem hotkeys globais — alternância por atalho de janela
+                const QKeySequence seq = QKeySequence::fromString(keyStr);
+                if (!seq.isEmpty()) {
+                    QShortcut* sc = new QShortcut(seq, this);
+                    sc->setContext(Qt::WindowShortcut);
+                    connect(sc, &QShortcut::activated, this,
+                            [this, action] { runConfiguredAction(action); });
+                    m_hotkeyShortcuts << sc;
+                }
+#endif
+                ++idx;
+                continue;
+            }
+
+            const QKeySequence seq = QKeySequence::fromString(keyStr);
             if (seq.isEmpty()) continue;
 #ifdef Q_OS_WIN
             // GLOBAL: funciona em segundo plano, como no TS3
@@ -849,6 +1005,18 @@ void MainWindow::applyHotkeys() {
             ++idx;
         }
     }
+
+#ifdef Q_OS_WIN
+    // timer global de 50 ms: detecta pressão/soltura de PTT (qualquer origem)
+    // e das teclas de sussurro — funciona com a janela em segundo plano,
+    // pois lê o estado físico das teclas/botões via GetAsyncKeyState
+    if (!m_pttPoll) {
+        m_pttPoll = new QTimer(this);
+        m_pttPoll->setInterval(50);
+        connect(m_pttPoll, &QTimer::timeout, this, &MainWindow::pollGlobalInputs);
+    }
+    m_pttPoll->start();
+#endif
 
     // (re)registra a tecla PTT global do sistema (Windows) — tecla OU mouse
     registerPttHotkey();
@@ -930,6 +1098,66 @@ bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods) {
 }
 #endif
 
+#ifdef Q_OS_WIN
+// VKs candidatos de cada botão de mouse: cobre tanto o botão real (XButton)
+// quanto o que softwares de mouse (Logitech/Razer/etc.) emitem no lugar
+static QVector<int> mouseVkCandidates(int btn) {
+    switch (btn) {
+    case 3:  return { VK_MBUTTON };
+    case 4:  return { VK_XBUTTON1, VK_BROWSER_BACK };
+    case 5:  return { VK_XBUTTON2, VK_BROWSER_FORWARD };
+    default: return {};
+    }
+}
+
+static bool anyVkDown(const QVector<int>& vks) {
+    for (int vk : vks)
+        if (GetAsyncKeyState(vk) & 0x8000) return true;
+    return false;
+}
+
+static bool modsHeld(UINT mods) {
+    if ((mods & MOD_CONTROL) && !(GetAsyncKeyState(VK_CONTROL) & 0x8000)) return false;
+    if ((mods & MOD_SHIFT)   && !(GetAsyncKeyState(VK_SHIFT)   & 0x8000)) return false;
+    if ((mods & MOD_ALT)     && !(GetAsyncKeyState(VK_MENU)    & 0x8000)) return false;
+    return true;
+}
+#endif
+
+// timer de 50 ms: lê o estado FÍSICO do PTT e das teclas de sussurro.
+// Detecta tanto a pressão quanto a soltura — inclusive em segundo plano —
+// sem depender de qual janela recebeu a mensagem do mouse.
+void MainWindow::pollGlobalInputs() {
+#ifdef Q_OS_WIN
+    // ---- PTT
+    if (m_mousePttButton != 0) {
+        pttSetHeld(anyVkDown(mouseVkCandidates(m_mousePttButton)));
+    } else if (m_pttVk != 0) {
+        const bool down = (GetAsyncKeyState(int(m_pttVk)) & 0x8000) &&
+                          modsHeld(m_pttMods);
+        pttSetHeld(down);
+    }
+
+    // ---- sussurro (segurar para falar)
+    for (int i = 0; i < m_whisperHolds.size(); ++i) {
+        HoldKey& h = m_whisperHolds[i];
+        const bool down = h.mouseBtn != 0
+            ? anyVkDown(mouseVkCandidates(h.mouseBtn))
+            : (h.vk != 0 && (GetAsyncKeyState(int(h.vk)) & 0x8000) && modsHeld(h.mods));
+        if (down != h.held) {
+            h.held = down;
+            whisperSetHeld(i, down);
+        }
+    }
+#endif
+}
+
+void MainWindow::whisperSetHeld(int idx, bool held) {
+    if (idx < 0 || idx >= m_whisperHolds.size()) return;
+    if (ServerTab* t = currentTab())
+        t->setWhisperHold(held, m_whisperHolds[idx].scope);
+}
+
 bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
                              qintptr* result) {
 #ifdef Q_OS_WIN
@@ -944,26 +1172,40 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
             else if (m_globalHotkeyActions.contains(id))
                 runConfiguredAction(m_globalHotkeyActions.value(id));
         } else if (msg->message == WM_INPUT &&
-                   (msg->wParam == RIM_INPUT || msg->wParam == RIM_INPUTSINK) &&
-                   m_mousePttButton != 0) {
-            // botão de mouse do PTT pressionado/solto em qualquer janela
-            BYTE buf[64];
-            UINT sz = sizeof(buf);
-            if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam),
-                                RID_INPUT, buf, &sz, sizeof(RAWINPUTHEADER)) != UINT(-1)) {
-                RAWINPUT* ri = reinterpret_cast<RAWINPUT*>(buf);
-                if (ri->header.dwType == RIM_TYPEMOUSE) {
-                    const USHORT f = ri->data.mouse.usButtonFlags;
-                    auto hit = [&](int btn, USHORT down, USHORT up) {
-                        if (m_mousePttButton != btn) return;
-                        if (f & down) pttSetHeld(true);
-                        if (f & up)   pttSetHeld(false);
-                    };
-                    hit(4, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
-                    hit(5, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
-                    hit(3, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
+                   (msg->wParam == RIM_INPUT || msg->wParam == RIM_INPUTSINK)) {
+            // botão de mouse (PTT/sussurro) pressionado em qualquer janela —
+            // caminho rápido; o timer de 50 ms cobre os demais casos
+            if (m_mousePttButton != 0) {
+                BYTE buf[64];
+                UINT sz = sizeof(buf);
+                if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam),
+                                    RID_INPUT, buf, &sz,
+                                    sizeof(RAWINPUTHEADER)) != UINT(-1)) {
+                    RAWINPUT* ri = reinterpret_cast<RAWINPUT*>(buf);
+                    if (ri->header.dwType == RIM_TYPEMOUSE) {
+                        const USHORT f = ri->data.mouse.usButtonFlags;
+                        auto hit = [&](int btn, USHORT down, USHORT up) {
+                            if (m_mousePttButton != btn) return;
+                            if (f & down) pttSetHeld(true);
+                            if (f & up)   pttSetHeld(false);
+                        };
+                        hit(4, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
+                        hit(5, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
+                        hit(3, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
+                    }
                 }
             }
+            // sussurro por botão do mouse: re-lê o estado imediatamente
+            bool mouseWhisper = false;
+            for (const HoldKey& h : std::as_const(m_whisperHolds))
+                if (h.mouseBtn != 0) { mouseWhisper = true; break; }
+            if (mouseWhisper) pollGlobalInputs();
+        } else if (msg->message == WM_XBUTTONDOWN || msg->message == WM_XBUTTONUP ||
+                   msg->message == WM_MBUTTONDOWN || msg->message == WM_MBUTTONUP ||
+                   msg->message == WM_APPCOMMAND) {
+            // caminho alternativo com a janela em foco (inclusive mouses
+            // cujo software envia "Voltar/Avançar" do navegador)
+            pollGlobalInputs();
         }
     }
 #endif
@@ -975,11 +1217,13 @@ void MainWindow::registerPttHotkey() {
     // limpa o modo anterior
     if (m_pttRegistered) { UnregisterHotKey(HWND(winId()), 1); m_pttRegistered = false; }
     m_mousePttButton = 0;
+    m_pttVk = 0;
+    m_pttMods = 0;
 
     const QString spec = S::str("capture/pttKey", QStringLiteral("Space"));
     if (spec.isEmpty()) return;
 
-    // ---- botões do mouse via Raw Input (funciona em segundo plano)
+    // ---- botões do mouse: Raw Input (caminho rápido) + polling (garantido)
     int btn = 0;
     if (spec == QLatin1String(HotkeyEdit::kMouse4))        btn = 4;
     else if (spec == QLatin1String(HotkeyEdit::kMouse5))   btn = 5;
@@ -990,28 +1234,21 @@ void MainWindow::registerPttHotkey() {
         rid.usUsage     = 0x02;          // mouse
         rid.dwFlags     = RIDEV_INPUTSINK; // recebe mesmo sem foco
         rid.hwndTarget  = HWND(winId());
-        if (RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
+        if (RegisterRawInputDevices(&rid, 1, sizeof(rid)))
             m_rawInputRegistered = true;
-            m_mousePttButton = btn;
-            AppLog::info(tr("PTT global registrado no mouse: %1").arg(spec));
-        }
+        m_mousePttButton = btn; // o timer de 50 ms lê o estado físico do botão
+        AppLog::info(tr("PTT global registrado no mouse: %1").arg(spec));
         return;
     }
 
-    // ---- tecla via RegisterHotKey
+    // ---- tecla: RegisterHotKey (caminho rápido) + polling de soltura/backup
     UINT vk = 0, mods = 0;
     const QKeySequence ks = QKeySequence::fromString(spec);
     if (!specToVkImpl(ks, vk, mods)) return;
+    m_pttVk = vk;
+    m_pttMods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT);
     if (RegisterHotKey(HWND(winId()), 1, mods, vk)) {
         m_pttRegistered = true;
-        m_pttVk = vk;
-        if (!m_pttPoll) {
-            m_pttPoll = new QTimer(this);
-            m_pttPoll->setInterval(50);
-            connect(m_pttPoll, &QTimer::timeout, this, [this] {
-                if (!(GetAsyncKeyState(int(m_pttVk)) & 0x8000)) pttSetHeld(false);
-            });
-        }
         AppLog::info(tr("Tecla PTT global registrada: %1").arg(ks.toString()));
     } else {
         AppLog::info(tr("Não foi possível registrar a tecla PTT: %1").arg(ks.toString()));
@@ -1026,6 +1263,8 @@ void MainWindow::unregisterPttHotkey() {
         m_pttRegistered = false;
     }
     m_mousePttButton = 0;
+    m_pttVk = 0;
+    m_pttMods = 0;
 #endif
     pttSetHeld(false);
 }
@@ -1037,10 +1276,6 @@ void MainWindow::pttSetHeld(bool held) {
     m_pttHeld = held;
     if (ServerTab* t = currentTab())
         if (VoiceEngine* v = t->voice()) v->setPttHeld(held);
-    if (m_pttPoll) {
-        if (held) m_pttPoll->start();
-        else      m_pttPoll->stop();
-    }
 }
 
 // ======================================================================

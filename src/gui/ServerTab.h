@@ -7,11 +7,14 @@
 
 class ServerTreeWidget;
 class ChatPanel;
+class InfoPanel;
 class QSplitter;
 class NetSession;
 class VoiceEngine;
 
-// Uma "conexão" do Halla = uma aba do servidor com árvore + chat (visual do TS3)
+// Uma "conexão" do Halla = uma aba do servidor — layout clássico do TeamSpeak 3:
+// árvore de canais (50%) | painel de informações (50%) lado a lado em cima,
+// e o console de chat ocupando 100% da largura embaixo.
 class ServerTab : public QWidget {
     Q_OBJECT
 public:
@@ -21,6 +24,7 @@ public:
     const ServerData& data() const { return m_data; }
     ServerTreeWidget* tree() const { return m_tree; }
     ChatPanel* chat() const { return m_chat; }
+    InfoPanel* info() const { return m_info; }
     NetSession* net() const { return m_net; }
     VoiceEngine* voice() const { return m_voice; }
     bool isNetworked() const { return m_net != nullptr; }
@@ -48,6 +52,14 @@ public:
     void setWhisperUids(const QStringList& uids); // vazio = desligar sussurro
     bool whisperActive() const { return !m_whisperUids.isEmpty(); }
 
+    // ---- v3.11: sussurro por TECLA DE ATALHO (segurar para falar, como no TS3)
+    // scope: 0 = canal atual | 1 = canal atual + subcanais | 2 = lista de usuários
+    void setWhisperHold(bool on, int scope);
+    QList<int> whisperTargetIds(int scope) const;
+    bool whisperHoldActive() const { return m_whisperHold; }
+
+    void toggleCommander();               // v3.11: menu "Si mesmo"
+
     void setAway(bool on);
     void setMicMuted(bool on);
     void setSpeakersMuted(bool on);
@@ -68,7 +80,9 @@ private:
     ServerData m_data;
     ServerTreeWidget* m_tree = nullptr;
     ChatPanel* m_chat = nullptr;
-    QSplitter* m_split = nullptr;
+    InfoPanel* m_info = nullptr;
+    QSplitter* m_split = nullptr;   // vertical: corpo (tree|info) / chat
+    QSplitter* m_hsplit = nullptr;  // horizontal: árvore 50% | informações 50%
     NetSession* m_net = nullptr;
     VoiceEngine* m_voice = nullptr;
 
@@ -77,6 +91,7 @@ private:
     int m_myChan = -1;                    // meu canal (som de troca de canal)
     QVector<OfflineMsgItem> m_offlineInbox;
     QStringList m_whisperUids;
+    bool m_whisperHold = false;           // atalho de sussurro pressionado agora
 
     void hookSignals();
     void applyWhisper();                  // mapeia uids -> ids e envia ao servidor

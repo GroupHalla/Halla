@@ -1,11 +1,12 @@
 # Halla
 
 Cliente de comunicação de voz para desktop, escrito em **C++ e Qt (Qt Widgets)**,
-com a interface e o comportamento do TeamSpeak 3: mesma barra de menus
-(Conexões, Favoritos, Permissões, Ferramentas, Ajuda), barra de ferramentas com
-plugues de conexão, abas de servidor, árvore de canais/usuários com mini-ícones
-de estado, chat com BBCode, painel de informações à direita, barra de status com
-ping e diálogos com a faixa azul-marinho característica.
+com a interface e o comportamento do **TeamSpeak 3 clássico (tema claro nativo)**:
+barra de menus (Conexões, Marcadores, Si mesmo, Permissões, Ferramentas, Ajuda),
+barra de ferramentas com setas suspensas, abas de servidor, corpo dividido meio a
+meio (árvore de canais 50% | painel de informações 50% com marca d'água), console
+de chat ocupando 100% da largura embaixo e barra de status em três zonas
+(servidor | notícias | conexão com ping e perda de pacotes).
 
 > **Observação sobre o protocolo:** o Halla é o **aplicativo cliente**. Ele
 > conecta a servidores **[Halla Server](https://github.com/farleybarbosa320-oss/HallaServer)**
@@ -14,6 +15,30 @@ ping e diálogos com a faixa azul-marinho característica.
 > projeto.
 
 ![Halla](shots/demo.png)
+
+## Novidades da 3.11.0
+
+- **Interface redesenhada no estilo clássico do TeamSpeak 3**: tema claro
+  nativo do Windows (fundo branco, cromo #F0F0F0, bordas retas de 1px),
+  menus na ordem do TS3 (Conexões, Marcadores, Si mesmo, Permissões,
+  Ferramentas, Ajuda), novo menu **Si mesmo** (ausente, silenciar
+  microfone/alto-falantes, apelido, comandante, avatar), barra de
+  ferramentas com botões de seta suspensa, divisão 50/50 entre árvore e
+  informações (posição dos divisores é lembrada) e barra de status com a
+  "aba" do servidor à esquerda, linha de notícias ao centro e estado da
+  conexão com ping à direita.
+- **Sussurro nas teclas de atalho**: nova ação **"Sussurrar (segurar para
+  falar)"** — escolha o alvo (canal atual, canal atual + subcanais ou lista
+  de usuários) e, enquanto segurar a tecla/botão, sua voz vai apenas para
+  o alvo, como o *whisper* do TS3.
+- **PTT com botões do mouse corrigido de vez**: a captura agora funciona em
+  três camadas (eventos do widget, filtro do aplicativo e filtro NATIVO do
+  Windows), então botões laterais e do meio são reconhecidos mesmo quando o
+  software do mouse (Logitech/Razer etc.) envia "Voltar/Avançar". A detecção
+  global também passou a ler o estado físico do botão a cada 50 ms, sem
+  depender de mensagens de janela.
+- **Teclas de atalho aceitam mouse**: qualquer atalho (não só o PTT) pode ser
+  um botão do mouse.
 
 ## Novidades da 3.10.0
 

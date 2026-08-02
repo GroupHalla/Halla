@@ -10,15 +10,16 @@ class QSplitter;
 class QSystemTrayIcon;
 class QShortcut;
 class QLabel;
+class QToolButton;
 class ServerTab;
 class WelcomePage;
-class InfoPanel;
 class LogDialog;
 
-// Janela principal do Halla — reproduz fielmente a janela do TeamSpeak 3:
-// barra de menus (Conexões, Favoritos, Permissões, Ferramentas, Ajuda),
-// barra de ferramentas com plugues de conexão, abas de servidor,
-// painel de informações à direita e barra de status com ping.
+// Janela principal do Halla — reproduz fielmente a janela clássica do
+// TeamSpeak 3 (tema claro): barra de menus (Conexões, Marcadores, Si mesmo,
+// Permissões, Ferramentas, Ajuda), barra de ferramentas com setas suspensas,
+// corpo 50/50 (árvore | informações) com chat embaixo e barra de status
+// em três zonas (servidor | notícias | conexão).
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -60,7 +61,6 @@ private:
     WelcomePage* m_welcome = nullptr;
     QSplitter* m_center = nullptr;
     QTabWidget* m_tabs = nullptr;
-    InfoPanel* m_info = nullptr;
 
     QSystemTrayIcon* m_tray = nullptr;
     LogDialog* m_log = nullptr;
@@ -80,10 +80,17 @@ private:
     QAction* m_actBanList = nullptr;
     QAction* m_actComplaints = nullptr;
     QAction* m_actMyPerms = nullptr;
+    QAction* m_actOptions = nullptr;
+    QAction* m_actRenameSelf = nullptr;
+    QAction* m_actCommander = nullptr;
 
     QMenu* m_bookmarksMenu = nullptr;
     QMenu* m_recentMenu = nullptr;
 
+    // barra de status em 3 zonas (servidor | notícias | conexão), como no TS3
+    QToolButton* m_serverButton = nullptr;
+    QMenu* m_serverMenu = nullptr;
+    QLabel* m_newsLabel = nullptr;
     QLabel* m_statusIcon = nullptr;
     QLabel* m_statusText = nullptr;
     QLabel* m_pingLabel = nullptr;
@@ -96,11 +103,25 @@ private:
     void pttSetHeld(bool held);
     void runConfiguredAction(const QString& action); // ação das "Teclas de atalho"
     unsigned int m_pttVk = 0;
+    unsigned int m_pttMods = 0;
     bool m_pttRegistered = false;
     bool m_pttHeld = false;
     int  m_mousePttButton = 0;        // 0=tecla, 3=meio, 4/5=laterais
     bool m_rawInputRegistered = false;
     class QTimer* m_pttPoll = nullptr;
+
+    // ---- v3.11: sussurro por tecla de atalho (segurar p/ falar, como no TS3)
+    struct HoldKey {
+        unsigned int vk = 0;      // tecla (0 = usa mouseBtn)
+        unsigned int mods = 0;    // MOD_CONTROL/SHIFT/ALT
+        int  mouseBtn = 0;        // 3 = meio, 4/5 = laterais
+        int  scope = 1;           // 0 canal, 1 canal+subcanais, 2 usuários
+        bool held = false;
+    };
+    QList<HoldKey> m_whisperHolds;
+    bool m_whisperToggleOn = false;          // alternância (atalho sem "segurar")
+    void whisperSetHeld(int idx, bool held);
+    void pollGlobalInputs();                  // timer de 50 ms (pressões/solturas)
 
     QList<QPointer<QShortcut>> m_hotkeyShortcuts;
     QMap<int, QString> m_globalHotkeyActions; // id (100+) -> ação (Windows)

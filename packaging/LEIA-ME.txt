@@ -1,19 +1,29 @@
 ========================================================================
-  HALLA 3.10.0 — Cliente de comunicação por voz
+  HALLA 3.11.0 — Cliente de comunicação por voz
 ========================================================================
 
 O Halla é um aplicativo de voz sobre IP no estilo do TeamSpeak 3,
 com cliente para Windows e servidor auto-hospedável (Halla Server).
 
-NOVIDADES DA VERSÃO 3.10.0
+NOVIDADES DA VERSÃO 3.11.0
 --------------------------
-* PTT com botões LATERAIS DO MOUSE (Mouse4/Mouse5) ou qualquer tecla —
-  funciona em segundo plano.
-* Todas as teclas de atalho configuradas agora são globais no Windows
-  (uso com o Halla minimizado).
-* Texto-para-voz (TTS) narrando eventos, como o pacote de voz do TS3.
-* Descrição de canal com BBCode renderizado + "Ver descrição do canal".
-* Halla Server 3.1.0: ServerQuery (administração remota, porta 10011).
+* INTERFACE REDESENHADA no estilo clássico do TeamSpeak 3 (tema claro
+  nativo do Windows): menus Conexões, Marcadores, Si mesmo, Permissões,
+  Ferramentas e Ajuda; barra de ferramentas com setas suspensas; corpo
+  50% árvore de canais + 50% informações; chat embaixo ocupando 100%;
+  barra de status em três zonas (servidor | notícias | conexão/ping).
+* SUSSURRO NAS TECLAS DE ATALHO: crie um atalho "Sussurrar (segurar
+  para falar)" e escolha o alvo: canal atual, canal atual + subcanais
+  ou lista de usuários. Enquanto a tecla/botão estiver pressionado,
+  sua voz vai só para o alvo — como o whisper do TS3.
+* PTT COM BOTÕES DO MOUSE DE VERDADE: captura em camadas (qualquer
+  botão, inclusive laterais e do meio, mesmo com Logitech/Razer que
+  enviam "Voltar/Avançar") e detecção global garantida por leitura
+  física do botão a cada 50 ms — funciona em segundo plano.
+* Teclas de atalho agora também aceitam botões do mouse.
+
+(da 3.10.0) PTT global, atalhos globais, texto-para-voz (TTS) narrando
+eventos e descrição de canal com BBCode renderizado.
 
 E MAIS (desde a 3.9.0)
 ----------------------

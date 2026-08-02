@@ -416,6 +416,13 @@ QWidget* OptionsDialog::pageCapture() {
 }
 
 // ------------------------------------------------------------------ Hotkeys
+// alvos possíveis do sussurro (índice = valor salvo em "scope")
+static QStringList whisperScopeNames() {
+    return { OptionsDialog::tr("Canal atual"),
+             OptionsDialog::tr("Canal atual e subcanais"),
+             OptionsDialog::tr("Lista de usuários") };
+}
+
 QWidget* OptionsDialog::pageHotkeys() {
     QWidget* w = new QWidget;
     QVBoxLayout* lay = new QVBoxLayout(w);
@@ -438,15 +445,29 @@ QWidget* OptionsDialog::pageHotkeys() {
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     lay->addWidget(table, 1);
 
-    auto loadTable = [table] {
+    const QString whisperAction = tr("Sussurrar (segurar para falar)");
+
+    // texto de exibição da ação (adiciona o alvo do sussurro entre parênteses)
+    auto displayAction = [whisperAction](const QString& raw, int scope) {
+        if (raw == whisperAction && scope >= 0 && scope <= 2)
+            return QStringLiteral("%1 — %2").arg(raw, whisperScopeNames().value(scope));
+        return raw;
+    };
+
+    auto loadTable = [table, displayAction] {
         table->setRowCount(0);
         QJsonDocument doc = QJsonDocument::fromJson(S::str("hotkeys/list").toUtf8());
         if (!doc.isArray()) return;
         for (const QJsonValue& v : doc.array()) {
             QJsonObject o = v.toObject();
+            const QString raw = o["action"].toString();
+            const int scope = o.contains("scope") ? o["scope"].toInt(1) : -1;
             int r = table->rowCount();
             table->insertRow(r);
-            table->setItem(r, 0, new QTableWidgetItem(o["action"].toString()));
+            QTableWidgetItem* a = new QTableWidgetItem(displayAction(raw, scope));
+            a->setData(Qt::UserRole, raw);       // ação "cru" (sem o alvo)
+            a->setData(Qt::UserRole + 1, scope); // alvo do sussurro (-1 = n/a)
+            table->setItem(r, 0, a);
             table->setItem(r, 1, new QTableWidgetItem(o["key"].toString()));
         }
     };
@@ -456,8 +477,10 @@ QWidget* OptionsDialog::pageHotkeys() {
         QJsonArray arr;
         for (int r = 0; r < table->rowCount(); ++r) {
             QJsonObject o;
-            o["action"] = table->item(r, 0)->text();
+            o["action"] = table->item(r, 0)->data(Qt::UserRole).toString();
             o["key"] = table->item(r, 1)->text();
+            const int scope = table->item(r, 0)->data(Qt::UserRole + 1).toInt();
+            if (scope >= 0) o["scope"] = scope;
             arr << o;
         }
         S::set("hotkeys/list",
@@ -482,6 +505,7 @@ QWidget* OptionsDialog::pageHotkeys() {
         tr("Alternar comandante do canal"),
         tr("Alternar gravação"),
         tr("Alternar transmissão contínua"),
+        whisperAction,
     };
 
     // IMPORTANTE: capturar por CÓPIA — esta lambda escapa para o connect()
@@ -494,13 +518,39 @@ QWidget* OptionsDialog::pageHotkeys() {
         QFormLayout* f = new QFormLayout(&d);
         QComboBox* action = new QComboBox(&d);
         action->addItems(actions);
-        QKeySequenceEdit* key = new QKeySequenceEdit(&d);
+        // captura tecla OU botão do mouse (inclusive laterais) — igual ao TS3
+        HotkeyEdit* key = new HotkeyEdit(&d);
+        key->setMinimumWidth(220);
+        QComboBox* scope = new QComboBox(&d);
+        scope->addItems(whisperScopeNames());
+
+        int curScope = 1;
         if (row >= 0) {
-            action->setCurrentText(table->item(row, 0)->text());
-            key->setKeySequence(QKeySequence::fromString(table->item(row, 1)->text()));
+            const QString raw = table->item(row, 0)->data(Qt::UserRole).toString();
+            action->setCurrentText(raw);
+            key->setSpec(table->item(row, 1)->text());
+            curScope = table->item(row, 0)->data(Qt::UserRole + 1).toInt();
+            if (curScope < 0) curScope = 1;
+            scope->setCurrentIndex(curScope);
         }
         f->addRow(tr("Ação:"), action);
         f->addRow(tr("Atalho:"), key);
+        f->addRow(tr("Sussurrar para:"), scope);
+        // o seletor de alvo só aparece quando a ação é "Sussurrar"
+        auto syncScope = [=] {
+            scope->setEnabled(action->currentText() == whisperAction);
+            if (QLabel* lb = qobject_cast<QLabel*>(f->labelForField(scope)))
+                lb->setEnabled(action->currentText() == whisperAction);
+        };
+        QObject::connect(action, &QComboBox::currentTextChanged, &d,
+                         [syncScope](const QString&) { syncScope(); });
+        syncScope();
+        QLabel* hint = new QLabel(tr("Aceita teclas e botões do mouse (laterais, meio).\n"
+                                     "O sussurro funciona \"segurando\" a tecla/botão, "
+                                     "como o PTT do TeamSpeak."), &d);
+        hint->setWordWrap(true);
+        hint->setObjectName(QStringLiteral("captionLabel"));
+        f->addRow(QString(), hint);
         QHBoxLayout* rb = new QHBoxLayout;
         QPushButton* ok = new QPushButton(tr("OK"), &d);
         QPushButton* cancel = new QPushButton(tr("Cancelar"), &d);
@@ -511,12 +561,20 @@ QWidget* OptionsDialog::pageHotkeys() {
         QObject::connect(ok, &QPushButton::clicked, &d, &QDialog::accept);
         QObject::connect(cancel, &QPushButton::clicked, &d, &QDialog::reject);
         if (d.exec() != QDialog::Accepted) return;
+
+        const QString raw = action->currentText();
+        const bool isWhisper = (raw == whisperAction);
+        const int sc = isWhisper ? scope->currentIndex() : -1;
+        if (isWhisper) S::set("hotkeys/whisperScope", sc); // alvo p/ alternância
         if (row < 0) {
             row = table->rowCount();
             table->insertRow(row);
         }
-        table->setItem(row, 0, new QTableWidgetItem(action->currentText()));
-        table->setItem(row, 1, new QTableWidgetItem(key->keySequence().toString()));
+        QTableWidgetItem* a = new QTableWidgetItem(displayAction(raw, sc));
+        a->setData(Qt::UserRole, raw);
+        a->setData(Qt::UserRole + 1, sc);
+        table->setItem(row, 0, a);
+        table->setItem(row, 1, new QTableWidgetItem(key->spec()));
         saveTable();
     };
 
@@ -533,9 +591,12 @@ QWidget* OptionsDialog::pageHotkeys() {
     });
 
     QLabel* note = new QLabel(
-        tr("As teclas de atalho ficam ativas enquanto a janela do Halla estiver em foco."),
+        tr("No Windows, as teclas de atalho funcionam GLOBALMENTE (mesmo com o "
+           "Halla em segundo plano) e aceitam botões do mouse. "
+           "A ação \"Sussurrar\" envia sua voz apenas para o alvo escolhido "
+           "enquanto a tecla estiver pressionada."),
         w);
-    note->setStyleSheet(QStringLiteral("color:#666666"));
+    note->setObjectName(QStringLiteral("captionLabel"));
     note->setWordWrap(true);
     lay->addWidget(note);
     return w;

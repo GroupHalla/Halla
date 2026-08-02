@@ -7,6 +7,8 @@
 #include "Speech.h"
 #include "dialogs/ChannelDialog.h"
 #include "dialogs/MiniDialogs.h"
+#include "dialogs/ToolsDialogs.h"
+#include "InfoPanel.h"
 #include "net/NetSession.h"
 #include "net/VoiceEngine.h"
 
@@ -28,6 +30,7 @@
 #include <QTextBrowser>
 #include <QLineEdit>
 #include <algorithm>
+#include <utility>
 
 // ServerData::Channel -> JSON do protocolo
 static QJsonObject chanToJson(const Channel& c) {
@@ -52,21 +55,60 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
 
+    // layout clássico do TeamSpeak 3:
+    // ┌────────────────────────────┬────────────────────────────┐
+    // │  ÁRVORE DE CANAIS (50%)    │  INFORMAÇÕES (50%)         │
+    // ├────────────────────────────┴────────────────────────────┤
+    // │  CHAT / REGISTRO (100% da largura)                      │
+    // └─────────────────────────────────────────────────────────┘
     m_split = new QSplitter(Qt::Vertical, this);
     m_split->setChildrenCollapsible(false);
 
-    m_tree = new ServerTreeWidget(m_split);
+    m_hsplit = new QSplitter(Qt::Horizontal, m_split);
+    m_hsplit->setChildrenCollapsible(false);
+
+    m_tree = new ServerTreeWidget(m_hsplit);
     m_tree->setServerData(&m_data);
-    m_split->addWidget(m_tree);
+    m_hsplit->addWidget(m_tree);
+
+    m_info = new InfoPanel(m_hsplit);
+    m_info->setData(&m_data);
+    m_hsplit->addWidget(m_info);
+    // divisão exatamente 50% / 50%
+    m_hsplit->setStretchFactor(0, 1);
+    m_hsplit->setStretchFactor(1, 1);
+    m_hsplit->setSizes({ 1000, 1000 });
+
+    m_split->addWidget(m_hsplit);
 
     m_chat = new ChatPanel(m_split);
     m_chat->setSelfName(m_data.users[m_data.selfId].name);
     m_split->addWidget(m_chat);
     m_split->setStretchFactor(0, 1);
     m_split->setStretchFactor(1, 0);
-    m_split->setSizes({ 500, 190 });
+    m_split->setSizes({ 560, 200 });
+
+    // restaura/persiste as posições dos divisores (por preferência do usuário)
+    const QByteArray hv = QByteArray::fromBase64(S::str("design/splitVertical").toUtf8());
+    if (!hv.isEmpty()) m_split->restoreState(hv);
+    const QByteArray hh = QByteArray::fromBase64(S::str("design/splitHorizontal").toUtf8());
+    if (!hh.isEmpty()) m_hsplit->restoreState(hh);
+    connect(m_split, &QSplitter::splitterMoved, this, [this] {
+        S::set("design/splitVertical",
+               QString::fromLatin1(m_split->saveState().toBase64()));
+    });
+    connect(m_hsplit, &QSplitter::splitterMoved, this, [this] {
+        S::set("design/splitHorizontal",
+               QString::fromLatin1(m_hsplit->saveState().toBase64()));
+    });
 
     lay->addWidget(m_split);
+
+    // painel de informações acompanha a seleção da árvore
+    connect(m_tree, &ServerTreeWidget::selectionChanged, this,
+            [this](int kind, int id) { m_info->setSelection(kind, id); });
+    connect(this, &ServerTab::statusChanged, this, [this] { m_info->refresh(); });
+    m_info->setSelection(0, 0);
 
     applyDisplayOptions();
     hookSignals();
@@ -110,6 +152,7 @@ void ServerTab::attachNetwork(NetSession* net) {
         applyWhisper(); // mantém o alvo do sussurro sincronizado (ids mudam a cada login)
 
         m_tree->rebuild();
+        m_info->refresh();
         emit statusChanged();
     });
 
@@ -703,6 +746,78 @@ void ServerTab::applyWhisper() {
     for (const User& u : m_data.users)
         if (m_whisperUids.contains(u.uniqueId) && u.id != m_data.selfId) ids << u.id;
     m_net->setWhisperIds(ids);
+}
+
+// ==================================================== v3.11: sussurro por atalho
+// Calcula os destinatários do sussurro conforme o alvo configurado na tecla
+// de atalho: canal atual, canal atual + subcanais ou lista de usuários.
+QList<int> ServerTab::whisperTargetIds(int scope) const {
+    QList<int> ids;
+    const int self = m_data.selfId;
+
+    if (scope == 2) { // lista de usuários (Ferramentas > Listas de sussurro)
+        const QStringList uids = WhisperDialog::activeWhisperUids();
+        for (const User& u : m_data.users)
+            if (uids.contains(u.uniqueId) && u.id != self) ids << u.id;
+        return ids;
+    }
+
+    // escopo por canal: eu preciso estar em um canal
+    const int my = m_data.channelOfUser(self);
+    if (my < 0 || !m_data.channels.contains(my)) return ids;
+
+    QSet<int> chans;
+    chans << my;
+    if (scope == 1) { // canal atual + TODOS os subcanais (recursivo)
+        QList<int> stack = { my };
+        while (!stack.isEmpty()) {
+            const int cur = stack.takeLast();
+            for (int child : m_data.childChannels(cur))
+                if (!chans.contains(child)) { chans << child; stack << child; }
+        }
+    }
+    for (int cid : std::as_const(chans)) {
+        if (!m_data.channels.contains(cid)) continue;
+        for (int uid : m_data.channels[cid].users)
+            if (uid != self && !ids.contains(uid)) ids << uid;
+    }
+    return ids;
+}
+
+void ServerTab::setWhisperHold(bool on, int scope) {
+    if (m_whisperHold == on) return;
+    m_whisperHold = on;
+
+    if (on) {
+        const QList<int> ids = whisperTargetIds(scope);
+        if (scope == 2 && ids.isEmpty()) {
+            systemMsgChannel(tr("Sussurro: a lista de usuários está vazia — "
+                                "configure em Ferramentas > Listas de sussurro."));
+        }
+        if (m_net) m_net->setWhisperIds(ids);
+        const QStringList names = { tr("canal atual"), tr("canal atual + subcanais"),
+                                    tr("lista de usuários") };
+        systemMsgChannel(tr("Sussurro ativo (%1): sua voz vai para %2 usuário(s).")
+                             .arg(names.value(scope >= 0 && scope <= 2 ? scope : 2))
+                             .arg(ids.size()));
+    } else {
+        // ao soltar: restaura a lista fixa (se houver) ou volta a falar no canal
+        if (!m_whisperUids.isEmpty()) applyWhisper();
+        else if (m_net)              m_net->setWhisperIds({});
+        systemMsgChannel(tr("Sussurro desativado. Sua voz segue para o canal."));
+    }
+    emit statusChanged();
+}
+
+void ServerTab::toggleCommander() {
+    User& self = m_data.users[m_data.selfId];
+    self.commander = !self.commander;
+    if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
+    systemMsgChannel(self.commander
+        ? tr("Você agora é o comandante do canal.")
+        : tr("Você não é mais o comandante do canal."));
+    m_tree->rebuild();
+    emit statusChanged();
 }
 
 void ServerTab::setAway(bool on) {

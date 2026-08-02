@@ -11,19 +11,19 @@ bool HTheme::isDark() {
 }
 
 QString HTheme::styleSheet(bool dark) {
-    // cores ajustadas por tema (o claro preserva exatamente o visual atual)
-    const QString border      = dark ? QStringLiteral("#3E434A") : QStringLiteral("#C9CDD2");
+    // cores ajustadas por tema
+    const QString border      = dark ? QStringLiteral("#3E434A") : QStringLiteral("#C8C8C8");
     const QString hover       = dark ? QStringLiteral("#3A4048") : QStringLiteral("#E4EEF8");
-    const QString sel         = QStringLiteral("#3B76B0");
+    const QString sel         = dark ? QStringLiteral("#3B76B0") : QStringLiteral("#0078D7");
     const QString welcomeBg   = dark ? QStringLiteral("#26292E") : QStringLiteral("#E8EAED");
     const QString welcomeMain = dark ? QStringLiteral("#AFBAC5") : QStringLiteral("#5A6B7A");
     const QString welcomeSub  = dark ? QStringLiteral("#8B959E") : QStringLiteral("#8A939B");
 
-    return QStringLiteral(
-        // árvore de canais (e demais árvores/listas)
+    QString css = QStringLiteral(
+        // árvore de canais (e demais árvores/listas) — cantos sempre retos
         "QTreeWidget { background: palette(base); color: palette(text);"
         "  alternate-background-color: palette(alternate-base);"
-        "  border: 1px solid %1; }"
+        "  border: 1px solid %1; border-radius: 0px; }"
         "QTreeWidget::item { height: 21px; padding: 0px; }"
         "QTreeWidget::item:selected { background: %2; color: #FFFFFF; }"
         "QTreeWidget::item:hover:!selected { background: %3; }"
@@ -31,13 +31,29 @@ QString HTheme::styleSheet(bool dark) {
 
         // painéis de texto (chat + informações)
         "QTextBrowser { background: palette(base); color: palette(text);"
-        "  border: 1px solid %1; font-size: 13px; }"
+        "  border: 1px solid %1; border-radius: 0px; font-size: 13px; }"
         "QTextBrowser#infoView { border-top: none; }"
 
         // listas/tabelas seguem o mesmo esquema
         "QListWidget, QTableWidget { background: palette(base); color: palette(text);"
         "  alternate-background-color: palette(alternate-base);"
-        "  border: 1px solid %1; }"
+        "  border: 1px solid %1; border-radius: 0px; }"
+
+        // campos de entrada: linhas retas e finas, sem arredondamento
+        "QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {"
+        "  border: 1px solid %1; border-radius: 0px; background: palette(base);"
+        "  color: palette(text); selection-background-color: %2; }"
+        "QComboBox QAbstractItemView { border: 1px solid %1; border-radius: 0px;"
+        "  background: palette(base); color: palette(text);"
+        "  selection-background-color: %2; selection-color: #FFFFFF; }"
+
+        // divisores discretos
+        "QSplitter::handle { background: palette(window); }"
+        "QSplitter::handle:horizontal { width: 3px; }"
+        "QSplitter::handle:vertical { height: 3px; }"
+
+        // menus suspensos com cantos retos
+        "QMenu { border: 1px solid %1; border-radius: 0px; }"
 
         // tela de boas-vindas
         "QWidget#welcomePage { background: %4; }"
@@ -46,13 +62,83 @@ QString HTheme::styleSheet(bool dark) {
 
         // dicas de ferramenta legíveis nos dois temas
         "QToolTip { background: palette(tool-tip-base); color: palette(tool-tip-text);"
-        "  border: 1px solid %1; padding: 2px; }"
+        "  border: 1px solid %1; border-radius: 0px; padding: 2px; }"
     ).arg(border, sel, hover, welcomeBg, welcomeMain, welcomeSub);
+
+    if (!dark) {
+        // ---------------------------------------------------------------
+        // EXTRAS DO TEMA CLARO — visual clássico do TeamSpeak 3 / Windows:
+        // cromo #F0F0F0, conteúdo branco, bordas 1px e cantos retos
+        // ---------------------------------------------------------------
+        css += QStringLiteral(
+            "QMenuBar { background: #F0F0F0; border-bottom: 1px solid #D5D5D5; }"
+            "QMenuBar::item { background: transparent; padding: 4px 9px;"
+            "  border-radius: 0px; }"
+            "QMenuBar::item:selected { background: #CCE4F7; color: #000000; }"
+            "QMenuBar::item:pressed { background: #99D1FF; color: #000000; }"
+
+            "QToolBar { background: #F0F0F0; border: 0px; border-radius: 0px;"
+            "  spacing: 2px; padding: 2px 4px; }"
+            "QToolBar::separator { background: #D5D5D5; width: 1px;"
+            "  margin: 3px 4px; }"
+            "QToolButton { border-radius: 0px; }"
+
+            "QStatusBar { background: #F0F0F0; border-top: 1px solid #D0D0D0; }"
+            "QStatusBar::item { border: 0px; }"
+            "QLabel#newsLabel { color: #777777; }"
+            // "aba" do servidor no canto inferior esquerdo
+            "QToolButton#serverTabButton { background: #FFFFFF; color: #111111;"
+            "  border: 1px solid #C3C3C3; border-radius: 0px; padding: 2px 10px; }"
+            "QToolButton#serverTabButton:hover { background: #E5F1FB; }"
+            "QToolButton#serverTabButton::menu-indicator { image: none; width: 0px; }"
+
+            // abas do servidor no topo (conexões), estilo clássico do TS3
+            "QTabWidget::pane { border: 1px solid #D0D0D0; top: -1px;"
+            "  background: #FFFFFF; border-radius: 0px; }"
+            "QTabBar::tab { background: #E7E7E7; color: #111111;"
+            "  border: 1px solid #C0C0C0; border-bottom: 0px; border-radius: 0px;"
+            "  padding: 3px 10px; margin-right: 2px; }"
+            "QTabBar::tab:selected { background: #FFFFFF; color: #000000; }"
+            "QTabBar::tab:hover:!selected { background: #F0F6FC; }"
+
+            // cabeçalhos de tabela e caixas de grupo com cantos retos
+            "QHeaderView::section { background: #F0F0F0; color: #111111;"
+            "  border: 0px; border-right: 1px solid #D6D6D6;"
+            "  border-bottom: 1px solid #D0D0D0; border-radius: 0px;"
+            "  padding: 3px 6px; }"
+            "QGroupBox { border: 1px solid #D0D0D0; border-radius: 0px;"
+            "  margin-top: 14px; }"
+            "QGroupBox::title { subcontrol-origin: margin; left: 8px;"
+            "  top: 2px; }"
+
+            "QLabel#captionLabel { color: #666666; }"
+        );
+    } else {
+        css += QStringLiteral(
+            "QToolBar { border: 0px; spacing: 2px; padding: 2px 4px; }"
+            "QToolBar::separator { background: #3E434A; width: 1px; margin: 3px 4px; }"
+            "QLabel#captionLabel { color: #9AA3AC; }"
+            "QLabel#newsLabel { color: #7A828B; }"
+            "QToolButton#serverTabButton { border: 1px solid #3E434A;"
+            "  border-radius: 0px; padding: 2px 10px; }"
+        );
+    }
+    return css;
 }
 
 void HTheme::apply() {
     const bool dark = isDark();
-    QApplication::setStyle(QStyleFactory::create(QStringLiteral("fusion")));
+
+    // no Windows o tema claro usa o estilo nativo clássico (windowsvista):
+    // é exatamente o "chrome" do TeamSpeak 3 — cinza #F0F0F0, relevos Win32
+    QStyle* style = nullptr;
+#ifdef Q_OS_WIN
+    if (!dark)
+        style = QStyleFactory::create(QStringLiteral("windowsvista"));
+#endif
+    if (!style)
+        style = QStyleFactory::create(QStringLiteral("fusion"));
+    QApplication::setStyle(style);
     QPalette pal;
 
     if (dark) {
@@ -89,10 +175,24 @@ void HTheme::apply() {
         pal.setColor(QPalette::Disabled, QPalette::Base, QColor("#22252A"));
         pal.setColor(QPalette::Disabled, QPalette::Window, QColor("#282B30"));
     } else {
+        // ---- tema claro clássico (TeamSpeak 3 / Windows nativo)
         pal = QApplication::style()->standardPalette();
+        pal.setColor(QPalette::Window, QColor("#F0F0F0"));
+        pal.setColor(QPalette::Base, QColor("#FFFFFF"));
+        pal.setColor(QPalette::AlternateBase, QColor("#F5F5F5"));
+        pal.setColor(QPalette::Text, QColor("#111111"));
+        pal.setColor(QPalette::WindowText, QColor("#111111"));
+        pal.setColor(QPalette::Button, QColor("#F0F0F0"));
+        pal.setColor(QPalette::ButtonText, QColor("#111111"));
+        pal.setColor(QPalette::ToolTipBase, QColor("#FFFFE1"));
+        pal.setColor(QPalette::ToolTipText, QColor("#000000"));
         pal.setColor(QPalette::Link, QColor("#2E7FC4"));
-        pal.setColor(QPalette::Highlight, QColor("#3B76B0"));
+        pal.setColor(QPalette::Highlight, QColor("#0078D7"));
         pal.setColor(QPalette::HighlightedText, Qt::white);
+        pal.setColor(QPalette::PlaceholderText, QColor("#808080"));
+        pal.setColor(QPalette::Disabled, QPalette::Text, QColor("#6D6D6D"));
+        pal.setColor(QPalette::Disabled, QPalette::WindowText, QColor("#6D6D6D"));
+        pal.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#6D6D6D"));
     }
 
     QApplication::setPalette(pal);
