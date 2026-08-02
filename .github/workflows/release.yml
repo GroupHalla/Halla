@@ -22,9 +22,9 @@ jobs:
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: MINGW64
           path-type: inherit
-          install: mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-ninja
+          install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-ninja
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
@@ -54,10 +54,10 @@ jobs:
           # Deploy Qt dependencies
           "${Qt6_DIR}/bin/windeployqt.exe" --release --no-translations --no-compiler-runtime --dir dist/Halla dist/Halla/Halla.exe
           
-          # Copy MinGW/UCRT runtime DLLs
-          cp /ucrt64/bin/libgcc_s_seh-1.dll dist/Halla/
-          cp /ucrt64/bin/libstdc++-6.dll dist/Halla/
-          cp /ucrt64/bin/libwinpthread-1.dll dist/Halla/
+          # Copy MinGW runtime DLLs
+          cp /mingw64/bin/libgcc_s_seh-1.dll dist/Halla/
+          cp /mingw64/bin/libstdc++-6.dll dist/Halla/
+          cp /mingw64/bin/libwinpthread-1.dll dist/Halla/
           
           # Copy Readme and License
           cp packaging/LEIA-ME.txt dist/Halla/
