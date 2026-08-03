@@ -288,10 +288,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
             QFileInfo info(path);
             QString filename = info.fileName();
             
-            QJsonObject m = HProto::msg("icon_set");
-            m["name"] = filename;
-            m["data"] = QString::fromLatin1(bytes.toBase64());
-            m_net->send(m);
+            m_net->iconSet(filename, bytes);
             
             m_icon->setText(filename);
             QMessageBox::information(this, tr("Sucesso"),

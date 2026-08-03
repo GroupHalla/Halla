@@ -64,6 +64,7 @@ public:
     void ftDelete(int channel, const QString& name);
     void requestBanList();
     void iconGet(const QString& name);
+    void iconSet(const QString& name, const QByteArray& bytes);
     void unban(const QString& uid);
     void requestGroupList();
     void groupSet(int id, const QString& name, const QJsonObject& perms, const QString& sigla = QString(), int order = 0, const QString& icon = QString()); // id 0 = criar

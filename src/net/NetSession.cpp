@@ -238,6 +238,13 @@ void NetSession::iconGet(const QString& name) {
     send(m);
 }
 
+void NetSession::iconSet(const QString& name, const QByteArray& bytes) {
+    QJsonObject m = HProto::msg("icon_set");
+    m["name"] = name;
+    m["data"] = QString::fromLatin1(bytes.toBase64());
+    send(m);
+}
+
 void NetSession::offlineSend(const QString& uid, const QString& text) {
     QJsonObject m = HProto::msg("offline_send");
     m["uid"] = uid;
