@@ -3,8 +3,8 @@
 IDI_ICON1 ICON DISCARDABLE "halla.ico"
 
 1 VERSIONINFO
- FILEVERSION    3,13,17,0
- PRODUCTVERSION 3,13,17,0
+ FILEVERSION    3,13,18,0
+ PRODUCTVERSION 3,13,18,0
  FILEFLAGSMASK  0x3fL
  FILEFLAGS      0x0L
  FILEOS         0x40004L
@@ -17,12 +17,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "Halla"
             VALUE "FileDescription",  "Halla - Cliente de comunicação de voz"
-            VALUE "FileVersion",      "3.13.17"
+            VALUE "FileVersion",      "3.13.18"
             VALUE "InternalName",     "Halla"
             VALUE "LegalCopyright",   "© 2026 Halla"
             VALUE "OriginalFilename", "Halla.exe"
             VALUE "ProductName",      "Halla"
-            VALUE "ProductVersion",   "3.13.17"
+            VALUE "ProductVersion",   "3.13.18"
         END
     END
     BLOCK "VarFileInfo"

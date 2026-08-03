@@ -11,6 +11,7 @@ class QTreeWidget;
 class QComboBox;
 class QCheckBox;
 class QSpinBox;
+class QLineEdit;
 class QLabel;
 class NetSession;
 struct ServerData;

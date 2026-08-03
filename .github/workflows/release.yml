@@ -91,13 +91,13 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.17
-          name: Halla v3.13.17 — Upload de Ícones de Cargo Nativos
+          tag_name: v3.13.18
+          name: Halla v3.13.18 — Upload de Ícones de Cargo Nativos
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.17.exe
+          files: Halla-Setup-3.13.18.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.17
+            ## 🚀 Novidades e Correções do Halla v3.13.18
 
             Esta release implementa a edição nativa das propriedades do cargo (Sigla, Ordem, Ícone) e o envio/upload direto de imagens PNG para os ícones de cargos a partir da interface do próprio cliente!
 
