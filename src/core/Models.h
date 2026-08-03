@@ -85,6 +85,7 @@ struct ServerData {
     QString platform = "Linux";
     QString motd     = "Bem-vindo ao Halla!";
     QDateTime connectedAt = QDateTime::currentDateTime();
+    int maxClients = 32; // Limite dinâmico de conexões/slots
 
     int selfId = 1;
     QMap<int, User>    users;

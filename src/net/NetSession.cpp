@@ -439,6 +439,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         d.motd = srv["motd"].toString();
         d.version = srv["ver"].toString();
         d.platform = srv["platform"].toString("Linux");
+        d.maxClients = srv["maxClients"].toInt(32);
 
         d.users.clear();
         for (const QJsonValue& v : obj["users"].toArray()) applyUserJson(v.toObject());

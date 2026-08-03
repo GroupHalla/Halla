@@ -76,7 +76,7 @@ QString InfoPanel::serverHtml() const {
              QStringLiteral("%1 no %2").arg(m_data->version, m_data->platform));
     h += row(tr("Tempo ativo:"), uptime(m_data->connectedAt));
     h += row(tr("Clientes conectados:"),
-             QStringLiteral("%1 / %2").arg(m_data->totalClients()).arg(32));
+             QStringLiteral("%1 / %2").arg(m_data->totalClients()).arg(m_data->maxClients));
     h += row(tr("Canais:"), QString::number(m_data->channels.size()));
     h += row(tr("Perda de pacotes:"), QStringLiteral("0,00%"));
     h += QStringLiteral("</table>");
