@@ -533,6 +533,11 @@ void NetSession::handleMessage(const QJsonObject& obj) {
                     u.talking = obj["talking"].toBool();
                 }
             }
+            if (obj.contains("whispering")) {
+                if (id != d.selfId) {
+                    u.whispering = obj["whispering"].toBool();
+                }
+            }
             if (obj.contains("name")) u.name = obj["name"].toString();
             if (obj.contains("text")) u.description = obj["text"].toString();
             if (obj.contains("group")) u.serverGroups = obj["group"].toString();

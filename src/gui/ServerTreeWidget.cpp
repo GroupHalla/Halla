@@ -412,7 +412,7 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
         displayName = u.sigla + " " + displayName;
     }
     item->setText(0, displayName);
-    item->setIcon(0, HIcons::user(u.talking, u.away));
+    item->setIcon(0, HIcons::user(u.talking, u.away, 20, u.whispering));
     item->setData(0, RoleKind, NodeUser);
     item->setData(0, RoleId, u.id);
     item->setToolTip(0, userTooltip(u));

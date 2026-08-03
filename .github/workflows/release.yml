@@ -91,17 +91,17 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.23
-          name: Halla v3.13.23 — Carregamento Dinâmico de Alvos de Sussurro
+          tag_name: v3.13.24
+          name: Halla v3.13.24 — Indicador de Sussurro Laranja
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.23.exe
+          files: Halla-Setup-3.13.24.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.23
+            ## 🚀 Novidades e Correções do Halla v3.13.24
 
-            Esta release traz o carregamento e preenchimento dinâmico completo dos canais e usuários do servidor conectado na Árvore de Alvos da lista de sussurros.
+            Esta release implementa o indicador visual de sussurro na cor laranja ao redor do avatar do usuário falante!
 
-            ### 🎨 Carregamento de Alvos de Sussurro (Item 9)
-            * **Árvore de Alvos Dinâmica:** Corrigido o preenchimento da Árvore de Alvos. Agora, ao selecionar ou criar uma lista de sussurros, o painel central renderiza de forma dinâmica e automática toda a estrutura de canais e usuários do seu servidor conectado, permitindo marcar os checkboxes dos destinatários com extrema facilidade e precisão!
+            ### 🎨 Indicador Laranja de Sussurro (Estilo TS3)
+            * **Feedback de Comunicação:** Agora, ao utilizar a tecla de sussurro configurada, o círculo indicador de fala ao redor do avatar do usuário fica na cor **laranja** (em vez do verde de fala normal), tanto para quem está transmitindo quanto para quem está recebendo o sussurro!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

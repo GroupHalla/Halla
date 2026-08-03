@@ -13,6 +13,7 @@ inline QColor blue()        { return QColor("#2E7FC4"); }
 inline QColor blueDark()    { return QColor("#17324C"); }
 inline QColor navyMid()     { return QColor("#26527A"); }
 inline QColor green()       { return QColor("#3CA55C"); }
+inline QColor orange()      { return QColor("#E67E22"); }
 inline QColor red()         { return QColor("#D9534F"); }
 inline QColor gold()        { return QColor("#E8B23C"); }
 inline QColor grayLine()    { return QColor("#8A939B"); }
@@ -35,7 +36,7 @@ QIcon bell();
 // árvore do servidor
 QIcon server();
 QIcon channel(bool hasPassword, bool moderated, bool isDefault, bool full);
-QIcon user(bool talking, bool away, int size = 20);
+QIcon user(bool talking, bool away, int size = 20, bool whispering = false);
 QPixmap userStatusMinis(bool inputMuted, bool outputMuted, bool away,
                         bool recording, bool commander, bool op = false);
 

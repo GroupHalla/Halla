@@ -753,6 +753,9 @@ void ServerTab::openOfflineMessages() {
 // ==================================================================== v3: sussurro
 void ServerTab::setWhisperUids(const QStringList& uids) {
     m_whisperUids = uids;
+    if (m_data.users.contains(m_data.selfId)) {
+        m_data.users[m_data.selfId].whispering = !uids.isEmpty();
+    }
     if (!m_net) return;
     if (uids.isEmpty()) {
         m_net->setWhisperIds({});
@@ -815,6 +818,9 @@ QList<int> ServerTab::whisperTargetIds(int scope) const {
 void ServerTab::setWhisperHold(bool on, int scope) {
     if (m_whisperHold == on) return;
     m_whisperHold = on;
+    if (m_data.users.contains(m_data.selfId)) {
+        m_data.users[m_data.selfId].whispering = on;
+    }
 
     if (on) {
         const QList<int> ids = whisperTargetIds(scope);
