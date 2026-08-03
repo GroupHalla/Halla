@@ -143,10 +143,14 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     QFontMetrics fm(o.font);
     const int textW = fm.horizontalAdvance(o.text);
 
-    int x = textRect.left() + iconW + 6 + textW + 8;
-    const int maxX = o.rect.right() - 4;
+    int x = o.rect.right() - combined.width() - 8;
+    int textRightLimit = textRect.left() + iconW + 6 + textW + 8;
+    if (x < textRightLimit) {
+        x = textRightLimit;
+    }
     const int y = o.rect.top() + (o.rect.height() - combined.height()) / 2;
     int w = combined.width();
+    const int maxX = o.rect.right() - 4;
     if (x + w > maxX) w = maxX - x;
     if (w > 0) p->drawPixmap(x, y, combined.copy(0, 0, w, combined.height()));
 }

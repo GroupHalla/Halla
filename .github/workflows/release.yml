@@ -91,18 +91,23 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.19
-          name: Halla v3.13.19 — Upload de Ícones de Cargo Nativos
+          tag_name: v3.13.20
+          name: Halla v3.13.20 — Refinamentos de Visual e Tema Escuro
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.19.exe
+          files: Halla-Setup-3.13.20.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.19
+            ## 🚀 Novidades e Correções do Halla v3.13.20
 
-            Esta release consolida a edição nativa das propriedades do cargo (Sigla, Ordem, Ícone) e o envio/upload direto de imagens PNG para os ícones de cargos a partir da interface do próprio cliente!
+            Esta release traz o alinhamento definitivo de ícones de cargos à direita, ampliação do menu de opções lateral para melhor legibilidade e a correção completa de elementos claros no tema escuro!
 
-            ### 🏷️ Editor de Propriedades de Cargo (Item 9 & 11)
-            * **Campos Adicionados:** Adicionados campos de edição para Sigla/Prefixo, Ordem de Hierarquia e Ícone do Cargo diretamente dentro do gerenciador de grupos.
-            * **Upload de Ícones:** Adicionado o botão "Enviar PNG..." para selecionar uma imagem local no computador, validá-la e enviá-la automaticamente para a pasta de ícones do servidor, aplicando-a ao cargo instantaneamente!
+            ### 🎨 Alinhamento de Ícones de Cargos (Item 9)
+            * **Alinhamento à Direita:** Os ícones de cargos e distintivos agora são perfeitamente alinhados à extrema direita da linha na lista de conectados (estilo TS3 original), expandindo-se ordenadamente para a esquerda se houver múltiplos cargos!
+
+            ### 🌓 Correção do Tema Escuro
+            * **Top-Bar Escura:** Corrigido o bug onde a barra de menus ("Conexões", "Marcadores" etc.), a barra de ferramentas (botões de mute) e as abas do servidor permaneciam brancas/claras mesmo com o tema escuro ativado. Toda a interface superior agora adota tons escuros unificados!
+
+            ### ⚙️ Painel de Opções Lateral Ampliado
+            * **Legibilidade:** Ampliamos o tamanho dos itens do menu lateral do painel de Opções de 34px para 48px, aumentamos o tamanho dos ícones das seções para 32x32px e definimos a fonte em destaque (bold 13px) para leitura extremamente fácil e moderna!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

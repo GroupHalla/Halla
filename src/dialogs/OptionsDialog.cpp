@@ -333,8 +333,8 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent) {
     // ---------------- menu lateral (ícones grandes + texto) --------------
     m_nav = new QListWidget(this);
     m_nav->setObjectName(QStringLiteral("optionsNav"));
-    m_nav->setFixedWidth(184);
-    m_nav->setIconSize(QSize(24, 24));
+    m_nav->setFixedWidth(220);
+    m_nav->setIconSize(QSize(32, 32));
     m_nav->setSpacing(1);
     m_nav->setFrameShape(QFrame::NoFrame);
 

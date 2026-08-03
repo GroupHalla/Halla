@@ -128,8 +128,8 @@ QString HTheme::styleSheet(bool dark) {
 
             // ---- janela de OPÇÕES (estilo Halla) --------------------------
             "QListWidget#optionsNav { background: #FFFFFF; border: 0px;"
-            "  outline: 0; padding: 5px 4px; }"
-            "QListWidget#optionsNav::item { height: 34px; padding-left: 10px;"
+            "  outline: 0; padding: 5px 4px; font-size: 13px; font-weight: bold; }"
+            "QListWidget#optionsNav::item { height: 48px; padding-left: 10px;"
             "  border: 1px solid transparent; border-radius: 0px; }"
             "QListWidget#optionsNav::item:hover:!selected { background: #EEF5FB; }"
             "QListWidget#optionsNav::item:selected { background: #DCE9F8;"
@@ -154,7 +154,11 @@ QString HTheme::styleSheet(bool dark) {
         );
     } else {
         css += QStringLiteral(
-            "QToolBar { border: 0px; spacing: 3px; padding: 3px 6px; }"
+            "QMenuBar { background: #2B2E33; color: #DCDFE3; border-bottom: 1px solid #3E434A; }"
+            "QMenuBar::item { background: transparent; padding: 4px 9px; border-radius: 0px; }"
+            "QMenuBar::item:selected { background: #3A4048; color: #FFFFFF; }"
+            "QMenuBar::item:pressed { background: #3B6E9E; color: #FFFFFF; }"
+            "QToolBar { background: #2B2E33; border: 0px; border-radius: 0px; spacing: 3px; padding: 3px 6px; }"
             "QToolBar::separator { background: #3E434A; width: 1px; margin: 4px 5px; }"
             "QToolButton { border: 1px solid transparent; border-radius: 0px;"
             "  background: transparent; padding: 4px 7px; margin: 0px 2px; }"
@@ -173,7 +177,18 @@ QString HTheme::styleSheet(bool dark) {
             "QGroupBox::title { subcontrol-origin: margin;"
             "  subcontrol-position: top left; left: 8px; top: 1px;"
             "  padding: 0px 4px; background: palette(window); }"
-            "QListWidget#optionsNav::item { height: 34px; padding-left: 10px; }"
+            "QTabWidget::pane { border: 1px solid #3E434A; top: -1px; background: #24272C; border-radius: 0px; }"
+            "QTabBar::tab { background: #2B2E33; color: #DCDFE3; border: 1px solid #3E434A; border-bottom: 0px; border-radius: 0px; padding: 3px 10px; margin-right: 2px; }"
+            "QTabBar::tab:selected { background: #24272C; color: #FFFFFF; }"
+            "QTabBar::tab:hover:!selected { background: #3A4048; }"
+            "QListWidget#optionsNav { background: #24272C; border: 0px;"
+            "  outline: 0; padding: 5px 4px; font-size: 13px; font-weight: bold; }"
+            "QListWidget#optionsNav::item { height: 48px; padding-left: 10px;"
+            "  border: 1px solid transparent; border-radius: 0px; }"
+            "QListWidget#optionsNav::item:hover:!selected { background: #3A4048; }"
+            "QListWidget#optionsNav::item:selected { background: #3B6E9E;"
+            "  color: #FFFFFF; border: 1px solid #5EA3E0; }"
+            "QWidget#optionsSep { background: #3E434A; }"
             "QWidget#pageHeader { border-bottom: 1px solid #3E434A; }"
             "QLabel#pageTitle { font-size: 15px; font-weight: bold; }"
             "QLabel#pageSubtitle { color: #9AA3AC; }"
