@@ -406,6 +406,7 @@ void WhisperDialog::onFilterChanged(int index) {
 
 void WhisperDialog::populateServerTree() {
     m_serverTree->clear();
+    AppLog::info(QStringLiteral("Sussurro: Populando árvore do servidor. m_data=%1").arg(m_data ? "Sim" : "Não"));
     
     // Top-level 1: Contactos
     QTreeWidgetItem* contactsRoot = new QTreeWidgetItem(m_serverTree);
@@ -468,6 +469,7 @@ void WhisperDialog::populateServerTree() {
 void WhisperDialog::populateTargetsTreeForSelected() {
     m_isLoading = true;
     m_targetsTree->clear();
+    AppLog::info(QStringLiteral("Sussurro: Populando árvore de alvos. m_data=%1").arg(m_data ? "Sim" : "Não"));
     
     QListWidgetItem* currentItem = m_syncList->currentItem();
     if (!currentItem) {
