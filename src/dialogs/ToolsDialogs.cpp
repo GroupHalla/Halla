@@ -119,10 +119,10 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     colCenter->addLayout(centerForm);
     colCenter->addSpacing(4);
 
-    colCenter->addWidget(new QLabel(tr("Árvore de Alvos (Caixa Branca Principal)"), this));
+    colCenter->addWidget(new QLabel(tr("Árvore de Alvos"), this));
     m_targetsTree = new QTreeWidget(this);
     m_targetsTree->setHeaderHidden(true);
-    m_targetsTree->setStyleSheet(QStringLiteral("QTreeWidget { background-color: white; border: 1px solid #CCC; }"));
+    m_targetsTree->setFrameShape(QFrame::StyledPanel);
     colCenter->addWidget(m_targetsTree, 1);
 
     columnsLayout->addLayout(colCenter, 1);
@@ -140,7 +140,7 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     colRight->addWidget(new QLabel(tr("Árvore do Servidor"), this));
     m_serverTree = new QTreeWidget(this);
     m_serverTree->setHeaderHidden(true);
-    m_serverTree->setStyleSheet(QStringLiteral("QTreeWidget { background-color: white; border: 1px solid #CCC; }"));
+    m_serverTree->setFrameShape(QFrame::StyledPanel);
     colRight->addWidget(m_serverTree, 1);
 
     QHBoxLayout* searchLayout = new QHBoxLayout;

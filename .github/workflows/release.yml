@@ -91,17 +91,20 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.21
-          name: Halla v3.13.21 — Correção de Elementos Claros no Tema Escuro
+          tag_name: v3.13.22
+          name: Halla v3.13.22 — Correção da Árvore de Sussurros e Salvamento
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.21.exe
+          files: Halla-Setup-3.13.22.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.21
+            ## 🚀 Novidades e Correções do Halla v3.13.22
 
-            Esta release traz a correção definitiva de elementos claros na parte superior do aplicativo durante a execução sob o tema escuro (Dark Mode).
+            Esta release corrige a visibilidade dos canais/usuários na árvore de sussurros sob o Tema Escuro e traz a confirmação do salvamento automático de configurações!
 
-            ### 🌓 Correção Completa do Tema Escuro
-            * **Barra de Menus e de Ferramentas Escuras:** Eliminado o bug onde folhas de estilo fixas na MainWindow sobrescreviam as cores globais de tema do aplicativo. Agora, a barra de menus, a barra de ferramentas superior e as abas de conexão adotam perfeitamente a tonalidade escura de grafite integrada!
+            ### 🎨 Correção de Visibilidade na Árvore de Sussurros (Item 9)
+            * **Texto Visível no Tema Escuro:** Removido o fundo branco fixo das árvores de alvos e de servidores na janela de Sussurros. Os painéis agora adotam perfeitamente as cores do tema ativo, impedindo o bug de texto branco invisível sobre fundo branco no Tema Escuro!
+
+            ### 💾 Persistência de Atalhos do Sussurro
+            * **Salvamento Local Permanente:** Confirmado o salvamento automático instantâneo de 100% das listas, teclas de atalho e alvos de sussurro diretamente no computador através do registro e arquivos de configuração nativos!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
