@@ -91,17 +91,18 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.24
-          name: Halla v3.13.24 — Indicador de Sussurro Laranja
+          tag_name: v3.13.25
+          name: Halla v3.13.25 — Transmissão e Indicador de Sussurro Laranja
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.24.exe
+          files: Halla-Setup-3.13.25.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.24
+            ## 🚀 Novidades e Correções do Halla v3.13.25
 
-            Esta release implementa o indicador visual de sussurro na cor laranja ao redor do avatar do usuário falante!
+            Esta release corrige a transmissão de voz e ativação do microfone ao utilizar as teclas de atalho de sussurro, garantindo a sinalização laranja sincronizada de fala!
 
-            ### 🎨 Indicador Laranja de Sussurro (Estilo TS3)
-            * **Feedback de Comunicação:** Agora, ao utilizar a tecla de sussurro configurada, o círculo indicador de fala ao redor do avatar do usuário fica na cor **laranja** (em vez do verde de fala normal), tanto para quem está transmitindo quanto para quem está recebendo o sussurro!
+            ### 🎨 Transmissão de Áudio e Indicador de Sussurro Laranja (Estilo TS3)
+            * **Ativação da Transmissão de Voz:** Corrigido o bug onde as teclas de atalho de sussurro não ativavam a captação de voz no motor de áudio. Agora, segurar a tecla de sussurro abre o microfone de forma idêntica ao Push-To-Talk!
+            * **Feedback Visual Laranja:** O círculo indicador de fala ao redor do avatar do usuário fica na cor **laranja** (em vez do verde de fala normal), tanto para quem está transmitindo quanto para quem está recebendo o sussurro!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

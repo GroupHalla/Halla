@@ -31,6 +31,8 @@ public:
     // ---- PTT (push-to-talk) — segurado pela hotkey (global no Windows)
     void setPttHeld(bool held);
     bool pttHeld() const { return m_pttHeld; }
+    void setWhisperHeld(bool held);
+    bool whisperHeld() const { return m_whisperHeld; }
 
     // ---- gravação local (WAV 48 kHz mono): recebidos + próprio microfone
     bool startRecording(const QString& wavPath);
@@ -70,6 +72,7 @@ private:
     quint16 m_seq = 0;
     bool m_talking = false;
     bool m_pttHeld = false;
+    bool m_whisperHeld = false;
     quint32 m_pttGen = 0; // geração de transições (atraso de soltura do PTT)
     QElapsedTimer m_silenceClock;
 

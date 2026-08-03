@@ -821,6 +821,9 @@ void ServerTab::setWhisperHold(bool on, int scope) {
     if (m_data.users.contains(m_data.selfId)) {
         m_data.users[m_data.selfId].whispering = on;
     }
+    if (m_voice) {
+        m_voice->setWhisperHeld(on);
+    }
 
     if (on) {
         const QList<int> ids = whisperTargetIds(scope);

@@ -179,7 +179,7 @@ void VoiceEngine::captureTick() {
     // ativação de voz (Opções > Captura): 0 = PTT, 1 = detecção de voz, 2 = contínuo
     // (obs.: "capture/mode" é o backend de áudio — não confundir)
     const int mode = S::num("capture/pttMode", 1);
-    if (mode == 0 && !m_pttHeld) {
+    if (mode == 0 && !m_pttHeld && !m_whisperHeld) {
         m_captureBuf.clear();
         m_srcDev->readAll();
         if (m_talking) {
@@ -264,6 +264,15 @@ void VoiceEngine::setPttHeld(bool held) {
 
     m_pttHeld = false;
     if (m_talking) { // soltou a tecla: para de transmitir
+        m_talking = false;
+        m_net->sendTalking(false);
+        emit talkingChanged(false);
+    }
+}
+
+void VoiceEngine::setWhisperHeld(bool held) {
+    m_whisperHeld = held;
+    if (!held && m_talking && !m_pttHeld) {
         m_talking = false;
         m_net->sendTalking(false);
         emit talkingChanged(false);
