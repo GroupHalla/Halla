@@ -18,6 +18,9 @@
 #include <QCheckBox>
 #include <QSpinBox>
 #include <QLineEdit>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QMessageBox>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QDateTime>
@@ -247,6 +250,55 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     scroll->setWidgetResizable(true);
     m_editor = new QWidget(scroll);
     QVBoxLayout* el = new QVBoxLayout(m_editor);
+
+    QGroupBox* propBox = new QGroupBox(tr("Propriedades do Cargo"), m_editor);
+    QFormLayout* pForm = new QFormLayout(propBox);
+    m_sigla = new QLineEdit(propBox);
+    m_sigla->setPlaceholderText(tr("Ex.: [Admin], [Mod]"));
+    m_order = new QSpinBox(propBox);
+    m_order->setRange(0, 100);
+    
+    QHBoxLayout* iconRow = new QHBoxLayout;
+    m_icon = new QLineEdit(propBox);
+    m_icon->setPlaceholderText(tr("Emoji (👑) ou arquivo de imagem (coroa.png)"));
+    QPushButton* upload = new QPushButton(tr("Enviar PNG..."), propBox);
+    iconRow->addWidget(m_icon, 1);
+    iconRow->addWidget(upload);
+    
+    pForm->addRow(tr("Prefixo/Sigla:"), m_sigla);
+    pForm->addRow(tr("Ordem de Hierarquia:"), m_order);
+    pForm->addRow(tr("Ícone do Cargo:"), iconRow);
+    el->addWidget(propBox);
+
+    connect(upload, &QPushButton::clicked, this, [this] {
+        QString path = QFileDialog::getOpenFileName(this, tr("Selecionar Ícone do Cargo"),
+                                                    QString(), tr("Imagens PNG (*.png)"));
+        if (path.isEmpty()) return;
+        
+        QFile f(path);
+        if (f.open(QIODevice::ReadOnly)) {
+            QByteArray bytes = f.readAll();
+            f.close();
+            if (bytes.size() > 65536) {
+                QMessageBox::warning(this, tr("Erro de Envio"),
+                                     tr("O arquivo excede o limite de tamanho de 64 KiB."));
+                return;
+            }
+            
+            QFileInfo info(path);
+            QString filename = info.fileName();
+            
+            QJsonObject m = HProto::msg("icon_set");
+            m["name"] = filename;
+            m["data"] = QString::fromLatin1(bytes.toBase64());
+            m_net->send(m);
+            
+            m_icon->setText(filename);
+            QMessageBox::information(this, tr("Sucesso"),
+                                     tr("Ícone '%1' enviado para o servidor com sucesso!").arg(filename));
+        }
+    });
+
     for (const auto& def : permDefs()) {
         QCheckBox* cb = new QCheckBox(def.second, m_editor);
         el->addWidget(cb);
@@ -310,7 +362,15 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                 m_cur["name"] = cur->text(1);
                 m_cur["perms"] = QJsonDocument::fromJson(
                     cur->data(0, Qt::UserRole + 1).toString().toUtf8()).object();
+                m_cur["sigla"] = cur->data(0, Qt::UserRole + 2).toString();
+                m_cur["order"] = cur->data(0, Qt::UserRole + 3).toInt();
+                m_cur["icon"]  = cur->data(0, Qt::UserRole + 4).toString();
+                
                 loadPerms(m_cur["perms"].toObject());
+                
+                m_sigla->setText(m_cur["sigla"].toString());
+                m_order->setValue(m_cur["order"].toInt());
+                m_icon->setText(m_cur["icon"].toString());
             });
 
     connect(add, &QPushButton::clicked, this, [this] {
@@ -357,13 +417,15 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                                                    tr("Nome do grupo:"), QLineEdit::Normal,
                                                    m_cur["name"].toString(), &ok).trimmed();
         if (!ok || name.isEmpty()) return;
-        m_net->groupSet(id, name, m_cur["perms"].toObject());
+        m_net->groupSet(id, name, m_cur["perms"].toObject(),
+                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed());
         m_net->requestGroupList();
     });
 
     connect(apply, &QPushButton::clicked, this, [this] {
         if (m_cur.isEmpty()) return;
-        m_net->groupSet(m_cur["id"].toInt(), m_cur["name"].toString(), collectPerms());
+        m_net->groupSet(m_cur["id"].toInt(), m_cur["name"].toString(), collectPerms(),
+                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed());
         m_net->requestGroupList();
     });
 
@@ -396,6 +458,9 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
         it->setData(0, Qt::UserRole + 1,
                     QString::fromUtf8(QJsonDocument(g["perms"].toObject())
                                           .toJson(QJsonDocument::Compact)));
+        it->setData(0, Qt::UserRole + 2, g["sigla"].toString());
+        it->setData(0, Qt::UserRole + 3, g["order"].toInt());
+        it->setData(0, Qt::UserRole + 4, g["icon"].toString());
     }
     if (m_groups->topLevelItemCount() > 0 && !m_groups->currentItem())
         m_groups->setCurrentItem(m_groups->topLevelItem(0));

@@ -306,11 +306,15 @@ void NetSession::unban(const QString& uid) {
 
 void NetSession::requestGroupList() { send(HProto::msg("group_list")); }
 
-void NetSession::groupSet(int id, const QString& name, const QJsonObject& perms) {
+void NetSession::groupSet(int id, const QString& name, const QJsonObject& perms,
+                          const QString& sigla, int order, const QString& icon) {
     QJsonObject m = HProto::msg("group_set");
     if (id > 0) m["id"] = id;
     if (!name.isEmpty()) m["name"] = name;
     if (!perms.isEmpty()) m["perms"] = perms;
+    m["sigla"] = sigla;
+    m["order"] = order;
+    m["icon"] = icon;
     send(m);
 }
 

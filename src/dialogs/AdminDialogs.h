@@ -62,6 +62,9 @@ private:
     QJsonObject m_cur;         // grupo em edição (id, name, perms)
     QList<QPair<QString, QCheckBox*>> m_checks; // permissões booleanas
     QSpinBox* m_talkPower = nullptr;
+    QLineEdit* m_sigla = nullptr;
+    QSpinBox* m_order = nullptr;
+    QLineEdit* m_icon = nullptr;
     QComboBox* m_userCombo = nullptr;
 };
 

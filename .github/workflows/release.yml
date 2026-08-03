@@ -91,20 +91,18 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.16
-          name: Halla v3.13.16 — Correção do Uso de Chaves e Alertas Pop-up
+          tag_name: v3.13.17
+          name: Halla v3.13.17 — Upload de Ícones de Cargo Nativos
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.16.exe
+          files: Halla-Setup-3.13.17.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.16
+            ## 🚀 Novidades e Correções do Halla v3.13.17
 
-            Esta release corrige o envio de chaves de privilégio para o servidor e implementa alertas pop-up detalhados para chaves inválidas ou já utilizadas!
+            Esta release implementa a edição nativa das propriedades do cargo (Sigla, Ordem, Ícone) e o envio/upload direto de imagens PNG para os ícones de cargos a partir da interface do próprio cliente!
 
-            ### 🔑 Correção no Envio de Chaves de Privilégio
-            * **Conexão de Ações:** Corrigido o bug onde aceitar o diálogo de chave de privilégio não disparava o envio da requisição de validação para o servidor. Agora a chave é enviada e processada instantaneamente!
-
-            ### 🚨 Alertas Pop-up de Erro (Item 9 e 11)
-            * **Feedback Gráfico:** Adicionado alerta pop-up (`QMessageBox::critical`) imediato caso o servidor recuse a chave de privilégio por ser inválida ou por já ter sido consumida anteriormente, facilitando o diagnóstico!
+            ### 🏷️ Editor de Propriedades de Cargo (Item 9 & 11)
+            * **Campos Adicionados:** Adicionados campos de edição para Sigla/Prefixo, Ordem de Hierarquia e Ícone do Cargo diretamente dentro do gerenciador de grupos.
+            * **Upload de Ícones:** Adicionado o botão "Enviar PNG..." para selecionar uma imagem local no computador, validá-la e enviá-la automaticamente para a pasta de ícones do servidor, aplicando-a ao cargo instantaneamente!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
