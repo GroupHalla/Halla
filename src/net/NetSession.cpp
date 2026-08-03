@@ -368,8 +368,10 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.op = d.users.value(usr.id).op;                 // preserva flag de operador
     if (usr.id == d.selfId) {
         usr.talking = d.users.value(d.selfId).talking; // preserva estado de fala local ultra responsivo
+        usr.whispering = d.users.value(d.selfId).whispering; // preserva estado de sussurro local
     } else {
         usr.talking = u["talking"].toBool();
+        usr.whispering = u["whispering"].toBool();
     }
     d.users[usr.id] = usr;
     refreshOperators();                                // recalcula ops por canal

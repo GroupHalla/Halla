@@ -362,12 +362,9 @@ QIcon user(bool talking, bool away, int size, bool whispering) {
         const qreal u = size / 24.0;
         QColor top = away ? QColor("#C9CFD6") : QColor("#9FC4E4");
         QColor bot = away ? QColor("#8A939B") : QColor("#3B76B0");
-        if (whispering) {
-            p.setPen(QPen(orange(), 2.4 * u, Qt::SolidLine, Qt::RoundCap));
-            p.setBrush(Qt::NoBrush);
-            p.drawEllipse(QRectF(2.2 * u, 2.2 * u, 19.6 * u, 19.6 * u));
-        } else if (talking) {
-            p.setPen(QPen(green(), 2.4 * u, Qt::SolidLine, Qt::RoundCap));
+        if (talking) {
+            QColor circleColor = whispering ? orange() : green();
+            p.setPen(QPen(circleColor, 2.4 * u, Qt::SolidLine, Qt::RoundCap));
             p.setBrush(Qt::NoBrush);
             p.drawEllipse(QRectF(2.2 * u, 2.2 * u, 19.6 * u, 19.6 * u));
         }

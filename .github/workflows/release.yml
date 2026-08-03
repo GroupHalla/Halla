@@ -91,18 +91,18 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.25
-          name: Halla v3.13.25 — Transmissão e Indicador de Sussurro Laranja
+          tag_name: v3.13.26
+          name: Halla v3.13.26 — Correção de Persistência de Sussurro Laranja
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.25.exe
+          files: Halla-Setup-3.13.26.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.25
+            ## 🚀 Novidades e Correções do Halla v3.13.26
 
-            Esta release corrige a transmissão de voz e ativação do microfone ao utilizar as teclas de atalho de sussurro, garantindo a sinalização laranja sincronizada de fala!
+            Esta release corrige a perda de estado e garante a exibição em tempo real do indicador de sussurro laranja para o próprio usuário durante a transmissão!
 
-            ### 🎨 Transmissão de Áudio e Indicador de Sussurro Laranja (Estilo TS3)
-            * **Ativação da Transmissão de Voz:** Corrigido o bug onde as teclas de atalho de sussurro não ativavam a captação de voz no motor de áudio. Agora, segurar a tecla de sussurro abre o microfone de forma idêntica ao Push-To-Talk!
-            * **Feedback Visual Laranja:** O círculo indicador de fala ao redor do avatar do usuário fica na cor **laranja** (em vez do verde de fala normal), tanto para quem está transmitindo quanto para quem está recebendo o sussurro!
+            ### 🎨 Correção de Persistência do Sinal de Sussurro Laranja (Estilo TS3)
+            * **Preservação de Estado:** Corrigido o bug onde o estado de sussurro do próprio usuário era limpo/sobrescrevido ao receber atualizações de dados do servidor. Agora a sinalização de sussurro laranja se mantém perfeitamente ativa ao falar!
+            * **Feedback Sincronizado:** O círculo indicador de fala ao redor do seu avatar muda de forma instantânea para a cor **laranja** (em vez do verde de fala normal) durante toda a transmissão de sussurro!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
