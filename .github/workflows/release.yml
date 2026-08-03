@@ -91,18 +91,17 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.26
-          name: Halla v3.13.26 — Correção de Persistência de Sussurro Laranja
+          tag_name: v3.13.27
+          name: Halla v3.13.27 — Ativação Instantânea do Sinalizador Laranja
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.26.exe
+          files: Halla-Setup-3.13.27.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.26
+            ## 🚀 Novidades e Correções do Halla v3.13.27
 
-            Esta release corrige a perda de estado e garante a exibição em tempo real do indicador de sussurro laranja para o próprio usuário durante a transmissão!
+            Esta release traz a ativação instantânea em tempo real do sinalizador de sussurro laranja para o seu próprio usuário ao pressionar a tecla de atalho!
 
-            ### 🎨 Correção de Persistência do Sinal de Sussurro Laranja (Estilo TS3)
-            * **Preservação de Estado:** Corrigido o bug onde o estado de sussurro do próprio usuário era limpo/sobrescrevido ao receber atualizações de dados do servidor. Agora a sinalização de sussurro laranja se mantém perfeitamente ativa ao falar!
-            * **Feedback Sincronizado:** O círculo indicador de fala ao redor do seu avatar muda de forma instantânea para a cor **laranja** (em vez do verde de fala normal) durante toda a transmissão de sussurro!
+            ### 🎨 Ativação Instantânea de Sinalização Laranja (Estilo TS3)
+            * **Feedback Imediato no Clique:** Agora, ao pressionar e segurar a tecla de atalho de sussurro configurada, o círculo ao redor do seu avatar acende na cor **laranja** de forma instantânea (com 0 milissegundos de delay), oferecendo confirmação visual em tempo real de que seu canal de sussurro está ativo e transmitindo!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

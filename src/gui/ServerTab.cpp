@@ -820,6 +820,7 @@ void ServerTab::setWhisperHold(bool on, int scope) {
     m_whisperHold = on;
     if (m_data.users.contains(m_data.selfId)) {
         m_data.users[m_data.selfId].whispering = on;
+        m_data.users[m_data.selfId].talking = on;
     }
     if (m_voice) {
         m_voice->setWhisperHeld(on);
@@ -843,6 +844,7 @@ void ServerTab::setWhisperHold(bool on, int scope) {
         else if (m_net)              m_net->setWhisperIds({});
         systemMsgChannel(tr("Sussurro desativado. Sua voz segue para o canal."));
     }
+    m_tree->rebuild();
     emit statusChanged();
 }
 
