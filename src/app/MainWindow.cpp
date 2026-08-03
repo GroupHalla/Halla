@@ -364,12 +364,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         }
     };
 
-    // Estilo do Menu Superior
-    menuBar()->setStyleSheet(
-        "QMenuBar { background-color: #F0F0F0; border-bottom: none; }"
-        "QMenuBar::item { background-color: #F0F0F0; padding: 4px 10px; color: #000000; }"
-        "QMenuBar::item:selected { background-color: #D0D0D0; }"
-    );
+    // Estilos do QMenuBar movidos para o Theme.cpp para suporte dinâmico ao Tema Escuro
 
     QToolBar* tb = addToolBar(tr("Principal"));
     tb->setObjectName(QStringLiteral("mainToolBar"));
@@ -377,14 +372,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     tb->setIconSize(QSize(24, 24)); // Aumenta o tamanho dos ícones para preencher melhor a altura da barra
     tb->setToolButtonStyle(Qt::ToolButtonIconOnly);
 
-    // Fundo e borda cinza claro sólido com 1px cinza escuro inferior
-    tb->setStyleSheet(
-        "QToolBar { background-color: #F0F0F0; border-bottom: 1px solid #A0A0A0; spacing: 4px; padding: 2px; }"
-        "QToolButton { background-color: transparent; border: 1px solid transparent; border-radius: 2px; padding: 2px 4px; margin: 0px; height: 24px; }"
-        "QToolButton:hover { background-color: #E0E0E0; border: 1px solid #A0A0A0; }"
-        "QToolButton:pressed { background-color: #D0D0D0; border: 1px solid #808080; }"
-        "QToolButton::menu-button { border: none; background: transparent; width: 12px; }"
-    );
+    // Estilos do QToolBar movidos para o Theme.cpp para suporte dinâmico ao Tema Escuro
 
     // Adiciona Grabber
     tb->addWidget(new QGrabber(tb));
