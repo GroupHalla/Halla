@@ -1087,35 +1087,8 @@ void MainWindow::applyHotkeys() {
             const QString keyStr = o["key"].toString();
             if (keyStr.isEmpty()) continue;
 
-            // ---- v3.11: "Sussurrar" é um atalho de SEGURAR (como o PTT do Halla)
+            // ---- Sussurrar foi removido das Teclas de Atalho gerais e agora é lido exclusivamente das Listas de Sussurros
             if (action.contains(QStringLiteral("ussurr"), Qt::CaseInsensitive)) {
-                const int scope = o["scope"].toInt(1);
-#ifdef Q_OS_WIN
-                HoldKey hk;
-                hk.scope = scope;
-                if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         hk.mouseBtn = 4;
-                else if (keyStr == QLatin1String(HotkeyEdit::kMouse5))    hk.mouseBtn = 5;
-                else if (keyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) hk.mouseBtn = 3;
-                else {
-                    UINT vk = 0, mods = 0;
-                    if (!specToVk(QKeySequence::fromString(keyStr), vk, mods)) continue;
-                    hk.vk = vk;
-                    hk.mods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN);
-                }
-                m_whisperHolds << hk; // pressão/soltura detectadas pelo timer global
-#else
-                Q_UNUSED(scope); // o alvo vem de "hotkeys/whisperScope" no toggle
-                // Linux: sem hotkeys globais — alternância por atalho de janela
-                const QKeySequence seq = QKeySequence::fromString(keyStr);
-                if (!seq.isEmpty()) {
-                    QShortcut* sc = new QShortcut(seq, this);
-                    sc->setContext(Qt::WindowShortcut);
-                    connect(sc, &QShortcut::activated, this,
-                            [this, action] { runConfiguredAction(action); });
-                    m_hotkeyShortcuts << sc;
-                }
-#endif
-                ++idx;
                 continue;
             }
 
@@ -1150,6 +1123,46 @@ void MainWindow::applyHotkeys() {
             m_hotkeyShortcuts << sc;
 #endif
             ++idx;
+        }
+    }
+
+    // Carrega as teclas de atalho configuradas nas Listas de Sussurros (Sussurro -> Lista de Sussurros)
+    QJsonDocument whisperDoc = QJsonDocument::fromJson(S::str("whispers").toUtf8());
+    if (whisperDoc.isArray()) {
+        for (const QJsonValue& v : whisperDoc.array()) {
+            QJsonObject o = v.toObject();
+            const QString listName = o["name"].toString();
+            const QString keyStr = o["key"].toString();
+            if (keyStr.isEmpty()) continue;
+
+#ifdef Q_OS_WIN
+            HoldKey hk;
+            hk.scope = 2; // Lista de usuários
+            hk.whisperListName = listName;
+            if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         hk.mouseBtn = 4;
+            else if (keyStr == QLatin1String(HotkeyEdit::kMouse5))    hk.mouseBtn = 5;
+            else if (keyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) hk.mouseBtn = 3;
+            else {
+                UINT vk = 0, mods = 0;
+                if (!specToVk(QKeySequence::fromString(keyStr), vk, mods)) continue;
+                hk.vk = vk;
+                hk.mods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN);
+            }
+            m_whisperHolds << hk;
+#else
+            const QKeySequence seq = QKeySequence::fromString(keyStr);
+            if (!seq.isEmpty()) {
+                QShortcut* sc = new QShortcut(seq, this);
+                sc->setContext(Qt::WindowShortcut);
+                connect(sc, &QShortcut::activated, this, [this, listName] {
+                    S::set("whisper/activeList", listName);
+                    if (ServerTab* t = currentTab()) {
+                        t->setWhisperHold(!t->whisperHoldActive(), 2);
+                    }
+                });
+                m_hotkeyShortcuts << sc;
+            }
+#endif
         }
     }
 
@@ -1341,8 +1354,14 @@ void MainWindow::pollGlobalInputs() {
 
 void MainWindow::whisperSetHeld(int idx, bool held) {
     if (idx < 0 || idx >= m_whisperHolds.size()) return;
-    if (ServerTab* t = currentTab())
-        t->setWhisperHold(held, m_whisperHolds[idx].scope);
+    ServerTab* t = currentTab();
+    if (!t) return;
+    
+    if (held && !m_whisperHolds[idx].whisperListName.isEmpty()) {
+        S::set("whisper/activeList", m_whisperHolds[idx].whisperListName);
+    }
+    
+    t->setWhisperHold(held, m_whisperHolds[idx].scope);
 }
 
 bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,

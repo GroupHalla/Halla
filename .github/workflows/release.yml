@@ -91,17 +91,18 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.28
-          name: Halla v3.13.28 — Sincronia Estável do Sinalizador Laranja
+          tag_name: v3.13.29
+          name: Halla v3.13.29 — Integração de Atalhos de Listas de Sussurro
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.28.exe
+          files: Halla-Setup-3.13.29.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.28
+            ## 🚀 Novidades e Correções do Halla v3.13.29
 
-            Esta release consolida a estabilização e sincronia completa do sinal de sussurro laranja para o seu próprio usuário durante as transmissões ativas de voz e captação!
+            Esta release corrige em definitivo a escuta e ativação de teclas de atalho configuradas dentro do gerenciador de Listas de Sussurros (sistemas de sussurros múltiplos) e limpa as opções obsoletas das teclas de atalho gerais.
 
-            ### 🎨 Sincronia Estável de Sinalização Laranja (Estilo TS3)
-            * **Feedback Sincronizado:** Corrigido o bug onde as transições e os estados de áudio dinâmicos do microfone limpavam as flags de sussurro locais. Agora a sincronização do círculo laranja ao redor do seu avatar é 100% preservada de forma estável ao sussurrar e falar!
+            ### 🔑 Ativação Direta de Teclas da Lista de Sussurros (Item 9)
+            * **Integração de Escuta:** Resolvido o problema de as teclas das Listas de Sussurros configuradas no painel de Sussurros não funcionarem. Agora o aplicativo carrega, monitora e ativa dinamicamente as teclas de cada lista de sussurro de forma 100% nativa e transparente!
+            * **Remoção de Opções Obsoletas:** Removida a configuração de sussurro genérica da aba "Teclas de Atalho" gerais, centralizando o recurso de sussurro inteiramente no seu local correto (Sussurro -> Lista de Sussurros).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

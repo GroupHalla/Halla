@@ -1362,7 +1362,6 @@ QWidget* OptionsDialog::pageHotkeys() {
         tr("Alternar comandante do canal"),
         tr("Alternar gravação"),
         tr("Alternar transmissão contínua"),
-        whisperAction,
     };
 
     // IMPORTANTE: capturar por CÓPIA — esta lambda escapa para o connect()

@@ -119,6 +119,7 @@ private:
         int  mouseBtn = 0;        // 3 = meio, 4/5 = laterais
         int  scope = 1;           // 0 canal, 1 canal+subcanais, 2 usuários
         bool held = false;
+        QString whisperListName;  // nome da lista de sussurros (opcional)
     };
     struct MouseHotkey {
         int mouseBtn = 0; // 3, 4, 5
