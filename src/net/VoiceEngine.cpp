@@ -156,7 +156,7 @@ void VoiceEngine::updateCodecSettings() {
     if (!m_data->channels.contains(myChanId)) return;
     
     const Channel& c = m_data->channels[myChanId];
-    int bitrate = 8000 + (c.codecQuality * 8000);
+    int bitrate = c.bitrate * 1000; // de 16kbps a 96kbps
     
     int app = OPUS_APPLICATION_VOIP;
     if (c.codec == 5) { // Opus Music

@@ -391,6 +391,8 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     ch.moderated = c["moderated"].toBool();
     ch.codec = c["codec"].toInt(4);
     ch.codecQuality = c["quality"].toInt(6);
+    ch.bitrate = c["bitrate"].toInt(48);
+    ch.groupPerms = c["groupPerms"].toObject();
     ch.maxClients = c["max"].toInt(-1);
     ch.users.clear();
     for (const QJsonValue& v : c["users"].toArray()) ch.users << v.toInt();

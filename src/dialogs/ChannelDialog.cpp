@@ -1,6 +1,7 @@
 #include "ChannelDialog.h"
 #include "TsBanner.h"
 #include "Icons.h"
+#include "net/NetSession.h"
 
 #include <QVBoxLayout>
 #include <QFormLayout>
@@ -8,9 +9,11 @@
 #include <QDialogButtonBox>
 #include <QLabel>
 #include <QPushButton>
+#include <QTabWidget>
+#include <QGroupBox>
 
-ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, QWidget* parent)
-    : QDialog(parent), m_server(server) {
+ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, NetSession* net, QWidget* parent)
+    : QDialog(parent), m_server(server), m_net(net) {
     setWindowTitle(title);
     setMinimumWidth(440);
 
@@ -20,6 +23,11 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, QWi
     root->addWidget(new TsBanner(title, tr("Configure as propriedades do canal"),
                                  HIcons::channel(false, false, false, false).pixmap(24, 24), this));
     root->addSpacing(10);
+
+    QTabWidget* tabs = new QTabWidget(this);
+    QWidget* propPage = new QWidget(tabs);
+    QVBoxLayout* propLayout = new QVBoxLayout(propPage);
+    propLayout->setContentsMargins(4, 4, 4, 4);
 
     QFormLayout* form = new QFormLayout;
     form->setContentsMargins(12, 4, 12, 4);
@@ -62,6 +70,12 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, QWi
     connect(m_quality, &QSlider::valueChanged, this,
             [this](int v) { m_qualityLabel->setText(QString::number(v)); });
 
+    m_bitrate = new QSpinBox(this);
+    m_bitrate->setRange(16, 96);
+    m_bitrate->setValue(48);
+    m_bitrate->setSuffix(tr(" kbps"));
+    form->addRow(tr("Bitrate do codec:"), m_bitrate);
+
     m_sortAfter = new QComboBox(this);
     m_sortAfter->addItem(tr("- ordenado -"), 0);
     if (server) {
@@ -100,8 +114,61 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, QWi
     cw->setLayout(chkrow);
     form->addRow(QString(), cw);
 
-    root->addLayout(form);
-    root->addStretch(1);
+    propLayout->addLayout(form);
+    propPage->setLayout(propLayout);
+    tabs->addTab(propPage, tr("Propriedades"));
+
+    // ---- Tab 2: Permissões
+    QWidget* permPage = new QWidget(tabs);
+    QVBoxLayout* pLayout = new QVBoxLayout(permPage);
+    pLayout->setContentsMargins(12, 12, 12, 12);
+    pLayout->setSpacing(8);
+
+    QHBoxLayout* gRow = new QHBoxLayout;
+    gRow->addWidget(new QLabel(tr("Cargo/Grupo:"), permPage));
+    m_permGroupCombo = new QComboBox(permPage);
+    gRow->addWidget(m_permGroupCombo, 1);
+    pLayout->addLayout(gRow);
+
+    pLayout->addWidget(new QLabel(tr("Definir permissões específicas deste canal:"), permPage));
+
+    m_chkJoin = new QCheckBox(tr("Permitir entrar no canal"), permPage);
+    m_chkTalk = new QCheckBox(tr("Permitir falar no canal"), permPage);
+    m_chkWhisper = new QCheckBox(tr("Permitir sussurrar neste canal"), permPage);
+    m_chkUpload = new QCheckBox(tr("Permitir enviar arquivos no canal"), permPage);
+    m_chkDownload = new QCheckBox(tr("Permitir baixar arquivos no canal"), permPage);
+    m_chkChat = new QCheckBox(tr("Permitir enviar chat de texto no canal"), permPage);
+
+    pLayout->addWidget(m_chkJoin);
+    pLayout->addWidget(m_chkTalk);
+    pLayout->addWidget(m_chkWhisper);
+    pLayout->addWidget(m_chkUpload);
+    pLayout->addWidget(m_chkDownload);
+    pLayout->addWidget(m_chkChat);
+    pLayout->addStretch(1);
+
+    permPage->setLayout(pLayout);
+    tabs->addTab(permPage, tr("Permissões"));
+
+    if (m_net) {
+        for (const QJsonValue& v : m_net->serverGroups()) {
+            QJsonObject g = v.toObject();
+            m_permGroupCombo->addItem(g["name"].toString(), g["id"].toInt());
+        }
+    } else {
+        m_permGroupCombo->addItem(tr("guest"), 1);
+        m_permGroupCombo->addItem(tr("normal"), 2);
+        m_permGroupCombo->addItem(tr("admin"), 3);
+    }
+
+    connect(m_permGroupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) {
+        if (index < 0 || m_isUpdatingPerms) return;
+        saveCurrentGroupPerms();
+        int gid = m_permGroupCombo->itemData(index).toInt();
+        loadGroupPerms(gid);
+    });
+
+    root->addWidget(tabs);
 
     QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Ok |
                                                 QDialogButtonBox::Cancel, this);
@@ -130,6 +197,7 @@ void ChannelDialog::setChannel(const Channel& c) {
     m_password->setText(c.passwordHash);
     m_codec->setCurrentIndex(c.codec);
     m_quality->setValue(c.codecQuality);
+    m_bitrate->setValue(c.bitrate);
     m_maxClients->setValue(c.maxClients);
     m_temp->setChecked(c.type == 0);
     m_semi->setChecked(c.type == 1);
@@ -138,6 +206,13 @@ void ChannelDialog::setChannel(const Channel& c) {
     m_moderated->setChecked(c.moderated);
     const int idx = m_sortAfter->findData(c.id);
     if (idx >= 0) m_sortAfter->removeItem(idx); // não pode classificar abaixo de si mesmo
+
+    m_localGroupPerms = c.groupPerms;
+    m_lastGid = -1;
+    if (m_permGroupCombo->count() > 0) {
+        m_permGroupCombo->setCurrentIndex(-1);
+        m_permGroupCombo->setCurrentIndex(0);
+    }
 }
 
 Channel ChannelDialog::resultChannel() const {
@@ -149,9 +224,47 @@ Channel ChannelDialog::resultChannel() const {
     c.hasPassword = !m_password->text().isEmpty();
     c.codec = m_codec->currentIndex();
     c.codecQuality = m_quality->value();
+    c.bitrate = m_bitrate->value();
     c.maxClients = m_maxClients->value();
     c.type = m_temp->isChecked() ? 0 : (m_semi->isChecked() ? 1 : 2);
     c.isDefault = m_default->isChecked();
     c.moderated = m_moderated->isChecked();
+    
+    const_cast<ChannelDialog*>(this)->saveCurrentGroupPerms();
+    c.groupPerms = m_localGroupPerms;
     return c;
+}
+
+void ChannelDialog::saveCurrentGroupPerms() {
+    if (m_lastGid < 0) return;
+    
+    QJsonObject gPerms;
+    gPerms["join"] = m_chkJoin->isChecked();
+    gPerms["talk"] = m_chkTalk->isChecked();
+    gPerms["whisper"] = m_chkWhisper->isChecked();
+    gPerms["file_upload"] = m_chkUpload->isChecked();
+    gPerms["file_download"] = m_chkDownload->isChecked();
+    gPerms["text_chat"] = m_chkChat->isChecked();
+    
+    m_localGroupPerms[QString::number(m_lastGid)] = gPerms;
+}
+
+void ChannelDialog::loadGroupPerms(int gid) {
+    m_isUpdatingPerms = true;
+    m_lastGid = gid;
+    
+    QString gidStr = QString::number(gid);
+    QJsonObject gPerms;
+    if (m_localGroupPerms.contains(gidStr)) {
+        gPerms = m_localGroupPerms[gidStr].toObject();
+    }
+    
+    m_chkJoin->setChecked(gPerms.value("join").toBool(true));
+    m_chkTalk->setChecked(gPerms.value("talk").toBool(true));
+    m_chkWhisper->setChecked(gPerms.value("whisper").toBool(true));
+    m_chkUpload->setChecked(gPerms.value("file_upload").toBool(true));
+    m_chkDownload->setChecked(gPerms.value("file_download").toBool(true));
+    m_chkChat->setChecked(gPerms.value("text_chat").toBool(true));
+    
+    m_isUpdatingPerms = false;
 }

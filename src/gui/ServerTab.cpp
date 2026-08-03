@@ -45,6 +45,8 @@ static QJsonObject chanToJson(const Channel& c) {
     o["moderated"] = c.moderated;
     o["codec"] = c.codec;
     o["quality"] = c.codecQuality;
+    o["bitrate"] = c.bitrate;
+    o["groupPerms"] = c.groupPerms;
     o["max"] = c.maxClients;
     return o;
 }
@@ -483,7 +485,7 @@ void ServerTab::joinChannel(int channelId) {
 }
 
 void ServerTab::createChannel(int parentId) {
-    ChannelDialog dlg(tr("Criar canal"), &m_data, this);
+    ChannelDialog dlg(tr("Criar canal"), &m_data, m_net, this);
     if (dlg.exec() != QDialog::Accepted) return;
 
     Channel c = dlg.resultChannel();
@@ -504,7 +506,7 @@ void ServerTab::createChannel(int parentId) {
 
 void ServerTab::editChannel(int channelId) {
     if (!m_data.channels.contains(channelId)) return;
-    ChannelDialog dlg(tr("Editar canal"), &m_data, this);
+    ChannelDialog dlg(tr("Editar canal"), &m_data, m_net, this);
     dlg.setChannel(m_data.channels[channelId]);
     if (dlg.exec() != QDialog::Accepted) return;
 

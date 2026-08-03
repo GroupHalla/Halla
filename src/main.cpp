@@ -62,7 +62,7 @@ static int takeShot(QApplication& app, const QString& path, const QString& what)
         w.loadDemoState();
         ServerData* d = nullptr;
         // usa o diálogo de canal com dados da aba demo
-        ChannelDialog* dlg = new ChannelDialog(QObject::tr("Criar canal"), d, &w);
+        ChannelDialog* dlg = new ChannelDialog(QObject::tr("Criar canal"), d, nullptr, &w);
         w.show();
         dlg->show();
         app.processEvents();

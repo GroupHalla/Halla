@@ -4,6 +4,7 @@
 #include <QList>
 #include <QMap>
 #include <QString>
+#include <QJsonObject>
 #include <algorithm>
 
 // ============================================================================
@@ -71,6 +72,8 @@ struct Channel {
     int     codec = 4;               // Opus Voice
     QStringList opUids;              // UIDs dos operadores deste canal (v3)
     int     codecQuality = 6;        // 0..10
+    int     bitrate = 48;            // de 16kbps a 96kbps (padrão 48)
+    QJsonObject groupPerms;          // permissões de canal por cargo { "groupId": { "perm": bool } }
     int     maxClients = -1;         // -1 = ilimitado
     QList<int> users;
 };

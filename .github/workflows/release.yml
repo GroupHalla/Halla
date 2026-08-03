@@ -91,18 +91,20 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.29
-          name: Halla v3.13.29 — Integração de Atalhos de Listas de Sussurro
+          tag_name: v3.13.30
+          name: Halla v3.13.30 — Permissões de Canais e Controle de Bitrate
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.29.exe
+          files: Halla-Setup-3.13.30.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.29
+            ## 🚀 Novidades e Correções do Halla v3.13.30
 
-            Esta release corrige em definitivo a escuta e ativação de teclas de atalho configuradas dentro do gerenciador de Listas de Sussurros (sistemas de sussurros múltiplos) e limpa as opções obsoletas das teclas de atalho gerais.
+            Esta release implementa a edição nativa de permissões específicas de canais por cargo/grupo e adiciona o controle direto de Bitrate e Qualidade individualizado por sala!
 
-            ### 🔑 Ativação Direta de Teclas da Lista de Sussurros (Item 9)
-            * **Integração de Escuta:** Resolvido o problema de as teclas das Listas de Sussurros configuradas no painel de Sussurros não funcionarem. Agora o aplicativo carrega, monitora e ativa dinamicamente as teclas de cada lista de sussurro de forma 100% nativa e transparente!
-            * **Remoção de Opções Obsoletas:** Removida a configuração de sussurro genérica da aba "Teclas de Atalho" gerais, centralizando o recurso de sussurro inteiramente no seu local correto (Sussurro -> Lista de Sussurros).
+            ### 🛡️ Permissões de Canais por Cargo
+            * **Controle Granular:** Adicionada a aba de "Permissões" dentro do diálogo de criar/editar canais. Agora, administradores podem bloquear ou permitir de forma totalmente granular ações como Entrar no canal, Falar, Sussurrar, Enviar chat, e Transferir arquivos de forma individualizada para cada grupo de usuários naquele canal!
+
+            ### 🎚️ Controle de Bitrate do Codec por Canal
+            * **Economia de Banda e Qualidade Máxima:** Adicionado seletor de Bitrate (de 16 kbps a 96 kbps) nas propriedades do canal. O motor de áudio Opus agora se reconfigura dinamicamente e de forma inteligente no exato instante em que o usuário altera ou entra em uma sala com bitrate configurado!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
