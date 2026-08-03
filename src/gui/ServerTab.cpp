@@ -226,6 +226,7 @@ void ServerTab::attachNetwork(NetSession* net) {
     if (m_voice->isActive()) {
         connect(m_voice, &VoiceEngine::talkingChanged, this, [this](bool on) {
             m_data.users[m_data.selfId].talking = on;
+            m_data.users[m_data.selfId].whispering = on && (m_whisperHold || !m_whisperUids.isEmpty());
             m_tree->rebuild();
         });
         emit statusChanged();

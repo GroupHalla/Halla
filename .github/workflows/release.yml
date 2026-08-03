@@ -91,17 +91,17 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.27
-          name: Halla v3.13.27 — Ativação Instantânea do Sinalizador Laranja
+          tag_name: v3.13.28
+          name: Halla v3.13.28 — Sincronia Estável do Sinalizador Laranja
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.27.exe
+          files: Halla-Setup-3.13.28.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.27
+            ## 🚀 Novidades e Correções do Halla v3.13.28
 
-            Esta release traz a ativação instantânea em tempo real do sinalizador de sussurro laranja para o seu próprio usuário ao pressionar a tecla de atalho!
+            Esta release consolida a estabilização e sincronia completa do sinal de sussurro laranja para o seu próprio usuário durante as transmissões ativas de voz e captação!
 
-            ### 🎨 Ativação Instantânea de Sinalização Laranja (Estilo TS3)
-            * **Feedback Imediato no Clique:** Agora, ao pressionar e segurar a tecla de atalho de sussurro configurada, o círculo ao redor do seu avatar acende na cor **laranja** de forma instantânea (com 0 milissegundos de delay), oferecendo confirmação visual em tempo real de que seu canal de sussurro está ativo e transmitindo!
+            ### 🎨 Sincronia Estável de Sinalização Laranja (Estilo TS3)
+            * **Feedback Sincronizado:** Corrigido o bug onde as transições e os estados de áudio dinâmicos do microfone limpavam as flags de sussurro locais. Agora a sincronização do círculo laranja ao redor do seu avatar é 100% preservada de forma estável ao sussurrar e falar!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
