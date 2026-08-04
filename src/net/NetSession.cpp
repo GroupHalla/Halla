@@ -458,10 +458,13 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         m_ready = true;
         m_pingTimer->start();
 
-        // registra endpoint UDP (payload vazio — servidor aprende nosso endereço)
-        if (m_voiceToken && m_udpPort)
-            m_udp->writeDatagram(HProto::encodeVoiceClient(m_voiceToken, 1, QByteArray()),
-                                 QHostAddress(m_host), m_udpPort);
+        // Registra o endpoint UDP com um payload não vazio. Relays antigos
+        // ignoravam datagramas HALL de apenas 10 bytes; nesse cenário o PC
+        // só passava a ser destino válido depois de falar uma vez.
+        if (m_voiceToken && m_udpPort) {
+            for (quint16 seq = 1; seq <= 3; ++seq)
+                sendVoiceFrame(QByteArray(1, '\0'), seq);
+        }
 
         AppLog::info(QStringLiteral("Conectado a %1 como %2")
                          .arg(m_hostPort, d.users[d.selfId].name));
@@ -644,9 +647,10 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     if (t == "voice_token") {
         m_udpPort = quint16(obj["udp"].toInt());
         m_voiceToken = obj["token"].toString().toUInt();
-        if (m_voiceToken && m_udpPort)
-            m_udp->writeDatagram(HProto::encodeVoiceClient(m_voiceToken, 1, QByteArray()),
-                                 QHostAddress(m_host), m_udpPort);
+        if (m_voiceToken && m_udpPort) {
+            for (quint16 seq = 1; seq <= 3; ++seq)
+                sendVoiceFrame(QByteArray(1, '\0'), seq);
+        }
         return;
     }
 }
