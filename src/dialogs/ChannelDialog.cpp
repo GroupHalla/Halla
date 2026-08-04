@@ -43,9 +43,15 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
 
     m_desc = new QTextEdit(this);
     m_desc->setAcceptRichText(false);
-    m_desc->setMinimumHeight(58);
-    m_desc->setMaximumHeight(58);
+    m_desc->setMinimumHeight(120);
+    m_desc->setMaximumHeight(160);
     form->addRow(tr("Descrição:"), m_desc);
+    QLabel* descHint = new QLabel(
+        tr("Aceita linhas em branco, [br], [img]URL[/img], "
+           "[url=URL]texto[/url] e links Markdown."), this);
+    descHint->setWordWrap(true);
+    descHint->setObjectName(QStringLiteral("captionLabel"));
+    form->addRow(QString(), descHint);
 
     m_password = new QLineEdit(this);
     m_password->setEchoMode(QLineEdit::Password);

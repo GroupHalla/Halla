@@ -1,15 +1,16 @@
 #include "InfoPanel.h"
 #include "Icons.h"
 #include "ChatPanel.h"
+#include "RichTextBrowser.h"
 #include "app/Theme.h"
 
 #include <QVBoxLayout>
 #include <QPainter>
 #include <QFrame>
 
-class InfoView : public QTextBrowser {
+class InfoView : public RichTextBrowser {
 public:
-    explicit InfoView(QWidget* parent = nullptr) : QTextBrowser(parent) {}
+    explicit InfoView(QWidget* parent = nullptr) : RichTextBrowser(parent) {}
 
 protected:
     void paintEvent(QPaintEvent* e) override {

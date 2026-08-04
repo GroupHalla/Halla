@@ -91,15 +91,17 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.37
-          name: Halla v3.13.37 — Arraste e permissões de comandante
+          tag_name: v3.13.38
+          name: Halla v3.13.38 — Imagens e links nas descrições
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.37.exe
+          files: Halla-Setup-3.13.38.exe
           body: |
-            ## Halla Desktop v3.13.37
+            ## Halla Desktop v3.13.38
 
-            * ID único continua sendo usado internamente para sincronização, mas não é mais exibido na interface do usuário.
-            * Mantidos o arraste de clientes com permissão e o controle de permissões de comandante.
+            ### Descrições ricas de canais
+            * Descrições preservam linhas em branco e espaçamento.
+            * Suporte a imagens remotas com `[img]URL[/img]` e Markdown.
+            * Suporte a links BBCode, Markdown e URLs diretas, abertos no navegador padrão.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

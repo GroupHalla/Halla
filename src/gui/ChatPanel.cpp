@@ -1,4 +1,5 @@
 #include "ChatPanel.h"
+#include "RichTextBrowser.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -118,7 +119,7 @@ ChatPanel::ChatPanel(QWidget* parent) : QWidget(parent) {
 }
 
 QTextBrowser* ChatPanel::makeBrowser() {
-    QTextBrowser* b = new QTextBrowser(m_tabs);
+    QTextBrowser* b = new RichTextBrowser(m_tabs);
     b->setObjectName(QStringLiteral("chatBrowser"));
     b->setOpenLinks(false);
     b->setReadOnly(true);
@@ -135,17 +136,38 @@ void ChatPanel::addLine(QTextBrowser* browser, const QString& html) {
 }
 
 QString ChatPanel::bbToHtml(const QString& text) {
+    // As descrições usam um subconjunto seguro de BBCode/Markdown. O texto
+    // comum é escapado primeiro; somente imagens e links HTTP(S) viram HTML.
     QString h = text.toHtmlEscaped();
+
+    static const QRegularExpression reImageBb("\\[img\\]\\s*(https?://[^\\s\\]]+)\\s*\\[/img\\]");
+    h.replace(reImageBb, QStringLiteral("<img src=\"\\1\" alt=\"imagem\" />"));
+    static const QRegularExpression reImageBbEq("\\[img=(https?://[^\\]]+)\\]");
+    h.replace(reImageBbEq, QStringLiteral("<img src=\"\\1\" alt=\"imagem\" />"));
+    static const QRegularExpression reImageMd("!\\[([^\\]]*)\\]\\((https?://[^\\s\\)]+)\\)");
+    h.replace(reImageMd, QStringLiteral("<img src=\"\\2\" alt=\"\\1\" />"));
+
+    static const QRegularExpression reUrl("\\[url=(https?://[^\\]]+)\\](.*?)\\[/url\\]");
+    h.replace(reUrl, QStringLiteral("<a href=\"\\1\" style=\"color:#8B5CF6\">\\2</a>"));
+    static const QRegularExpression reUrl2("\\[url\\](https?://[^\\[]+)\\[/url\\]");
+    h.replace(reUrl2, QStringLiteral("<a href=\"\\1\" style=\"color:#8B5CF6\">\\1</a>"));
+    static const QRegularExpression reMarkdownLink("\\[([^\\]]+)\\]\\((https?://[^\\s\\)]+)\\)");
+    h.replace(reMarkdownLink, QStringLiteral("<a href=\"\\2\" style=\"color:#8B5CF6\">\\1</a>"));
+
+    // URLs coladas sem marcação também ficam clicáveis, sem tocar nos src/href
+    // que acabaram de ser gerados para imagens e links.
+    static const QRegularExpression reBareUrl("(?<![\\\"'=])(https?://[^\\s<\\\"\\)\\]]+)");
+    h.replace(reBareUrl, QStringLiteral("<a href=\"\\1\" style=\"color:#8B5CF6\">\\1</a>"));
+
     static const QRegularExpression reColorOpen("\\[color=(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)\\]");
     h.replace(reColorOpen, QStringLiteral("<span style=\"color:\\1\">"));
     h.replace(QStringLiteral("[/color]"), QStringLiteral("</span>"));
     static const QRegularExpression reSizeOpen("\\[size=(\\d{1,2})\\]");
     h.replace(reSizeOpen, QStringLiteral("<span style=\"font-size:\\1px\">"));
     h.replace(QStringLiteral("[/size]"), QStringLiteral("</span>"));
-    static const QRegularExpression reUrl("\\[url=([^\\]]+)\\](.*?)\\[/url\\]");
-    h.replace(reUrl, QStringLiteral("<a href=\"\\1\" style=\"color:#8B5CF6\">\\2</a>"));
-    static const QRegularExpression reUrl2("\\[url\\](.*?)\\[/url\\]");
-    h.replace(reUrl2, QStringLiteral("<a href=\"\\1\" style=\"color:#8B5CF6\">\\1</a>"));
+    static const QRegularExpression reParagraph("\\[p\\](.*?)\\[/p\\]");
+    h.replace(reParagraph, QStringLiteral("<div style=\"margin-bottom:12px;\">\\1</div>"));
+    h.replace(QStringLiteral("[br]"), QStringLiteral("<br>"));
     static const QRegularExpression reB("\\[b\\](.*?)\\[/b\\]");
     h.replace(reB, QStringLiteral("<b>\\1</b>"));
     static const QRegularExpression reI("\\[i\\](.*?)\\[/i\\]");
@@ -156,6 +178,10 @@ QString ChatPanel::bbToHtml(const QString& text) {
     h.replace(reS, QStringLiteral("<s>\\1</s>"));
     static const QRegularExpression reCode("\\[code\\](.*?)\\[/code\\]");
     h.replace(reCode, QStringLiteral("<code>\\1</code>"));
+
+    h.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+    h.replace(QStringLiteral("\n\n"), QStringLiteral("<br><br>"));
+    h.replace(QStringLiteral("\n"), QStringLiteral("<br>"));
     return h;
 }
 

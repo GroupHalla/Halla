@@ -10,6 +10,7 @@
 #include "dialogs/MiniDialogs.h"
 #include "dialogs/ToolsDialogs.h"
 #include "InfoPanel.h"
+#include "RichTextBrowser.h"
 #include "net/NetSession.h"
 #include "net/VoiceEngine.h"
 
@@ -356,7 +357,7 @@ void ServerTab::hookSignals() {
                 dlg.setWindowTitle(tr("Descrição — %1").arg(c.name));
                 dlg.resize(480, 340);
                 QVBoxLayout* l = new QVBoxLayout(&dlg);
-                QTextBrowser* view = new QTextBrowser(&dlg);
+                RichTextBrowser* view = new RichTextBrowser(&dlg);
                 view->setOpenExternalLinks(true);
                 view->setHtml(c.description.isEmpty()
                     ? tr("<i>Este canal não tem descrição.</i>")

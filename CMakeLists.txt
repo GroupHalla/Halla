@@ -44,6 +44,7 @@ set(HALLA_SOURCES
     src/gui/HotkeyEdit.cpp
     src/gui/ServerTreeWidget.cpp
     src/gui/ChatPanel.cpp
+    src/gui/RichTextBrowser.cpp
     src/gui/InfoPanel.cpp
     src/gui/ServerTab.cpp
     src/gui/WelcomePage.cpp
