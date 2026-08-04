@@ -1,6 +1,7 @@
 #include "ServerTab.h"
 #include "ServerTreeWidget.h"
 #include "ChatPanel.h"
+#include "Icons.h"
 #include "Settings.h"
 #include "AppLog.h"
 #include "SoundPack.h"
@@ -13,8 +14,11 @@
 #include "net/VoiceEngine.h"
 
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QFormLayout>
 #include <QSplitter>
+#include <QFrame>
+#include <QToolButton>
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QApplication>
@@ -54,62 +58,107 @@ static QJsonObject chanToJson(const Channel& c) {
 ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     : QWidget(parent), m_data(initial) {
     QVBoxLayout* lay = new QVBoxLayout(this);
-    lay->setContentsMargins(0, 0, 0, 0);
+    lay->setContentsMargins(16, 12, 16, 12);
     lay->setSpacing(0);
 
-    // layout clássico do Halla:
-    // ┌────────────────────────────┬────────────────────────────┐
-    // │  ÁRVORE DE CANAIS (50%)    │  INFORMAÇÕES (50%)         │
-    // ├────────────────────────────┴────────────────────────────┤
-    // │  CHAT / REGISTRO (100% da largura)                      │
-    // └─────────────────────────────────────────────────────────┘
+    // A composição principal replica a referência: dois cartões flutuantes
+    // no alto e um cartão de chat ocupando toda a largura abaixo.
     m_split = new QSplitter(Qt::Vertical, this);
+    m_split->setObjectName(QStringLiteral("bodySplitter"));
     m_split->setChildrenCollapsible(false);
+    m_split->setHandleWidth(12);
 
     m_hsplit = new QSplitter(Qt::Horizontal, m_split);
+    m_hsplit->setObjectName(QStringLiteral("topSplitter"));
     m_hsplit->setChildrenCollapsible(false);
+    m_hsplit->setHandleWidth(12);
 
-    m_tree = new ServerTreeWidget(m_hsplit);
+    QFrame* treeCard = new QFrame(m_hsplit);
+    treeCard->setObjectName(QStringLiteral("panelCard"));
+    QVBoxLayout* treeLayout = new QVBoxLayout(treeCard);
+    treeLayout->setContentsMargins(8, 7, 8, 8);
+    treeLayout->setSpacing(2);
+
+    QFrame* treeHeader = new QFrame(treeCard);
+    treeHeader->setObjectName(QStringLiteral("treeCardHeader"));
+    treeHeader->setMinimumHeight(38);
+    QHBoxLayout* headerLayout = new QHBoxLayout(treeHeader);
+    headerLayout->setContentsMargins(8, 2, 5, 2);
+    headerLayout->setSpacing(8);
+    QLabel* serverIcon = new QLabel(treeHeader);
+    serverIcon->setPixmap(HIcons::server().pixmap(18, 18));
+    headerLayout->addWidget(serverIcon);
+    m_serverHeaderName = new QLabel(m_data.name, treeHeader);
+    m_serverHeaderName->setObjectName(QStringLiteral("serverHeaderName"));
+    headerLayout->addWidget(m_serverHeaderName);
+    QLabel* dot = new QLabel(QStringLiteral("●"), treeHeader);
+    dot->setObjectName(QStringLiteral("statusDot"));
+    headerLayout->addWidget(dot);
+    headerLayout->addStretch(1);
+    QToolButton* star = new QToolButton(treeHeader);
+    star->setObjectName(QStringLiteral("headerIconButton"));
+    star->setText(QStringLiteral("☆"));
+    star->setToolTip(tr("Adicionar aos favoritos"));
+    connect(star, &QToolButton::clicked, this, [this] { emit addBookmarkRequested(); });
+    headerLayout->addWidget(star);
+    QToolButton* more = new QToolButton(treeHeader);
+    more->setObjectName(QStringLiteral("headerIconButton"));
+    more->setText(QStringLiteral("…"));
+    more->setToolTip(tr("Opções do servidor"));
+    headerLayout->addWidget(more);
+    treeLayout->addWidget(treeHeader);
+
+    m_tree = new ServerTreeWidget(treeCard);
     m_tree->setServerData(&m_data);
-    m_hsplit->addWidget(m_tree);
+    treeLayout->addWidget(m_tree, 1);
+    m_hsplit->addWidget(treeCard);
 
-    m_info = new InfoPanel(m_hsplit);
+    QFrame* infoCard = new QFrame(m_hsplit);
+    infoCard->setObjectName(QStringLiteral("panelCard"));
+    QVBoxLayout* infoLayout = new QVBoxLayout(infoCard);
+    infoLayout->setContentsMargins(0, 0, 0, 0);
+    infoLayout->setSpacing(0);
+    m_info = new InfoPanel(infoCard);
     m_info->setData(&m_data);
-    m_hsplit->addWidget(m_info);
-    // divisão exatamente 50% / 50%
-    m_hsplit->setStretchFactor(0, 1);
-    m_hsplit->setStretchFactor(1, 1);
-    m_hsplit->setSizes({ 1000, 1000 });
-
+    infoLayout->addWidget(m_info);
+    m_hsplit->addWidget(infoCard);
+    m_hsplit->setStretchFactor(0, 47);
+    m_hsplit->setStretchFactor(1, 53);
+    m_hsplit->setSizes({ 700, 810 });
     m_split->addWidget(m_hsplit);
 
-    m_chat = new ChatPanel(m_split);
+    QFrame* chatCard = new QFrame(m_split);
+    chatCard->setObjectName(QStringLiteral("chatCard"));
+    QVBoxLayout* chatLayout = new QVBoxLayout(chatCard);
+    chatLayout->setContentsMargins(8, 3, 8, 8);
+    chatLayout->setSpacing(0);
+    m_chat = new ChatPanel(chatCard);
     m_chat->setSelfName(m_data.users[m_data.selfId].name);
-    m_split->addWidget(m_chat);
+    chatLayout->addWidget(m_chat);
+    m_split->addWidget(chatCard);
     m_split->setStretchFactor(0, 1);
     m_split->setStretchFactor(1, 0);
-    m_split->setSizes({ 560, 200 });
+    m_split->setSizes({ 410, 245 });
 
-    // restaura/persiste as posições dos divisores (por preferência do usuário)
     const QByteArray hv = QByteArray::fromBase64(S::str("design/splitVertical").toUtf8());
     if (!hv.isEmpty()) m_split->restoreState(hv);
     const QByteArray hh = QByteArray::fromBase64(S::str("design/splitHorizontal").toUtf8());
     if (!hh.isEmpty()) m_hsplit->restoreState(hh);
     connect(m_split, &QSplitter::splitterMoved, this, [this] {
-        S::set("design/splitVertical",
-               QString::fromLatin1(m_split->saveState().toBase64()));
+        S::set("design/splitVertical", QString::fromLatin1(m_split->saveState().toBase64()));
     });
     connect(m_hsplit, &QSplitter::splitterMoved, this, [this] {
-        S::set("design/splitHorizontal",
-               QString::fromLatin1(m_hsplit->saveState().toBase64()));
+        S::set("design/splitHorizontal", QString::fromLatin1(m_hsplit->saveState().toBase64()));
     });
 
     lay->addWidget(m_split);
 
-    // painel de informações acompanha a seleção da árvore
     connect(m_tree, &ServerTreeWidget::selectionChanged, this,
             [this](int kind, int id) { m_info->setSelection(kind, id); });
-    connect(this, &ServerTab::statusChanged, this, [this] { m_info->refresh(); });
+    connect(this, &ServerTab::statusChanged, this, [this] {
+        m_serverHeaderName->setText(m_data.name);
+        m_info->refresh();
+    });
     m_info->setSelection(0, 0);
 
     applyDisplayOptions();

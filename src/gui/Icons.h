@@ -9,9 +9,9 @@
 namespace HIcons {
 
 // cores da identidade visual
-inline QColor blue()        { return QColor("#2E7FC4"); }
-inline QColor blueDark()    { return QColor("#17324C"); }
-inline QColor navyMid()     { return QColor("#26527A"); }
+inline QColor blue()        { return QColor("#7C3AED"); }
+inline QColor blueDark()    { return QColor("#25104F"); }
+inline QColor navyMid()     { return QColor("#4B1C9B"); }
 inline QColor green()       { return QColor("#3CA55C"); }
 inline QColor orange()      { return QColor("#E67E22"); }
 inline QColor red()         { return QColor("#D9534F"); }

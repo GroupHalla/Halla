@@ -49,6 +49,7 @@ public:
     // seleção atual
     int  currentKind() const;
     int  currentId() const;
+    void selectNode(int kind, int id);
 
 signals:
     void selectionChanged(int kind, int id);

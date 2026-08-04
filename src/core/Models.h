@@ -54,7 +54,7 @@ struct User {
     QString groupIcon;               // ícone do cargo (nome ou emoji)
     int     groupOrder = 0;          // ordem/prioridade do cargo (ex: menor valor = maior prioridade)
     bool    talking = false;
-    bool    whispering = false;      // sussurrando (sinal laranja, estilo TS3)
+    bool    whispering = false;      // sussurrando (sinal laranja)
     QDateTime connectedAt = QDateTime::currentDateTime();
 };
 

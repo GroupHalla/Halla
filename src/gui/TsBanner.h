@@ -3,15 +3,14 @@
 #include <QWidget>
 #include <QString>
 
-// Faixa azul-marinho arredondada no topo das janelas de diálogo — assinatura
-// visual dos diálogos do Halla (Opções, Criar Canal, Favoritos, etc.)
+// Banner roxo arredondado usado nos diálogos do Halla.
 class TsBanner : public QWidget {
     Q_OBJECT
 public:
     explicit TsBanner(const QString& title, const QString& subtitle = QString(),
                       const QPixmap& icon = QPixmap(), QWidget* parent = nullptr);
 
-    QSize sizeHint() const override { return QSize(300, 56); }
+    QSize sizeHint() const override { return QSize(420, 68); }
 
 protected:
     void paintEvent(QPaintEvent*) override;

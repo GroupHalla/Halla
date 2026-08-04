@@ -25,7 +25,7 @@ static int takeShot(QApplication& app, const QString& path, const QString& what)
 
     auto grab = [&]() {
         if (what == "demo") w.loadDemoState();
-        w.resize(1180, 760);
+        w.resize(1706, 922);
         w.show();
         app.processEvents();
         QTimer::singleShot(120, &w, [&w, path, &app] {
@@ -309,6 +309,7 @@ private:
 };
 
 int main(int argc, char* argv[]) {
+    Q_INIT_RESOURCE(halla);
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("Halla"));
     QApplication::setOrganizationName(QStringLiteral("Halla"));

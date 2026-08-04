@@ -5,9 +5,8 @@
 
 #include <QVBoxLayout>
 #include <QPainter>
+#include <QFrame>
 
-// QTextBrowser com a marca d'água discreta do Halla no canto superior direito
-// (como o logo de fundo do painel de informações do Halla)
 class InfoView : public QTextBrowser {
 public:
     explicit InfoView(QWidget* parent = nullptr) : QTextBrowser(parent) {}
@@ -15,36 +14,38 @@ public:
 protected:
     void paintEvent(QPaintEvent* e) override {
         QTextBrowser::paintEvent(e);
-        static const QPixmap wm = HIcons::appIcon(96);
+        const QPixmap wm = HIcons::appIcon(112);
         if (wm.isNull()) return;
         QPainter p(viewport());
-        p.setOpacity(HTheme::isDark() ? 0.10 : 0.07);
-        const int m = 12;
-        p.drawPixmap(viewport()->width() - wm.width() - m, m, wm);
+        p.setOpacity(HTheme::isDark() ? 0.12 : 0.075);
+        p.drawPixmap(viewport()->width() - wm.width() - 22, 18, wm);
     }
 };
 
 InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
+    setObjectName(QStringLiteral("infoPanel"));
     QVBoxLayout* lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
 
     m_banner = new QLabel(this);
-    m_banner->setPixmap(HIcons::banner(560, 58));
+    m_banner->setObjectName(QStringLiteral("infoBanner"));
+    m_banner->setPixmap(HIcons::banner(820, 94));
     m_banner->setScaledContents(true);
-    m_banner->setMinimumHeight(58);
-    m_banner->setMaximumHeight(58);
+    m_banner->setMinimumHeight(94);
+    m_banner->setMaximumHeight(94);
     lay->addWidget(m_banner);
 
     m_view = new InfoView(this);
     m_view->setObjectName(QStringLiteral("infoView"));
     m_view->setOpenLinks(false);
+    m_view->setFrameShape(QFrame::NoFrame);
     lay->addWidget(m_view, 1);
 
     m_timer = new QTimer(this);
     m_timer->setInterval(1000);
     connect(m_timer, &QTimer::timeout, this, [this] {
-        if (m_data && m_kind == 0) refresh(); // atualiza o tempo ativo do servidor
+        if (m_data && m_kind == 0) refresh();
     });
     m_timer->start();
 }
@@ -61,66 +62,69 @@ QString InfoPanel::uptime(const QDateTime& since) {
         .arg(h, 2, 10, QChar('0')).arg(m, 2, 10, QChar('0')).arg(secs, 2, 10, QChar('0'));
 }
 
-static QString row(const QString& k, const QString& v) {
-    return QStringLiteral("<tr><td style=\"color:#666666; padding-right:14px; "
-                          "vertical-align:top\">%1</td><td>%2</td></tr>")
-        .arg(k, v);
+static QString row(const QString& key, const QString& value) {
+    return QStringLiteral("<tr><td style=\"color:#8D899F; padding:7px 26px 7px 0; white-space:nowrap;\">%1</td>"
+                          "<td style=\"padding:7px 0; font-weight:600;\">%2</td></tr>")
+        .arg(key, value);
+}
+
+static QString heading(const QString& icon, const QString& title, const QString& badge = QString()) {
+    const QString line = HTheme::isDark() ? QStringLiteral("#2A2840") : QStringLiteral("#E8E5F0");
+    QString h = QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>");
+    h += QStringLiteral("<td style=\"font-size:17px; padding:3px 0 13px 0;\"><span style=\"color:#8B5CF6;\">%1</span> <b>%2</b></td>")
+             .arg(icon, title);
+    if (!badge.isEmpty()) {
+        h += QStringLiteral("<td align=\"right\" style=\"padding:2px 0 12px 0; color:#8B5CF6; font-weight:700;\">%1</td>")
+                 .arg(badge);
+    }
+    h += QStringLiteral("</tr></table><hr style=\"border:0; border-top:1px solid %1; margin:0 0 10px 0;\">").arg(line);
+    return h;
 }
 
 QString InfoPanel::serverHtml() const {
-    QString h = QStringLiteral("<h3 style=\"margin:6px 0 8px 0\">%1</h3>")
-                    .arg(m_data->name.toHtmlEscaped());
-    h += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"1\">");
+    const QString name = m_data->name.toHtmlEscaped();
+    const QString line = HTheme::isDark() ? QStringLiteral("#2A2840") : QStringLiteral("#E8E5F0");
+    QString h = heading(QStringLiteral("◉"), tr("Servidor: %1").arg(name));
+    h += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\">");
     h += row(tr("Endereço:"), m_data->address.toHtmlEscaped());
-    h += row(tr("Versão:"),
-             QStringLiteral("%1 no %2").arg(m_data->version, m_data->platform));
+    h += row(tr("Versão:"), QStringLiteral("%1 no %2").arg(m_data->version, m_data->platform));
     h += row(tr("Tempo ativo:"), uptime(m_data->connectedAt));
-    h += row(tr("Clientes conectados:"),
-             QStringLiteral("%1 / %2").arg(m_data->totalClients()).arg(m_data->maxClients));
+    h += row(tr("Clientes conectados:"), QStringLiteral("%1 / %2").arg(m_data->totalClients()).arg(m_data->maxClients));
     h += row(tr("Canais:"), QString::number(m_data->channels.size()));
     h += row(tr("Perda de pacotes:"), QStringLiteral("0,00%"));
-    h += QStringLiteral("</table>");
-    const QString hrColor = HTheme::isDark() ? QStringLiteral("#4A4F56")
-                                             : QStringLiteral("#DDDDDD");
-    h += QStringLiteral("<hr style=\"border:none; border-top:1px solid ")
-         + hrColor + QStringLiteral("\">");
-    // MOTD: sem cor fixa — herda a cor do documento (funciona claro/escuro)
-    h += QStringLiteral("<div>%1</div>").arg(m_data->motd.toHtmlEscaped());
+    h += QStringLiteral("</table><hr style=\"border:0; border-top:1px solid %1; margin:15px 0 12px 0;\">").arg(line);
+    h += QStringLiteral("<div style=\"line-height:1.5;\">%1</div>").arg(m_data->motd.toHtmlEscaped());
     return h;
 }
 
 QString InfoPanel::channelHtml(const Channel& c) const {
     static const char* tnames[] = { "Temporário", "Semi-permanente", "Permanente" };
-    QString h = QStringLiteral("<h3 style=\"margin:6px 0 8px 0\">Canal: %1</h3>")
-                    .arg(c.name.toHtmlEscaped());
-    h += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"1\">");
-    h += row(tr("Tipo:"), QString::fromUtf8(tnames[c.type]));
-    h += row(tr("Codec:"), codecShortNames()[c.codec]);
+    const QString badge = QStringLiteral("♟ %1").arg(c.users.size());
+    QString h = heading(QStringLiteral("◖"), tr("Canal: %1").arg(c.name.toHtmlEscaped()), badge);
+    h += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\">");
+    h += row(tr("Tipo:"), QString::fromUtf8(tnames[qBound(0, c.type, 2)]));
+    h += row(tr("Codec:"), codecShortNames().value(c.codec));
     h += row(tr("Qualidade do codec:"), QString::number(c.codecQuality));
-    h += row(tr("Clientes no canal:"),
-             c.maxClients >= 0
-                 ? QStringLiteral("%1 / %2").arg(c.users.size()).arg(c.maxClients)
-                 : QString::number(c.users.size()));
+    h += row(tr("Clientes no canal:"), c.maxClients >= 0
+             ? QStringLiteral("%1 / %2").arg(c.users.size()).arg(c.maxClients)
+             : QString::number(c.users.size()));
     h += row(tr("Protegido por senha:"), c.hasPassword ? tr("Sim") : tr("Não"));
     h += row(tr("Moderado:"), c.moderated ? tr("Sim") : tr("Não"));
     if (c.isDefault) h += row(tr("Canal padrão:"), tr("Sim"));
     h += QStringLiteral("</table>");
     if (!c.topic.isEmpty())
-        h += QStringLiteral("<p><b>%1</b></p>").arg(c.topic.toHtmlEscaped());
+        h += QStringLiteral("<p style=\"margin-top:18px;\"><b>%1</b></p>").arg(c.topic.toHtmlEscaped());
     if (!c.description.isEmpty())
-        // descrição com BBCode renderizado (igual ao diálogo Halla)
-        h += QStringLiteral("<p>%1</p>").arg(ChatPanel::bbToHtml(c.description));
+        h += QStringLiteral("<p style=\"line-height:1.5;\">%1</p>").arg(ChatPanel::bbToHtml(c.description));
     return h;
 }
 
 QString InfoPanel::userHtml(const User& u) const {
-    QString h = QStringLiteral("<h3 style=\"margin:6px 0 8px 0\">Cliente: %1</h3>")
-                    .arg(u.name.toHtmlEscaped());
-    h += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"1\">");
+    QString h = heading(QStringLiteral("●"), tr("Cliente: %1").arg(u.name.toHtmlEscaped()));
+    h += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\">");
     if (u.id == m_data->selfId) h += row(tr("Tipo:"), tr("Você (este cliente)"));
     h += row(tr("ID único:"), QStringLiteral("<code>%1</code>").arg(u.uniqueId.toHtmlEscaped()));
-    h += row(tr("Versão:"),
-             QStringLiteral("%1 no %2").arg(u.version, u.platform));
+    h += row(tr("Versão:"), QStringLiteral("%1 no %2").arg(u.version, u.platform));
     h += row(tr("Tempo online:"), uptime(u.connectedAt));
     h += row(tr("Grupos de servidor:"), u.serverGroups.toHtmlEscaped());
     h += row(tr("Volume:"), QStringLiteral("%1 dB").arg(u.volumeDb));
@@ -134,12 +138,13 @@ QString InfoPanel::userHtml(const User& u) const {
     if (!flags.isEmpty()) h += row(tr("Estado:"), flags.join(QStringLiteral(", ")));
     h += QStringLiteral("</table>");
     if (!u.description.isEmpty())
-        h += QStringLiteral("<p><i>%1</i></p>")
+        h += QStringLiteral("<p style=\"line-height:1.5;\"><i>%1</i></p>")
                  .arg(u.description.toHtmlEscaped());
     return h;
 }
 
 void InfoPanel::refresh() {
+    m_banner->setPixmap(HIcons::banner(820, 94));
     if (!m_data) {
         m_view->setHtml(QString());
         return;

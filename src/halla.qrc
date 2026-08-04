@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/halla">
+        <file>assets/halla-logo.png</file>
+    </qresource>
+</RCC>

@@ -91,17 +91,20 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.33
-          name: Halla v3.13.33 — Sincronia Dinâmica de Slots do Servidor
+          tag_name: v3.13.34
+          name: Halla v3.13.34 — Novo design claro e escuro
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.33.exe
+          files: Halla-Setup-3.13.34.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.33
+            ## Halla Desktop v3.13.34
 
-            Esta release corrige o limite dinâmico de slots exibido no painel de informações do servidor conectado no cliente!
+            ### Nova identidade visual
+            * Interface principal redesenhada para reproduzir fielmente os temas claro e escuro fornecidos.
+            * Cartões arredondados, barra superior compacta, árvore de canais, painel de informações, chat e barra de status alinhados ao novo layout.
+            * Tema claro e tema escuro com troca dinâmica, cores roxas da identidade Halla e controles arredondados.
 
-            ### 🎚️ Exibição Dinâmica de Slots (Item 3)
-            * **Sincronia Dinâmica:** Corrigido o bug onde o limite máximo de clientes conectados ficava travado em "32" no painel de informações do cliente. Agora, o cliente lê em tempo real o limite configurado no servidor (ex: 500 slots no Pterodactyl) e exibe o status dinamicamente como "1 / 500"!
+            ### Logo oficial
+            * Logo oficial do Halla aplicada ao executável, à janela, ao banner do servidor, aos diálogos e aos elementos de marca.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -29,6 +29,8 @@
 #include <QToolBar>
 #include <QStatusBar>
 #include <QPainter>
+#include <QFrame>
+#include <QHBoxLayout>
 #include <QTabBar>
 #include <QStackedWidget>
 #include <QSplitter>
@@ -54,7 +56,8 @@ bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods);
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(QString::fromUtf8(halla::kAppName));
     setWindowIcon(QIcon(HIcons::appIcon(64)));
-    resize(1180, 760);
+    setMinimumSize(1100, 700);
+    resize(1706, 922);
 
     // ------------------------- menus -----------------------------------
     QMenu* mConn = menuBar()->addMenu(tr("&Conexões"));
@@ -329,103 +332,66 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     mHelp->addAction(tr("Verificar atualizações"), this, [this] { checkUpdates(true); });
 
     // ------------------------- barra de ferramentas ---------------------
-    // Custom grabber style Windows clássico
-    class QGrabber : public QWidget {
-    public:
-        explicit QGrabber(QWidget* parent = nullptr) : QWidget(parent) {
-            setFixedWidth(10);
-            setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
-        }
-    protected:
-        void paintEvent(QPaintEvent*) override {
-            QPainter p(this);
-            p.setPen(QColor("#A0A0A0"));
-            for (int y = 6; y < height() - 6; y += 4) {
-                p.drawPoint(3, y);
-                p.drawPoint(6, y);
-            }
-        }
-    };
-
-    // Custom 3D separator etched style native Windows
-    class Q3DSeparator : public QWidget {
-    public:
-        explicit Q3DSeparator(QWidget* parent = nullptr) : QWidget(parent) {
-            setFixedWidth(4);
-            setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
-        }
-    protected:
-        void paintEvent(QPaintEvent*) override {
-            QPainter p(this);
-            p.setPen(QColor("#A0A0A0"));
-            p.drawLine(1, 4, 1, height() - 4);
-            p.setPen(QColor("#FFFFFF"));
-            p.drawLine(2, 4, 2, height() - 4);
-        }
-    };
-
-    // Estilos do QMenuBar movidos para o Theme.cpp para suporte dinâmico ao Tema Escuro
-
+    // A referência usa dois grupos compactos de botões arredondados, em vez
+    // da antiga barra cheia de controles. As QAction continuam ligadas aos
+    // mesmos fluxos para não alterar nenhuma função do cliente.
     QToolBar* tb = addToolBar(tr("Principal"));
     tb->setObjectName(QStringLiteral("mainToolBar"));
     tb->setMovable(false);
-    tb->setIconSize(QSize(24, 24)); // Aumenta o tamanho dos ícones para preencher melhor a altura da barra
+    tb->setIconSize(QSize(22, 22));
     tb->setToolButtonStyle(Qt::ToolButtonIconOnly);
 
-    // Estilos do QToolBar movidos para o Theme.cpp para suporte dinâmico ao Tema Escuro
-
-    // Adiciona Grabber
-    tb->addWidget(new QGrabber(tb));
-
-    // auxiliar: botão de ação principal + seta com menu suspenso (sem textos)
-    auto addDropButton = [tb](QAction* main, QMenu* menu) -> QToolButton* {
-        QToolButton* b = new QToolButton(tb);
-        b->setDefaultAction(main);
-        b->setToolButtonStyle(Qt::ToolButtonIconOnly); // strictly icon only!
+    auto makeGroup = [tb]() {
+        QFrame* group = new QFrame(tb);
+        group->setObjectName(QStringLiteral("toolbarGroup"));
+        QHBoxLayout* layout = new QHBoxLayout(group);
+        layout->setContentsMargins(5, 4, 5, 4);
+        layout->setSpacing(1);
+        tb->addWidget(group);
+        return layout;
+    };
+    auto addButton = [](QHBoxLayout* layout, QAction* action, QMenu* menu) {
+        QToolButton* button = new QToolButton(layout->parentWidget());
+        button->setObjectName(QStringLiteral("toolbarIconButton"));
+        button->setDefaultAction(action);
+        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        button->setIconSize(QSize(22, 22));
+        button->setAutoRaise(true);
         if (menu) {
-            b->setPopupMode(QToolButton::MenuButtonPopup);
-            b->setMenu(menu);
+            button->setPopupMode(QToolButton::MenuButtonPopup);
+            button->setMenu(menu);
         }
-        tb->addWidget(b);
-        return b;
+        layout->addWidget(button);
+        return button;
     };
 
-    // --- Botão 1 (Desconectar) com menu dropdown
     QMenu* disMenu = new QMenu(this);
     disMenu->addAction(m_actDisconnectAll);
-    addDropButton(m_actDisconnect, disMenu);
+    QHBoxLayout* audioGroup = makeGroup();
+    addButton(audioGroup, m_actDisconnect, disMenu);
+    addButton(audioGroup, m_actConnect, nullptr);
+    addButton(audioGroup, m_actMuteMic, nullptr);
 
-    // --- Botão 2 (Conectar/Trocar) sem seta
-    addDropButton(m_actConnect, nullptr);
-
-    // --- Botão 3 (Mutar Microfone) sem seta
-    addDropButton(m_actMuteMic, nullptr);
-
-    // --- Botão 4 (Mutar Fones) com menu dropdown
     QMenu* spkMenu = new QMenu(this);
     spkMenu->addAction(tr("Opções de reprodução..."), this, [this] {
         OptionsDialog dlg(this);
         dlg.selectPage(tr("Reprodução"));
         dlg.exec();
     });
-    addDropButton(m_actMuteSpk, spkMenu);
+    addButton(audioGroup, m_actMuteSpk, spkMenu);
 
-    // --- Separador Vertical 3D
-    tb->addWidget(new Q3DSeparator(tb));
+    tb->addSeparator();
 
-    // --- Botão 5 (Ausente) sem seta
-    addDropButton(m_actAway, nullptr);
-
-    // --- Botão 6 (Contatos/Voz) sem seta
     QMenu* whMenu = new QMenu(this);
     whMenu->addAction(tr("Listas de sussurro..."), this, [this] {
         ServerTab* t = currentTab();
         WhisperDialog dlg(t ? &t->data() : nullptr, this);
         dlg.exec();
     });
-    // Força o ícone de duas silhuetas no botão de sussurro
     m_actWhisper->setIcon(HIcons::contacts());
-    addDropButton(m_actWhisper, whMenu);
+    QHBoxLayout* utilityGroup = makeGroup();
+    addButton(utilityGroup, m_actOptions, nullptr);
+    addButton(utilityGroup, m_actWhisper, whMenu);
 
     // ------------------------- área central -----------------------------
     m_stack = new QStackedWidget(this);
@@ -438,14 +404,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             [this] { openBookmarksDialog(); });
 
     m_center = new QSplitter(Qt::Horizontal, m_stack);
+    m_center->setObjectName(QStringLiteral("mainSurface"));
     m_center->setChildrenCollapsible(false);
 
     m_tabs = new QTabWidget(m_center);
+    m_tabs->setObjectName(QStringLiteral("serverTabs"));
     m_tabs->setTabsClosable(true);
     m_tabs->setMovable(true);
-    m_tabs->setDocumentMode(false);
-    // cada aba já traz o layout Halla completo: árvore 50% | informações 50%
-    // em cima e chat ocupando 100% da largura embaixo
+    m_tabs->setDocumentMode(true);
+    // A aba visual fica dentro do cartão da árvore, como na imagem de
+    // referência; o QTabBar continua existindo para manter a troca programática
+    // de conexões sem introduzir uma faixa extra no layout.
+    m_tabs->tabBar()->hide();
     m_center->addWidget(m_tabs);
     m_center->setStretchFactor(0, 1);
 
@@ -501,8 +471,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     statusBar()->addWidget(m_serverButton, 0);
 
     m_newsLabel = new QLabel(
-        tr("Bem-vindo ao Halla!  •  Cliente de voz livre e completo  •  "
-           "github.com/farleybarbosa320-oss/Halla"), this);
+        tr("Bem-vindo ao Halla!  •  Cliente de comunicação de voz  •  "
+           "github.com/GroupHalla/Halla"), this);
     m_newsLabel->setObjectName(QStringLiteral("newsLabel"));
     m_newsLabel->setAlignment(Qt::AlignCenter);
     m_newsLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
@@ -1016,8 +986,15 @@ void MainWindow::applyTheme() {
     // tema centralizado: estilo + paleta + stylesheet global (funciona
     // também no Windows, onde stylesheet fixo ignorava a paleta)
     HTheme::apply();
-    // força repintura dos widgets que pintam manualmente
+    // força repintura dos widgets que pintam manualmente e dos banners
     if (m_welcome) m_welcome->update();
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        if (ServerTab* t = qobject_cast<ServerTab*>(m_tabs->widget(i))) {
+            t->info()->refresh();
+            t->tree()->viewport()->update();
+            t->chat()->update();
+        }
+    }
 }
 
 // executa uma ação configurada em "Teclas de atalho" (independente da origem:
@@ -1481,36 +1458,58 @@ void MainWindow::pttSetHeld(bool held) {
 
 // ======================================================================
 void MainWindow::loadDemoState() {
-    // estado local offline para capturas de tela
+    // Estado local usado pelas capturas: os nomes e proporções reproduzem
+    // exatamente a composição fornecida pelo usuário.
     ServerData init;
-    init.name = QStringLiteral("meuservidor.exemplo.com");
-    init.address = init.name;
+    init.name = QStringLiteral("Servidor Halla");
+    init.address = QStringLiteral("163.176.35.133");
+    init.version = QStringLiteral("3.13.34");
+    init.platform = QStringLiteral("Windows");
+    init.maxClients = 500;
+
     User self;
-    self.id = 1; self.name = QStringLiteral("Admin");
-    Channel def; def.id = 1; def.name = tr("Canal padrão"); def.isDefault = true;
-    def.users << 1;
+    self.id = 1;
+    self.name = QStringLiteral("Farley Barbosa");
+    self.platform = QStringLiteral("Windows");
+    self.serverGroups = QStringLiteral("Normal");
+    User mobile;
+    mobile.id = 2;
+    mobile.name = QStringLiteral("Farley Barbosa Mobile");
+    mobile.platform = QStringLiteral("Android");
+    mobile.serverGroups = QStringLiteral("Normal");
+
+    Channel def;
+    def.id = 1;
+    def.name = tr("Canal padrão");
+    def.isDefault = true;
+    def.users << 1 << 2;
+    Channel test;
+    test.id = 2;
+    test.name = QStringLiteral("teste");
+    test.users << 1;
+    test.codec = 4;
+    Channel test2;
+    test2.id = 3;
+    test2.name = QStringLiteral("teste 2");
+    test2.codec = 4;
+
     init.users[1] = self;
+    init.users[2] = mobile;
     init.channels[1] = def;
-    init.nextChannelId = 2;
+    init.channels[2] = test;
+    init.channels[3] = test2;
+    init.nextChannelId = 4;
     createLocalTab(init);
 
     ServerTab* t = currentTab();
     if (!t) return;
-    ServerData& d = t->data();
-    // adiciona canais de exemplo para demonstração visual
-    Channel c1; c1.id = d.nextChannelId++; c1.name = tr("Sala de jogos"); c1.codec = 4;
-    Channel c2; c2.id = d.nextChannelId++; c2.name = tr("AFK"); c2.codec = 4; c2.moderated = true;
-    Channel c3; c3.id = d.nextChannelId++; c3.name = tr("Reuniões"); c3.codec = 5;
-    c3.hasPassword = true; c3.passwordHash = QStringLiteral("1234");
-    Channel c4; c4.id = d.nextChannelId++; c4.name = tr("Apenas conversa"); c4.codec = 4;
-    d.channels[c1.id] = c1;
-    d.channels[c2.id] = c2;
-    d.channels[c3.id] = c3;
-    d.channels[c4.id] = c4;
     t->tree()->rebuild();
     t->tree()->expandAll();
-    t->chat()->addServerChat(QStringLiteral("Admin"), QStringLiteral("Olá! [b]Bem-vindo[/b] ao Halla =)"));
+    t->tree()->selectNode(NodeChannel, 2);
+    t->chat()->addServerSystem(tr("Conectado ao servidor: %1").arg(init.address));
     t->chat()->addChannelSystem(tr("Você entrou no canal \"Canal padrão\"."));
+    t->chat()->addServerChat(QStringLiteral("Farley Barbosa Mobile"),
+                             QStringLiteral("Olá! [b]Bem-vindo ao Halla[/b]"));
 }
 
 // -- restauração de sessão usa a rede (já era) ---------------------------

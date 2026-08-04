@@ -1,4 +1,5 @@
 #include "Icons.h"
+#include "app/Theme.h"
 
 #include <QPainter>
 #include <QPainterPath>
@@ -20,6 +21,14 @@ static QPixmap mk(int w, int h, const std::function<void(QPainter&)>& fn) {
 
 static QPixmap mk(int s, const std::function<void(QPainter&)>& fn) { return mk(s, s, fn); }
 
+static QPixmap officialLogo(int size) {
+    const QPixmap source(QStringLiteral(":/halla/assets/halla-logo.png"));
+    if (!source.isNull()) {
+        return source.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    }
+    return QPixmap();
+}
+
 // ---------------------------------------------------------------- marca d'água / logo
 QPixmap waveMark(int size, const QColor& color) {
     return mk(size, [&](QPainter& p) {
@@ -27,7 +36,7 @@ QPixmap waveMark(int size, const QColor& color) {
         p.setBrush(color);
         const qreal u = size / 24.0;
         const qreal cx = size / 2.0;
-        static const qreal hb[5] = { 6, 11, 17, 11, 6 }; // barras de EQ (ondas de voz)
+        static const qreal hb[5] = { 6, 11, 17, 11, 6 };
         for (int i = 0; i < 5; ++i) {
             qreal h = hb[i] * u;
             qreal w = 2.6 * u;
@@ -38,55 +47,58 @@ QPixmap waveMark(int size, const QColor& color) {
 }
 
 QPixmap appIcon(int size) {
+    QPixmap logo = officialLogo(size);
+    if (!logo.isNull()) return logo;
+
     return mk(size, [&](QPainter& p) {
-        QLinearGradient g(0, 0, 0, size);
-        g.setColorAt(0, QColor("#3789CE"));
-        g.setColorAt(1, QColor("#15518F"));
         p.setPen(Qt::NoPen);
-        p.setBrush(g);
-        p.drawRoundedRect(QRectF(0.5, 0.5, size - 1.0, size - 1.0), size * 0.22, size * 0.22);
-        // brilho superior
-        QLinearGradient shine(0, 0, 0, size / 2);
-        shine.setColorAt(0, QColor(255, 255, 255, 70));
-        shine.setColorAt(1, QColor(255, 255, 255, 0));
-        p.setBrush(shine);
-        p.drawRoundedRect(QRectF(2, 2, size - 4, size / 2.2), size * 0.18, size * 0.18);
-        p.drawPixmap(0, 0, waveMark(size, QColor(255, 255, 255)));
+        p.setBrush(QColor("#7C3AED"));
+        p.drawRoundedRect(QRectF(0, 0, size, size), size * 0.22, size * 0.22);
+        p.drawPixmap(0, 0, waveMark(size, Qt::white));
     });
 }
 
 QPixmap banner(int w, int h) {
+    const bool dark = HTheme::isDark();
     return mk(w, h, [&](QPainter& p) {
         QLinearGradient g(0, 0, w, h);
-        g.setColorAt(0, QColor("#14304E"));
-        g.setColorAt(0.55, QColor("#1E4470"));
-        g.setColorAt(1, QColor("#2A628F"));
+        if (dark) {
+            g.setColorAt(0, QColor("#25104F"));
+            g.setColorAt(0.55, QColor("#4B1C9B"));
+            g.setColorAt(1, QColor("#7828E8"));
+        } else {
+            g.setColorAt(0, QColor("#FFFFFF"));
+            g.setColorAt(0.65, QColor("#F7F1FF"));
+            g.setColorAt(1, QColor("#E9DFFF"));
+        }
         p.setPen(Qt::NoPen);
         p.setBrush(g);
         p.drawRect(0, 0, w, h);
-        // marca d'água grande à direita
-        QPixmap wm = waveMark(h * 2, QColor(255, 255, 255, 26));
-        p.drawPixmap(w - wm.width() + h / 2, (h - wm.height()) / 2, wm);
-        // texto (título + subtítulo empilhados)
-        QFont f = p.font();
-        const int pad = h / 4;
-        QPixmap logo = appIcon(h - pad * 2);
-        p.drawPixmap(pad, pad, logo);
-        const int tx = pad * 2 + logo.width();
 
-        f.setPixelSize(h * 0.36);
+        const int logoSize = qMax(36, qMin(58, h - 28));
+        QPixmap logo = officialLogo(logoSize);
+        if (logo.isNull()) logo = appIcon(logoSize);
+        p.drawPixmap(20, (h - logo.height()) / 2, logo);
+
+        QFont f = p.font();
+        f.setPixelSize(qMax(18, int(h * 0.27)));
         f.setBold(true);
         p.setFont(f);
-        p.setPen(Qt::white);
-        p.drawText(tx, 2, w - tx, h / 2 + 2, Qt::AlignVCenter | Qt::AlignLeft,
-                   QStringLiteral("Halla"));
+        p.setPen(dark ? Qt::white : QColor("#252139"));
+        p.drawText(20 + logoSize + 18, 9, w / 2, h * 0.48,
+                   Qt::AlignVCenter | Qt::AlignLeft, QStringLiteral("Halla"));
 
-        f.setPixelSize(h * 0.17);
+        f.setPixelSize(qMax(11, int(h * 0.145)));
         f.setBold(false);
         p.setFont(f);
-        p.setPen(QColor(255, 255, 255, 190));
-        p.drawText(tx, h / 2 - 2, w - tx, h / 2, Qt::AlignVCenter | Qt::AlignLeft,
+        p.setPen(dark ? QColor(245, 243, 255, 205) : QColor("#5D5870"));
+        p.drawText(20 + logoSize + 18, h * 0.50, w / 2, h * 0.32,
+                   Qt::AlignVCenter | Qt::AlignLeft,
                    QStringLiteral("Cliente de comunicação de voz"));
+
+        QPixmap wm = waveMark(qMax(100, h * 2),
+                              dark ? QColor(255, 255, 255, 42) : QColor(124, 58, 237, 28));
+        p.drawPixmap(w - wm.width() + h / 2, (h - wm.height()) / 2, wm);
     });
 }
 
@@ -138,12 +150,9 @@ static void starPath(QPainterPath& path, const QPointF& c, qreal rOut, qreal rIn
 QIcon bookmarkStar() {
     return QIcon(mk(24, [&](QPainter& p) {
         QPainterPath path;
-        starPath(path, QPointF(12, 12.5), 10, 4.6);
-        QLinearGradient g(0, 2, 0, 22);
-        g.setColorAt(0, QColor("#FFD964"));
-        g.setColorAt(1, QColor("#D9A017"));
-        p.setPen(QPen(QColor("#8F6600"), 0.9));
-        p.setBrush(g);
+        starPath(path, QPointF(12, 12.5), 9.2, 4.4);
+        p.setPen(QPen(QColor("#A7A0B8"), 1.25));
+        p.setBrush(Qt::NoBrush);
         p.drawPath(path);
     }));
 }
@@ -217,9 +226,9 @@ static void drawMicro(QPainter& p, const QColor& body) {
 
 QIcon muteMic(bool muted) {
     return QIcon(mk(24, [&](QPainter& p) {
-        drawMicro(p, muted ? QColor("#8A939B") : QColor("#4E7BA6"));
+        drawMicro(p, muted ? QColor("#8C879A") : QColor("#7C3AED"));
         if (muted) {
-            p.setPen(QPen(red(), 2.4, Qt::SolidLine, Qt::RoundCap));
+            p.setPen(QPen(QColor("#A855F7"), 2.4, Qt::SolidLine, Qt::RoundCap));
             p.drawLine(QPointF(4, 20), QPointF(20, 4));
         }
     }));
@@ -227,7 +236,7 @@ QIcon muteMic(bool muted) {
 
 QIcon muteSpeaker(bool muted) {
     return QIcon(mk(24, [&](QPainter& p) {
-        QColor body = muted ? QColor("#8A939B") : QColor("#4E7BA6");
+        QColor body = muted ? QColor("#8C879A") : QColor("#7C3AED");
         QLinearGradient g(0, 4, 0, 20);
         g.setColorAt(0, body.lighter(125));
         g.setColorAt(1, body);
@@ -276,13 +285,13 @@ QIcon server() {
     return QIcon(mk(24, [&](QPainter& p) {
         for (int i = 0; i < 3; ++i) {
             QLinearGradient g(0, 3 + i * 6, 0, 9 + i * 6);
-            g.setColorAt(0, QColor("#9FC4E4"));
-            g.setColorAt(1, QColor(i == 0 ? "#3B76B0" : "#2E6394"));
-            p.setPen(QPen(QColor("#1E415F"), 0.9));
+            g.setColorAt(0, QColor("#C4A7FF"));
+            g.setColorAt(1, QColor(i == 0 ? "#8B5CF6" : "#5B21B6"));
+            p.setPen(QPen(QColor("#4C1D95"), 0.9));
             p.setBrush(g);
             p.drawRoundedRect(QRectF(4, 3 + i * 6.2, 16, 5.4), 2, 2);
             p.setPen(Qt::NoPen);
-            p.setBrush(QColor(i == 0 ? "#7BE08D" : "#CDE5F8"));
+            p.setBrush(QColor(i == 0 ? "#22C55E" : "#EDE9FE"));
             p.drawEllipse(QRectF(6, 4.6 + i * 6.2, 2.2, 2.2));
         }
     }));
@@ -291,9 +300,9 @@ QIcon server() {
 // ---------------------------------------------------------------- casa (canal padrão)
 static void drawHouse(QPainter& p, const QRectF& r) {
     QLinearGradient g(0, r.top(), 0, r.bottom());
-    g.setColorAt(0, QColor("#6FA8DC"));
-    g.setColorAt(1, QColor("#2E6394"));
-    p.setPen(QPen(QColor("#1E415F"), 0.9));
+    g.setColorAt(0, QColor("#C4A7FF"));
+    g.setColorAt(1, QColor("#7C3AED"));
+    p.setPen(QPen(QColor("#5B21B6"), 0.9));
     p.setBrush(g);
     QPolygonF roof;
     roof << QPointF(r.center().x(), r.top())
@@ -309,16 +318,26 @@ static void drawHouse(QPainter& p, const QRectF& r) {
 }
 
 static void drawChannelDisc(QPainter& p, const QRectF& r) {
-    QLinearGradient g(0, r.top(), 0, r.bottom());
-    g.setColorAt(0, QColor("#7FB2E0"));
-    g.setColorAt(1, QColor("#2E6394"));
-    p.setPen(QPen(QColor("#1E415F"), 0.9));
+    const qreal x = r.left();
+    const qreal y = r.top();
+    const qreal w = r.width();
+    const qreal h = r.height();
+    QLinearGradient g(0, y, 0, y + h);
+    g.setColorAt(0, QColor("#C4A7FF"));
+    g.setColorAt(1, QColor("#7C3AED"));
+    p.setPen(QPen(QColor("#5B21B6"), 0.8));
     p.setBrush(g);
-    p.drawEllipse(r);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor("#EAF3FB"));
-    p.drawEllipse(r.adjusted(r.width() * 0.18, r.height() * 0.34,
-                             -r.width() * 0.18, -r.height() * 0.30));
+    QPolygonF cone;
+    cone << QPointF(x + w * 0.10, y + h * 0.38)
+         << QPointF(x + w * 0.34, y + h * 0.38)
+         << QPointF(x + w * 0.57, y + h * 0.17)
+         << QPointF(x + w * 0.57, y + h * 0.83)
+         << QPointF(x + w * 0.34, y + h * 0.62)
+         << QPointF(x + w * 0.10, y + h * 0.62);
+    p.drawPolygon(cone);
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(QColor("#7C3AED"), 1.3, Qt::SolidLine, Qt::RoundCap));
+    p.drawArc(QRectF(x + w * 0.43, y + h * 0.25, w * 0.55, h * 0.50), -48 * 16, 96 * 16);
 }
 
 static void drawPadlock(QPainter& p, const QRectF& r) {
@@ -360,10 +379,10 @@ QIcon channel(bool hasPassword, bool moderated, bool isDefault, bool full) {
 QIcon user(bool talking, bool away, int size, bool whispering) {
     return QIcon(mk(size, [&](QPainter& p) {
         const qreal u = size / 24.0;
-        QColor top = away ? QColor("#C9CFD6") : QColor("#9FC4E4");
-        QColor bot = away ? QColor("#8A939B") : QColor("#3B76B0");
+        QColor top = away ? QColor("#C9C5D3") : QColor("#BCA7FF");
+        QColor bot = away ? QColor("#777186") : QColor("#5B21B6");
         if (talking) {
-            QColor circleColor = whispering ? orange() : green();
+            QColor circleColor = whispering ? QColor("#F59E0B") : QColor("#22C55E");
             p.setPen(QPen(circleColor, 2.4 * u, Qt::SolidLine, Qt::RoundCap));
             p.setBrush(Qt::NoBrush);
             p.drawEllipse(QRectF(2.2 * u, 2.2 * u, 19.6 * u, 19.6 * u));
@@ -371,17 +390,22 @@ QIcon user(bool talking, bool away, int size, bool whispering) {
         QLinearGradient g(0, 4 * u, 0, 22 * u);
         g.setColorAt(0, top);
         g.setColorAt(1, bot);
-        p.setPen(QPen(away ? QColor("#6E7B86") : QColor("#1E415F"), 0.9 * u));
+        p.setPen(QPen(away ? QColor("#6C6479") : QColor("#4C1D95"), 0.9 * u));
         p.setBrush(g);
-        p.drawEllipse(QRectF(8.2 * u, 3.6 * u, 7.6 * u, 7.6 * u));            // cabeça
-        p.drawRoundedRect(QRectF(5 * u, 12.4 * u, 14 * u, 8.6 * u), 4 * u, 4 * u); // corpo
+        p.drawEllipse(QRectF(8.2 * u, 3.6 * u, 7.6 * u, 7.6 * u));
+        p.drawRoundedRect(QRectF(5 * u, 12.4 * u, 14 * u, 8.6 * u), 4 * u, 4 * u);
+        if (!away && !talking) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor("#22C55E"));
+            p.drawEllipse(QRectF(17.2 * u, 17.2 * u, 4.8 * u, 4.8 * u));
+        }
         if (away) {
             QFont f = p.font();
             f.setPixelSize(9 * u);
             f.setBold(true);
             f.setItalic(true);
             p.setFont(f);
-            p.setPen(QColor("#34506B"));
+            p.setPen(QColor("#51465F"));
             p.drawText(QRectF(13 * u, 12 * u, 10 * u, 10 * u), Qt::AlignCenter,
                        QStringLiteral("z"));
         }

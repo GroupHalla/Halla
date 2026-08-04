@@ -37,6 +37,7 @@ endif()
 
 set(HALLA_SOURCES
     src/main.cpp
+    src/halla.qrc
     src/core/AppLog.cpp
     src/gui/Icons.cpp
     src/gui/TsBanner.cpp

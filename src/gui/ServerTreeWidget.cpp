@@ -166,7 +166,7 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     setSelectionMode(SingleSelection);
     setDragDropMode(InternalMove);
     setIconSize(QSize(20, 20));
-    setFrameShape(QFrame::StyledPanel);
+    setFrameShape(QFrame::NoFrame);
 
     m_delegate = new ServerRowDelegate(this);
     setItemDelegate(m_delegate);
@@ -201,6 +201,21 @@ int ServerTreeWidget::currentKind() const {
 int ServerTreeWidget::currentId() const {
     QTreeWidgetItem* it = currentItem();
     return it ? it->data(0, RoleId).toInt() : -1;
+}
+
+void ServerTreeWidget::selectNode(int kind, int id) {
+    std::function<bool(QTreeWidgetItem*)> walk = [&](QTreeWidgetItem* item) -> bool {
+        if (item->data(0, RoleKind).toInt() == kind &&
+            item->data(0, RoleId).toInt() == id) {
+            setCurrentItem(item);
+            return true;
+        }
+        for (int i = 0; i < item->childCount(); ++i)
+            if (walk(item->child(i))) return true;
+        return false;
+    };
+    for (int i = 0; i < topLevelItemCount(); ++i)
+        if (walk(topLevelItem(i))) return;
 }
 
 QString ServerTreeWidget::userTooltip(const User& u) const {
