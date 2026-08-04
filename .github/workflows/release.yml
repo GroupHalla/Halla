@@ -91,17 +91,20 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.38
-          name: Halla v3.13.38 — Imagens e links nas descrições
+          tag_name: v3.13.39
+          name: Halla v3.13.39 — Bitrate e áudio UDP corrigidos
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.38.exe
+          files: Halla-Setup-3.13.39.exe
           body: |
-            ## Halla Desktop v3.13.38
+            ## Halla Desktop v3.13.39
 
-            ### Descrições ricas de canais
-            * Descrições preservam linhas em branco e espaçamento.
-            * Suporte a imagens remotas com `[img]URL[/img]` e Markdown.
-            * Suporte a links BBCode, Markdown e URLs diretas, abertos no navegador padrão.
+            ### Canais
+            * Edição de canal agora persiste e transmite corretamente o bitrate.
+            * Bitrate padrão de 96 kbps e limite de 384 kbps.
+            * Nome de canal sem limite artificial de 40 caracteres.
+
+            ### Voz
+            * Aquecimento UDP agora força um frame Opus não vazio mesmo com DTX, evitando que o primeiro áudio dependa da fala do PC.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

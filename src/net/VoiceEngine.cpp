@@ -35,8 +35,12 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         // este aquecimento, o PC só se torna destinatário depois de falar.
         int16_t silence[960] = {};
         unsigned char registration[512];
+        // DTX pode suprimir silêncio e produzir um payload vazio. Durante o
+        // aquecimento do endpoint UDP forçamos um frame Opus não vazio.
+        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
         const int encoded = opus_encode(m_encoder, silence, 960,
                                         registration, sizeof(registration));
+        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1));
         if (encoded > 0 && m_net) {
             for (quint16 seq = 1; seq <= 3; ++seq)
                 m_net->sendVoiceFrame(
@@ -169,7 +173,7 @@ void VoiceEngine::updateCodecSettings() {
     if (!m_data->channels.contains(myChanId)) return;
     
     const Channel& c = m_data->channels[myChanId];
-    int bitrate = c.bitrate * 1000; // de 16kbps a 96kbps
+    int bitrate = qBound(16, c.bitrate, 384) * 1000; // de 16kbps a 384kbps
     
     int app = OPUS_APPLICATION_VOIP;
     if (c.codec == 5) { // Opus Music

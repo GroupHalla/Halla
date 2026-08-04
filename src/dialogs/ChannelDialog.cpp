@@ -34,7 +34,6 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     form->setSpacing(7);
 
     m_name = new QLineEdit(this);
-    m_name->setMaxLength(40);
     form->addRow(tr("Nome do canal:"), m_name);
 
     m_topic = new QLineEdit(this);
@@ -77,8 +76,8 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
             [this](int v) { m_qualityLabel->setText(QString::number(v)); });
 
     m_bitrate = new QSpinBox(this);
-    m_bitrate->setRange(16, 96);
-    m_bitrate->setValue(48);
+    m_bitrate->setRange(16, 384);
+    m_bitrate->setValue(96);
     m_bitrate->setSuffix(tr(" kbps"));
     form->addRow(tr("Bitrate do codec:"), m_bitrate);
 
@@ -203,7 +202,7 @@ void ChannelDialog::setChannel(const Channel& c) {
     m_password->setText(c.passwordHash);
     m_codec->setCurrentIndex(c.codec);
     m_quality->setValue(c.codecQuality);
-    m_bitrate->setValue(c.bitrate);
+    m_bitrate->setValue(c.bitrate > 0 ? qBound(16, c.bitrate, 384) : 96);
     m_maxClients->setValue(c.maxClients);
     m_temp->setChecked(c.type == 0);
     m_semi->setChecked(c.type == 1);
