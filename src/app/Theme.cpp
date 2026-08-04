@@ -3,6 +3,7 @@
 
 #include <QApplication>
 #include <QPalette>
+#include <QStyle>
 #include <QStyleFactory>
 
 bool HTheme::isDark() {
