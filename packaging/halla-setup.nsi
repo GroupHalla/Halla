@@ -1,4 +1,4 @@
-﻿﻿; ============================================================================
+; ============================================================================
 ; Halla — Instalador NSIS (Windows 64-bit)
 ; Produz Halla-Setup-3.13.0.exe, um instalador clássico no estilo dos
 ; aplicativos Windows: licença, pasta de destino, atalhos e desinstalador.
