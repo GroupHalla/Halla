@@ -29,6 +29,19 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(32000));
         opus_encoder_ctl(m_encoder, OPUS_SET_VBR(1));
         opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1)); // suprime quadros de silêncio
+
+        // Registra o endpoint UDP do PC com um frame Opus válido. Alguns
+        // relays antigos ignoram o pacote HALL de 10 bytes sem payload; sem
+        // este aquecimento, o PC só se torna destinatário depois de falar.
+        int16_t silence[960] = {};
+        unsigned char registration[512];
+        const int encoded = opus_encode(m_encoder, silence, 960,
+                                        registration, sizeof(registration));
+        if (encoded > 0 && m_net) {
+            for (quint16 seq = 1; seq <= 3; ++seq)
+                m_net->sendVoiceFrame(
+                    QByteArray(reinterpret_cast<const char*>(registration), encoded), seq);
+        }
     }
 
     QAudioFormat fmt;

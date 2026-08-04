@@ -91,13 +91,13 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.32
-          name: Halla v3.13.32 — Sincronia Dinâmica de Slots do Servidor
+          tag_name: v3.13.33
+          name: Halla v3.13.33 — Sincronia Dinâmica de Slots do Servidor
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.32.exe
+          files: Halla-Setup-3.13.33.exe
           body: |
-            ## 🚀 Novidades e Correções do Halla v3.13.32
+            ## 🚀 Novidades e Correções do Halla v3.13.33
 
             Esta release corrige o limite dinâmico de slots exibido no painel de informações do servidor conectado no cliente!
 
