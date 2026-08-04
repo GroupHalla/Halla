@@ -58,7 +58,7 @@ static QJsonObject chanToJson(const Channel& c) {
 ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     : QWidget(parent), m_data(initial) {
     QVBoxLayout* lay = new QVBoxLayout(this);
-    lay->setContentsMargins(16, 12, 16, 12);
+    lay->setContentsMargins(16, 4, 16, 12);
     lay->setSpacing(0);
 
     // A composição principal replica a referência: dois cartões flutuantes

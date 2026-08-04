@@ -69,8 +69,8 @@ QString HTheme::styleSheet(bool dark) {
 
     // Channel tree.
     css += QStringLiteral("QTreeWidget#serverTree { background: transparent; color: ") + text
-           + QStringLiteral("; border: 0; outline: 0; padding: 3px 8px 8px 8px; show-decoration-selected: 1; }");
-    css += QStringLiteral("QTreeWidget#serverTree::item { height: 36px; padding: 3px 8px; border: 0; border-radius: 10px; }");
+           + QStringLiteral("; border: 0; outline: 0; padding: 2px 0 8px 0; show-decoration-selected: 1; font-size: 15px; }");
+    css += QStringLiteral("QTreeWidget#serverTree::item { height: 44px; padding: 4px 5px; border: 0; border-radius: 10px; }");
     css += QStringLiteral("QTreeWidget#serverTree::item:hover:!selected { background: ") + hover + QStringLiteral("; }");
     css += QStringLiteral("QTreeWidget#serverTree::item:selected { background: ") + selected
            + QStringLiteral("; color: ") + text + QStringLiteral("; }");

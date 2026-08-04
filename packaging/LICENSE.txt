@@ -1,4 +1,4 @@
-HALLA — CLIENTE DE COMUNICAÇÃO DE VOZ
+﻿HALLA — CLIENTE DE COMUNICAÇÃO DE VOZ
 =====================================
 
 Contrato de Licença de Usuário Final

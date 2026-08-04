@@ -158,14 +158,14 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
 // ============================================================== Árvore
 ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     setHeaderHidden(true);
-    setIndentation(18);
+    setIndentation(12);
     setRootIsDecorated(true);
     setAnimated(false);
     setUniformRowHeights(true);
     setAllColumnsShowFocus(true);
     setSelectionMode(SingleSelection);
     setDragDropMode(InternalMove);
-    setIconSize(QSize(20, 20));
+    setIconSize(QSize(24, 24));
     setFrameShape(QFrame::NoFrame);
 
     m_delegate = new ServerRowDelegate(this);
