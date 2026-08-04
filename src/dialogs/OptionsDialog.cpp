@@ -1147,7 +1147,7 @@ QWidget* OptionsDialog::pageCapture() {
     connect(cueModes, &QButtonGroup::idClicked, this,
             [](int id) { S::set("capture/speechCueMode", id); });
 
-    auto cueFileRow = [this, gbSpeechCue](const QString& title,
+    auto cueFileRow = [this, gbSpeechCue, cueLayout](const QString& title,
                                                        const QString& pathKey,
                                                        const QString& remoteKey) {
         QHBoxLayout* row = new QHBoxLayout;
