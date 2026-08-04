@@ -91,19 +91,17 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.40
-          name: Halla v3.13.40 — Sinais sonoros de fala
+          tag_name: v3.13.41
+          name: Halla v3.13.41 — Permissões de canais
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.40.exe
+          files: Halla-Setup-3.13.41.exe
           body: |
-            ## Halla Desktop v3.13.40
+            ## Halla Desktop v3.13.41
 
-            ### Sinais sonoros de fala
-            * Nova seção **Capturar → Diversos → Emitir sinal sonoro ao falar**.
-            * Escolha entre Pressione para Falar e Atividade de Voz.
-            * Arquivos separados para sinais Ativo, Inativo e Sussurro.
-            * Cada sinal pode ser habilitado também para outros usuários, incluindo sinais de sussurro recebidos.
-            * Pesquisa de arquivos de áudio no computador e reprodução com volume do pacote de som.
+            ### Editor de permissões de canais
+            * Aba de permissões reorganizada no formato LCA, com regras ativas, contexto, grupo/usuário e matriz Negar/Permitir.
+            * Regras de entrada, fala, sussurro, chat, arquivos e criação de canais são salvas no canal.
+            * Edição de canal mantém o bitrate, nome e permissões ao reabrir.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

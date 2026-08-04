@@ -12,8 +12,11 @@
 #include "core/Models.h"
 
 class NetSession;
+class QListWidget;
+class QTableWidget;
+class QPushButton;
 
-// Diálogo "Criar canal" / "Editar canal" — réplica fiel do diálogo do Halla.
+// Diálogo "Criar canal" / "Editar canal" — réplica do editor de canais do Halla.
 class ChannelDialog : public QDialog {
     Q_OBJECT
 public:
@@ -40,18 +43,25 @@ private:
     QRadioButton* m_perm;
     QCheckBox* m_default;
     QCheckBox* m_moderated;
-    
-    QComboBox* m_permGroupCombo;
-    QCheckBox* m_chkJoin;
-    QCheckBox* m_chkTalk;
-    QCheckBox* m_chkWhisper;
-    QCheckBox* m_chkUpload;
-    QCheckBox* m_chkDownload;
-    QCheckBox* m_chkChat;
+
+    // Editor de regras de acesso do canal.
+    QListWidget* m_lcaList = nullptr;
+    QTableWidget* m_permTable = nullptr;
+    QComboBox* m_permGroupCombo = nullptr;
+    QComboBox* m_permUserCombo = nullptr;
+    QCheckBox* m_inheritLca = nullptr;
+    QCheckBox* m_applySubchannels = nullptr;
+    QCheckBox* m_applyThisChannel = nullptr;
+    QPushButton* m_lcaUp = nullptr;
+    QPushButton* m_lcaDown = nullptr;
+    QPushButton* m_lcaAdd = nullptr;
+    QPushButton* m_lcaDelete = nullptr;
     QJsonObject m_localGroupPerms;
     int m_lastGid = -1;
     bool m_isUpdatingPerms = false;
-    
+
     void saveCurrentGroupPerms();
     void loadGroupPerms(int gid);
+    void rebuildLcaList();
+    int selectedGroupId() const;
 };

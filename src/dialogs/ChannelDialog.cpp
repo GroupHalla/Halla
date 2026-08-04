@@ -11,6 +11,10 @@
 #include <QPushButton>
 #include <QTabWidget>
 #include <QGroupBox>
+#include <QListWidget>
+#include <QTableWidget>
+#include <QHeaderView>
+#include <QPushButton>
 
 ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, NetSession* net, QWidget* parent)
     : QDialog(parent), m_server(server), m_net(net) {
@@ -123,36 +127,112 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     propPage->setLayout(propLayout);
     tabs->addTab(propPage, tr("Propriedades"));
 
-    // ---- Tab 2: Permissões
+    // ---- Tab 2: Permissões — regras de acesso no estilo LCA do Halla
     QWidget* permPage = new QWidget(tabs);
-    QVBoxLayout* pLayout = new QVBoxLayout(permPage);
-    pLayout->setContentsMargins(12, 12, 12, 12);
+    QHBoxLayout* pLayout = new QHBoxLayout(permPage);
+    pLayout->setContentsMargins(8, 8, 8, 8);
     pLayout->setSpacing(8);
 
-    QHBoxLayout* gRow = new QHBoxLayout;
-    gRow->addWidget(new QLabel(tr("Cargo/Grupo:"), permPage));
-    m_permGroupCombo = new QComboBox(permPage);
-    gRow->addWidget(m_permGroupCombo, 1);
-    pLayout->addLayout(gRow);
+    // Coluna esquerda: lista de regras ativas, contexto e sujeito.
+    QVBoxLayout* left = new QVBoxLayout;
+    left->setSpacing(6);
+    left->addWidget(new QLabel(tr("LCAs ativas"), permPage));
+    m_lcaList = new QListWidget(permPage);
+    m_lcaList->setMinimumWidth(260);
+    left->addWidget(m_lcaList, 1);
 
-    pLayout->addWidget(new QLabel(tr("Definir permissões específicas deste canal:"), permPage));
+    QHBoxLayout* lcaButtons = new QHBoxLayout;
+    m_inheritLca = new QCheckBox(tr("Herdar LCAs"), permPage);
+    m_inheritLca->setChecked(true);
+    lcaButtons->addWidget(m_inheritLca);
+    m_lcaUp = new QPushButton(tr("Subir"), permPage);
+    m_lcaDown = new QPushButton(tr("Descer"), permPage);
+    m_lcaAdd = new QPushButton(tr("Adicionar"), permPage);
+    m_lcaDelete = new QPushButton(tr("Excluir"), permPage);
+    m_lcaUp->setEnabled(false);
+    m_lcaDown->setEnabled(false);
+    lcaButtons->addWidget(m_lcaUp);
+    lcaButtons->addWidget(m_lcaDown);
+    lcaButtons->addWidget(m_lcaAdd);
+    lcaButtons->addWidget(m_lcaDelete);
+    left->addLayout(lcaButtons);
 
-    m_chkJoin = new QCheckBox(tr("Permitir entrar no canal"), permPage);
-    m_chkTalk = new QCheckBox(tr("Permitir falar no canal"), permPage);
-    m_chkWhisper = new QCheckBox(tr("Permitir sussurrar neste canal"), permPage);
-    m_chkUpload = new QCheckBox(tr("Permitir enviar arquivos no canal"), permPage);
-    m_chkDownload = new QCheckBox(tr("Permitir baixar arquivos no canal"), permPage);
-    m_chkChat = new QCheckBox(tr("Permitir enviar chat de texto no canal"), permPage);
+    QGroupBox* context = new QGroupBox(tr("Contexto"), permPage);
+    QVBoxLayout* contextLayout = new QVBoxLayout(context);
+    QHBoxLayout* contextChecks = new QHBoxLayout;
+    m_applySubchannels = new QCheckBox(tr("Aplicada a subcanais"), context);
+    m_applySubchannels->setEnabled(false);
+    m_applyThisChannel = new QCheckBox(tr("Aplicada a este canal"), context);
+    m_applyThisChannel->setChecked(true);
+    contextChecks->addWidget(m_applySubchannels);
+    contextChecks->addWidget(m_applyThisChannel);
+    contextChecks->addStretch(1);
+    contextLayout->addLayout(contextChecks);
+    left->addWidget(context);
 
-    pLayout->addWidget(m_chkJoin);
-    pLayout->addWidget(m_chkTalk);
-    pLayout->addWidget(m_chkWhisper);
-    pLayout->addWidget(m_chkUpload);
-    pLayout->addWidget(m_chkDownload);
-    pLayout->addWidget(m_chkChat);
-    pLayout->addStretch(1);
+    QGroupBox* subject = new QGroupBox(tr("Usuário/Grupo"), permPage);
+    QFormLayout* subjectForm = new QFormLayout(subject);
+    m_permGroupCombo = new QComboBox(subject);
+    subjectForm->addRow(tr("Grupo"), m_permGroupCombo);
+    m_permUserCombo = new QComboBox(subject);
+    m_permUserCombo->addItem(tr("Todos os usuários"), QString());
+    if (m_server) {
+        for (const User& u : m_server->users)
+            m_permUserCombo->addItem(u.name, u.uniqueId);
+    }
+    // O servidor Halla aplica as LCAs por grupo; o seletor de usuário fica
+    // visível para manter o modelo do editor, mas é reservado para a próxima
+    // extensão de ACL individual.
+    m_permUserCombo->setEnabled(false);
+    m_permUserCombo->setToolTip(tr("As regras de canal do Halla são aplicadas por grupo."));
+    subjectForm->addRow(tr("ID de usuário"), m_permUserCombo);
+    left->addWidget(subject);
+    pLayout->addLayout(left, 1);
 
-    permPage->setLayout(pLayout);
+    // Coluna direita: matriz Negar/Permitir.
+    QVBoxLayout* right = new QVBoxLayout;
+    right->setSpacing(6);
+    right->addWidget(new QLabel(tr("Permissões"), permPage));
+    m_permTable = new QTableWidget(0, 3, permPage);
+    m_permTable->setHorizontalHeaderLabels({ QString(), tr("Negar"), tr("Permitir") });
+    m_permTable->verticalHeader()->setVisible(false);
+    m_permTable->setSelectionMode(QAbstractItemView::NoSelection);
+    m_permTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_permTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_permTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_permTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+
+    const QList<QPair<QString, QString>> permissions = {
+        { QStringLiteral("write_acl"), tr("Escrever LCA") },
+        { QStringLiteral("traverse"), tr("Percorrer") },
+        { QStringLiteral("join"), tr("Entrar") },
+        { QStringLiteral("talk"), tr("Falar") },
+        { QStringLiteral("mute"), tr("Emudecer/Ensurdecer") },
+        { QStringLiteral("move"), tr("Mover") },
+        { QStringLiteral("channel_create"), tr("Criar canal") },
+        { QStringLiteral("channel_link"), tr("Vincular canal") },
+        { QStringLiteral("whisper"), tr("Sussurrar") },
+        { QStringLiteral("text_chat"), tr("Mensagem de texto") },
+        { QStringLiteral("chan_create_temp"), tr("Criar temporário") },
+        { QStringLiteral("listen"), tr("Ouvir") },
+        { QStringLiteral("file_upload"), tr("Enviar arquivos") },
+        { QStringLiteral("file_download"), tr("Baixar arquivos") }
+    };
+    for (const auto& permission : permissions) {
+        const int row = m_permTable->rowCount();
+        m_permTable->insertRow(row);
+        QTableWidgetItem* label = new QTableWidgetItem(permission.second);
+        label->setData(Qt::UserRole, permission.first);
+        m_permTable->setItem(row, 0, label);
+        for (int col = 1; col <= 2; ++col) {
+            QTableWidgetItem* check = new QTableWidgetItem;
+            check->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+            check->setCheckState(Qt::Unchecked);
+            m_permTable->setItem(row, col, check);
+        }
+    }
+    right->addWidget(m_permTable, 1);
+    pLayout->addLayout(right, 1);
     tabs->addTab(permPage, tr("Permissões"));
 
     if (m_net) {
@@ -169,9 +249,42 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     connect(m_permGroupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) {
         if (index < 0 || m_isUpdatingPerms) return;
         saveCurrentGroupPerms();
-        int gid = m_permGroupCombo->itemData(index).toInt();
+        loadGroupPerms(m_permGroupCombo->itemData(index).toInt());
+    });
+    connect(m_lcaList, &QListWidget::currentRowChanged, this, [this](int row) {
+        if (row < 0 || m_isUpdatingPerms) return;
+        saveCurrentGroupPerms();
+        const int gid = m_lcaList->item(row)->data(Qt::UserRole).toInt();
+        const int index = m_permGroupCombo->findData(gid);
+        if (index >= 0) m_permGroupCombo->setCurrentIndex(index);
+    });
+    connect(m_permTable, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item) {
+        if (m_isUpdatingPerms || !item || item->column() < 1) return;
+        m_isUpdatingPerms = true;
+        const int otherColumn = item->column() == 1 ? 2 : 1;
+        if (item->checkState() == Qt::Checked)
+            m_permTable->item(item->row(), otherColumn)->setCheckState(Qt::Unchecked);
+        m_isUpdatingPerms = false;
+        saveCurrentGroupPerms();
+    });
+    connect(m_lcaAdd, &QPushButton::clicked, this, [this] {
+        const int gid = selectedGroupId();
+        if (gid < 0) return;
+        if (!m_localGroupPerms.contains(QString::number(gid)))
+            m_localGroupPerms[QString::number(gid)] = QJsonObject();
+        rebuildLcaList();
         loadGroupPerms(gid);
     });
+    connect(m_lcaDelete, &QPushButton::clicked, this, [this] {
+        const int gid = selectedGroupId();
+        if (gid < 0) return;
+        m_localGroupPerms.remove(QString::number(gid));
+        m_lastGid = -1;
+        rebuildLcaList();
+        loadGroupPerms(-1);
+    });
+    rebuildLcaList();
+    if (m_permGroupCombo->count() > 0) loadGroupPerms(m_permGroupCombo->itemData(0).toInt());
 
     root->addWidget(tabs);
 
@@ -214,6 +327,7 @@ void ChannelDialog::setChannel(const Channel& c) {
 
     m_localGroupPerms = c.groupPerms;
     m_lastGid = -1;
+    rebuildLcaList();
     if (m_permGroupCombo->count() > 0) {
         m_permGroupCombo->setCurrentIndex(-1);
         m_permGroupCombo->setCurrentIndex(0);
@@ -240,36 +354,67 @@ Channel ChannelDialog::resultChannel() const {
     return c;
 }
 
+int ChannelDialog::selectedGroupId() const {
+    if (!m_permGroupCombo || m_permGroupCombo->currentIndex() < 0) return -1;
+    return m_permGroupCombo->currentData().toInt();
+}
+
+void ChannelDialog::rebuildLcaList() {
+    if (!m_lcaList) return;
+    m_isUpdatingPerms = true;
+    const int current = selectedGroupId();
+    m_lcaList->clear();
+    for (auto it = m_localGroupPerms.constBegin(); it != m_localGroupPerms.constEnd(); ++it) {
+        bool ok = false;
+        const int gid = it.key().toInt(&ok);
+        if (!ok) continue;
+        const int comboIndex = m_permGroupCombo->findData(gid);
+        const QString name = comboIndex >= 0
+            ? m_permGroupCombo->itemText(comboIndex)
+            : QStringLiteral("Grupo %1").arg(gid);
+        QListWidgetItem* item = new QListWidgetItem(QStringLiteral("@%1").arg(name), m_lcaList);
+        item->setData(Qt::UserRole, gid);
+    }
+    for (int i = 0; i < m_lcaList->count(); ++i) {
+        if (m_lcaList->item(i)->data(Qt::UserRole).toInt() == current) {
+            m_lcaList->setCurrentRow(i);
+            break;
+        }
+    }
+    m_isUpdatingPerms = false;
+}
+
 void ChannelDialog::saveCurrentGroupPerms() {
-    if (m_lastGid < 0) return;
-    
+    if (m_lastGid < 0 || !m_permTable) return;
+
     QJsonObject gPerms;
-    gPerms["join"] = m_chkJoin->isChecked();
-    gPerms["talk"] = m_chkTalk->isChecked();
-    gPerms["whisper"] = m_chkWhisper->isChecked();
-    gPerms["file_upload"] = m_chkUpload->isChecked();
-    gPerms["file_download"] = m_chkDownload->isChecked();
-    gPerms["text_chat"] = m_chkChat->isChecked();
-    
-    m_localGroupPerms[QString::number(m_lastGid)] = gPerms;
+    if (m_inheritLca && m_inheritLca->isChecked()) gPerms["inherit"] = true;
+    for (int row = 0; row < m_permTable->rowCount(); ++row) {
+        const QString key = m_permTable->item(row, 0)->data(Qt::UserRole).toString();
+        const bool deny = m_permTable->item(row, 1)->checkState() == Qt::Checked;
+        const bool allow = m_permTable->item(row, 2)->checkState() == Qt::Checked;
+        if (deny) gPerms[key] = false;
+        else if (allow) gPerms[key] = true;
+    }
+    const QString gid = QString::number(m_lastGid);
+    if (gPerms.isEmpty()) m_localGroupPerms.remove(gid);
+    else m_localGroupPerms[gid] = gPerms;
 }
 
 void ChannelDialog::loadGroupPerms(int gid) {
     m_isUpdatingPerms = true;
     m_lastGid = gid;
-    
-    QString gidStr = QString::number(gid);
-    QJsonObject gPerms;
-    if (m_localGroupPerms.contains(gidStr)) {
-        gPerms = m_localGroupPerms[gidStr].toObject();
+    const QJsonObject gPerms = m_localGroupPerms.value(QString::number(gid)).toObject();
+    if (m_inheritLca) m_inheritLca->setChecked(gPerms.value("inherit").toBool(true));
+    if (m_permTable) {
+        for (int row = 0; row < m_permTable->rowCount(); ++row) {
+            const QString key = m_permTable->item(row, 0)->data(Qt::UserRole).toString();
+            const QJsonValue value = gPerms.value(key);
+            m_permTable->item(row, 1)->setCheckState(
+                value.isBool() && !value.toBool() ? Qt::Checked : Qt::Unchecked);
+            m_permTable->item(row, 2)->setCheckState(
+                value.isBool() && value.toBool() ? Qt::Checked : Qt::Unchecked);
+        }
     }
-    
-    m_chkJoin->setChecked(gPerms.value("join").toBool(true));
-    m_chkTalk->setChecked(gPerms.value("talk").toBool(true));
-    m_chkWhisper->setChecked(gPerms.value("whisper").toBool(true));
-    m_chkUpload->setChecked(gPerms.value("file_upload").toBool(true));
-    m_chkDownload->setChecked(gPerms.value("file_download").toBool(true));
-    m_chkChat->setChecked(gPerms.value("text_chat").toBool(true));
-    
     m_isUpdatingPerms = false;
 }
