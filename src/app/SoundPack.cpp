@@ -7,6 +7,10 @@
 #include <QHash>
 #include <QUrl>
 #include <QSoundEffect>
+#include <QMediaPlayer>
+#include <QAudioOutput>
+#include <QApplication>
+#include <QFileInfo>
 #include <QtMath>
 #include <cstring>
 
@@ -111,6 +115,29 @@ void play(const QString& name) {
         QObject::connect(e, &QSoundEffect::loadedChanged, e, [e] { e->play(); },
                          Qt::SingleShotConnection);
     }
+}
+
+void playFile(const QString& path) {
+    if (path.isEmpty() || !QFileInfo::exists(path)) return;
+
+    struct FileCue {
+        QMediaPlayer* player = nullptr;
+        QAudioOutput* output = nullptr;
+    };
+    static QHash<QString, FileCue> cues;
+
+    FileCue& cue = cues[path];
+    if (!cue.player) {
+        cue.output = new QAudioOutput(qApp);
+        cue.player = new QMediaPlayer(qApp);
+        cue.player->setAudioOutput(cue.output);
+    }
+
+    const double db = S::num("playback/soundPackVolume", -170) / 10.0;
+    cue.output->setVolume(float(qBound(0.0, qPow(10.0, db / 20.0), 1.0)));
+    cue.player->stop();
+    cue.player->setSource(QUrl::fromLocalFile(path));
+    cue.player->play();
 }
 
 } // namespace HSound

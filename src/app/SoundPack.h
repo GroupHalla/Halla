@@ -24,6 +24,7 @@ inline QStringList names() {
 
 void ensure();                  // gera os WAVs padrão se ainda não existirem
 void play(const QString& name); // toca <config>/sounds/<name>.wav (não bloqueia)
+void playFile(const QString& path); // toca um arquivo escolhido pelo usuário
 QString dir();                  // pasta dos sons
 
 }

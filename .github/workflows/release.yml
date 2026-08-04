@@ -91,20 +91,19 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.39
-          name: Halla v3.13.39 — Bitrate e áudio UDP corrigidos
+          tag_name: v3.13.40
+          name: Halla v3.13.40 — Sinais sonoros de fala
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.39.exe
+          files: Halla-Setup-3.13.40.exe
           body: |
-            ## Halla Desktop v3.13.39
+            ## Halla Desktop v3.13.40
 
-            ### Canais
-            * Edição de canal agora persiste e transmite corretamente o bitrate.
-            * Bitrate padrão de 96 kbps e limite de 384 kbps.
-            * Nome de canal sem limite artificial de 40 caracteres.
-
-            ### Voz
-            * Aquecimento UDP agora força um frame Opus não vazio mesmo com DTX, evitando que o primeiro áudio dependa da fala do PC.
+            ### Sinais sonoros de fala
+            * Nova seção **Capturar → Diversos → Emitir sinal sonoro ao falar**.
+            * Escolha entre Pressione para Falar e Atividade de Voz.
+            * Arquivos separados para sinais Ativo, Inativo e Sussurro.
+            * Cada sinal pode ser habilitado também para outros usuários, incluindo sinais de sussurro recebidos.
+            * Pesquisa de arquivos de áudio no computador e reprodução com volume do pacote de som.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

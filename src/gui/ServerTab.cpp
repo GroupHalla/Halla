@@ -176,7 +176,11 @@ void ServerTab::attachNetwork(NetSession* net) {
     updatePermissionUi();
 
     // usuários já presentes no login (não tocar som para eles)
-    for (const User& u : m_data.users) m_knownUsers << u.id;
+    for (const User& u : m_data.users) {
+        m_knownUsers << u.id;
+        m_lastTalking[u.id] = u.talking;
+        m_lastWhispering[u.id] = u.whispering;
+    }
     m_myChan = m_data.channelOfUser(m_data.selfId);
 
     connect(net, &NetSession::iconDataReceived, this, [this](const QString& name, const QByteArray& bytes) {
@@ -193,7 +197,21 @@ void ServerTab::attachNetwork(NetSession* net) {
     connect(net, &NetSession::stateChanged, this, [this] {
         // detecção de entrada/saída (sons estilo Halla)
         QSet<int> now;
-        for (const User& u : m_data.users) { now << u.id; m_lastNames[u.id] = u.name; }
+        for (const User& u : m_data.users) {
+            now << u.id;
+            m_lastNames[u.id] = u.name;
+            if (u.id != m_data.selfId) {
+                const bool wasTalking = m_lastTalking.value(u.id, false);
+                const bool wasWhispering = m_lastWhispering.value(u.id, false);
+                if (u.talking && (!wasTalking || (u.whispering && !wasWhispering))) {
+                    playRemoteSpeechCue(u, true);
+                } else if (!u.talking && wasTalking) {
+                    playRemoteSpeechCue(u, false);
+                }
+                m_lastTalking[u.id] = u.talking;
+                m_lastWhispering[u.id] = u.whispering;
+            }
+        }
         for (int id : now)
             if (!m_knownUsers.contains(id) && id != m_data.selfId) {
                 if (S::flag("notify/userJoinSound", true)) HSound::play(QStringLiteral("user_joined"));
@@ -281,6 +299,7 @@ void ServerTab::attachNetwork(NetSession* net) {
         connect(m_voice, &VoiceEngine::talkingChanged, this, [this](bool on) {
             m_data.users[m_data.selfId].talking = on;
             m_data.users[m_data.selfId].whispering = on && (m_whisperHold || !m_whisperUids.isEmpty());
+            playSpeechCue(on);
             m_tree->rebuild();
         });
         emit statusChanged();
@@ -539,6 +558,37 @@ void ServerTab::hookSignals() {
 
 void ServerTab::systemMsgServer(const QString& msg)  { m_chat->addServerSystem(msg); }
 void ServerTab::systemMsgChannel(const QString& msg) { m_chat->addChannelSystem(msg); }
+
+void ServerTab::playSpeechCue(bool active) {
+    if (!S::flag("capture/speechCueEnabled", false)) return;
+    const int selectedMode = S::num("capture/speechCueMode", 1);
+    const int captureMode = S::num("capture/pttMode", 1);
+    if (selectedMode != captureMode) return;
+
+    QString path;
+    if (!active) {
+        path = S::str("capture/speechCueInactive");
+    } else if (m_whisperHold || !m_whisperUids.isEmpty()) {
+        path = S::str("capture/speechCueWhisper");
+        if (path.isEmpty()) path = S::str("capture/speechCueActive");
+    } else {
+        path = S::str("capture/speechCueActive");
+    }
+    HSound::playFile(path);
+}
+
+void ServerTab::playRemoteSpeechCue(const User& user, bool active) {
+    const QString pathKey = active
+        ? (user.whispering ? QStringLiteral("capture/speechCueWhisper")
+                           : QStringLiteral("capture/speechCueActive"))
+        : QStringLiteral("capture/speechCueInactive");
+    const QString remoteKey = active
+        ? (user.whispering ? QStringLiteral("capture/speechCueRemoteWhisper")
+                           : QStringLiteral("capture/speechCueRemoteActive"))
+        : QStringLiteral("capture/speechCueRemoteInactive");
+    if (!S::flag(remoteKey, false)) return;
+    HSound::playFile(S::str(pathKey));
+}
 
 void ServerTab::joinChannel(int channelId) {
     if (!m_data.channels.contains(channelId)) return;

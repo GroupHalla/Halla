@@ -90,6 +90,8 @@ private:
 
     QSet<int> m_knownUsers;               // detector de entrada/saída (sons)
     QMap<int, QString> m_lastNames;       // nomes por id (p/ anunciar quem saiu)
+    QMap<int, bool> m_lastTalking;
+    QMap<int, bool> m_lastWhispering;
     int m_myChan = -1;                    // meu canal (som de troca de canal)
     QVector<OfflineMsgItem> m_offlineInbox;
     QStringList m_whisperUids;
@@ -100,6 +102,8 @@ private:
     void updatePermissionUi();
     void applyWhisper();                  // mapeia uids -> ids e envia ao servidor
     void viewAvatar(int userId);
+    void playSpeechCue(bool active);
+    void playRemoteSpeechCue(const User& user, bool active);
     void systemMsgServer(const QString& msg);
     void systemMsgChannel(const QString& msg);
 };

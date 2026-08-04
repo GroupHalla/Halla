@@ -32,6 +32,7 @@
 #include <QClipboard>
 #include <QPainter>
 #include <QMessageBox>
+#include <QFileDialog>
 
 // envolve a página em um QScrollArea SEM moldura (estilo do Halla: o conteúdo
 // flutua sobre o fundo branco, sem caixas cinzas à vista)
@@ -1118,6 +1119,82 @@ QWidget* OptionsDialog::pageCapture() {
             [](int v) { S::set("capture/duckingDb", v); });
 
     right->addWidget(gbDsp);
+
+    // ============ grupo "Diversos" — sinais sonoros de fala ============
+    QGroupBox* gbSpeechCue = new QGroupBox(tr("Diversos"), w);
+    QVBoxLayout* cueLayout = new QVBoxLayout(gbSpeechCue);
+    cueLayout->setSpacing(6);
+
+    QCheckBox* cueEnabled = new QCheckBox(tr("Emitir sinal sonoro ao falar"), gbSpeechCue);
+    cueEnabled->setChecked(S::flag("capture/speechCueEnabled", false));
+    cueLayout->addWidget(cueEnabled);
+    connect(cueEnabled, &QCheckBox::toggled, this,
+            [](bool v) { S::set("capture/speechCueEnabled", v); });
+
+    QHBoxLayout* cueModeRow = new QHBoxLayout;
+    cueModeRow->addWidget(new QLabel(tr("Emitir ao:"), gbSpeechCue));
+    QRadioButton* cuePtt = new QRadioButton(tr("Pressione para Falar"), gbSpeechCue);
+    QRadioButton* cueVad = new QRadioButton(tr("Atividade de Voz"), gbSpeechCue);
+    QButtonGroup* cueModes = new QButtonGroup(gbSpeechCue);
+    cueModes->addButton(cuePtt, 0);
+    cueModes->addButton(cueVad, 1);
+    if (S::num("capture/speechCueMode", 1) == 0) cuePtt->setChecked(true);
+    else cueVad->setChecked(true);
+    cueModeRow->addWidget(cuePtt);
+    cueModeRow->addWidget(cueVad);
+    cueModeRow->addStretch(1);
+    cueLayout->addLayout(cueModeRow);
+    connect(cueModes, &QButtonGroup::idClicked, this,
+            [](int id) { S::set("capture/speechCueMode", id); });
+
+    auto cueFileRow = [this, gbSpeechCue](const QString& title,
+                                                       const QString& pathKey,
+                                                       const QString& remoteKey) {
+        QHBoxLayout* row = new QHBoxLayout;
+        QLabel* label = new QLabel(title, gbSpeechCue);
+        label->setMinimumWidth(72);
+        QLineEdit* path = new QLineEdit(gbSpeechCue);
+        path->setReadOnly(true);
+        path->setPlaceholderText(tr("Nenhum arquivo selecionado"));
+        path->setText(S::str(pathKey));
+        path->setToolTip(S::str(pathKey));
+        QPushButton* browse = new QPushButton(tr("Pesquisar..."), gbSpeechCue);
+        browse->setToolTip(tr("Pesquisar um arquivo de áudio no computador"));
+        QCheckBox* remote = new QCheckBox(tr("Outros usuários"), gbSpeechCue);
+        remote->setToolTip(tr("Também emitir este sinal quando outro usuário falar"));
+        remote->setChecked(S::flag(remoteKey, false));
+        row->addWidget(label);
+        row->addWidget(path, 1);
+        row->addWidget(browse);
+        row->addWidget(remote);
+        cueLayout->addLayout(row);
+
+        connect(browse, &QPushButton::clicked, this, [path, pathKey] {
+            const QString selected = QFileDialog::getOpenFileName(
+                path, tr("Selecionar arquivo de áudio"), QString(),
+                tr("Arquivos de áudio (*.wav *.mp3 *.ogg *.flac *.m4a);;Todos os arquivos (*.*)"));
+            if (selected.isEmpty()) return;
+            path->setText(selected);
+            path->setToolTip(selected);
+            S::set(pathKey, selected);
+        });
+        connect(remote, &QCheckBox::toggled, this,
+                [remoteKey](bool v) { S::set(remoteKey, v); });
+    };
+    cueFileRow(tr("Ativo"), QStringLiteral("capture/speechCueActive"),
+               QStringLiteral("capture/speechCueRemoteActive"));
+    cueFileRow(tr("Inativo"), QStringLiteral("capture/speechCueInactive"),
+               QStringLiteral("capture/speechCueRemoteInactive"));
+    cueFileRow(tr("Sussurro"), QStringLiteral("capture/speechCueWhisper"),
+               QStringLiteral("capture/speechCueRemoteWhisper"));
+
+    QLabel* cueHint = new QLabel(
+        tr("Os sinais locais acompanham o modo escolhido. Marque \"Outros usuários\" "
+           "para ouvir o mesmo sinal quando outra pessoa falar."), gbSpeechCue);
+    cueHint->setObjectName(QStringLiteral("captionLabel"));
+    cueHint->setWordWrap(true);
+    cueLayout->addWidget(cueHint);
+    right->addWidget(gbSpeechCue);
     right->addStretch(1);
 
     main->addLayout(right, 1);
