@@ -123,7 +123,6 @@ QString InfoPanel::userHtml(const User& u) const {
     QString h = heading(QStringLiteral("●"), tr("Cliente: %1").arg(u.name.toHtmlEscaped()));
     h += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\">");
     if (u.id == m_data->selfId) h += row(tr("Tipo:"), tr("Você (este cliente)"));
-    h += row(tr("ID único:"), QStringLiteral("<code>%1</code>").arg(u.uniqueId.toHtmlEscaped()));
     h += row(tr("Versão:"), QStringLiteral("%1 no %2").arg(u.version, u.platform));
     h += row(tr("Tempo online:"), uptime(u.connectedAt));
     h += row(tr("Grupos de servidor:"), u.serverGroups.toHtmlEscaped());

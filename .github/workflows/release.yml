@@ -91,17 +91,15 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.36
-          name: Halla v3.13.36 — IDs, arraste e permissões de comandante
+          tag_name: v3.13.37
+          name: Halla v3.13.37 — Arraste e permissões de comandante
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.36.exe
+          files: Halla-Setup-3.13.37.exe
           body: |
-            ## Halla Desktop v3.13.36
+            ## Halla Desktop v3.13.37
 
-            ### Identidade e permissões
-            * ID único dos clientes disponível ao selecionar um usuário na árvore.
-            * Usuários podem ser arrastados entre canais quando a conta possui permissão de mover clientes.
-            * Comandante de canal agora depende das permissões de autoatribuição ou atribuição de comandante.
+            * ID único continua sendo usado internamente para sincronização, mas não é mais exibido na interface do usuário.
+            * Mantidos o arraste de clientes com permissão e o controle de permissões de comandante.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
