@@ -91,20 +91,17 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.35
-          name: Halla v3.13.35 — Árvore maior e instalador atualizado
+          tag_name: v3.13.36
+          name: Halla v3.13.36 — IDs, arraste e permissões de comandante
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.35.exe
+          files: Halla-Setup-3.13.36.exe
           body: |
-            ## Halla Desktop v3.13.35
+            ## Halla Desktop v3.13.36
 
-            ### Árvore de canais
-            * Canais, usuários e ícones agora aparecem maiores e mais legíveis.
-            * Árvore aproximada da barra de controles e com recuo horizontal reduzido.
-
-            ### Instalador
-            * Logo oficial aplicada também ao painel visual e aos ícones do instalador.
-            * Arquivos do instalador e licença salvos em UTF-8 com BOM para preservar acentos e caracteres especiais.
+            ### Identidade e permissões
+            * ID único dos clientes disponível ao selecionar um usuário na árvore.
+            * Usuários podem ser arrastados entre canais quando a conta possui permissão de mover clientes.
+            * Comandante de canal agora depende das permissões de autoatribuição ou atribuição de comandante.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

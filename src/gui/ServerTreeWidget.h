@@ -41,6 +41,11 @@ public:
     void setShowCounts(bool on)  { m_showCounts = on; }
     void setShowMinis(bool on);
     void setSortClientsBelow(bool on) { m_sortClientsBelow = on; }
+    void setCanMoveOthers(bool on) { m_canMoveOthers = on; }
+    void setCommanderPermissions(bool self, bool others) {
+        m_canSetSelfCommander = self;
+        m_canSetOtherCommander = others;
+    }
 
     // modos de expansão (Opções → Aparência → Árvore do canal)
     void expandChannelsToLevel(int level);     // recolhe tudo e expande até o nível
@@ -61,6 +66,7 @@ signals:
     void renameRequested();
     void setDescriptionRequested();
     void viewAvatarRequested(int userId);
+    void userInfoRequested(int userId);
     void complaintRequested(int userId);
     void pokeRequested(int userId);
     void volumeRequested(int userId);
@@ -69,6 +75,8 @@ signals:
     void kickRequested(int userId, bool fromServer);
     void banRequested(int userId);
     void moveToMyChannelRequested(int userId);
+    void moveUserRequested(int userId, int channelId);
+    void commanderRequested(int userId, bool on);
     void privateMessageRequested(int userId);
     void disconnectRequested();
     void addBookmarkRequested();
@@ -93,4 +101,7 @@ private:
     ServerRowDelegate* m_delegate = nullptr;
     bool m_showCounts = true;
     bool m_sortClientsBelow = false;
+    bool m_canMoveOthers = false;
+    bool m_canSetSelfCommander = false;
+    bool m_canSetOtherCommander = false;
 };

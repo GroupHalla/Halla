@@ -431,8 +431,9 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
     item->setData(0, RoleKind, NodeUser);
     item->setData(0, RoleId, u.id);
     item->setToolTip(0, userTooltip(u));
-    item->setFlags((Qt::ItemIsEnabled | Qt::ItemIsSelectable |
-                    (u.id == m_data->selfId ? Qt::ItemIsDragEnabled : Qt::NoItemFlags)));
+    const bool draggable = (u.id == m_data->selfId) || m_canMoveOthers;
+    item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
+                   (draggable ? Qt::ItemIsDragEnabled : Qt::NoItemFlags));
     if (u.away) item->setForeground(0, QColor("#6E7B86"));
 }
 
@@ -485,9 +486,19 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
 
         menu.addAction(tr("Ver avatar"), this,
                        [this, id] { emit viewAvatarRequested(id); });
+        menu.addAction(tr("Ver informações do cliente"), this,
+                       [this, id] { emit userInfoRequested(id); });
         menu.addSeparator();
 
         if (self) {
+            if (m_canSetSelfCommander) {
+                const QString label = u.commander ? tr("Remover comandante do canal")
+                                                   : tr("Conceder comandante do canal");
+                const bool turnOn = !u.commander;
+                menu.addAction(label, this, [this, id, turnOn] {
+                    emit commanderRequested(id, turnOn);
+                });
+            }
             menu.addAction(tr("Alterar apelido"), this, [this] { emit renameRequested(); });
             menu.addAction(tr("Definir descrição do cliente"), this,
                            [this] { emit setDescriptionRequested(); });
@@ -502,8 +513,14 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
                            [this, id, u] { emit localMuteToggled(id, !u.locallyMuted); })
                 ->setCheckable(false);
             menu.addSeparator();
-            menu.addAction(tr("Conceder/Revogar comandante do canal"), this,
-                           [this] { emit commanderToggled(); });
+            if (m_canSetOtherCommander) {
+                const QString label = u.commander ? tr("Revogar comandante do canal")
+                                                   : tr("Conceder comandante do canal");
+                const bool turnOn = !u.commander;
+                menu.addAction(label, this, [this, id, turnOn] {
+                    emit commanderRequested(id, turnOn);
+                });
+            }
             menu.addSeparator();
             QMenu* kick = menu.addMenu(tr("Expulsar"));
             kick->addAction(tr("Expulsar do canal"), this,
@@ -556,11 +573,11 @@ bool ServerTreeWidget::dropMimeData(QTreeWidgetItem* parent, int, const QMimeDat
         return false;
 
     const int uid = data->data(QStringLiteral("application/x-halla-userid")).toInt();
-    if (uid != m_data->selfId) return false; // só é possível mover a si mesmo
+    if (uid != m_data->selfId && !m_canMoveOthers) return false;
 
     int target = parent->data(0, RoleKind).toInt() == NodeServer
                      ? m_data->channels.begin().key()
                      : parent->data(0, RoleId).toInt();
-    emit joinChannelRequested(target);
+    emit moveUserRequested(uid, target);
     return true;
 }

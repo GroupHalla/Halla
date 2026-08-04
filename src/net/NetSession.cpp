@@ -135,6 +135,13 @@ void NetSession::moveOther(int userId, int channelId) {
     send(m);
 }
 
+void NetSession::setCommander(int userId, bool on) {
+    QJsonObject m = HProto::msg("commander");
+    m["id"] = userId;
+    m["on"] = on;
+    send(m);
+}
+
 void NetSession::sendStatus() {
     const User& self = target().users[target().selfId];
     QJsonObject m = HProto::msg("status");

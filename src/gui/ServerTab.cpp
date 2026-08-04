@@ -172,6 +172,7 @@ QString ServerTab::tabTitle() const { return m_data.name; }
 void ServerTab::attachNetwork(NetSession* net) {
     m_net = net;
     net->attachTo(&m_data);
+    updatePermissionUi();
 
     // usuários já presentes no login (não tocar som para eles)
     for (const User& u : m_data.users) m_knownUsers << u.id;
@@ -211,6 +212,7 @@ void ServerTab::attachNetwork(NetSession* net) {
         m_myChan = myChan;
 
         applyWhisper(); // mantém o alvo do sussurro sincronizado (ids mudam a cada login)
+        updatePermissionUi();
 
         m_tree->rebuild();
         m_info->refresh();
@@ -284,7 +286,32 @@ void ServerTab::attachNetwork(NetSession* net) {
     }
 }
 
+bool ServerTab::hasPermission(const QStringList& keys) const {
+    if (!m_net) return true; // abas locais/demo mantêm todos os controles disponíveis
+    const QJsonObject perms = m_net->myPerms();
+    if (perms.value(QStringLiteral("*")).toBool()) return true;
+    for (const QString& key : keys) {
+        const QJsonValue value = perms.value(key);
+        if (value.toBool() || value.toInt(0) > 0) return true;
+    }
+    return false;
+}
+
+void ServerTab::updatePermissionUi() {
+    const bool moveOthers = hasPermission({ QStringLiteral("move"),
+                                             QStringLiteral("i_client_move_power") });
+    const bool selfCommander = hasPermission({ QStringLiteral("selfCommander"),
+                                               QStringLiteral("b_client_is_channel_commander"),
+                                               QStringLiteral("setCommander"),
+                                               QStringLiteral("b_client_set_channel_commander") });
+    const bool otherCommander = hasPermission({ QStringLiteral("setCommander"),
+                                                QStringLiteral("b_client_set_channel_commander") });
+    m_tree->setCanMoveOthers(moveOthers);
+    m_tree->setCommanderPermissions(selfCommander, otherCommander);
+}
+
 void ServerTab::applyDisplayOptions() {
+    updatePermissionUi();
     m_tree->setShowCounts(S::flag("design/showCounts", true));
     m_tree->setShowMinis(S::flag("design/showMinis", true));
     m_tree->setSortClientsBelow(S::flag("design/sortClientsBelow", false));
@@ -377,13 +404,44 @@ void ServerTab::hookSignals() {
         emit statusChanged();
     });
 
-    connect(m_tree, &ServerTreeWidget::commanderToggled, this, [this] {
-        User& self = m_data.users[m_data.selfId];
-        self.commander = !self.commander;
-        if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
-        systemMsgChannel(self.commander
-            ? tr("Você agora é o comandante do canal.")
-            : tr("Você não é mais o comandante do canal."));
+    connect(m_tree, &ServerTreeWidget::userInfoRequested, this, [this](int uid) {
+        if (m_data.users.contains(uid)) m_info->setSelection(NodeUser, uid);
+    });
+
+    connect(m_tree, &ServerTreeWidget::commanderRequested, this,
+            [this](int uid, bool on) {
+        if (!m_data.users.contains(uid)) return;
+        if (m_net) {
+            const bool allowed = uid == m_data.selfId
+                ? hasPermission({ QStringLiteral("selfCommander"),
+                                  QStringLiteral("b_client_is_channel_commander"),
+                                  QStringLiteral("setCommander"),
+                                  QStringLiteral("b_client_set_channel_commander") })
+                : hasPermission({ QStringLiteral("setCommander"),
+                                  QStringLiteral("b_client_set_channel_commander") });
+            if (!allowed) {
+                systemMsgChannel(tr("Você não tem permissão para definir o comandante do canal."));
+                return;
+            }
+            m_net->setCommander(uid, on);
+            return;
+        }
+        m_data.users[uid].commander = on;
+        m_tree->rebuild();
+        emit statusChanged();
+    });
+
+    connect(m_tree, &ServerTreeWidget::moveUserRequested, this,
+            [this](int uid, int channelId) {
+        if (!m_data.users.contains(uid) || !m_data.channels.contains(channelId)) return;
+        if (m_net) {
+            if (uid == m_data.selfId) m_net->moveToChannel(channelId);
+            else m_net->moveOther(uid, channelId);
+            return;
+        }
+        for (Channel& c : m_data.channels) c.users.removeAll(uid);
+        m_data.channels[channelId].users << uid;
+        m_tree->rebuild();
         emit statusChanged();
     });
 
@@ -902,9 +960,20 @@ void ServerTab::setWhisperHold(bool on, int scope) {
 
 void ServerTab::toggleCommander() {
     User& self = m_data.users[m_data.selfId];
-    self.commander = !self.commander;
-    if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
-    systemMsgChannel(self.commander
+    const bool on = !self.commander;
+    if (m_net) {
+        if (!hasPermission({ QStringLiteral("selfCommander"),
+                             QStringLiteral("b_client_is_channel_commander"),
+                             QStringLiteral("setCommander"),
+                             QStringLiteral("b_client_set_channel_commander") })) {
+            systemMsgChannel(tr("Você não tem permissão para ser comandante do canal."));
+            return;
+        }
+        m_net->setCommander(self.id, on);
+        return;
+    }
+    self.commander = on;
+    systemMsgChannel(on
         ? tr("Você agora é o comandante do canal.")
         : tr("Você não é mais o comandante do canal."));
     m_tree->rebuild();

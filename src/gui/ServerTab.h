@@ -96,6 +96,8 @@ private:
     bool m_whisperHold = false;           // atalho de sussurro pressionado agora
 
     void hookSignals();
+    bool hasPermission(const QStringList& keys) const;
+    void updatePermissionUi();
     void applyWhisper();                  // mapeia uids -> ids e envia ao servidor
     void viewAvatar(int userId);
     void systemMsgServer(const QString& msg);
