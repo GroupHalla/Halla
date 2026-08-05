@@ -139,8 +139,8 @@ QString HTheme::styleSheet(bool dark) {
            + QStringLiteral("; border: 1px solid ") + borderStrong + QStringLiteral("; border-radius: 7px; padding: 5px; }");
 
     // Options dialog keeps the same two-column layout but uses the new surfaces.
-    css += QStringLiteral("QListWidget#optionsNav { background: ") + surface + QStringLiteral("; border: 0; outline: 0; padding: 6px; }");
-    css += QStringLiteral("QListWidget#optionsNav::item { height: 44px; padding: 5px 10px; border-radius: 10px; }");
+    css += QStringLiteral("QListWidget#optionsNav { background: ") + surface + QStringLiteral("; border: 0; outline: 0; padding: 8px; }");
+    css += QStringLiteral("QListWidget#optionsNav::item { height: 56px; padding: 6px 12px; border-radius: 10px; font-size: 14px; }");
     css += QStringLiteral("QListWidget#optionsNav::item:selected { background: ") + selected + QStringLiteral("; color: ") + accentBright + QStringLiteral("; }");
     css += QStringLiteral("QWidget#pageHeader { background: ") + surfaceAlt + QStringLiteral("; border: 0; border-bottom: 1px solid ") + border + QStringLiteral("; }");
     css += QStringLiteral("QLabel#pageTitle { color: ") + text + QStringLiteral("; font-size: 16px; font-weight: 700; }");

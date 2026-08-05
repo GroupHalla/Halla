@@ -60,6 +60,15 @@ static QPixmap headerIconPixmap(const QIcon& icon, int size) {
     return out;
 }
 
+// Os ícones antigos do pacote têm uma tela de 16/24 px. O menu lateral da
+// referência usa pictogramas grandes; redimensionamos explicitamente para que
+// o Qt não preserve a tela pequena original do QIcon.
+static QIcon largeNavigationIcon(const QIcon& icon) {
+    const QPixmap source = icon.pixmap(64, 64);
+    if (source.isNull()) return icon;
+    return QIcon(source.scaled(42, 42, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+}
+
 // linha separadora de 1px (vertical na sidebar / horizontal sobre os botões)
 static QWidget* separatorLine(bool vertical) {
     QWidget* w = new QWidget;
@@ -334,10 +343,13 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent) {
     // ---------------- menu lateral (ícones grandes + texto) --------------
     m_nav = new QListWidget(this);
     m_nav->setObjectName(QStringLiteral("optionsNav"));
-    m_nav->setFixedWidth(220);
-    m_nav->setIconSize(QSize(32, 32));
-    m_nav->setSpacing(1);
+    m_nav->setFixedWidth(260);
+    m_nav->setIconSize(QSize(42, 42));
+    m_nav->setSpacing(4);
     m_nav->setFrameShape(QFrame::NoFrame);
+    QFont navigationFont = m_nav->font();
+    navigationFont.setPointSize(14);
+    m_nav->setFont(navigationFont);
 
     struct PageDef { QString name; QString subtitle; QIcon icon; };
     const QList<PageDef> pages = {
@@ -352,7 +364,9 @@ OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent) {
         { tr("Complementos"),     tr("Extensões e pacotes do cliente"),       HIcons::addons() },
     };
     for (const PageDef& d : pages) {
-        QListWidgetItem* it = new QListWidgetItem(d.icon, d.name);
+        QListWidgetItem* it = new QListWidgetItem(largeNavigationIcon(d.icon), d.name);
+        it->setSizeHint(QSize(248, 56));
+        it->setFont(navigationFont);
         m_nav->addItem(it);
         m_pageSubtitles << d.subtitle;
     }
