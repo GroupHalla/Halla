@@ -36,6 +36,7 @@
 #include <QSplitter>
 #include <QSystemTrayIcon>
 #include <QMessageBox>
+#include <QProcess>
 #include <QCloseEvent>
 #include <QApplication>
 #include <QShortcut>
@@ -323,6 +324,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                           });
                           connect(&dlg, &OptionsDialog::hotkeysChanged, this,
                                   &MainWindow::applyHotkeys);
+                          connect(&dlg, &OptionsDialog::languageChanged, this, [this] {
+                              // Os widgets são construídos com tr() durante a
+                              // inicialização. Reiniciar após a escolha aplica
+                              // a tradução inteira, não apenas o diálogo atual.
+                              QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                                                      QCoreApplication::arguments().mid(1));
+                              qApp->quit();
+                          });
                           dlg.exec();
                       });
     m_actOptions->setShortcut(QKeySequence(QStringLiteral("Alt+P")));

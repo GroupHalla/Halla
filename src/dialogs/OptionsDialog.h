@@ -22,6 +22,7 @@ signals:
     void themeChanged();
     void designChanged();
     void hotkeysChanged();
+    void languageChanged();
 
 private:
     QWidget* pageApplication();

@@ -512,6 +512,7 @@ QWidget* OptionsDialog::pageApplication() {
     fl->addRow(tr("Idioma:"), lang);
     connect(lang, &QComboBox::currentIndexChanged, this, [this](int idx) {
         S::set("app/language", idx);
+        emit languageChanged();
     });
     right->addWidget(gbLang);
 

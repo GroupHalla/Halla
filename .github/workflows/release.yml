@@ -93,19 +93,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — idiomas e sinais sonoros
+          name: Halla ${{ github.ref_name }} — idioma aplicado imediatamente
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.55.exe
+          files: Halla-Setup-3.13.56.exe
           body: |
-            ## Halla Desktop v3.13.55
-
-            ### Sinal sonoro de sussurro
-            * O modo **Detecção de ativação por voz** agora também força a transmissão enquanto o sussurro está pressionado.
-            * O cue de sussurro é emitido corretamente mesmo quando o VAD já estava falando antes do botão ser pressionado.
+            ## Halla Desktop v3.13.56
 
             ### Idiomas
-            * O cliente detecta o idioma do sistema e oferece Português, English e Español.
-            * A tradução foi ampliada para menus, diálogos, opções, avisos e mensagens da interface.
+            * A troca de idioma nas Opções agora reinicia o cliente automaticamente para aplicar a tradução em toda a interface.
+            * O modo automático continua seguindo o idioma do sistema; estão disponíveis Português, English e Español.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
