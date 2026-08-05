@@ -14,14 +14,15 @@ enum TreeRoles {
     RoleId,
 };
 
-// Delegado que pinta os mini-ícones de estado (mic mudo, fones mudos, ausente,
-// gravando, comandante) logo após o nome do usuário — exatamente como o Halla.
+// Delegado que pinta os ícones de grupo/status; os indicadores de microfone,
+// fones, ausência e fala ficam no bloco antes do nome — exatamente como o Halla.
 class ServerRowDelegate : public QStyledItemDelegate {
     Q_OBJECT
 public:
     using QStyledItemDelegate::QStyledItemDelegate;
     void setServerData(const ServerData* d) { m_data = d; }
     void setShowMinis(bool show) { m_showMinis = show; }
+    bool showMinis() const { return m_showMinis; }
 
 protected:
     void paint(QPainter* p, const QStyleOptionViewItem& opt,

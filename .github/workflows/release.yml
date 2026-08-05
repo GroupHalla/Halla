@@ -93,16 +93,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — tema escuro
+          name: Halla ${{ github.ref_name }} — status antes do nome
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.49.exe
+          files: Halla-Setup-3.13.50.exe
           body: |
-            ## Halla Desktop v3.13.49
+            ## Halla Desktop v3.13.50
 
-            ### Tema escuro
-            * Recriado o tema escuro com a mesma composição da referência: navegação superior, barra de ferramentas, cartões, árvore compacta, painel com banner e chat inferior.
-            * Ajustados os tons azul-marinho, bordas, tipografia, seleção roxa, setas da árvore e estados dos controles.
-            * A identidade visual permanece Halla, sem referências visuais ou textuais a produtos externos.
+            ### Status dos usuários
+            * Indicadores de microfone mudo, áudio silenciado, ausência, gravação, comandante e operador agora aparecem antes do nome do usuário.
+            * O estado de fala é destacado no avatar do usuário com um anel colorido, mantendo a leitura da árvore compacta nos temas claro e escuro.
+            * Os ícones de grupo continuam sendo exibidos separadamente após o nome quando configurados.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

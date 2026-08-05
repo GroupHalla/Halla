@@ -8,6 +8,7 @@
 #include <QMimeData>
 #include <QDropEvent>
 #include <QPainter>
+#include <QLinearGradient>
 #include <QSet>
 #include <QStyle>
 #include <QRegularExpression>
@@ -82,20 +83,55 @@ static QPixmap createGroupIconPixmap(const QString& iconText, ServerTreeWidget* 
     return pm;
 }
 
+// Statuses are placed in the same leading area as the user's avatar. The
+// reference shows microphone/headphone/away indicators before the nickname,
+// never after it.
+static QPixmap treeUserSphere(const User& u) {
+    QPixmap pm(16, 16);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    const bool dark = HTheme::isDark();
+    QLinearGradient gradient(0, 1, 0, 15);
+    gradient.setColorAt(0, u.away ? QColor("#8B97A5") : (dark ? QColor("#9A8BCE") : QColor("#9FC4E4")));
+    gradient.setColorAt(1, u.away ? QColor("#566271") : (dark ? QColor("#3B2875") : QColor("#1E527D")));
+    p.setPen(QPen(u.away ? QColor("#66727F") : (dark ? QColor("#2A1C52") : QColor("#1E415F")), 0.8));
+    p.setBrush(gradient);
+    p.drawEllipse(QRectF(1, 1, 14, 14));
+    if (u.talking) {
+        const QColor ring = u.whispering ? QColor("#F59E0B") : QColor("#22C55E");
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(ring, 1.8, Qt::SolidLine, Qt::RoundCap));
+        p.drawEllipse(QRectF(0.7, 0.7, 14.6, 14.6));
+    }
+    return pm;
+}
+
+static QIcon leadingUserIcon(const User& u, bool showStatus) {
+    const QPixmap avatar = treeUserSphere(u);
+    const QPixmap statuses = showStatus
+        ? HIcons::userStatusMinis(u.inputMuted, u.outputMuted || u.locallyMuted,
+                                  u.away, u.recording, u.commander, u.op)
+        : QPixmap();
+    const int statusWidth = statuses.isNull() ? 12 : statuses.width();
+    QPixmap combined(16 + statusWidth + 2, 18);
+    combined.fill(Qt::transparent);
+    QPainter painter(&combined);
+    painter.drawPixmap(0, 1, avatar);
+    if (!statuses.isNull()) painter.drawPixmap(17, 2, statuses);
+    return QIcon(combined);
+}
+
 // ============================================================== Delegado
 void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
                               const QModelIndex& index) const {
     QStyledItemDelegate::paint(p, opt, index);
 
-    if (!m_data || !m_showMinis) return;
+    if (!m_data) return;
     if (index.data(RoleKind).toInt() != NodeUser) return;
 
     const int uid = index.data(RoleId).toInt();
     if (!m_data->users.contains(uid)) return;
     const User& u = m_data->users[uid];
-
-    QPixmap minis = HIcons::userStatusMinis(u.inputMuted, u.outputMuted || u.locallyMuted,
-                                            u.away, u.recording, u.commander, u.op);
 
     ServerTreeWidget* tree = qobject_cast<ServerTreeWidget*>(const_cast<QObject*>(parent()));
 
@@ -113,13 +149,7 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     }
 
     int totalW = 0;
-    for (const QPixmap& pm : iconPms) {
-        totalW += pm.width() + 4;
-    }
-    if (!minis.isNull()) {
-        totalW += minis.width();
-    }
-
+    for (const QPixmap& pm : iconPms) totalW += pm.width() + 4;
     if (totalW == 0) return;
 
     QPixmap combined(totalW, 14);
@@ -130,9 +160,6 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     for (const QPixmap& pm : iconPms) {
         cp.drawPixmap(currentX, 0, pm);
         currentX += pm.width() + 4;
-    }
-    if (!minis.isNull()) {
-        cp.drawPixmap(currentX, 0, minis);
     }
 
     QStyleOptionViewItem o = opt;
@@ -169,7 +196,8 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     // com seleção estendida.
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setDragDropMode(InternalMove);
-    setIconSize(HTheme::isDark() ? QSize(24, 24) : QSize(16, 16));
+    // Reserva largura para o avatar e os indicadores de estado antes do nome.
+    setIconSize(QSize(30, 18));
     setFrameShape(QFrame::NoFrame);
 
     m_delegate = new ServerRowDelegate(this);
@@ -450,7 +478,7 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
         displayName = u.sigla + " " + displayName;
     }
     item->setText(0, displayName);
-    item->setIcon(0, HIcons::user(u.talking, u.away, 20, u.whispering));
+    item->setIcon(0, leadingUserIcon(u, m_delegate ? m_delegate->showMinis() : true));
     item->setData(0, RoleKind, NodeUser);
     item->setData(0, RoleId, u.id);
     item->setToolTip(0, userTooltip(u));
