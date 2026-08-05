@@ -395,6 +395,19 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     addButton(utilityGroup, m_actOptions, nullptr);
     addButton(utilityGroup, m_actWhisper, whMenu);
 
+    // O indicador de notificações fica isolado à direita, como na referência.
+    QWidget* toolbarSpacer = new QWidget(tb);
+    toolbarSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    tb->addWidget(toolbarSpacer);
+    QToolButton* notifications = new QToolButton(tb);
+    notifications->setObjectName(QStringLiteral("toolbarIconButton"));
+    notifications->setIcon(HIcons::bell());
+    notifications->setIconSize(QSize(18, 18));
+    notifications->setToolTip(tr("Notificações"));
+    notifications->setAutoRaise(true);
+    connect(notifications, &QToolButton::clicked, this, &MainWindow::showNotifications);
+    tb->addWidget(notifications);
+
     // ------------------------- área central -----------------------------
     m_stack = new QStackedWidget(this);
 

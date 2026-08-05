@@ -3,20 +3,21 @@
 #include <QIcon>
 #include <QPixmap>
 #include <QColor>
+#include "app/Theme.h"
 
 // Ícones do Halla — todos renderizados em código (QPainter) no estilo visual
 // clássico do Halla, sem depender de arquivos externos.
 namespace HIcons {
 
 // cores da identidade visual
-inline QColor blue()        { return QColor("#7C3AED"); }
-inline QColor blueDark()    { return QColor("#25104F"); }
-inline QColor navyMid()     { return QColor("#4B1C9B"); }
+inline QColor blue()        { return HTheme::isDark() ? QColor("#7C3AED") : QColor("#2E6FAE"); }
+inline QColor blueDark()    { return HTheme::isDark() ? QColor("#25104F") : QColor("#1F4E79"); }
+inline QColor navyMid()     { return HTheme::isDark() ? QColor("#4B1C9B") : QColor("#5B86B2"); }
 inline QColor green()       { return QColor("#3CA55C"); }
 inline QColor orange()      { return QColor("#E67E22"); }
 inline QColor red()         { return QColor("#D9534F"); }
 inline QColor gold()        { return QColor("#E8B23C"); }
-inline QColor grayLine()    { return QColor("#8A939B"); }
+inline QColor grayLine()    { return HTheme::isDark() ? QColor("#8A939B") : QColor("#AAB4C3"); }
 
 QPixmap appIcon(int size = 64);
 QPixmap banner(int w = 560, int h = 58);

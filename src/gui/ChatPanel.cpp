@@ -19,6 +19,9 @@ ChatPanel::ChatPanel(QWidget* parent) : QWidget(parent) {
     m_tabs->setDocumentMode(true);
     m_tabs->setTabsClosable(true);
     m_tabs->setMovable(false);
+    // O tema branco segue a disposição da referência: as abas ficam abaixo
+    // do histórico e imediatamente acima da caixa de mensagem.
+    m_tabs->setTabPosition(QTabWidget::South);
     m_tabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     m_serverChat  = makeBrowser();

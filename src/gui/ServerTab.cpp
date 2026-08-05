@@ -115,6 +115,26 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     headerLayout->addWidget(more);
     treeLayout->addWidget(treeHeader);
 
+    // Faixa de boas-vindas acima da árvore, como na referência branca. Ela
+    // usa apenas os dados do próprio servidor Halla e não introduz marcas
+    // externas na interface.
+    QFrame* introCard = new QFrame(treeCard);
+    introCard->setObjectName(QStringLiteral("serverIntroCard"));
+    introCard->setMinimumHeight(82);
+    introCard->setMaximumHeight(82);
+    QVBoxLayout* introLayout = new QVBoxLayout(introCard);
+    introLayout->setContentsMargins(14, 8, 14, 8);
+    introLayout->setSpacing(2);
+    m_serverIntroTitle = new QLabel(QStringLiteral("🎧  %1").arg(m_data.name), introCard);
+    m_serverIntroTitle->setObjectName(QStringLiteral("serverIntroTitle"));
+    m_serverIntroText = new QLabel(m_data.motd, introCard);
+    m_serverIntroText->setObjectName(QStringLiteral("serverIntroText"));
+    m_serverIntroText->setWordWrap(true);
+    m_serverIntroText->setTextFormat(Qt::PlainText);
+    introLayout->addWidget(m_serverIntroTitle);
+    introLayout->addWidget(m_serverIntroText, 1);
+    treeLayout->addWidget(introCard);
+
     m_tree = new ServerTreeWidget(treeCard);
     m_tree->setServerData(&m_data);
     treeLayout->addWidget(m_tree, 1);
@@ -131,7 +151,7 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     m_hsplit->addWidget(infoCard);
     m_hsplit->setStretchFactor(0, 47);
     m_hsplit->setStretchFactor(1, 53);
-    m_hsplit->setSizes({ 700, 810 });
+    m_hsplit->setSizes({ 850, 850 });
     m_split->addWidget(m_hsplit);
 
     QFrame* chatCard = new QFrame(m_split);
@@ -145,7 +165,7 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     m_split->addWidget(chatCard);
     m_split->setStretchFactor(0, 1);
     m_split->setStretchFactor(1, 0);
-    m_split->setSizes({ 410, 245 });
+    m_split->setSizes({ 520, 165 });
 
     const QByteArray hv = QByteArray::fromBase64(S::str("design/splitVertical").toUtf8());
     if (!hv.isEmpty()) m_split->restoreState(hv);
@@ -164,6 +184,8 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
             [this](int kind, int id) { m_info->setSelection(kind, id); });
     connect(this, &ServerTab::statusChanged, this, [this] {
         m_serverHeaderName->setText(m_data.name);
+        if (m_serverIntroTitle) m_serverIntroTitle->setText(QStringLiteral("🎧  %1").arg(m_data.name));
+        if (m_serverIntroText) m_serverIntroText->setText(m_data.motd);
         m_info->refresh();
     });
     m_info->setSelection(0, 0);

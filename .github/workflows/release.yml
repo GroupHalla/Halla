@@ -93,19 +93,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — árvore e movimentação
+          name: Halla ${{ github.ref_name }} — tema branco
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.47.exe
+          files: Halla-Setup-3.13.48.exe
           body: |
-            ## Halla Desktop v3.13.47
+            ## Halla Desktop v3.13.48
 
-            ### Árvore de canais
-            * Setas explícitas indicam quando um canal possui usuários/subcanais visíveis e alternam entre aberto e fechado.
-            * O arraste sobre o corpo de um canal cria um subcanal sem alterar a hierarquia quando um usuário apenas troca de canal.
-            * Arrastar um usuário para fora da árvore é rejeitado; o destino precisa ser um canal existente.
-
-            ### Servidor
-            * Movimentos enviados para o canal `0` ou para um destino inexistente agora são recusados pelo servidor.
+            ### Tema branco
+            * Recriado o layout claro com navegação superior compacta, barra de ferramentas, cartões brancos, árvore de canais compacta, painel de informações com banner e chat inferior.
+            * Atualizadas tipografia, espaçamentos, bordas, cores, estados selecionados, setas da árvore e ícones para o padrão branco da referência.
+            * A identidade visual permanece Halla, sem referências visuais ou textuais a produtos externos.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

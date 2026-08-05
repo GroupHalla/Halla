@@ -169,7 +169,7 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     // com seleção estendida.
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setDragDropMode(InternalMove);
-    setIconSize(QSize(24, 24));
+    setIconSize(HTheme::isDark() ? QSize(24, 24) : QSize(16, 16));
     setFrameShape(QFrame::NoFrame);
 
     m_delegate = new ServerRowDelegate(this);

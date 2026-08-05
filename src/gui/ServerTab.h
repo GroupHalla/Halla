@@ -85,6 +85,8 @@ private:
     QSplitter* m_split = nullptr;   // vertical: corpo (tree|info) / chat
     QSplitter* m_hsplit = nullptr;  // horizontal: árvore 50% | informações 50%
     QLabel* m_serverHeaderName = nullptr;
+    QLabel* m_serverIntroTitle = nullptr;
+    QLabel* m_serverIntroText = nullptr;
     NetSession* m_net = nullptr;
     VoiceEngine* m_voice = nullptr;
 

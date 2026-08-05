@@ -31,10 +31,10 @@ InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
 
     m_banner = new QLabel(this);
     m_banner->setObjectName(QStringLiteral("infoBanner"));
-    m_banner->setPixmap(HIcons::banner(820, 94));
+    m_banner->setPixmap(HIcons::banner(820, 210));
     m_banner->setScaledContents(true);
-    m_banner->setMinimumHeight(94);
-    m_banner->setMaximumHeight(94);
+    m_banner->setMinimumHeight(210);
+    m_banner->setMaximumHeight(210);
     lay->addWidget(m_banner);
 
     m_view = new InfoView(this);
@@ -64,19 +64,21 @@ QString InfoPanel::uptime(const QDateTime& since) {
 }
 
 static QString row(const QString& key, const QString& value) {
-    return QStringLiteral("<tr><td style=\"color:#8D899F; padding:7px 26px 7px 0; white-space:nowrap;\">%1</td>"
-                          "<td style=\"padding:7px 0; font-weight:600;\">%2</td></tr>")
-        .arg(key, value);
+    const QString muted = HTheme::isDark() ? QStringLiteral("#8D899F") : QStringLiteral("#6E7D8B");
+    return QStringLiteral("<tr><td style=\"color:%1; padding:5px 20px 5px 0; white-space:nowrap;\">%2</td>"
+                          "<td style=\"padding:5px 0; font-weight:600;\">%3</td></tr>")
+        .arg(muted, key, value);
 }
 
 static QString heading(const QString& icon, const QString& title, const QString& badge = QString()) {
-    const QString line = HTheme::isDark() ? QStringLiteral("#2A2840") : QStringLiteral("#E8E5F0");
+    const QString line = HTheme::isDark() ? QStringLiteral("#2A2840") : QStringLiteral("#DDE3E9");
+    const QString accent = HTheme::isDark() ? QStringLiteral("#8B5CF6") : QStringLiteral("#2E6FAE");
     QString h = QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>");
-    h += QStringLiteral("<td style=\"font-size:17px; padding:3px 0 13px 0;\"><span style=\"color:#8B5CF6;\">%1</span> <b>%2</b></td>")
-             .arg(icon, title);
+    h += QStringLiteral("<td style=\"font-size:15px; padding:3px 0 10px 0;\"><span style=\"color:%1;\">%2</span> <b>%3</b></td>")
+             .arg(accent, icon, title);
     if (!badge.isEmpty()) {
-        h += QStringLiteral("<td align=\"right\" style=\"padding:2px 0 12px 0; color:#8B5CF6; font-weight:700;\">%1</td>")
-                 .arg(badge);
+        h += QStringLiteral("<td align=\"right\" style=\"padding:2px 0 10px 0; color:%1; font-weight:700;\">%2</td>")
+                 .arg(accent, badge);
     }
     h += QStringLiteral("</tr></table><hr style=\"border:0; border-top:1px solid %1; margin:0 0 10px 0;\">").arg(line);
     return h;
@@ -144,7 +146,7 @@ QString InfoPanel::userHtml(const User& u) const {
 }
 
 void InfoPanel::refresh() {
-    m_banner->setPixmap(HIcons::banner(820, 94));
+    m_banner->setPixmap(HIcons::banner(820, 210));
     if (!m_data) {
         m_view->setHtml(QString());
         return;
