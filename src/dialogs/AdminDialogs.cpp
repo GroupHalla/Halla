@@ -206,7 +206,10 @@ static const QList<QPair<QString, QString>>& permDefs() {
 ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidget* parent)
     : QDialog(parent), m_net(net), m_data(data) {
     setWindowTitle(tr("Grupos de servidores"));
-    resize(760, 470);
+    // A grade de grupos, membros e permissões precisa de espaço para não
+    // esconder nomes nem transformar a lista de usuários em uma linha curta.
+    setMinimumSize(1000, 650);
+    resize(1180, 760);
 
     QVBoxLayout* root = new QVBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 8);
