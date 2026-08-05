@@ -93,16 +93,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — tema branco
+          name: Halla ${{ github.ref_name }} — tema escuro
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.48.exe
+          files: Halla-Setup-3.13.49.exe
           body: |
-            ## Halla Desktop v3.13.48
+            ## Halla Desktop v3.13.49
 
-            ### Tema branco
-            * Recriado o layout claro com navegação superior compacta, barra de ferramentas, cartões brancos, árvore de canais compacta, painel de informações com banner e chat inferior.
-            * Atualizadas tipografia, espaçamentos, bordas, cores, estados selecionados, setas da árvore e ícones para o padrão branco da referência.
+            ### Tema escuro
+            * Recriado o tema escuro com a mesma composição da referência: navegação superior, barra de ferramentas, cartões, árvore compacta, painel com banner e chat inferior.
+            * Ajustados os tons azul-marinho, bordas, tipografia, seleção roxa, setas da árvore e estados dos controles.
             * A identidade visual permanece Halla, sem referências visuais ou textuais a produtos externos.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
