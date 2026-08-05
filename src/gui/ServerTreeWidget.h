@@ -4,6 +4,8 @@
 #include <QStyledItemDelegate>
 #include "core/Models.h"
 
+class QDropEvent;
+
 // Papel dos nós da árvore
 enum NodeKind { NodeServer = 0, NodeChannel = 1, NodeUser = 2 };
 
@@ -91,6 +93,7 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent* e) override;
     QStringList mimeTypes() const override;
     QMimeData* mimeData(const QList<QTreeWidgetItem*>& items) const override;
+    void dropEvent(QDropEvent* event) override;
     bool dropMimeData(QTreeWidgetItem* parent, int index, const QMimeData* data,
                       Qt::DropAction action) override;
 

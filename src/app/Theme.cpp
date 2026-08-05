@@ -75,6 +75,10 @@ QString HTheme::styleSheet(bool dark) {
     css += QStringLiteral("QTreeWidget#serverTree::item:selected { background: ") + selected
            + QStringLiteral("; color: ") + text + QStringLiteral("; }");
     css += QStringLiteral("QTreeWidget#serverTree::branch { background: transparent; }");
+    // Indicadores explícitos: seta para a direita quando os usuários/subcanais
+    // estão ocultos e seta para baixo quando o conteúdo está visível.
+    css += QStringLiteral("QTreeWidget#serverTree::branch:closed:has-children { image: url(:/halla/assets/tree-arrow-right.svg); }");
+    css += QStringLiteral("QTreeWidget#serverTree::branch:open:has-children { image: url(:/halla/assets/tree-arrow-down.svg); }");
 
     // Information panel and banner.
     css += QStringLiteral("QLabel#infoBanner { border: 0; border-top-left-radius: 13px; border-top-right-radius: 13px; }");

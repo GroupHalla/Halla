@@ -6,6 +6,7 @@
 #include <QMouseEvent>
 #include <QMenu>
 #include <QMimeData>
+#include <QDropEvent>
 #include <QPainter>
 #include <QSet>
 #include <QStyle>
@@ -408,6 +409,11 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
             addUserItem(item, m_data->users[uid]);
     }
 
+    if (!isSpacer) {
+        item->setChildIndicatorPolicy(item->childCount() > 0
+            ? QTreeWidgetItem::ShowIndicator
+            : QTreeWidgetItem::DontShowIndicatorWhenChildless);
+    }
     return item;
 }
 
@@ -612,6 +618,89 @@ QMimeData* ServerTreeWidget::mimeData(const QList<QTreeWidgetItem*>& items) cons
         md->setData(QStringLiteral("application/x-halla-channelid"), QByteArray::number(id));
     }
     return md;
+}
+
+void ServerTreeWidget::dropEvent(QDropEvent* event) {
+    if (!m_data || !event || !event->mimeData()) {
+        if (event) event->ignore();
+        return;
+    }
+
+    const QMimeData* data = event->mimeData();
+    QTreeWidgetItem* target = itemAt(event->position().toPoint());
+    const QAbstractItemView::DropIndicatorPosition indicator = dropIndicatorPosition();
+
+    if (data->hasFormat(QStringLiteral("application/x-halla-channelid"))) {
+        const int channelId = data->data(QStringLiteral("application/x-halla-channelid")).toInt();
+        if (!m_data->channels.contains(channelId) || channelId == 1) {
+            event->ignore();
+            return;
+        }
+
+        int parentId = 0;
+        int order = m_data->childChannels(0).size();
+
+        if (target && target->data(0, RoleKind).toInt() == NodeChannel) {
+            const int targetId = target->data(0, RoleId).toInt();
+            if (indicator == QAbstractItemView::OnItem) {
+                // Soltar sobre o corpo do canal cria um subcanal de verdade.
+                parentId = targetId;
+                order = m_data->childChannels(parentId).size();
+            } else {
+                // Acima/abaixo mantém o canal no mesmo nível do alvo.
+                QTreeWidgetItem* container = target->parent();
+                parentId = container &&
+                           container->data(0, RoleKind).toInt() == NodeChannel
+                    ? container->data(0, RoleId).toInt() : 0;
+                order = container ? container->indexOfChild(target)
+                                  : indexOfTopLevelItem(target);
+                if (indicator == QAbstractItemView::BelowItem) ++order;
+            }
+        } else if (target && target->data(0, RoleKind).toInt() == NodeServer) {
+            parentId = 0;
+            order = m_data->childChannels(0).size();
+        } else if (target) {
+            // Não transforma um arraste sobre um usuário em movimento
+            // estrutural acidental.
+            event->ignore();
+            return;
+        }
+
+        emit channelMoveRequested(channelId, parentId, qMax(0, order));
+        event->acceptProposedAction();
+        return;
+    }
+
+    if (data->hasFormat(QStringLiteral("application/x-halla-userid"))) {
+        const int userId = data->data(QStringLiteral("application/x-halla-userid")).toInt();
+        if (userId != m_data->selfId && !m_canMoveOthers) {
+            event->ignore();
+            return;
+        }
+
+        // Só um canal real é um destino válido. Arrastar para o espaço vazio
+        // da árvore é rejeitado, impedindo que o usuário fique "no nada".
+        int targetChannel = 0;
+        if (target && target->data(0, RoleKind).toInt() == NodeChannel) {
+            targetChannel = target->data(0, RoleId).toInt();
+        } else if (target && target->data(0, RoleKind).toInt() == NodeServer) {
+            for (const Channel& channel : m_data->channels) {
+                if (channel.isDefault) {
+                    targetChannel = channel.id;
+                    break;
+                }
+            }
+        }
+        if (targetChannel <= 0 || !m_data->channels.contains(targetChannel)) {
+            event->ignore();
+            return;
+        }
+        emit moveUserRequested(userId, targetChannel);
+        event->acceptProposedAction();
+        return;
+    }
+
+    event->ignore();
 }
 
 bool ServerTreeWidget::dropMimeData(QTreeWidgetItem* parent, int index, const QMimeData* data,

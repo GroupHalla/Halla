@@ -93,15 +93,19 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — correções de interface
+          name: Halla ${{ github.ref_name }} — árvore e movimentação
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.46.exe
+          files: Halla-Setup-3.13.47.exe
           body: |
-            ## Halla Desktop v3.13.46
+            ## Halla Desktop v3.13.47
 
-            ### Correções
-            * A seleção múltipla de canais agora preserva a seleção ao abrir o menu de contexto e exibe sempre as ações de vincular e desvincular quando há dois ou mais canais selecionados.
-            * A logo do Halla foi recortada sem o espaço transparente excessivo e o ícone multiresolução do Windows foi atualizado para aparecer maior e mais nítido na área de trabalho, barra de tarefas e bandeja.
+            ### Árvore de canais
+            * Setas explícitas indicam quando um canal possui usuários/subcanais visíveis e alternam entre aberto e fechado.
+            * O arraste sobre o corpo de um canal cria um subcanal sem alterar a hierarquia quando um usuário apenas troca de canal.
+            * Arrastar um usuário para fora da árvore é rejeitado; o destino precisa ser um canal existente.
+
+            ### Servidor
+            * Movimentos enviados para o canal `0` ou para um destino inexistente agora são recusados pelo servidor.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
