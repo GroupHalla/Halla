@@ -93,16 +93,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — status antes do nome
+          name: Halla ${{ github.ref_name }} — correção da árvore
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.50.exe
+          files: Halla-Setup-3.13.51.exe
           body: |
-            ## Halla Desktop v3.13.50
+            ## Halla Desktop v3.13.51
 
-            ### Status dos usuários
-            * Indicadores de microfone mudo, áudio silenciado, ausência, gravação, comandante e operador agora aparecem antes do nome do usuário.
-            * O estado de fala é destacado no avatar do usuário com um anel colorido, mantendo a leitura da árvore compacta nos temas claro e escuro.
-            * Os ícones de grupo continuam sendo exibidos separadamente após o nome quando configurados.
+            ### Árvore de servidores e canais
+            * Removido o nó visual duplicado do servidor na árvore; o servidor agora aparece somente no cabeçalho do painel.
+            * A faixa de boas-vindas não repete mais o nome do servidor.
+            * Uniformizada a cor do fundo do painel escuro para eliminar a faixa com tonalidade diferente.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

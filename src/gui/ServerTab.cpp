@@ -125,7 +125,7 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     QVBoxLayout* introLayout = new QVBoxLayout(introCard);
     introLayout->setContentsMargins(14, 8, 14, 8);
     introLayout->setSpacing(2);
-    m_serverIntroTitle = new QLabel(QStringLiteral("🎧  %1").arg(m_data.name), introCard);
+    m_serverIntroTitle = new QLabel(QStringLiteral("🎧  Bem-vindo ao Halla"), introCard);
     m_serverIntroTitle->setObjectName(QStringLiteral("serverIntroTitle"));
     m_serverIntroText = new QLabel(m_data.motd, introCard);
     m_serverIntroText->setObjectName(QStringLiteral("serverIntroText"));
@@ -184,7 +184,7 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
             [this](int kind, int id) { m_info->setSelection(kind, id); });
     connect(this, &ServerTab::statusChanged, this, [this] {
         m_serverHeaderName->setText(m_data.name);
-        if (m_serverIntroTitle) m_serverIntroTitle->setText(QStringLiteral("🎧  %1").arg(m_data.name));
+        if (m_serverIntroTitle) m_serverIntroTitle->setText(QStringLiteral("🎧  Bem-vindo ao Halla"));
         if (m_serverIntroText) m_serverIntroText->setText(m_data.motd);
         m_info->refresh();
     });

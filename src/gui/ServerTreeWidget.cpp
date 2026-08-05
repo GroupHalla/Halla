@@ -302,29 +302,16 @@ void ServerTreeWidget::rebuild() {
     blockSignals(true);
     clear();
 
-    // raiz: servidor
-    QTreeWidgetItem* root = new QTreeWidgetItem(this);
-    root->setText(0, m_data->name);
-    root->setIcon(0, HIcons::server());
-    root->setData(0, RoleKind, NodeServer);
-    root->setData(0, RoleId, 0);
-    QFont f = root->font(0);
-    f.setBold(true);
-    root->setFont(0, f);
-    root->setToolTip(0, QStringLiteral("%1<br>%2").arg(m_data->name.toHtmlEscaped(),
-                                                       m_data->address.toHtmlEscaped()));
-    root->setFlags(root->flags() | Qt::ItemIsDropEnabled);
-    root->setFlags(root->flags() & ~Qt::ItemIsDragEnabled);
-
+    // A aba já exibe o nome do servidor no cabeçalho. A árvore usa a raiz
+    // invisível do QTreeWidget para que o servidor não seja repetido como um
+    // terceiro item visual antes dos canais.
+    QTreeWidgetItem* root = invisibleRootItem();
     for (int cid : m_data->childChannels(0))
         buildChannelItem(m_data->channels[cid], root);
 
-    addTopLevelItem(root);
-    root->setExpanded(!collapsed.contains(NodeServer << 24));
-
     blockSignals(false);
 
-    // restaurar seleção
+    // restaurar seleção sem criar um nó fictício de servidor
     if (selKind >= 0) {
         std::function<bool(QTreeWidgetItem*)> restore = [&](QTreeWidgetItem* it) -> bool {
             if (it->data(0, RoleKind).toInt() == selKind &&
@@ -339,7 +326,7 @@ void ServerTreeWidget::rebuild() {
         for (int i = 0; i < topLevelItemCount(); ++i)
             if (restore(topLevelItem(i))) break;
     } else {
-        setCurrentItem(root);
+        clearSelection();
     }
 
     // reexpandir tudo, exceto o que o usuário colapsou explicitamente
@@ -448,7 +435,6 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
 // ------------------------------------------------------------------ expansão
 void ServerTreeWidget::expandChannelsToLevel(int level) {
     collapseAll();
-    if (QTreeWidgetItem* root = topLevelItem(0)) root->setExpanded(true);
     expandToDepth(qMax(0, level));
 }
 
@@ -466,7 +452,6 @@ void ServerTreeWidget::expandOwnChannelOnly(int channelId) {
     };
     for (int i = 0; i < topLevelItemCount(); ++i)
         if (find(topLevelItem(i))) break;
-    if (QTreeWidgetItem* root = topLevelItem(0)) root->setExpanded(true);
 }
 
 void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {

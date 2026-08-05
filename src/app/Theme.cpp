@@ -214,6 +214,7 @@ QString HTheme::styleSheet(bool dark) {
         css += QStringLiteral("QToolBar#mainToolBar QToolButton:hover { background: #1B1536; }");
         css += QStringLiteral("QToolBar#mainToolBar QToolButton:checked { background: #321A6B; color: #E2CCFF; }");
         css += QStringLiteral("QToolBar#mainToolBar::separator { width: 1px; background: #1B2B42; margin: 4px 2px; }");
+        css += QStringLiteral("QWidget#mainSurface, QSplitter#bodySplitter, QSplitter#topSplitter { background: #0B1422; }");
         css += QStringLiteral("QFrame#panelCard, QFrame#chatCard { background: #0B1422; border: 1px solid #1B2B42; border-radius: 7px; }");
         css += QStringLiteral("QFrame#treeCardHeader { min-height: 30px; }");
         css += QStringLiteral("QLabel#serverHeaderName { color: #E7EDF5; font-size: 12px; font-weight: 600; }");
