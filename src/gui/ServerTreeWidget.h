@@ -54,6 +54,7 @@ public:
     // seleção atual
     int  currentKind() const;
     int  currentId() const;
+    QList<int> selectedChannelIds() const;
     void selectNode(int kind, int id);
 
 signals:
@@ -77,6 +78,7 @@ signals:
     void moveToMyChannelRequested(int userId);
     void moveUserRequested(int userId, int channelId);
     void channelMoveRequested(int channelId, int parentId, int order);
+    void channelLinkRequested(const QList<int>& channelIds, bool link);
     void commanderRequested(int userId, bool on);
     void privateMessageRequested(int userId);
     void disconnectRequested();

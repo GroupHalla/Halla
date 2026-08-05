@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QNetworkDatagram>
+#include <QHostInfo>
 
 NetSession::NetSession(QObject* parent) : QObject(parent) {
     m_tcp = new QTcpSocket(this);
@@ -25,8 +26,18 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
                                  const QString& uid, const QString& password,
                                  const QString& adminPassword) {
     m_host = host;
+    m_udpHostAddress = QHostAddress(host);
+    if (m_udpHostAddress.isNull()) {
+        const QHostInfo resolved = QHostInfo::fromName(host);
+        if (!resolved.addresses().isEmpty())
+            m_udpHostAddress = resolved.addresses().constFirst();
+    }
     m_port = port;
     m_hostPort = port == 9987 ? host : QStringLiteral("%1:%2").arg(host).arg(port);
+    m_udpPort = 0;
+    m_voiceToken = 0;
+    m_udpRegistrationSeq = 0;
+    m_buffer.clear();
 
     ServerData& d = target();
     d.name = host;
@@ -80,6 +91,9 @@ void NetSession::onReadyRead() {
 
 void NetSession::onDisconnected() {
     m_pingTimer->stop();
+    m_udpPort = 0;
+    m_voiceToken = 0;
+    m_udpRegistrationSeq = 0;
     if (!m_ready && !m_fatalError)
         emit connectionFailed(QStringLiteral("Não foi possível conectar ao servidor"));
     else if (m_ready)
@@ -91,6 +105,14 @@ void NetSession::onPingTimer() {
     QJsonObject p = HProto::msg("ping");
     m_pingClock.restart();
     send(p);
+
+    // Mantém o endpoint UDP do PC conhecido no relay mesmo quando o usuário
+    // não abriu o microfone/encoder. O servidor registra o endereço antes de
+    // validar o payload, então este frame não audível também atravessa NAT e
+    // impede que a primeira fala do Mobile dependa de o PC falar antes.
+    if (m_voiceToken && m_udpPort) {
+        sendVoiceFrame(QByteArray(1, '\0'), ++m_udpRegistrationSeq);
+    }
 }
 
 void NetSession::onUdpReadyRead() {
@@ -108,8 +130,11 @@ void NetSession::onUdpReadyRead() {
 
 void NetSession::sendVoiceFrame(const QByteArray& opus, quint16 seq) {
     if (!m_voiceToken || m_udpPort == 0) return;
+    const QHostAddress destination = m_udpHostAddress.isNull()
+        ? QHostAddress(m_host) : m_udpHostAddress;
+    if (destination.isNull()) return;
     m_udp->writeDatagram(HProto::encodeVoiceClient(m_voiceToken, seq, opus),
-                         QHostAddress(m_host), m_udpPort);
+                         destination, m_udpPort);
 }
 
 // ==================================================================== ações
@@ -140,6 +165,22 @@ void NetSession::moveChannel(int channelId, int parentId, int order) {
     m["id"] = channelId;
     m["parent"] = parentId;
     m["order"] = order;
+    send(m);
+}
+
+void NetSession::linkChannels(const QList<int>& channelIds, bool link) {
+    QJsonObject m = HProto::msg("chan_link");
+    QJsonArray ids;
+    QList<int> seen;
+    for (int id : channelIds) {
+        if (id > 0 && !seen.contains(id)) {
+            seen << id;
+            ids << id;
+        }
+    }
+    if (ids.size() < 2) return;
+    m["ids"] = ids;
+    m["link"] = link;
     send(m);
 }
 
@@ -413,6 +454,12 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     ch.bitrate = c["bitrate"].toInt(96);
     ch.groupPerms = c["groupPerms"].toObject();
     ch.maxClients = c["max"].toInt(-1);
+    ch.linkedChannels.clear();
+    for (const QJsonValue& v : c["linked"].toArray()) {
+        const int linkedId = v.toInt();
+        if (linkedId > 0 && linkedId != ch.id && !ch.linkedChannels.contains(linkedId))
+            ch.linkedChannels << linkedId;
+    }
     ch.users.clear();
     for (const QJsonValue& v : c["users"].toArray()) ch.users << v.toInt();
     ch.opUids.clear();
@@ -483,6 +530,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         if (m_voiceToken && m_udpPort) {
             for (quint16 seq = 1; seq <= 3; ++seq)
                 sendVoiceFrame(QByteArray(1, '\0'), seq);
+            m_udpRegistrationSeq = 3;
         }
 
         AppLog::info(QStringLiteral("Conectado a %1 como %2")
@@ -669,6 +717,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         if (m_voiceToken && m_udpPort) {
             for (quint16 seq = 1; seq <= 3; ++seq)
                 sendVoiceFrame(QByteArray(1, '\0'), seq);
+            m_udpRegistrationSeq = 3;
         }
         return;
     }

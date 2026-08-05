@@ -24,6 +24,7 @@
 #include <QInputDialog>
 #include <QApplication>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QFileDialog>
 #include <QImage>
 #include <QBuffer>
@@ -55,6 +56,9 @@ static QJsonObject chanToJson(const Channel& c) {
     o["bitrate"] = c.bitrate;
     o["groupPerms"] = c.groupPerms;
     o["max"] = c.maxClients;
+    QJsonArray linked;
+    for (int id : c.linkedChannels) linked << id;
+    o["linked"] = linked;
     return o;
 }
 
@@ -476,6 +480,50 @@ void ServerTab::hookSignals() {
         }
         m_data.channels[channelId].parentId = parentId;
         m_data.channels[channelId].order = order;
+        m_tree->rebuild();
+        emit statusChanged();
+    });
+
+    connect(m_tree, &ServerTreeWidget::channelLinkRequested, this,
+            [this](const QList<int>& channelIds, bool link) {
+        if (channelIds.size() < 2) return;
+        if (m_net) {
+            bool canLink = hasPermission({ QStringLiteral("chanEdit") });
+            if (!canLink) {
+                canLink = std::all_of(channelIds.begin(), channelIds.end(),
+                    [this](int id) {
+                        return id != 1 && m_data.channels.contains(id)
+                            && m_data.channels[id].opUids.contains(
+                                   m_data.users.value(m_data.selfId).uniqueId);
+                    });
+            }
+            if (!canLink) {
+                QMessageBox::warning(this, tr("Canais vinculados"),
+                                     tr("Você não tem permissão para vincular canais."));
+                return;
+            }
+            m_net->linkChannels(channelIds, link);
+            return;
+        }
+
+        // Abas locais/demo usam a mesma relação simétrica do servidor.
+        for (int i = 0; i < channelIds.size(); ++i) {
+            if (!m_data.channels.contains(channelIds[i])) continue;
+            for (int j = i + 1; j < channelIds.size(); ++j) {
+                if (!m_data.channels.contains(channelIds[j])) continue;
+                const int a = channelIds[i];
+                const int b = channelIds[j];
+                if (link) {
+                    if (!m_data.channels[a].linkedChannels.contains(b))
+                        m_data.channels[a].linkedChannels << b;
+                    if (!m_data.channels[b].linkedChannels.contains(a))
+                        m_data.channels[b].linkedChannels << a;
+                } else {
+                    m_data.channels[a].linkedChannels.removeAll(b);
+                    m_data.channels[b].linkedChannels.removeAll(a);
+                }
+            }
+        }
         m_tree->rebuild();
         emit statusChanged();
     });

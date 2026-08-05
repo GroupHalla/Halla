@@ -163,7 +163,10 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     setAnimated(false);
     setUniformRowHeights(true);
     setAllColumnsShowFocus(true);
-    setSelectionMode(SingleSelection);
+    // Permite selecionar vários canais para as operações em conjunto, como
+    // vincular/desvincular áudio. Usuários continuam funcionando normalmente
+    // com seleção estendida.
+    setSelectionMode(QAbstractItemView::ExtendedSelection);
     setDragDropMode(InternalMove);
     setIconSize(QSize(24, 24));
     setFrameShape(QFrame::NoFrame);
@@ -203,6 +206,16 @@ int ServerTreeWidget::currentId() const {
     return it ? it->data(0, RoleId).toInt() : -1;
 }
 
+QList<int> ServerTreeWidget::selectedChannelIds() const {
+    QList<int> ids;
+    for (QTreeWidgetItem* item : selectedItems()) {
+        if (!item || item->data(0, RoleKind).toInt() != NodeChannel) continue;
+        const int id = item->data(0, RoleId).toInt();
+        if (id > 0 && !ids.contains(id)) ids << id;
+    }
+    return ids;
+}
+
 void ServerTreeWidget::selectNode(int kind, int id) {
     std::function<bool(QTreeWidgetItem*)> walk = [&](QTreeWidgetItem* item) -> bool {
         if (item->data(0, RoleKind).toInt() == kind &&
@@ -235,6 +248,8 @@ QString ServerTreeWidget::channelTooltip(const Channel& c) const {
     tip += QStringLiteral("Codec: %1 (qualidade %2)").arg(codecShortNames()[c.codec]).arg(c.codecQuality);
     if (c.hasPassword) tip += QStringLiteral("<br>Protegido por senha");
     if (c.moderated)   tip += QStringLiteral("<br>Moderado");
+    if (!c.linkedChannels.isEmpty())
+        tip += QStringLiteral("<br>Áudio vinculado a %1 canal(is)").arg(c.linkedChannels.size());
     static const char* tnames[] = { "Temporário", "Semi-permanente", "Permanente" };
     tip += QStringLiteral("<br>%1").arg(QString::fromUtf8(tnames[c.type]));
     return tip;
@@ -442,10 +457,19 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
 // ------------------------------------------------------------------ menus de contexto
 void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
     QTreeWidgetItem* it = itemAt(e->pos());
-    if (it) setCurrentItem(it);
+    if (it) {
+        // Um clique direito em um item já selecionado preserva a seleção
+        // estendida. Em um item fora dela, começa uma nova seleção.
+        if (!it->isSelected()) {
+            clearSelection();
+            it->setSelected(true);
+        }
+        setCurrentItem(it);
+    }
 
     const int kind = it ? it->data(0, RoleKind).toInt() : NodeServer;
     const int id   = it ? it->data(0, RoleId).toInt() : 0;
+    const QList<int> selectedChannels = selectedChannelIds();
     QMenu menu(this);
 
     if (!it || kind == NodeServer) {
@@ -461,6 +485,15 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
     } else if (kind == NodeChannel) {
         const Channel& c = m_data->channels[id];
         const bool inside = c.users.contains(m_data->selfId);
+
+        if (selectedChannels.size() >= 2) {
+            const QList<int> ids = selectedChannels;
+            menu.addAction(tr("Vincular canais selecionados"), this,
+                           [this, ids] { emit channelLinkRequested(ids, true); });
+            menu.addAction(tr("Desvincular canais selecionados"), this,
+                           [this, ids] { emit channelLinkRequested(ids, false); });
+            menu.addSeparator();
+        }
 
         QAction* join = menu.addAction(HIcons::check(), tr("Alternar para o canal"), this,
                        [this, id] { emit joinChannelRequested(id); });

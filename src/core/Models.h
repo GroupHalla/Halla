@@ -77,6 +77,7 @@ struct Channel {
     int     bitrate = 96;            // de 16kbps a 384kbps (padrão 96)
     QJsonObject groupPerms;          // permissões de canal por cargo { "groupId": { "perm": bool } }
     int     maxClients = -1;         // -1 = ilimitado
+    QList<int> linkedChannels;       // canais que compartilham o áudio com este canal
     QList<int> users;
 };
 

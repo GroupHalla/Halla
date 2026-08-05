@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QElapsedTimer>
+#include <QHostAddress>
 #include "core/Models.h"
 
 // Sessão de rede do cliente Halla: TCP (controle) + UDP (voz) com o Halla Server.
@@ -38,6 +39,7 @@ public:
     void moveToChannel(int channelId, const QString& pass = QString());
     void moveOther(int userId, int channelId);
     void moveChannel(int channelId, int parentId, int order);
+    void linkChannels(const QList<int>& channelIds, bool link);
     void setCommander(int userId, bool on);
     void sendStatus();
     void sendTalking(bool on);
@@ -129,6 +131,7 @@ private:
     ServerData* m_target = nullptr;
 
     QString m_host;
+    QHostAddress m_udpHostAddress;
     quint16 m_port = 9987;
     QString m_hostPort;
     QJsonObject m_pendingHello;
@@ -136,6 +139,7 @@ private:
     QJsonArray  m_groups;         // v3 (welcome.groups)
     quint16 m_udpPort = 0;
     quint32 m_voiceToken = 0;
+    quint16 m_udpRegistrationSeq = 0;
     bool m_ready = false;
     bool m_fatalError = false;
     int m_pingMs = 0;
