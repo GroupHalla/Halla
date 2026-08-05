@@ -5,6 +5,7 @@
 #include <QPainterPath>
 #include <QLinearGradient>
 #include <QFont>
+#include <QImage>
 #include <cmath>
 
 namespace HIcons {
@@ -22,11 +23,29 @@ static QPixmap mk(int w, int h, const std::function<void(QPainter&)>& fn) {
 static QPixmap mk(int s, const std::function<void(QPainter&)>& fn) { return mk(s, s, fn); }
 
 static QPixmap officialLogo(int size) {
-    const QPixmap source(QStringLiteral(":/halla/assets/halla-logo.png"));
-    if (!source.isNull()) {
-        return source.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    const QImage source(QStringLiteral(":/halla/assets/halla-logo.png"));
+    if (source.isNull()) return QPixmap();
+
+    // O arquivo oficial é 1024x1024, mas a marca ocupa apenas a região
+    // central. Escalar a imagem inteira fazia o ícone da janela e da bandeja
+    // parecerem minúsculos no Windows. Recorta pelo canal alfa antes de
+    // redimensionar, preservando uma pequena margem para não encostar nas
+    // bordas do ícone.
+    QRect bounds;
+    for (int y = 0; y < source.height(); ++y) {
+        for (int x = 0; x < source.width(); ++x) {
+            if (source.pixelColor(x, y).alpha() > 8) {
+                bounds = bounds.isNull() ? QRect(x, y, 1, 1)
+                                         : bounds.united(QRect(x, y, 1, 1));
+            }
+        }
     }
-    return QPixmap();
+    if (bounds.isNull()) return QPixmap();
+
+    const int pad = qMax(2, qMin(bounds.width(), bounds.height()) / 24);
+    bounds = bounds.adjusted(-pad, -pad, pad, pad).intersected(source.rect());
+    return QPixmap::fromImage(source.copy(bounds)).scaled(
+        size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 }
 
 // ---------------------------------------------------------------- marca d'água / logo

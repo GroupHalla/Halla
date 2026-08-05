@@ -93,19 +93,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — Canais vinculados
+          name: Halla ${{ github.ref_name }} — correções de interface
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.45.exe
+          files: Halla-Setup-3.13.46.exe
           body: |
-            ## Halla Desktop v3.13.45
+            ## Halla Desktop v3.13.46
 
-            ### Canais vinculados
-            * Seleção múltipla de canais com as opções **Vincular canais selecionados** e **Desvincular canais selecionados**.
-            * O vínculo é sincronizado com o servidor e o áudio passa entre os canais vinculados mesmo quando os usuários estão separados.
-            * A relação vinculada é exibida no tooltip do canal e também é mantida no modo local/demo.
-
-            ### Áudio UDP
-            * O PC também mantém seu endpoint registrado periodicamente mesmo sem captura ativa, eliminando a dependência de uma fala inicial para o primeiro áudio do Mobile.
+            ### Correções
+            * A seleção múltipla de canais agora preserva a seleção ao abrir o menu de contexto e exibe sempre as ações de vincular e desvincular quando há dois ou mais canais selecionados.
+            * A logo do Halla foi recortada sem o espaço transparente excessivo e o ícone multiresolução do Windows foi atualizado para aparecer maior e mais nítido na área de trabalho, barra de tarefas e bandeja.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

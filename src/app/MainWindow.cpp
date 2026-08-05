@@ -55,7 +55,9 @@ bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods);
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(QString::fromUtf8(halla::kAppName));
-    setWindowIcon(QIcon(HIcons::appIcon(64)));
+    // Mantém uma fonte grande para que o Windows escolha uma versão nítida
+    // na janela, na barra de tarefas e no Alt+Tab.
+    setWindowIcon(QIcon(HIcons::appIcon(256)));
     setMinimumSize(1100, 700);
     resize(1706, 922);
 
@@ -493,7 +495,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
     // ------------------------- bandeja do sistema ------------------------
     if (QSystemTrayIcon::isSystemTrayAvailable()) {
-        m_tray = new QSystemTrayIcon(QIcon(HIcons::appIcon(32)), this);
+        m_tray = new QSystemTrayIcon(QIcon(HIcons::appIcon(64)), this);
         QMenu* trayMenu = new QMenu(this);
         QAction* show = trayMenu->addAction(tr("Mostrar Halla"), this, [this] {
             showNormal();

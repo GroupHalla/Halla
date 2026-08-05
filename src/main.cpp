@@ -315,7 +315,7 @@ int main(int argc, char* argv[]) {
     QApplication::setOrganizationName(QStringLiteral("Halla"));
     QApplication::setApplicationDisplayName(QStringLiteral("Halla"));
     QApplication::setApplicationVersion(QString::fromUtf8(halla::kAppVersion));
-    QApplication::setWindowIcon(QIcon(HIcons::appIcon(64)));
+    QApplication::setWindowIcon(QIcon(HIcons::appIcon(256)));
 
     HallaTranslator translator;
     app.installTranslator(&translator);

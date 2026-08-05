@@ -457,10 +457,15 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
 // ------------------------------------------------------------------ menus de contexto
 void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
     QTreeWidgetItem* it = itemAt(e->pos());
+    // Guarda a seleção antes de chamar setCurrentItem(): em algumas versões
+    // do Qt essa chamada limpa a seleção estendida mesmo quando o item clicado
+    // já estava selecionado.
+    const QList<int> selectedBefore = selectedChannelIds();
+    const bool clickedWasSelected = it && it->isSelected();
     if (it) {
         // Um clique direito em um item já selecionado preserva a seleção
         // estendida. Em um item fora dela, começa uma nova seleção.
-        if (!it->isSelected()) {
+        if (!clickedWasSelected) {
             clearSelection();
             it->setSelected(true);
         }
@@ -469,8 +474,21 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
 
     const int kind = it ? it->data(0, RoleKind).toInt() : NodeServer;
     const int id   = it ? it->data(0, RoleId).toInt() : 0;
-    const QList<int> selectedChannels = selectedChannelIds();
+    const QList<int> selectedChannels = clickedWasSelected && selectedBefore.size() >= 2
+        ? selectedBefore : selectedChannelIds();
     QMenu menu(this);
+
+    // As ações ficam disponíveis independentemente de o clique direito ter
+    // caído no canal, em um usuário ou na raiz do servidor. O que importa é a
+    // seleção múltipla preservada acima.
+    if (selectedChannels.size() >= 2) {
+        const QList<int> ids = selectedChannels;
+        menu.addAction(tr("Vincular canais selecionados"), this,
+                       [this, ids] { emit channelLinkRequested(ids, true); });
+        menu.addAction(tr("Desvincular canais selecionados"), this,
+                       [this, ids] { emit channelLinkRequested(ids, false); });
+        menu.addSeparator();
+    }
 
     if (!it || kind == NodeServer) {
         // menu do servidor — como clicar na aba do servidor no Halla
@@ -485,15 +503,6 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
     } else if (kind == NodeChannel) {
         const Channel& c = m_data->channels[id];
         const bool inside = c.users.contains(m_data->selfId);
-
-        if (selectedChannels.size() >= 2) {
-            const QList<int> ids = selectedChannels;
-            menu.addAction(tr("Vincular canais selecionados"), this,
-                           [this, ids] { emit channelLinkRequested(ids, true); });
-            menu.addAction(tr("Desvincular canais selecionados"), this,
-                           [this, ids] { emit channelLinkRequested(ids, false); });
-            menu.addSeparator();
-        }
 
         QAction* join = menu.addAction(HIcons::check(), tr("Alternar para o canal"), this,
                        [this, id] { emit joinChannelRequested(id); });
