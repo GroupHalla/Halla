@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDateTime>
+#include <QByteArray>
 #include <QList>
 #include <QMap>
 #include <QString>
@@ -89,6 +90,7 @@ struct ServerData {
     QString motd     = "Bem-vindo ao Halla!";
     QDateTime connectedAt = QDateTime::currentDateTime();
     int maxClients = 32; // Limite dinâmico de conexões/slots
+    QByteArray serverBanner; // PNG/JPEG/GIF/WebP enviado pelo administrador
 
     int selfId = 1;
     QMap<int, User>    users;

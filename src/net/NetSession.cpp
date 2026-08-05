@@ -394,10 +394,13 @@ void NetSession::clientSetGroup(int userId, int gid) {
     send(m);
 }
 
-void NetSession::serverEdit(const QString& name, const QString& motd) {
+void NetSession::serverEdit(const QString& name, const QString& motd,
+                             const QByteArray& banner, bool bannerChanged) {
     QJsonObject m = HProto::msg("server_edit");
     if (!name.isEmpty()) m["name"] = name;
     m["motd"] = motd;
+    if (bannerChanged)
+        m["banner"] = QString::fromLatin1(banner.toBase64());
     send(m);
 }
 
@@ -506,6 +509,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         d.version = srv["ver"].toString();
         d.platform = srv["platform"].toString("Linux");
         d.maxClients = srv["maxClients"].toInt(32);
+        d.serverBanner = QByteArray::fromBase64(srv["banner"].toString().toLatin1());
 
         d.users.clear();
         for (const QJsonValue& v : obj["users"].toArray()) applyUserJson(v.toObject());
@@ -567,6 +571,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             emit systemEvent(QStringLiteral("O servidor agora se chama \"%1\"").arg(newName));
         }
         if (obj.contains("motd")) d.motd = obj["motd"].toString();
+        if (obj.contains("banner"))
+            d.serverBanner = QByteArray::fromBase64(obj["banner"].toString().toLatin1());
         emit stateChanged();
         return;
     }

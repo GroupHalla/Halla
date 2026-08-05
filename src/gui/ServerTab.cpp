@@ -855,6 +855,68 @@ void ServerTab::editVirtualServerName() {
     QLineEdit* motd = new QLineEdit(m_data.motd, &dlg);
     f->addRow(tr("Nome do servidor:"), name);
     f->addRow(tr("Mensagem do dia:"), motd);
+
+    QByteArray bannerBytes = m_data.serverBanner;
+    bool bannerChanged = false;
+    QHBoxLayout* bannerRow = new QHBoxLayout;
+    QLabel* bannerPreview = new QLabel(&dlg);
+    bannerPreview->setFixedSize(180, 52);
+    bannerPreview->setAlignment(Qt::AlignCenter);
+    bannerPreview->setText(m_data.serverBanner.isEmpty()
+        ? tr("Banner padrão") : tr("Banner personalizado"));
+    if (!m_data.serverBanner.isEmpty()) {
+        const QImage current = QImage::fromData(m_data.serverBanner);
+        if (!current.isNull())
+            bannerPreview->setPixmap(QPixmap::fromImage(current.scaled(
+                180, 52, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+    }
+    QPushButton* chooseBanner = new QPushButton(tr("Escolher imagem..."), &dlg);
+    QPushButton* clearBanner = new QPushButton(tr("Remover"), &dlg);
+    bannerRow->addWidget(bannerPreview);
+    bannerRow->addWidget(chooseBanner);
+    bannerRow->addWidget(clearBanner);
+    bannerRow->addStretch(1);
+    f->addRow(tr("Imagem do banner:"), bannerRow);
+
+    QObject::connect(chooseBanner, &QPushButton::clicked, &dlg, [&] {
+        const QString path = QFileDialog::getOpenFileName(
+            &dlg, tr("Selecionar imagem do banner"), QString(),
+            tr("Imagens (*.png *.jpg *.jpeg *.gif *.webp)"));
+        if (path.isEmpty()) return;
+        QImage image(path);
+        if (image.isNull()) {
+            QMessageBox::warning(&dlg, tr("Banner"), tr("Não foi possível abrir essa imagem."));
+            return;
+        }
+        image = image.scaled(1600, 500, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        QByteArray encoded;
+        QBuffer buffer(&encoded);
+        buffer.open(QIODevice::WriteOnly);
+        image.save(&buffer, "PNG");
+        if (encoded.size() > 512 * 1024) {
+            encoded.clear();
+            QBuffer jpg(&encoded);
+            jpg.open(QIODevice::WriteOnly);
+            image.convertToFormat(QImage::Format_RGB888).save(&jpg, "JPEG", 84);
+        }
+        if (encoded.size() > 512 * 1024) {
+            QMessageBox::warning(&dlg, tr("Banner"),
+                                 tr("A imagem precisa ter no máximo 512 KiB."));
+            return;
+        }
+        bannerBytes = encoded;
+        bannerChanged = true;
+        bannerPreview->setText(tr("Banner personalizado"));
+        bannerPreview->setPixmap(QPixmap::fromImage(image.scaled(
+            180, 52, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+    });
+    QObject::connect(clearBanner, &QPushButton::clicked, &dlg, [&] {
+        bannerBytes.clear();
+        bannerChanged = true;
+        bannerPreview->setPixmap(QPixmap());
+        bannerPreview->setText(tr("Banner padrão"));
+    });
+
     QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
                                                 &dlg);
     f->addRow(bb);
@@ -865,14 +927,14 @@ void ServerTab::editVirtualServerName() {
     if (n.isEmpty()) return;
 
     if (m_net) {
-        // v3: editar o servidor virtual de verdade (requer permissão serverEdit)
-        m_net->serverEdit(n, motd->text());
+        m_net->serverEdit(n, motd->text(), bannerBytes, bannerChanged);
         systemMsgServer(tr("Solicitação de edição do servidor virtual enviada."));
         return; // o estado atualizado chega do servidor
     }
 
     m_data.name = n;
     m_data.motd = motd->text();
+    if (bannerChanged) m_data.serverBanner = bannerBytes;
     systemMsgServer(tr("Servidor renomeado para \"%1\".").arg(m_data.name));
     m_tree->rebuild();
     emit titleChanged();

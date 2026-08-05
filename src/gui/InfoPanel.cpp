@@ -6,7 +6,17 @@
 
 #include <QVBoxLayout>
 #include <QPainter>
+#include <QImage>
 #include <QFrame>
+
+static QPixmap serverBannerPixmap(const ServerData* data) {
+    if (data && !data->serverBanner.isEmpty()) {
+        const QImage image = QImage::fromData(data->serverBanner);
+        if (!image.isNull())
+            return QPixmap::fromImage(image);
+    }
+    return HIcons::banner(820, 210);
+}
 
 class InfoView : public RichTextBrowser {
 public:
@@ -31,7 +41,7 @@ InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
 
     m_banner = new QLabel(this);
     m_banner->setObjectName(QStringLiteral("infoBanner"));
-    m_banner->setPixmap(HIcons::banner(820, 210));
+    m_banner->setPixmap(serverBannerPixmap(nullptr));
     m_banner->setScaledContents(true);
     m_banner->setMinimumHeight(210);
     m_banner->setMaximumHeight(210);
@@ -146,7 +156,7 @@ QString InfoPanel::userHtml(const User& u) const {
 }
 
 void InfoPanel::refresh() {
-    m_banner->setPixmap(HIcons::banner(820, 210));
+    m_banner->setPixmap(serverBannerPixmap(m_data));
     if (!m_data) {
         m_view->setHtml(QString());
         return;

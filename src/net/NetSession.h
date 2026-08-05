@@ -74,7 +74,8 @@ public:
     void groupSet(int id, const QString& name, const QJsonObject& perms, const QString& sigla = QString(), int order = 0, const QString& icon = QString()); // id 0 = criar
     void groupDelete(int id);
     void clientSetGroup(int userId, int gid);
-    void serverEdit(const QString& name, const QString& motd);
+    void serverEdit(const QString& name, const QString& motd,
+                    const QByteArray& banner = QByteArray(), bool bannerChanged = false);
 
     // ---- voz
     void sendVoiceFrame(const QByteArray& opus, quint16 seq);

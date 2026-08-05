@@ -93,15 +93,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — opções com ícones grandes
+          name: Halla ${{ github.ref_name }} — banner personalizado
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.52.exe
+          files: Halla-Setup-3.13.53.exe
           body: |
-            ## Halla Desktop v3.13.52
+            ## Halla Desktop v3.13.53
 
-            ### Opções
-            * Os ícones das categorias da aba de configurações agora aparecem grandes, com espaçamento e palavras maiores.
-            * A navegação lateral foi ajustada para ficar mais próxima da referência enviada.
+            ### Banner do servidor
+            * Administradores com `serverEdit` podem escolher uma imagem personalizada em **Editar servidor virtual → Imagem do banner**.
+            * A imagem é enviada ao servidor, persistida e sincronizada com os clientes conectados.
+            * O banner padrão do Halla continua sendo usado quando nenhuma imagem personalizada estiver configurada.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
