@@ -27,6 +27,7 @@
 #include <QGroupBox>
 #include <QScrollArea>
 #include <QJsonDocument>
+#include <QSignalBlocker>
 
 static QString fmtTs(const QString& iso) {
     const QDateTime dt = QDateTime::fromString(iso, Qt::ISODate);
@@ -481,24 +482,39 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
 }
 
 void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
-    m_groups->clear();
-    for (const QJsonValue& v : groups) {
-        const QJsonObject g = v.toObject();
-        QTreeWidgetItem* it = new QTreeWidgetItem(m_groups);
-        it->setText(0, QString::number(g["id"].toInt()));
-        it->setText(1, g["name"].toString());
-        it->setData(0, Qt::UserRole, g["id"].toInt());
-        it->setData(0, Qt::UserRole + 1,
-                    QString::fromUtf8(QJsonDocument(g["perms"].toObject())
-                                          .toJson(QJsonDocument::Compact)));
-        it->setData(0, Qt::UserRole + 2, g["sigla"].toString());
-        it->setData(0, Qt::UserRole + 3, g["order"].toInt());
-        it->setData(0, Qt::UserRole + 4, g["icon"].toString());
-        it->setData(0, Qt::UserRole + 5,
-                    QString::fromUtf8(QJsonDocument(g["members"].toArray())
-                                          .toJson(QJsonDocument::Compact)));
+    const int keepId = m_cur.value("id").toInt(0);
+    QTreeWidgetItem* keepItem = nullptr;
+    {
+        // A resposta de atribuição chega enquanto a janela ainda está aberta.
+        // Bloquear o sinal durante o clear evita que currentItemChanged limpe
+        // o editor; desativar a ordenação durante a reconstrução preserva os
+        // nomes e as duas colunas de cada grupo.
+        QSignalBlocker blocker(m_groups);
+        m_groups->setSortingEnabled(false);
+        m_groups->clear();
+        for (const QJsonValue& v : groups) {
+            const QJsonObject g = v.toObject();
+            const int id = g["id"].toInt(0);
+            QTreeWidgetItem* it = new QTreeWidgetItem(m_groups);
+            it->setText(0, QString::number(id));
+            it->setText(1, g["name"].toString().trimmed().isEmpty()
+                ? QStringLiteral("#%1").arg(id) : g["name"].toString());
+            it->setData(0, Qt::UserRole, id);
+            it->setData(0, Qt::UserRole + 1,
+                        QString::fromUtf8(QJsonDocument(g["perms"].toObject())
+                                              .toJson(QJsonDocument::Compact)));
+            it->setData(0, Qt::UserRole + 2, g["sigla"].toString());
+            it->setData(0, Qt::UserRole + 3, g["order"].toInt());
+            it->setData(0, Qt::UserRole + 4, g["icon"].toString());
+            it->setData(0, Qt::UserRole + 5,
+                        QString::fromUtf8(QJsonDocument(g["members"].toArray())
+                                              .toJson(QJsonDocument::Compact)));
+            if (id == keepId) keepItem = it;
+        }
+        m_groups->setSortingEnabled(true);
     }
-    if (m_groups->topLevelItemCount() > 0 && !m_groups->currentItem())
+    if (keepItem) m_groups->setCurrentItem(keepItem);
+    else if (m_groups->topLevelItemCount() > 0)
         m_groups->setCurrentItem(m_groups->topLevelItem(0));
 }
 

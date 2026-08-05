@@ -93,7 +93,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — indicadores de áudio
+          name: Halla ${{ github.ref_name }} — grupos e registro
           draft: false
           prerelease: false
           files: Halla-Setup-3.13.60.exe
