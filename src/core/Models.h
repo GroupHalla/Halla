@@ -61,6 +61,7 @@ struct User {
 struct Channel {
     int     id = 0;
     int     parentId = 0;            // 0 = topo
+    int     order = 0;               // posição entre os irmãos
     QString name;
     QString topic;
     QString description;
@@ -109,6 +110,7 @@ struct ServerData {
         std::sort(out.begin(), out.end(), [&](int a, int b) {
             const Channel& ca = channels[a];
             const Channel& cb = channels[b];
+            if (ca.order != cb.order) return ca.order < cb.order;
             bool ta = ca.type == 0, tb = cb.type == 0;
             if (ta != tb) return tb;
             return ca.name.localeAwareCompare(cb.name) < 0;

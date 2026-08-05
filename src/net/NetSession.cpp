@@ -135,6 +135,14 @@ void NetSession::moveOther(int userId, int channelId) {
     send(m);
 }
 
+void NetSession::moveChannel(int channelId, int parentId, int order) {
+    QJsonObject m = HProto::msg("chan_move");
+    m["id"] = channelId;
+    m["parent"] = parentId;
+    m["order"] = order;
+    send(m);
+}
+
 void NetSession::setCommander(int userId, bool on) {
     QJsonObject m = HProto::msg("commander");
     m["id"] = userId;
@@ -389,12 +397,15 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     Channel ch;
     ch.id = c["id"].toInt();
     ch.parentId = c["parent"].toInt(0);
+    ch.order = c["order"].toInt(0);
     ch.name = c["name"].toString();
     ch.topic = c["topic"].toString();
     ch.description = c["desc"].toString();
     ch.hasPassword = c["pw"].toBool();
     ch.isDefault = c["def"].toBool();
-    ch.noSymbol = c["noSymbol"].toBool(false);
+    ch.noSymbol = c.contains("noSymbol")
+        ? c["noSymbol"].toBool()
+        : d.channels.value(ch.id).noSymbol;
     ch.type = c["type"].toInt(2);
     ch.moderated = c["moderated"].toBool();
     ch.codec = c["codec"].toInt(4);

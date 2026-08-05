@@ -91,19 +91,17 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.42
-          name: Halla v3.13.42 — Permissões e símbolos de canais
+          tag_name: v3.13.43
+          name: Halla v3.13.43 — Arraste e ordenação de canais
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.42.exe
+          files: Halla-Setup-3.13.43.exe
           body: |
-            ## Halla Desktop v3.13.42
+            ## Halla Desktop v3.13.43
 
-            ### Permissões de canal
-            * A aba agora usa apenas as permissões de canal já existentes no Halla: entrar, falar, sussurrar, chat e arquivos.
-            * O visual foi adaptado para a matriz Negar/Permitir, sem importar um sistema externo de LCAs.
-
-            ### Símbolo do canal
-            * Nova opção para ocultar o símbolo visual antes do nome do canal.
+            ### Ordenação de canais
+            * Canais agora podem ser arrastados segurando e soltando na posição desejada.
+            * A ordem é persistida no servidor e sincronizada com os demais clientes.
+            * A opção de ocultar o símbolo do canal permanece persistente mesmo em servidores antigos.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -42,6 +42,7 @@ static QJsonObject chanToJson(const Channel& c) {
     QJsonObject o;
     o["id"] = c.id;
     o["parent"] = c.parentId;
+    o["order"] = c.order;
     o["name"] = c.name;
     o["topic"] = c.topic;
     o["desc"] = c.description;
@@ -466,6 +467,19 @@ void ServerTab::hookSignals() {
         emit statusChanged();
     });
 
+    connect(m_tree, &ServerTreeWidget::channelMoveRequested, this,
+            [this](int channelId, int parentId, int order) {
+        if (!m_data.channels.contains(channelId)) return;
+        if (m_net) {
+            m_net->moveChannel(channelId, parentId, order);
+            return;
+        }
+        m_data.channels[channelId].parentId = parentId;
+        m_data.channels[channelId].order = order;
+        m_tree->rebuild();
+        emit statusChanged();
+    });
+
     connect(m_tree, &ServerTreeWidget::volumeRequested, this, [this](int uid) {
         if (!m_data.users.contains(uid)) return;
         VolumeDialog dlg(m_data.users[uid].name, m_data.users[uid].volumeDb, this);
@@ -674,6 +688,7 @@ void ServerTab::editChannel(int channelId) {
         QJsonObject o = chanToJson(c);
         o["id"] = channelId;
         o["parent"] = m_data.channels[channelId].parentId;
+        m_data.channels[channelId].noSymbol = c.noSymbol;
         m_net->editChannel(o);
         return;
     }

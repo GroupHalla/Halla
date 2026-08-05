@@ -350,7 +350,7 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
         item->setData(0, RoleKind, NodeChannel);
         item->setData(0, RoleId, c.id);
         item->setToolTip(0, channelTooltip(c));
-        item->setFlags((item->flags() | Qt::ItemIsDropEnabled) & ~Qt::ItemIsDragEnabled);
+        item->setFlags(item->flags() | Qt::ItemIsDropEnabled | Qt::ItemIsDragEnabled);
         if (c.isDefault) {
             QFont f = item->font(0);
             f.setBold(true);
@@ -555,31 +555,57 @@ void ServerTreeWidget::mouseDoubleClickEvent(QMouseEvent* e) {
 
 // ------------------------------------------------------------------ arrastar e soltar
 QStringList ServerTreeWidget::mimeTypes() const {
-    return { QStringLiteral("application/x-halla-userid") };
+    return { QStringLiteral("application/x-halla-userid"),
+             QStringLiteral("application/x-halla-channelid") };
 }
 
 QMimeData* ServerTreeWidget::mimeData(const QList<QTreeWidgetItem*>& items) const {
     QMimeData* md = new QMimeData;
-    if (!items.isEmpty() && items.first()->data(0, RoleKind).toInt() == NodeUser)
-        md->setData(QStringLiteral("application/x-halla-userid"),
-                    QByteArray::number(items.first()->data(0, RoleId).toInt()));
+    if (items.isEmpty()) return md;
+    const int kind = items.first()->data(0, RoleKind).toInt();
+    const int id = items.first()->data(0, RoleId).toInt();
+    if (kind == NodeUser) {
+        md->setData(QStringLiteral("application/x-halla-userid"), QByteArray::number(id));
+    } else if (kind == NodeChannel) {
+        md->setData(QStringLiteral("application/x-halla-channelid"), QByteArray::number(id));
+    }
     return md;
 }
 
-bool ServerTreeWidget::dropMimeData(QTreeWidgetItem* parent, int, const QMimeData* data,
+bool ServerTreeWidget::dropMimeData(QTreeWidgetItem* parent, int index, const QMimeData* data,
                                     Qt::DropAction) {
     if (!m_data || !parent) return false;
-    if (!data->hasFormat(QStringLiteral("application/x-halla-userid"))) return false;
-    if (parent->data(0, RoleKind).toInt() != NodeChannel &&
-        parent->data(0, RoleKind).toInt() != NodeServer)
-        return false;
+    const int parentKind = parent->data(0, RoleKind).toInt();
+    if (parentKind != NodeChannel && parentKind != NodeServer) return false;
 
+    if (data->hasFormat(QStringLiteral("application/x-halla-channelid"))) {
+        const int channelId = data->data(QStringLiteral("application/x-halla-channelid")).toInt();
+        if (!m_data->channels.contains(channelId)) return false;
+        const Channel& source = m_data->channels[channelId];
+        int targetParent = 0;
+        int targetIndex = index;
+        if (parentKind == NodeChannel) {
+            QTreeWidgetItem* siblingParent = parent->parent();
+            targetParent = siblingParent ? siblingParent->data(0, RoleId).toInt() : 0;
+            targetIndex = siblingParent ? siblingParent->indexOfChild(parent)
+                                        : indexOfTopLevelItem(parent);
+            const int targetChannelId = parent->data(0, RoleId).toInt();
+            if (source.parentId == targetParent && m_data->channels.contains(targetChannelId)
+                    && source.order < m_data->channels[targetChannelId].order)
+                targetIndex = qMax(0, targetIndex - 1);
+        } else if (targetIndex < 0) {
+            targetIndex = topLevelItemCount();
+        }
+        emit channelMoveRequested(channelId, targetParent, qMax(0, targetIndex));
+        return true;
+    }
+
+    if (!data->hasFormat(QStringLiteral("application/x-halla-userid"))) return false;
     const int uid = data->data(QStringLiteral("application/x-halla-userid")).toInt();
     if (uid != m_data->selfId && !m_canMoveOthers) return false;
-
-    int target = parent->data(0, RoleKind).toInt() == NodeServer
-                     ? m_data->channels.begin().key()
-                     : parent->data(0, RoleId).toInt();
+    const int target = parentKind == NodeServer
+                         ? m_data->channels.begin().key()
+                         : parent->data(0, RoleId).toInt();
     emit moveUserRequested(uid, target);
     return true;
 }
