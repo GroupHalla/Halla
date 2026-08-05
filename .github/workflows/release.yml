@@ -96,13 +96,13 @@ jobs:
           name: Halla ${{ github.ref_name }} — grupos e registro
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.60.exe
+          files: Halla-Setup-3.13.61.exe
           body: |
-            ## Halla Desktop v3.13.60
+            ## Halla Desktop v3.13.61
 
-            ### Grupos e registro
-            * A janela de grupos agora mostra todos os usuários associados a cada grupo e permite adicionar ou remover membros.
-            * Usuários novos aparecem como não registrados e podem se registrar pelo próprio menu; administradores podem registrar usuários com `registerUsers`.
-            * Ao selecionar um usuário, o painel ao lado mostra o cargo e o ícone associado.
+            ### Correção do gerenciamento de grupos
+            * Corrigida a atualização da lista de grupos após atribuir um usuário.
+            * Remover um usuário do grupo Normal não o envia mais para o grupo Admin.
+            * A janela de grupos agora abre ampliada para mostrar grupos, membros e permissões.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
