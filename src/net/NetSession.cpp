@@ -394,6 +394,7 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     ch.description = c["desc"].toString();
     ch.hasPassword = c["pw"].toBool();
     ch.isDefault = c["def"].toBool();
+    ch.noSymbol = c["noSymbol"].toBool(false);
     ch.type = c["type"].toInt(2);
     ch.moderated = c["moderated"].toBool();
     ch.codec = c["codec"].toInt(4);

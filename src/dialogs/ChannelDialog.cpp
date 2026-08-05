@@ -115,9 +115,11 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
 
     m_default = new QCheckBox(tr("Canal padrão"), this);
     m_moderated = new QCheckBox(tr("Moderado (precisa de poder de fala)"), this);
+    m_hideSymbol = new QCheckBox(tr("Ocultar símbolo do canal"), this);
     QHBoxLayout* chkrow = new QHBoxLayout;
     chkrow->addWidget(m_default);
     chkrow->addWidget(m_moderated);
+    chkrow->addWidget(m_hideSymbol);
     chkrow->addStretch(1);
     QWidget* cw = new QWidget(this);
     cw->setLayout(chkrow);
@@ -133,63 +135,30 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     pLayout->setContentsMargins(8, 8, 8, 8);
     pLayout->setSpacing(8);
 
-    // Coluna esquerda: lista de regras ativas, contexto e sujeito.
+    // Coluna esquerda: grupos que possuem uma regra específica neste canal.
     QVBoxLayout* left = new QVBoxLayout;
     left->setSpacing(6);
-    left->addWidget(new QLabel(tr("LCAs ativas"), permPage));
+    left->addWidget(new QLabel(tr("Grupos ativos"), permPage));
     m_lcaList = new QListWidget(permPage);
-    m_lcaList->setMinimumWidth(260);
+    m_lcaList->setMinimumWidth(250);
     left->addWidget(m_lcaList, 1);
 
     QHBoxLayout* lcaButtons = new QHBoxLayout;
-    m_inheritLca = new QCheckBox(tr("Herdar LCAs"), permPage);
-    m_inheritLca->setChecked(true);
-    lcaButtons->addWidget(m_inheritLca);
-    m_lcaUp = new QPushButton(tr("Subir"), permPage);
-    m_lcaDown = new QPushButton(tr("Descer"), permPage);
+    lcaButtons->addStretch(1);
     m_lcaAdd = new QPushButton(tr("Adicionar"), permPage);
     m_lcaDelete = new QPushButton(tr("Excluir"), permPage);
-    m_lcaUp->setEnabled(false);
-    m_lcaDown->setEnabled(false);
-    lcaButtons->addWidget(m_lcaUp);
-    lcaButtons->addWidget(m_lcaDown);
     lcaButtons->addWidget(m_lcaAdd);
     lcaButtons->addWidget(m_lcaDelete);
     left->addLayout(lcaButtons);
 
-    QGroupBox* context = new QGroupBox(tr("Contexto"), permPage);
-    QVBoxLayout* contextLayout = new QVBoxLayout(context);
-    QHBoxLayout* contextChecks = new QHBoxLayout;
-    m_applySubchannels = new QCheckBox(tr("Aplicada a subcanais"), context);
-    m_applySubchannels->setEnabled(false);
-    m_applyThisChannel = new QCheckBox(tr("Aplicada a este canal"), context);
-    m_applyThisChannel->setChecked(true);
-    contextChecks->addWidget(m_applySubchannels);
-    contextChecks->addWidget(m_applyThisChannel);
-    contextChecks->addStretch(1);
-    contextLayout->addLayout(contextChecks);
-    left->addWidget(context);
-
-    QGroupBox* subject = new QGroupBox(tr("Usuário/Grupo"), permPage);
+    QGroupBox* subject = new QGroupBox(tr("Grupo"), permPage);
     QFormLayout* subjectForm = new QFormLayout(subject);
     m_permGroupCombo = new QComboBox(subject);
     subjectForm->addRow(tr("Grupo"), m_permGroupCombo);
-    m_permUserCombo = new QComboBox(subject);
-    m_permUserCombo->addItem(tr("Todos os usuários"), QString());
-    if (m_server) {
-        for (const User& u : m_server->users)
-            m_permUserCombo->addItem(u.name, u.uniqueId);
-    }
-    // O servidor Halla aplica as LCAs por grupo; o seletor de usuário fica
-    // visível para manter o modelo do editor, mas é reservado para a próxima
-    // extensão de ACL individual.
-    m_permUserCombo->setEnabled(false);
-    m_permUserCombo->setToolTip(tr("As regras de canal do Halla são aplicadas por grupo."));
-    subjectForm->addRow(tr("ID de usuário"), m_permUserCombo);
     left->addWidget(subject);
     pLayout->addLayout(left, 1);
 
-    // Coluna direita: matriz Negar/Permitir.
+    // Coluna direita: matriz Negar/Permitir para as permissões existentes.
     QVBoxLayout* right = new QVBoxLayout;
     right->setSpacing(6);
     right->addWidget(new QLabel(tr("Permissões"), permPage));
@@ -203,18 +172,10 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     m_permTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
 
     const QList<QPair<QString, QString>> permissions = {
-        { QStringLiteral("write_acl"), tr("Escrever LCA") },
-        { QStringLiteral("traverse"), tr("Percorrer") },
-        { QStringLiteral("join"), tr("Entrar") },
-        { QStringLiteral("talk"), tr("Falar") },
-        { QStringLiteral("mute"), tr("Emudecer/Ensurdecer") },
-        { QStringLiteral("move"), tr("Mover") },
-        { QStringLiteral("channel_create"), tr("Criar canal") },
-        { QStringLiteral("channel_link"), tr("Vincular canal") },
-        { QStringLiteral("whisper"), tr("Sussurrar") },
+        { QStringLiteral("join"), tr("Entrar no canal") },
+        { QStringLiteral("talk"), tr("Falar no canal") },
+        { QStringLiteral("whisper"), tr("Sussurrar neste canal") },
         { QStringLiteral("text_chat"), tr("Mensagem de texto") },
-        { QStringLiteral("chan_create_temp"), tr("Criar temporário") },
-        { QStringLiteral("listen"), tr("Ouvir") },
         { QStringLiteral("file_upload"), tr("Enviar arquivos") },
         { QStringLiteral("file_download"), tr("Baixar arquivos") }
     };
@@ -322,6 +283,7 @@ void ChannelDialog::setChannel(const Channel& c) {
     m_perm->setChecked(c.type == 2);
     m_default->setChecked(c.isDefault);
     m_moderated->setChecked(c.moderated);
+    m_hideSymbol->setChecked(c.noSymbol);
     const int idx = m_sortAfter->findData(c.id);
     if (idx >= 0) m_sortAfter->removeItem(idx); // não pode classificar abaixo de si mesmo
 
@@ -348,6 +310,7 @@ Channel ChannelDialog::resultChannel() const {
     c.type = m_temp->isChecked() ? 0 : (m_semi->isChecked() ? 1 : 2);
     c.isDefault = m_default->isChecked();
     c.moderated = m_moderated->isChecked();
+    c.noSymbol = m_hideSymbol->isChecked();
     
     const_cast<ChannelDialog*>(this)->saveCurrentGroupPerms();
     c.groupPerms = m_localGroupPerms;
@@ -388,7 +351,6 @@ void ChannelDialog::saveCurrentGroupPerms() {
     if (m_lastGid < 0 || !m_permTable) return;
 
     QJsonObject gPerms;
-    if (m_inheritLca && m_inheritLca->isChecked()) gPerms["inherit"] = true;
     for (int row = 0; row < m_permTable->rowCount(); ++row) {
         const QString key = m_permTable->item(row, 0)->data(Qt::UserRole).toString();
         const bool deny = m_permTable->item(row, 1)->checkState() == Qt::Checked;
@@ -405,7 +367,6 @@ void ChannelDialog::loadGroupPerms(int gid) {
     m_isUpdatingPerms = true;
     m_lastGid = gid;
     const QJsonObject gPerms = m_localGroupPerms.value(QString::number(gid)).toObject();
-    if (m_inheritLca) m_inheritLca->setChecked(gPerms.value("inherit").toBool(true));
     if (m_permTable) {
         for (int row = 0; row < m_permTable->rowCount(); ++row) {
             const QString key = m_permTable->item(row, 0)->data(Qt::UserRole).toString();

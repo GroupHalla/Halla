@@ -91,17 +91,19 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.41
-          name: Halla v3.13.41 — Permissões de canais
+          tag_name: v3.13.42
+          name: Halla v3.13.42 — Permissões e símbolos de canais
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.41.exe
+          files: Halla-Setup-3.13.42.exe
           body: |
-            ## Halla Desktop v3.13.41
+            ## Halla Desktop v3.13.42
 
-            ### Editor de permissões de canais
-            * Aba de permissões reorganizada no formato LCA, com regras ativas, contexto, grupo/usuário e matriz Negar/Permitir.
-            * Regras de entrada, fala, sussurro, chat, arquivos e criação de canais são salvas no canal.
-            * Edição de canal mantém o bitrate, nome e permissões ao reabrir.
+            ### Permissões de canal
+            * A aba agora usa apenas as permissões de canal já existentes no Halla: entrar, falar, sussurrar, chat e arquivos.
+            * O visual foi adaptado para a matriz Negar/Permitir, sem importar um sistema externo de LCAs.
+
+            ### Símbolo do canal
+            * Nova opção para ocultar o símbolo visual antes do nome do canal.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

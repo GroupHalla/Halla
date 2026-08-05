@@ -344,7 +344,9 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
         item->setFlags((item->flags() & ~Qt::ItemIsEnabled & ~Qt::ItemIsSelectable & ~Qt::ItemIsDragEnabled & ~Qt::ItemIsDropEnabled));
         item->setForeground(0, QColor("#8A939B")); // Cinza suave etched
     } else {
-        item->setIcon(0, HIcons::channel(c.hasPassword, c.moderated, c.isDefault, full));
+        item->setIcon(0, c.noSymbol
+            ? QIcon()
+            : HIcons::channel(c.hasPassword, c.moderated, c.isDefault, full));
         item->setData(0, RoleKind, NodeChannel);
         item->setData(0, RoleId, c.id);
         item->setToolTip(0, channelTooltip(c));

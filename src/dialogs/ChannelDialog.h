@@ -16,7 +16,8 @@ class QListWidget;
 class QTableWidget;
 class QPushButton;
 
-// Diálogo "Criar canal" / "Editar canal" — réplica do editor de canais do Halla.
+// Diálogo "Criar canal" / "Editar canal" — editor de propriedades e das
+// permissões de canal já suportadas pelo protocolo Halla.
 class ChannelDialog : public QDialog {
     Q_OBJECT
 public:
@@ -43,17 +44,13 @@ private:
     QRadioButton* m_perm;
     QCheckBox* m_default;
     QCheckBox* m_moderated;
+    QCheckBox* m_hideSymbol;
 
-    // Editor de regras de acesso do canal.
+    // Editor visual em duas colunas, mantendo somente as seis permissões
+    // específicas que o servidor Halla já aplica por grupo.
     QListWidget* m_lcaList = nullptr;
     QTableWidget* m_permTable = nullptr;
     QComboBox* m_permGroupCombo = nullptr;
-    QComboBox* m_permUserCombo = nullptr;
-    QCheckBox* m_inheritLca = nullptr;
-    QCheckBox* m_applySubchannels = nullptr;
-    QCheckBox* m_applyThisChannel = nullptr;
-    QPushButton* m_lcaUp = nullptr;
-    QPushButton* m_lcaDown = nullptr;
     QPushButton* m_lcaAdd = nullptr;
     QPushButton* m_lcaDelete = nullptr;
     QJsonObject m_localGroupPerms;

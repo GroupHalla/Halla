@@ -67,6 +67,7 @@ struct Channel {
     QString passwordHash;
     bool    hasPassword = false;
     bool    isDefault = false;
+    bool    noSymbol = false;        // oculta o símbolo visual antes do nome
     int     type = 2;                // 0 = temporário, 1 = semi-permanente, 2 = permanente
     bool    moderated = false;
     int     codec = 4;               // Opus Voice
