@@ -33,6 +33,7 @@ public:
     bool pttHeld() const { return m_pttHeld; }
     void setWhisperHeld(bool held);
     bool whisperHeld() const { return m_whisperHeld; }
+    bool isTalking() const { return m_talking; }
 
     // ---- gravação local (WAV 48 kHz mono): recebidos + próprio microfone
     bool startRecording(const QString& wavPath);

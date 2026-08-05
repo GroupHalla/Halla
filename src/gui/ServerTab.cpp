@@ -1066,6 +1066,8 @@ void ServerTab::setWhisperUids(const QStringList& uids) {
     if (m_data.users.contains(m_data.selfId)) {
         m_data.users[m_data.selfId].whispering = !uids.isEmpty();
     }
+    if (!uids.isEmpty() && m_voice && m_voice->isTalking())
+        playSpeechCue(true);
     if (!m_net) return;
     if (uids.isEmpty()) {
         m_net->setWhisperIds({});

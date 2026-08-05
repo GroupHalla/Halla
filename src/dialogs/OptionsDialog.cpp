@@ -503,12 +503,12 @@ QWidget* OptionsDialog::pageApplication() {
     QGroupBox* gbLang = new QGroupBox(tr("Idioma"), w);
     QFormLayout* fl = new QFormLayout(gbLang);
     QComboBox* lang = new QComboBox(gbLang);
-    lang->addItems({ QStringLiteral("Português (Brasil)"), QStringLiteral("English"),
-                     QStringLiteral("Deutsch"), QStringLiteral("Español"),
-                     QStringLiteral("Français") });
+    lang->addItems({ QStringLiteral("Automático (idioma do sistema)"),
+                     QStringLiteral("Português (Brasil)"), QStringLiteral("English"),
+                     QStringLiteral("Español") });
     lang->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     lang->setMinimumContentsLength(8);
-    lang->setCurrentIndex(S::num("app/language", 0));
+    lang->setCurrentIndex(qBound(0, S::num("app/language", 0), 3));
     fl->addRow(tr("Idioma:"), lang);
     connect(lang, &QComboBox::currentIndexChanged, this, [this](int idx) {
         S::set("app/language", idx);

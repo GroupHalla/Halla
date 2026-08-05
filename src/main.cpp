@@ -7,6 +7,8 @@
 #include <QTranslator>
 #include <QLocale>
 #include <QMap>
+#include <QRegularExpression>
+#include <algorithm>
 #include "app/MainWindow.h"
 #include "gui/Icons.h"
 #include "core/Settings.h"
@@ -81,8 +83,17 @@ class HallaTranslator : public QTranslator {
     Q_OBJECT
 public:
     explicit HallaTranslator(QObject* parent = nullptr) : QTranslator(parent) {
+        // 0 = automático: segue o idioma do sistema. As opções 1, 2 e 3
+        // são Português, English e Español, respectivamente.
         m_lang = QLocale::system().language();
+        switch (S::num(QStringLiteral("app/language"), 0)) {
+        case 1: m_lang = QLocale::Portuguese; break;
+        case 2: m_lang = QLocale::English; break;
+        case 3: m_lang = QLocale::Spanish; break;
+        default: break;
+        }
         setupTranslations();
+        setupWordTranslations();
     }
 
     bool isEmpty() const override { return false; }
@@ -97,8 +108,10 @@ public:
         
         if (m_lang == QLocale::English) {
             if (m_en.contains(key)) return m_en.value(key);
+            return translateLoose(key, m_enWords);
         } else if (m_lang == QLocale::Spanish) {
             if (m_es.contains(key)) return m_es.value(key);
+            return translateLoose(key, m_esWords);
         }
         return key;
     }
@@ -107,6 +120,213 @@ private:
     QLocale::Language m_lang;
     QMap<QString, QString> m_en;
     QMap<QString, QString> m_es;
+    QMap<QString, QString> m_enWords;
+    QMap<QString, QString> m_esWords;
+
+    QString translateLoose(const QString& source,
+                           const QMap<QString, QString>& words) const {
+        QString out = source;
+        QStringList keys = words.keys();
+        std::sort(keys.begin(), keys.end(), [](const QString& a, const QString& b) {
+            return a.size() > b.size();
+        });
+        for (const QString& key : keys) {
+            const QString pattern = QStringLiteral("(?<![\\p{L}\\p{N}_])%1(?![\\p{L}\\p{N}_])")
+                .arg(QRegularExpression::escape(key));
+            out.replace(QRegularExpression(pattern), words.value(key));
+        }
+        return out;
+    }
+
+    void setupWordTranslations() {
+        const QList<QPair<QString, QString>> en = {
+            {"Configurações", "Settings"}, {"Configuração", "Setting"},
+            {"Aplicativo", "Application"}, {"Reprodução", "Playback"},
+            {"Capturar", "Capture"}, {"Aparência", "Appearance"},
+            {"Notificações", "Notifications"}, {"Teclas de atalho", "Hotkeys"},
+            {"Sussurro", "Whisper"}, {"Segurança", "Security"},
+            {"Complementos", "Add-ons"}, {"Servidor", "Server"},
+            {"servidor", "server"}, {"Servidores", "Servers"},
+            {"servidores", "servers"}, {"Canal", "Channel"},
+            {"canal", "channel"}, {"Canais", "Channels"},
+            {"canais", "channels"}, {"Cliente", "Client"},
+            {"cliente", "client"}, {"Clientes", "Clients"},
+            {"clientes", "clients"}, {"Usuário", "User"},
+            {"usuário", "user"}, {"Usuários", "Users"},
+            {"usuários", "users"}, {"Nome", "Name"}, {"nome", "name"},
+            {"Endereço", "Address"}, {"endereço", "address"},
+            {"Senha", "Password"}, {"senha", "password"},
+            {"Mensagem", "Message"}, {"mensagem", "message"},
+            {"Descrição", "Description"}, {"descrição", "description"},
+            {"Tipo", "Type"}, {"tipo", "type"}, {"Qualidade", "Quality"},
+            {"qualidade", "quality"}, {"Permissão", "Permission"},
+            {"permissão", "permission"}, {"Permissões", "Permissions"},
+            {"permissões", "permissions"}, {"Grupo", "Group"},
+            {"grupo", "group"}, {"Grupos", "Groups"}, {"grupos", "groups"},
+            {"Padrão", "Default"}, {"padrão", "default"},
+            {"Temporário", "Temporary"}, {"temporário", "temporary"},
+            {"Permanente", "Permanent"}, {"permanente", "permanent"},
+            {"Semi-permanente", "Semi-permanent"}, {"semi-permanente", "semi-permanent"},
+            {"Sim", "Yes"}, {"Não", "No"}, {"Cancelar", "Cancel"},
+            {"Fechar", "Close"}, {"Aplicar", "Apply"}, {"Salvar", "Save"},
+            {"Excluir", "Delete"}, {"Adicionar", "Add"}, {"Atualizar", "Refresh"},
+            {"Editar", "Edit"}, {"Remover", "Remove"}, {"Enviar", "Send"},
+            {"Baixar", "Download"}, {"Entrar", "Join"}, {"Falar", "Talk"},
+            {"Sussurrar", "Whisper"}, {"Moderado", "Moderated"},
+            {"moderado", "moderated"}, {"Ausente", "Away"}, {"ausente", "away"},
+            {"Mudo", "Muted"}, {"mudo", "muted"}, {"Silenciar", "Mute"},
+            {"silenciado", "muted"}, {"Gravação", "Recording"},
+            {"gravação", "recording"}, {"Conectar", "Connect"},
+            {"conectar", "connect"}, {"Desconectar", "Disconnect"},
+            {"desconectar", "disconnect"}, {"Erro", "Error"}, {"erro", "error"},
+            {"Motivo", "Reason"}, {"motivo", "reason"}, {"Duração", "Duration"},
+            {"duração", "duration"}, {"Poder de fala", "Talk power"},
+            {"Banner", "Banner"}, {"banner", "banner"}, {"Imagem", "Image"},
+            {"imagem", "image"}, {"Escolher", "Choose"}, {"personalizado", "custom"},
+            {"Bem-vindo", "Welcome"}, {"ao", "to"}, {"do", "of"}, {"da", "of"},
+            {"no", "on"}, {"em", "in"}, {"para", "for"}, {"com", "with"},
+            {"e", "and"}, {"ou", "or"}, {"de", "of"}, {"a", "the"},
+            {"o", "the"}, {"um", "a"}, {"uma", "a"}, {"mais", "more"},
+            {"menos", "less"}, {"nível", "level"}, {"ativo", "active"},
+            {"Inativo", "Inactive"}, {"inativo", "inactive"},
+            {"Todos", "All"}, {"todas", "all"}, {"Nenhum", "None"},
+            {"Nenhuma", "None"}, {"conectado", "connected"}, {"Conectado", "Connected"},
+            {"Desconectado", "Disconnected"}, {"online", "online"},
+            {"Tempo", "Time"}, {"tempo", "time"}, {"ativo", "active"},
+            {"Cópia", "Copy"}, {"Copiar", "Copy"}, {"Selecionar", "Select"},
+            {"Selecionado", "Selected"}, {"Estado", "State"}, {"estado", "state"},
+            {"Voltar", "Back"}, {"Próximo", "Next"}, {"Anterior", "Previous"},
+            {"Idioma", "Language"}, {"idioma", "language"}, {"Claro", "Light"},
+            {"Escuro", "Dark"}, {"Automático", "Automatic"}, {"sistema", "system"},
+            {"Recurso", "Feature"}, {"recurso", "feature"}, {"Diversos", "Miscellaneous"},
+            {"Opções", "Options"}, {"opções", "options"}, {"Informações", "Information"},
+            {"informações", "information"}, {"Desempenho", "Performance"},
+            {"Notificação", "Notification"}, {"notificação", "notification"},
+            {"Som", "Sound"}, {"som", "sound"}, {"Sons", "Sounds"},
+            {"Fones", "Headphones"}, {"Microfone", "Microphone"}, {"microfone", "microphone"},
+            {"Alto-falantes", "Speakers"}, {"captura", "capture"},
+            {"reprodução", "playback"}, {"voz", "voice"}, {"Voz", "Voice"},
+            {"Ativação", "Activation"}, {"ativação", "activation"},
+            {"Detecção", "Detection"}, {"detecção", "detection"},
+            {"Pressione", "Press"}, {"pressione", "press"}, {"falar", "talk"},
+            {"Contínuo", "Continuous"}, {"contínuo", "continuous"},
+            {"Sensibilidade", "Sensitivity"}, {"sensibilidade", "sensitivity"},
+            {"Dispositivo", "Device"}, {"dispositivo", "device"},
+            {"Volume", "Volume"}, {"volume", "volume"}, {"Perfil", "Profile"},
+            {"perfil", "profile"}, {"Novo", "New"}, {"novo", "new"},
+            {"Feita", "Done"}, {"sucesso", "success"}, {"Sucesso", "Success"},
+            {"Falha", "Failure"}, {"falha", "failure"}, {"Reclamações", "Complaints"},
+            {"Reclamações", "Complaints"}, {"banidos", "banned users"},
+            {"Banidos", "Banned users"}, {"Atualizações", "Updates"},
+            {"atualizações", "updates"}, {"Ação", "Action"}, {"ação", "action"},
+            {"ocultar", "hide"}, {"Ocultar", "Hide"}, {"Mostrar", "Show"},
+            {"mostrar", "show"}, {"Exibir", "Show"}, {"exibir", "show"},
+            {"Arquivo", "File"}, {"arquivo", "file"}, {"arquivos", "files"},
+            {"Enviar arquivos", "Upload files"}, {"Baixar arquivos", "Download files"},
+            {"Tópico", "Topic"}, {"tópico", "topic"}, {"Qualquer", "Any"},
+            {"seu", "your"}, {"sua", "your"}, {"Você", "You"}, {"você", "you"},
+            {"tem", "has"}, {"está", "is"}, {"estão", "are"}, {"foi", "was"},
+            {"servidor virtual", "virtual server"}, {"canal padrão", "default channel"},
+            {"Configure", "Configure"}, {"configure", "configure"},
+            {"Sussurros", "Whispers"}, {"sussurros", "whispers"},
+            {"Áudio", "Audio"}, {"áudio", "audio"}, {"Sistema", "System"},
+            {"sistemas", "systems"}, {"Ativar", "Enable"}, {"ativar", "enable"},
+            {"Desativar", "Disable"}, {"desativar", "disable"},
+            {"Procurar", "Check"}, {"Procurar", "Check"}, {"automaticamente", "automatically"},
+            {"compartilhar", "share"}, {"transferência", "transfer"}, {"transferência de arquivos", "file transfer"},
+            {"Folha de estilos", "Stylesheet"}, {"folhas de estilos", "stylesheets"},
+            {"Suporte", "Support"}, {"suporte", "support"}, {"animado", "animated"},
+            {"avatares", "avatars"}, {"imagens", "images"}, {"teclas", "keys"},
+            {"atalho", "shortcut"}, {"atalhos", "shortcuts"}, {"recurso", "feature"},
+            {"Recurso", "Feature"}, {"configurado", "configured"}, {"configurada", "configured"}
+        };
+        const QList<QPair<QString, QString>> es = {
+            {"Configurações", "Configuración"}, {"Configuração", "Configuración"},
+            {"Aplicativo", "Aplicación"}, {"Reprodução", "Reproducción"},
+            {"Capturar", "Captura"}, {"Aparência", "Apariencia"},
+            {"Notificações", "Notificaciones"}, {"Teclas de atalho", "Atajos de teclado"},
+            {"Sussurro", "Susurro"}, {"Segurança", "Seguridad"},
+            {"Complementos", "Complementos"}, {"Servidor", "Servidor"},
+            {"servidor", "servidor"}, {"Servidores", "Servidores"},
+            {"servidores", "servidores"}, {"Canal", "Canal"}, {"canal", "canal"},
+            {"Canais", "Canales"}, {"canais", "canales"}, {"Cliente", "Cliente"},
+            {"cliente", "cliente"}, {"Clientes", "Clientes"}, {"clientes", "clientes"},
+            {"Usuário", "Usuario"}, {"usuário", "usuario"}, {"Usuários", "Usuarios"},
+            {"usuários", "usuarios"}, {"Nome", "Nombre"}, {"nome", "nombre"},
+            {"Endereço", "Dirección"}, {"endereço", "dirección"}, {"Senha", "Contraseña"},
+            {"senha", "contraseña"}, {"Mensagem", "Mensaje"}, {"mensagem", "mensaje"},
+            {"Descrição", "Descripción"}, {"descrição", "descripción"}, {"Tipo", "Tipo"},
+            {"tipo", "tipo"}, {"Qualidade", "Calidad"}, {"qualidade", "calidad"},
+            {"Permissão", "Permiso"}, {"permissão", "permiso"}, {"Permissões", "Permisos"},
+            {"permissões", "permisos"}, {"Grupo", "Grupo"}, {"grupo", "grupo"},
+            {"Grupos", "Grupos"}, {"grupos", "grupos"}, {"Padrão", "Predeterminado"},
+            {"padrão", "predeterminado"}, {"Temporário", "Temporal"}, {"temporário", "temporal"},
+            {"Permanente", "Permanente"}, {"permanente", "permanente"},
+            {"Semi-permanente", "Semipermanente"}, {"Sim", "Sí"}, {"Não", "No"},
+            {"Cancelar", "Cancelar"}, {"Fechar", "Cerrar"}, {"Aplicar", "Aplicar"},
+            {"Salvar", "Guardar"}, {"Excluir", "Eliminar"}, {"Adicionar", "Añadir"},
+            {"Atualizar", "Actualizar"}, {"Editar", "Editar"}, {"Remover", "Eliminar"},
+            {"Enviar", "Enviar"}, {"Baixar", "Descargar"}, {"Entrar", "Entrar"},
+            {"Falar", "Hablar"}, {"Sussurrar", "Susurrar"}, {"Moderado", "Moderado"},
+            {"moderado", "moderado"}, {"Ausente", "Ausente"}, {"ausente", "ausente"},
+            {"Mudo", "Silenciado"}, {"mudo", "silenciado"}, {"Silenciar", "Silenciar"},
+            {"silenciado", "silenciado"}, {"Gravação", "Grabación"}, {"gravação", "grabación"},
+            {"Conectar", "Conectar"}, {"conectar", "conectar"}, {"Desconectar", "Desconectar"},
+            {"desconectar", "desconectar"}, {"Erro", "Error"}, {"erro", "error"},
+            {"Motivo", "Motivo"}, {"motivo", "motivo"}, {"Duração", "Duración"},
+            {"duração", "duración"}, {"Poder de fala", "Poder de habla"},
+            {"Imagem", "Imagen"}, {"imagem", "imagen"}, {"Escolher", "Elegir"},
+            {"personalizado", "personalizado"}, {"Bem-vindo", "Bienvenido"},
+            {"ao", "al"}, {"do", "del"}, {"da", "de la"}, {"no", "en el"},
+            {"em", "en"}, {"para", "para"}, {"com", "con"}, {"e", "y"}, {"ou", "o"},
+            {"de", "de"}, {"a", "el"}, {"o", "el"}, {"um", "un"}, {"uma", "una"},
+            {"mais", "más"}, {"menos", "menos"}, {"nível", "nivel"},
+            {"ativo", "activo"}, {"Inativo", "Inactivo"}, {"inativo", "inactivo"},
+            {"Todos", "Todos"}, {"todas", "todas"}, {"Nenhum", "Ninguno"},
+            {"Nenhuma", "Ninguna"}, {"conectado", "conectado"}, {"Conectado", "Conectado"},
+            {"Desconectado", "Desconectado"}, {"Tempo", "Tiempo"}, {"tempo", "tiempo"},
+            {"Estado", "Estado"}, {"estado", "estado"}, {"Voltar", "Atrás"},
+            {"Próximo", "Siguiente"}, {"Anterior", "Anterior"}, {"Idioma", "Idioma"},
+            {"idioma", "idioma"}, {"Claro", "Claro"}, {"Escuro", "Oscuro"},
+            {"Automático", "Automático"}, {"sistema", "sistema"}, {"Informações", "Información"},
+            {"informações", "información"}, {"Diversos", "Varios"}, {"Opções", "Opciones"},
+            {"opções", "opciones"}, {"Som", "Sonido"}, {"som", "sonido"},
+            {"Sons", "Sonidos"}, {"Fones", "Auriculares"}, {"Microfone", "Micrófono"},
+            {"microfone", "micrófono"}, {"Alto-falantes", "Altavoces"}, {"captura", "captura"},
+            {"reprodução", "reproducción"}, {"voz", "voz"}, {"Voz", "Voz"},
+            {"Ativação", "Activación"}, {"ativação", "activación"}, {"Detecção", "Detección"},
+            {"detecção", "detección"}, {"Pressione", "Presione"}, {"pressione", "presione"},
+            {"falar", "hablar"}, {"Contínuo", "Continuo"}, {"contínuo", "continuo"},
+            {"Sensibilidade", "Sensibilidad"}, {"sensibilidade", "sensibilidad"},
+            {"Dispositivo", "Dispositivo"}, {"dispositivo", "dispositivo"},
+            {"Perfil", "Perfil"}, {"perfil", "perfil"}, {"Novo", "Nuevo"}, {"novo", "nuevo"},
+            {"Sucesso", "Éxito"}, {"sucesso", "éxito"}, {"Falha", "Fallo"}, {"falha", "fallo"},
+            {"Reclamações", "Quejas"}, {"banidos", "baneados"}, {"Banidos", "Baneados"},
+            {"Atualizações", "Actualizaciones"}, {"atualizações", "actualizaciones"},
+            {"Ação", "Acción"}, {"ação", "acción"}, {"Ocultar", "Ocultar"}, {"ocultar", "ocultar"},
+            {"Mostrar", "Mostrar"}, {"mostrar", "mostrar"}, {"Exibir", "Mostrar"},
+            {"exibir", "mostrar"}, {"Arquivo", "Archivo"}, {"arquivo", "archivo"},
+            {"arquivos", "archivos"}, {"Tópico", "Tema"}, {"tópico", "tema"},
+            {"seu", "tu"}, {"sua", "tu"}, {"Você", "Tú"}, {"você", "tú"},
+            {"tem", "tiene"}, {"está", "está"}, {"estão", "están"}, {"foi", "fue"},
+            {"servidor virtual", "servidor virtual"}, {"canal padrão", "canal predeterminado"},
+            {"Configure", "Configura"}, {"configure", "configura"},
+            {"Sussurros", "Susurros"}, {"sussurros", "susurros"},
+            {"Áudio", "Audio"}, {"áudio", "audio"}, {"Sistema", "Sistema"},
+            {"sistemas", "sistemas"}, {"Ativar", "Activar"}, {"ativar", "activar"},
+            {"Desativar", "Desactivar"}, {"desativar", "desactivar"},
+            {"Procurar", "Buscar"}, {"automaticamente", "automáticamente"},
+            {"compartilhar", "compartir"}, {"transferência", "transferencia"},
+            {"transferência de arquivos", "transferencia de archivos"},
+            {"Folha de estilos", "Hoja de estilos"}, {"folhas de estilos", "hojas de estilos"},
+            {"Suporte", "Soporte"}, {"suporte", "soporte"}, {"animado", "animado"},
+            {"avatares", "avatares"}, {"imagens", "imágenes"}, {"teclas", "teclas"},
+            {"atalho", "atajo"}, {"atalhos", "atajos"}, {"recurso", "recurso"},
+            {"Recurso", "Recurso"}, {"configurado", "configurado"}, {"configurada", "configurada"}
+        };
+        for (const auto& pair : en) m_enWords.insert(pair.first, pair.second);
+        for (const auto& pair : es) m_esWords.insert(pair.first, pair.second);
+    }
 
     void setupTranslations() {
         m_en["&Conexões"] = "&Connections";
@@ -305,6 +525,25 @@ private:
         m_es["Alternar para o canal"] = "Cambiar al canal";
         m_es["Desconectado"] = "Desconectado";
         m_es["Conectado como %1"] = "Conectado como %1";
+
+        // Termos recentes do banner personalizado e dos indicadores de
+        // estado. O fallback por palavras cobre também as mensagens novas
+        // adicionadas nas páginas de opções.
+        m_en["Imagem do banner:"] = "Banner image:";
+        m_en["Escolher imagem..."] = "Choose image...";
+        m_en["Selecionar imagem do banner"] = "Select banner image";
+        m_en["Banner padrão"] = "Default banner";
+        m_en["Banner personalizado"] = "Custom banner";
+        m_en["Remover"] = "Remove";
+        m_en["Não foi possível abrir essa imagem."] = "Could not open this image.";
+        m_en["A imagem precisa ter no máximo 512 KiB."] = "The image must be no larger than 512 KiB.";
+        m_es["Imagem do banner:"] = "Imagen del banner:";
+        m_es["Escolher imagem..."] = "Elegir imagen...";
+        m_es["Selecionar imagem do banner"] = "Seleccionar imagen del banner";
+        m_es["Banner padrão"] = "Banner predeterminado";
+        m_es["Banner personalizado"] = "Banner personalizado";
+        m_es["Não foi possível abrir essa imagem."] = "No se pudo abrir esta imagen.";
+        m_es["A imagem precisa ter no máximo 512 KiB."] = "La imagen no puede superar 512 KiB.";
     }
 };
 

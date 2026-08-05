@@ -240,6 +240,7 @@ void VoiceEngine::captureTick() {
         bool voiceNow = rms > threshold;
         if (mode == 0) voiceNow = true;       // PTT segurado: envia tudo
         else if (mode == 2) voiceNow = true;  // contínuo
+        if (m_whisperHeld) voiceNow = true;   // sussurro força transmissão também no VAD
 
         if (voiceNow != m_talking) {
             if (voiceNow) {
@@ -307,7 +308,13 @@ void VoiceEngine::setPttHeld(bool held) {
 }
 
 void VoiceEngine::setWhisperHeld(bool held) {
+    const bool changed = m_whisperHeld != held;
     m_whisperHeld = held;
+    // Se o VAD já estava transmitindo, a troca para sussurro não muda o
+    // booleano talking e, portanto, não passaria pelo sinal normal. Emita
+    // novamente o estado para que o ServerTab toque o cue de sussurro.
+    if (held && changed && m_talking)
+        emit talkingChanged(true);
     if (!held && m_talking && !m_pttHeld) {
         m_talking = false;
         m_net->sendTalking(false);
