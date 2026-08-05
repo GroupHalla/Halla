@@ -96,9 +96,9 @@ jobs:
           name: Halla ${{ github.ref_name }} — idioma aplicado imediatamente
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.56.exe
+          files: Halla-Setup-3.13.57.exe
           body: |
-            ## Halla Desktop v3.13.56
+            ## Halla Desktop v3.13.57
 
             ### Idiomas
             * A troca de idioma nas Opções agora reinicia o cliente automaticamente para aplicar a tradução em toda a interface.
