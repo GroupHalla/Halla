@@ -46,6 +46,13 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
                 m_net->sendVoiceFrame(
                     QByteArray(reinterpret_cast<const char*>(registration), encoded), seq);
         }
+        // Reenvia periodicamente para atravessar NATs e perdas de pacotes no
+        // primeiro instante. Sem isso, o primeiro áudio podia depender de o
+        // PC falar antes para registrar novamente seu endpoint UDP.
+        m_endpointTimer = new QTimer(this);
+        m_endpointTimer->setInterval(2000);
+        connect(m_endpointTimer, &QTimer::timeout, this, &VoiceEngine::sendEndpointRegistration);
+        m_endpointTimer->start();
     }
 
     QAudioFormat fmt;
@@ -167,6 +174,18 @@ void VoiceEngine::setSpeakersEnabled(bool on) {
 }
 
 // ------------------------------------------------------------------ captura
+void VoiceEngine::sendEndpointRegistration() {
+    if (!m_encoder || !m_net) return;
+    int16_t silence[960] = {};
+    unsigned char registration[512];
+    opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
+    const int encoded = opus_encode(m_encoder, silence, 960,
+                                    registration, sizeof(registration));
+    opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1));
+    if (encoded > 0)
+        m_net->sendVoiceFrame(QByteArray(reinterpret_cast<const char*>(registration), encoded), ++m_seq);
+}
+
 void VoiceEngine::updateCodecSettings() {
     if (!m_encoder || !m_data) return;
     int myChanId = m_data->channelOfUser(m_data->selfId);

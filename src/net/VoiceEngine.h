@@ -47,6 +47,7 @@ private:
     // fluxo de captura disparado por timer de 20 ms
     void captureTick();
     void updateCodecSettings();
+    void sendEndpointRegistration();
     // consumo da fila de jitter para reprodução
     void playbackTick();
 
@@ -67,6 +68,7 @@ private:
     QIODevice* m_sinkDev = nullptr;
     class QTimer* m_capTimer = nullptr;
     class QTimer* m_playTimer = nullptr;
+    class QTimer* m_endpointTimer = nullptr;
     std::deque<QByteArray> m_playQueue; // PCM s16 pronto p/ tocar
     QByteArray m_captureBuf;
     quint16 m_seq = 0;

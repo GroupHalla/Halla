@@ -91,17 +91,16 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.13.43
-          name: Halla v3.13.43 — Arraste e ordenação de canais
+          tag_name: v3.13.44
+          name: Halla v3.13.44 — Áudio UDP corrigido
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.43.exe
+          files: Halla-Setup-3.13.44.exe
           body: |
-            ## Halla Desktop v3.13.43
+            ## Halla Desktop v3.13.44
 
-            ### Ordenação de canais
-            * Canais agora podem ser arrastados segurando e soltando na posição desejada.
-            * A ordem é persistida no servidor e sincronizada com os demais clientes.
-            * A opção de ocultar o símbolo do canal permanece persistente mesmo em servidores antigos.
+            ### Áudio UDP
+            * Registro periódico do endpoint UDP com frame Opus válido para que o primeiro áudio não dependa da fala inicial do PC.
+            * Mantidos os sinais sonoros configuráveis, bitrate, ordenação e permissões de canais.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

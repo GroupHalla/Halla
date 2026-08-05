@@ -2,7 +2,7 @@
 
 namespace halla {
 constexpr const char* kAppName    = "Halla";
-constexpr const char* kAppVersion = "3.13.43";
+constexpr const char* kAppVersion = "3.13.44";
 constexpr const char* kAppBuild   = "estável";
 constexpr const char* kOrgName    = "Halla";
 }
