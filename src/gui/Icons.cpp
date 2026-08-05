@@ -449,16 +449,28 @@ static QPixmap miniMicSlash() {
 }
 
 static QPixmap miniHeadphoneSlash() {
+    // Fones bloqueados: mantém o contorno do headset e coloca um cadeado
+    // vermelho no centro, em vez de apenas uma barra que poderia parecer um
+    // risco decorativo ou ser confundida com o microfone mudo.
     return mk(14, [&](QPainter& p) {
-        p.setPen(QPen(QColor("#54616E"), 1.5, Qt::SolidLine, Qt::RoundCap));
+        p.setPen(QPen(QColor("#54616E"), 1.35, Qt::SolidLine, Qt::RoundCap));
         p.setBrush(Qt::NoBrush);
         p.drawArc(QRectF(2.6, 2.2, 8.8, 9.4), 0, 180 * 16);
         p.setPen(QPen(QColor("#3E4A56"), 0.8));
         p.setBrush(QColor("#84919E"));
         p.drawRoundedRect(QRectF(1.6, 6.6, 2.6, 4), 1, 1);
         p.drawRoundedRect(QRectF(9.8, 6.6, 2.6, 4), 1, 1);
-        p.setPen(QPen(red(), 1.7, Qt::SolidLine, Qt::RoundCap));
-        p.drawLine(QPointF(2, 12.6), QPointF(12, 1.6));
+
+        // corpo do cadeado
+        p.setPen(QPen(QColor("#7F1D1D"), 0.75));
+        p.setBrush(QColor("#D9534F"));
+        p.drawRoundedRect(QRectF(5.1, 7.1, 5.8, 5.2), 1.1, 1.1);
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(QColor("#D9534F"), 1.15, Qt::SolidLine, Qt::RoundCap));
+        p.drawArc(QRectF(6.2, 4.4, 3.6, 4.8), 0, 180 * 16);
+        p.setPen(QPen(Qt::white, 0.85, Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(8, 9.1), QPointF(8, 10.6));
+        p.drawEllipse(QRectF(7.55, 8.6, 0.9, 0.9));
     });
 }
 

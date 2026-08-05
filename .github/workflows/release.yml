@@ -93,16 +93,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — catálogo completo de idiomas
+          name: Halla ${{ github.ref_name }} — indicadores de áudio
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.58.exe
+          files: Halla-Setup-3.13.59.exe
           body: |
-            ## Halla Desktop v3.13.58
+            ## Halla Desktop v3.13.59
 
-            ### Traduções
-            * Revisado o catálogo de textos do cliente para eliminar trechos em português misturados com English ou Español.
-            * Menus, páginas de opções, diálogos, mensagens, permissões, áudio, canais e administração agora usam traduções completas.
-            * A troca de idioma continua reiniciando o cliente para aplicar a tradução em toda a interface.
+            ### Indicadores de áudio
+            * O indicador azul do usuário agora é substituído por um microfone riscado quando o microfone está mudo.
+            * O mute dos fones agora aparece como fones com cadeado antes do nome do usuário.
+            * Os indicadores continuam sincronizados com os estados recebidos do servidor e com o silenciamento local.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

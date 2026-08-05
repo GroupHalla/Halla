@@ -107,13 +107,35 @@ static QPixmap treeUserSphere(const User& u) {
 }
 
 static QIcon leadingUserIcon(const User& u, bool showStatus) {
+    const bool outputMuted = u.outputMuted || u.locallyMuted;
+    const bool audioMuted = u.inputMuted || outputMuted;
     const QPixmap avatar = treeUserSphere(u);
-    const QPixmap statuses = showStatus
-        ? HIcons::userStatusMinis(u.inputMuted, u.outputMuted || u.locallyMuted,
-                                  u.away, u.recording, u.commander, u.op)
+
+    // O indicador azul é o estado normal. Quando a entrada ou a saída de
+    // áudio está bloqueada, ele é substituído pelos indicadores correspondentes
+    // antes do nome: microfone riscado e/ou fones com cadeado. Assim não há
+    // dois sinais concorrentes nem dúvida sobre o estado real do usuário.
+    const QPixmap statuses = (showStatus || audioMuted)
+        ? HIcons::userStatusMinis(
+              u.inputMuted,
+              outputMuted,
+              showStatus ? u.away : false,
+              showStatus ? u.recording : false,
+              showStatus ? u.commander : false,
+              showStatus ? u.op : false)
         : QPixmap();
-    const int statusWidth = statuses.isNull() ? 12 : statuses.width();
-    QPixmap combined(16 + statusWidth + 2, 18);
+
+    if (audioMuted) {
+        const int width = statuses.isNull() ? 16 : statuses.width();
+        QPixmap combined(width, 18);
+        combined.fill(Qt::transparent);
+        QPainter painter(&combined);
+        if (!statuses.isNull()) painter.drawPixmap(0, 2, statuses);
+        return QIcon(combined);
+    }
+
+    const int statusWidth = statuses.isNull() ? 0 : statuses.width();
+    QPixmap combined(16 + (statusWidth > 0 ? statusWidth + 2 : 0), 18);
     combined.fill(Qt::transparent);
     QPainter painter(&combined);
     painter.drawPixmap(0, 1, avatar);
@@ -196,8 +218,9 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     // com seleção estendida.
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setDragDropMode(InternalMove);
-    // Reserva largura para o avatar e os indicadores de estado antes do nome.
-    setIconSize(QSize(30, 18));
+    // Reserva largura para o avatar e até dois indicadores de áudio antes do
+    // nome. Quando o áudio é bloqueado, o avatar deixa de ocupar esse espaço.
+    setIconSize(QSize(48, 18));
     setFrameShape(QFrame::NoFrame);
 
     m_delegate = new ServerRowDelegate(this);
