@@ -372,7 +372,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     connect(refreshMembers, &QPushButton::clicked, this, [this] {
         if (m_groups->currentItem()) {
             const QByteArray raw = m_groups->currentItem()->data(0, Qt::UserRole + 5).toString().toUtf8();
-            refreshMembers(QJsonDocument::fromJson(raw).array());
+            this->refreshMembers(QJsonDocument::fromJson(raw).array());
         }
     });
     connect(removeMember, &QPushButton::clicked, this, [this] {
@@ -402,7 +402,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                 m_sigla->setText(m_cur["sigla"].toString());
                 m_order->setValue(m_cur["order"].toInt());
                 m_icon->setText(m_cur["icon"].toString());
-                refreshMembers(QJsonDocument::fromJson(
+                this->refreshMembers(QJsonDocument::fromJson(
                     cur->data(0, Qt::UserRole + 5).toString().toUtf8()).array());
             });
 
