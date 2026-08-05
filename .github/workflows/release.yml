@@ -96,13 +96,16 @@ jobs:
           name: Halla ${{ github.ref_name }} — banner personalizado
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.53.exe
+          files: Halla-Setup-3.13.54.exe
           body: |
-            ## Halla Desktop v3.13.53
+            ## Halla Desktop v3.13.54
 
             ### Banner do servidor
             * Administradores com `serverEdit` podem escolher uma imagem personalizada em **Editar servidor virtual → Imagem do banner**.
             * A imagem é enviada ao servidor, persistida e sincronizada com os clientes conectados.
             * O banner padrão do Halla continua sendo usado quando nenhuma imagem personalizada estiver configurada.
+
+            ### Correção de compilação
+            * Incluído o cabeçalho do botão de seleção de imagem no cliente Windows.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

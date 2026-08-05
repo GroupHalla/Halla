@@ -20,6 +20,7 @@
 #include <QSplitter>
 #include <QFrame>
 #include <QToolButton>
+#include <QPushButton>
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QApplication>
