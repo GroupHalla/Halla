@@ -56,6 +56,7 @@ struct User {
     int     groupOrder = 0;          // ordem/prioridade do cargo (ex: menor valor = maior prioridade)
     bool    talking = false;
     bool    whispering = false;      // sussurrando (sinal laranja)
+    bool    registered = true;       // identidade cadastrada no servidor
     QDateTime connectedAt = QDateTime::currentDateTime();
 };
 

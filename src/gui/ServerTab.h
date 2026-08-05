@@ -10,6 +10,7 @@ class ChatPanel;
 class InfoPanel;
 class QSplitter;
 class QLabel;
+class QToolButton;
 class NetSession;
 class VoiceEngine;
 
@@ -84,7 +85,7 @@ private:
     InfoPanel* m_info = nullptr;
     QSplitter* m_split = nullptr;   // vertical: corpo (tree|info) / chat
     QSplitter* m_hsplit = nullptr;  // horizontal: árvore 50% | informações 50%
-    QLabel* m_serverHeaderName = nullptr;
+    QToolButton* m_serverHeaderName = nullptr;
     QLabel* m_serverIntroTitle = nullptr;
     QLabel* m_serverIntroText = nullptr;
     NetSession* m_net = nullptr;

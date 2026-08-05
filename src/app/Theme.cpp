@@ -57,7 +57,7 @@ QString HTheme::styleSheet(bool dark) {
     css += QStringLiteral("QFrame#panelCard, QFrame#chatCard { background: ") + surface
            + QStringLiteral("; border: 1px solid ") + border + QStringLiteral("; border-radius: 14px; }");
     css += QStringLiteral("QFrame#treeCardHeader { background: transparent; border: 0; }");
-    css += QStringLiteral("QLabel#serverHeaderName { color: ") + text + QStringLiteral("; font-weight: 600; }");
+    css += QStringLiteral("QToolButton#serverHeaderName { color: ") + text + QStringLiteral("; font-weight: 600; }");
     css += QStringLiteral("QLabel#statusDot { color: ") + green + QStringLiteral("; font-size: 15px; }");
     css += QStringLiteral("QToolButton#headerIconButton { background: transparent; color: ") + muted
            + QStringLiteral("; border: 0; border-radius: 10px; font-size: 22px; min-width: 28px; min-height: 28px; }");
@@ -165,7 +165,7 @@ QString HTheme::styleSheet(bool dark) {
         css += QStringLiteral("QToolBar#mainToolBar::separator { width: 1px; background: #E0E4E9; margin: 4px 2px; }");
         css += QStringLiteral("QFrame#panelCard, QFrame#chatCard { background: #FFFFFF; border: 1px solid #DEE3E9; border-radius: 7px; }");
         css += QStringLiteral("QFrame#treeCardHeader { min-height: 30px; }");
-        css += QStringLiteral("QLabel#serverHeaderName { color: #263238; font-size: 12px; font-weight: 600; }");
+        css += QStringLiteral("QToolButton#serverHeaderName { color: #263238; font-size: 12px; font-weight: 600; }");
         css += QStringLiteral("QLabel#statusDot { color: #7BA7D2; font-size: 11px; }");
         css += QStringLiteral("QToolButton#headerIconButton { color: #6A88A8; border-radius: 6px; font-size: 17px; min-width: 24px; min-height: 22px; }");
         css += QStringLiteral("QToolButton#headerIconButton:hover { background: #EEF4FB; color: #2E6FAE; }");
@@ -217,7 +217,7 @@ QString HTheme::styleSheet(bool dark) {
         css += QStringLiteral("QWidget#mainSurface, QSplitter#bodySplitter, QSplitter#topSplitter { background: #0B1422; }");
         css += QStringLiteral("QFrame#panelCard, QFrame#chatCard { background: #0B1422; border: 1px solid #1B2B42; border-radius: 7px; }");
         css += QStringLiteral("QFrame#treeCardHeader { min-height: 30px; }");
-        css += QStringLiteral("QLabel#serverHeaderName { color: #E7EDF5; font-size: 12px; font-weight: 600; }");
+        css += QStringLiteral("QToolButton#serverHeaderName { color: #E7EDF5; font-size: 12px; font-weight: 600; }");
         css += QStringLiteral("QLabel#statusDot { color: #8B72D6; font-size: 11px; }");
         css += QStringLiteral("QToolButton#headerIconButton { color: #A88BDF; border-radius: 6px; font-size: 17px; min-width: 24px; min-height: 22px; }");
         css += QStringLiteral("QToolButton#headerIconButton:hover { background: #1B1536; color: #D5B7FF; }");

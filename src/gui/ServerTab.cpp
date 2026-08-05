@@ -96,8 +96,13 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     QLabel* serverIcon = new QLabel(treeHeader);
     serverIcon->setPixmap(HIcons::server().pixmap(18, 18));
     headerLayout->addWidget(serverIcon);
-    m_serverHeaderName = new QLabel(m_data.name, treeHeader);
+    m_serverHeaderName = new QToolButton(treeHeader);
     m_serverHeaderName->setObjectName(QStringLiteral("serverHeaderName"));
+    m_serverHeaderName->setText(m_data.name);
+    m_serverHeaderName->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_serverHeaderName->setAutoRaise(true);
+    m_serverHeaderName->setCursor(Qt::PointingHandCursor);
+    m_serverHeaderName->setToolTip(tr("Mostrar descrição e informações do servidor"));
     headerLayout->addWidget(m_serverHeaderName);
     QLabel* dot = new QLabel(QStringLiteral("●"), treeHeader);
     dot->setObjectName(QStringLiteral("statusDot"));
@@ -116,25 +121,9 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     headerLayout->addWidget(more);
     treeLayout->addWidget(treeHeader);
 
-    // Faixa de boas-vindas acima da árvore, como na referência branca. Ela
-    // usa apenas os dados do próprio servidor Halla e não introduz marcas
-    // externas na interface.
-    QFrame* introCard = new QFrame(treeCard);
-    introCard->setObjectName(QStringLiteral("serverIntroCard"));
-    introCard->setMinimumHeight(82);
-    introCard->setMaximumHeight(82);
-    QVBoxLayout* introLayout = new QVBoxLayout(introCard);
-    introLayout->setContentsMargins(14, 8, 14, 8);
-    introLayout->setSpacing(2);
-    m_serverIntroTitle = new QLabel(QStringLiteral("🎧  Bem-vindo ao Halla"), introCard);
-    m_serverIntroTitle->setObjectName(QStringLiteral("serverIntroTitle"));
-    m_serverIntroText = new QLabel(m_data.motd, introCard);
-    m_serverIntroText->setObjectName(QStringLiteral("serverIntroText"));
-    m_serverIntroText->setWordWrap(true);
-    m_serverIntroText->setTextFormat(Qt::PlainText);
-    introLayout->addWidget(m_serverIntroTitle);
-    introLayout->addWidget(m_serverIntroText, 1);
-    treeLayout->addWidget(introCard);
+    // O cabeçalho mostra somente o nome do servidor. A descrição e as
+    // informações ficam no painel ao lado quando o nome é clicado.
+
 
     m_tree = new ServerTreeWidget(treeCard);
     m_tree->setServerData(&m_data);
@@ -149,6 +138,9 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     m_info = new InfoPanel(infoCard);
     m_info->setData(&m_data);
     infoLayout->addWidget(m_info);
+    connect(m_serverHeaderName, &QToolButton::clicked, this, [this] {
+        m_info->setSelection(0, 0);
+    });
     m_hsplit->addWidget(infoCard);
     m_hsplit->setStretchFactor(0, 47);
     m_hsplit->setStretchFactor(1, 53);
@@ -355,8 +347,11 @@ void ServerTab::updatePermissionUi() {
                                                QStringLiteral("b_client_set_channel_commander") });
     const bool otherCommander = hasPermission({ QStringLiteral("setCommander"),
                                                 QStringLiteral("b_client_set_channel_commander") });
+    const bool selfRegister = hasPermission({ QStringLiteral("selfRegister") });
+    const bool registerOthers = hasPermission({ QStringLiteral("registerUsers") });
     m_tree->setCanMoveOthers(moveOthers);
     m_tree->setCommanderPermissions(selfCommander, otherCommander);
+    m_tree->setRegistrationPermissions(selfRegister, registerOthers);
 }
 
 void ServerTab::applyDisplayOptions() {
@@ -397,6 +392,12 @@ void ServerTab::hookSignals() {
             this, &ServerTab::renameSelf);
     connect(m_tree, &ServerTreeWidget::setDescriptionRequested,
             this, &ServerTab::setSelfDescription);
+    connect(m_tree, &ServerTreeWidget::registerSelfRequested, this, [this] {
+        if (m_net) m_net->registerSelf();
+    });
+    connect(m_tree, &ServerTreeWidget::registerUserRequested, this, [this](int userId) {
+        if (m_net) m_net->registerUser(userId);
+    });
     connect(m_tree, &ServerTreeWidget::channelDescriptionRequested, this,
             [this](int channelId) {
                 if (!m_data.channels.contains(channelId)) return;

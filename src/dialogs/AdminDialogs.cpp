@@ -194,6 +194,8 @@ static const QList<QPair<QString, QString>>& permDefs() {
         { QStringLiteral("chanDelete"),       QStringLiteral("Excluir canais") },
         { QStringLiteral("serverEdit"),       QStringLiteral("Editar servidor virtual") },
         { QStringLiteral("groupEdit"),        QStringLiteral("Editar grupos e atribuições") },
+        { QStringLiteral("registerUsers"),    QStringLiteral("Registrar outros usuários") },
+        { QStringLiteral("selfRegister"),     QStringLiteral("Permitir auto-registro") },
         { QStringLiteral("ignoreChanPass"),   QStringLiteral("Ignorar senha de canal") },
         { QStringLiteral("ignoreTalkPower"),  QStringLiteral("Falar em canais moderados") },
     };
@@ -245,6 +247,23 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     rl->setContentsMargins(8, 0, 0, 0);
     m_groupLabel = new QLabel(tr("Selecione um grupo à esquerda."), right);
     rl->addWidget(m_groupLabel);
+
+    QGroupBox* membersBox = new QGroupBox(tr("Usuários neste grupo"), right);
+    QVBoxLayout* membersLayout = new QVBoxLayout(membersBox);
+    m_members = new QTreeWidget(membersBox);
+    m_members->setHeaderLabels({ tr("Nome"), tr("UID"), tr("Estado") });
+    m_members->setRootIsDecorated(false);
+    m_members->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_members->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    membersLayout->addWidget(m_members);
+    QHBoxLayout* memberButtons = new QHBoxLayout;
+    QPushButton* removeMember = new QPushButton(tr("Remover do grupo"), membersBox);
+    QPushButton* refreshMembers = new QPushButton(tr("Atualizar"), membersBox);
+    memberButtons->addWidget(removeMember);
+    memberButtons->addStretch(1);
+    memberButtons->addWidget(refreshMembers);
+    membersLayout->addLayout(memberButtons);
+    rl->addWidget(membersBox);
 
     QScrollArea* scroll = new QScrollArea(right);
     scroll->setWidgetResizable(true);
@@ -350,6 +369,21 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     connect(close, &QPushButton::clicked, this, &QDialog::accept);
     connect(refresh, &QPushButton::clicked, this, [this] { m_net->requestGroupList(); });
     connect(reloadU, &QPushButton::clicked, this, &ServerGroupsDialog::refreshUsers);
+    connect(refreshMembers, &QPushButton::clicked, this, [this] {
+        if (m_groups->currentItem()) {
+            const QByteArray raw = m_groups->currentItem()->data(0, Qt::UserRole + 5).toString().toUtf8();
+            refreshMembers(QJsonDocument::fromJson(raw).array());
+        }
+    });
+    connect(removeMember, &QPushButton::clicked, this, [this] {
+        QTreeWidgetItem* item = m_members->currentItem();
+        if (!item || m_cur.isEmpty()) return;
+        const QString uid = item->data(0, Qt::UserRole).toString();
+        const int onlineId = item->data(0, Qt::UserRole + 1).toInt();
+        if (onlineId > 0) m_net->clientSetGroup(onlineId, 2);
+        else if (!uid.isEmpty()) m_net->clientSetGroupUid(uid, 2);
+        m_net->requestGroupList();
+    });
 
     connect(m_groups, &QTreeWidget::currentItemChanged, this,
             [this](QTreeWidgetItem* cur, QTreeWidgetItem*) {
@@ -368,6 +402,8 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                 m_sigla->setText(m_cur["sigla"].toString());
                 m_order->setValue(m_cur["order"].toInt());
                 m_icon->setText(m_cur["icon"].toString());
+                refreshMembers(QJsonDocument::fromJson(
+                    cur->data(0, Qt::UserRole + 5).toString().toUtf8()).array());
             });
 
     connect(add, &QPushButton::clicked, this, [this] {
@@ -458,9 +494,28 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
         it->setData(0, Qt::UserRole + 2, g["sigla"].toString());
         it->setData(0, Qt::UserRole + 3, g["order"].toInt());
         it->setData(0, Qt::UserRole + 4, g["icon"].toString());
+        it->setData(0, Qt::UserRole + 5,
+                    QString::fromUtf8(QJsonDocument(g["members"].toArray())
+                                          .toJson(QJsonDocument::Compact)));
     }
     if (m_groups->topLevelItemCount() > 0 && !m_groups->currentItem())
         m_groups->setCurrentItem(m_groups->topLevelItem(0));
+}
+
+void ServerGroupsDialog::refreshMembers(const QJsonArray& members) {
+    if (!m_members) return;
+    m_members->clear();
+    for (const QJsonValue& value : members) {
+        const QJsonObject member = value.toObject();
+        QTreeWidgetItem* item = new QTreeWidgetItem(m_members);
+        item->setText(0, member["name"].toString(member["uid"].toString()));
+        item->setText(1, member["uid"].toString());
+        item->setText(2, member["online"].toBool() ? tr("online") : tr("offline"));
+        item->setData(0, Qt::UserRole, member["uid"].toString());
+        item->setData(0, Qt::UserRole + 1, member["id"].toInt(0));
+        if (!member["registered"].toBool(true))
+            item->setText(0, item->text(0) + tr(" (não registrado)"));
+    }
 }
 
 void ServerGroupsDialog::loadPerms(const QJsonObject& perms) {

@@ -49,6 +49,10 @@ public:
         m_canSetSelfCommander = self;
         m_canSetOtherCommander = others;
     }
+    void setRegistrationPermissions(bool self, bool others) {
+        m_canRegisterSelf = self;
+        m_canRegisterOthers = others;
+    }
 
     // modos de expansão (Opções → Aparência → Árvore do canal)
     void expandChannelsToLevel(int level);     // recolhe tudo e expande até o nível
@@ -83,6 +87,8 @@ signals:
     void channelMoveRequested(int channelId, int parentId, int order);
     void channelLinkRequested(const QList<int>& channelIds, bool link);
     void commanderRequested(int userId, bool on);
+    void registerSelfRequested();
+    void registerUserRequested(int userId);
     void privateMessageRequested(int userId);
     void disconnectRequested();
     void addBookmarkRequested();
@@ -111,4 +117,6 @@ private:
     bool m_canMoveOthers = false;
     bool m_canSetSelfCommander = false;
     bool m_canSetOtherCommander = false;
+    bool m_canRegisterSelf = false;
+    bool m_canRegisterOthers = false;
 };

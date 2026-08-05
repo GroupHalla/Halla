@@ -54,10 +54,12 @@ private:
     void loadPerms(const QJsonObject& perms);
     QJsonObject collectPerms() const;
     void refreshUsers();
+    void refreshMembers(const QJsonArray& members);
 
     NetSession* m_net;
     ServerData* m_data;
     QTreeWidget* m_groups;
+    QTreeWidget* m_members = nullptr;
     QWidget* m_editor = nullptr;
     QLabel* m_groupLabel = nullptr;
     QJsonObject m_cur;         // grupo em edição (id, name, perms)

@@ -138,7 +138,10 @@ QString InfoPanel::userHtml(const User& u) const {
     if (u.id == m_data->selfId) h += row(tr("Tipo:"), tr("Você (este cliente)"));
     h += row(tr("Versão:"), QStringLiteral("%1 no %2").arg(u.version, u.platform));
     h += row(tr("Tempo online:"), uptime(u.connectedAt));
-    h += row(tr("Grupos de servidor:"), u.serverGroups.toHtmlEscaped());
+    QString role = u.groupIcon.isEmpty() ? QString() : u.groupIcon + QStringLiteral(" ");
+    role += u.sigla.isEmpty() ? u.serverGroups : QStringLiteral("%1 %2").arg(u.sigla, u.serverGroups);
+    h += row(tr("Cargos:"), role.toHtmlEscaped());
+    h += row(tr("Registro:"), u.registered ? tr("Registrado") : tr("Não registrado"));
     h += row(tr("Volume:"), QStringLiteral("%1 dB").arg(u.volumeDb));
     QStringList flags;
     if (u.away)        flags << tr("Ausente");
