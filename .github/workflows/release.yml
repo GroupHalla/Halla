@@ -93,15 +93,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — idioma aplicado imediatamente
+          name: Halla ${{ github.ref_name }} — catálogo completo de idiomas
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.57.exe
+          files: Halla-Setup-3.13.58.exe
           body: |
-            ## Halla Desktop v3.13.57
+            ## Halla Desktop v3.13.58
 
-            ### Idiomas
-            * A troca de idioma nas Opções agora reinicia o cliente automaticamente para aplicar a tradução em toda a interface.
-            * O modo automático continua seguindo o idioma do sistema; estão disponíveis Português, English e Español.
+            ### Traduções
+            * Revisado o catálogo de textos do cliente para eliminar trechos em português misturados com English ou Español.
+            * Menus, páginas de opções, diálogos, mensagens, permissões, áudio, canais e administração agora usam traduções completas.
+            * A troca de idioma continua reiniciando o cliente para aplicar a tradução em toda a interface.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
