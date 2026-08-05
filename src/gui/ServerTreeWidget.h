@@ -76,6 +76,7 @@ signals:
     void banRequested(int userId);
     void moveToMyChannelRequested(int userId);
     void moveUserRequested(int userId, int channelId);
+    void channelMoveRequested(int channelId, int parentId, int order);
     void commanderRequested(int userId, bool on);
     void privateMessageRequested(int userId);
     void disconnectRequested();

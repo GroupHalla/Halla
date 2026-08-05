@@ -37,6 +37,7 @@ public:
     void sendChat(const QString& scope, int to, const QString& text);
     void moveToChannel(int channelId, const QString& pass = QString());
     void moveOther(int userId, int channelId);
+    void moveChannel(int channelId, int parentId, int order);
     void setCommander(int userId, bool on);
     void sendStatus();
     void sendTalking(bool on);
