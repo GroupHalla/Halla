@@ -188,6 +188,7 @@ static const QList<QPair<QString, QString>>& permDefs() {
         { QStringLiteral("move"),             QStringLiteral("Mover clientes entre canais") },
         { QStringLiteral("poke"),             QStringLiteral("Cutucar clientes") },
         { QStringLiteral("privmsg"),          QStringLiteral("Enviar mensagens privadas") },
+        { QStringLiteral("whisper"),          QStringLiteral("Usar sussurros") },
         { QStringLiteral("chanCreateTemp"),   QStringLiteral("Criar canal temporário") },
         { QStringLiteral("chanCreateSemi"),   QStringLiteral("Criar canal semi-permanente") },
         { QStringLiteral("chanCreatePerm"),   QStringLiteral("Criar canal permanente") },
@@ -255,7 +256,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     m_members = new QTreeWidget(membersBox);
     m_members->setHeaderLabels({ tr("Nome"), tr("UID"), tr("Estado") });
     m_members->setRootIsDecorated(false);
-    m_members->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_members->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_members->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     membersLayout->addWidget(m_members);
     QHBoxLayout* memberButtons = new QHBoxLayout;
@@ -378,12 +379,15 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
         }
     });
     connect(removeMember, &QPushButton::clicked, this, [this] {
-        QTreeWidgetItem* item = m_members->currentItem();
-        if (!item || m_cur.isEmpty()) return;
-        const QString uid = item->data(0, Qt::UserRole).toString();
-        const int onlineId = item->data(0, Qt::UserRole + 1).toInt();
-        if (onlineId > 0) m_net->clientSetGroup(onlineId, 2);
-        else if (!uid.isEmpty()) m_net->clientSetGroupUid(uid, 2);
+        if (m_cur.isEmpty()) return;
+        const QList<QTreeWidgetItem*> selected = m_members->selectedItems();
+        if (selected.isEmpty()) return;
+        for (QTreeWidgetItem* item : selected) {
+            const QString uid = item->data(0, Qt::UserRole).toString();
+            const int onlineId = item->data(0, Qt::UserRole + 1).toInt();
+            if (onlineId > 0) m_net->clientSetGroup(onlineId, 2);
+            else if (!uid.isEmpty()) m_net->clientSetGroupUid(uid, 2);
+        }
         m_net->requestGroupList();
     });
 
@@ -517,6 +521,18 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
     if (keepItem) m_groups->setCurrentItem(keepItem);
     else if (m_groups->topLevelItemCount() > 0)
         m_groups->setCurrentItem(m_groups->topLevelItem(0));
+
+    // A seleção não emite sinal quando o mesmo cargo permanece selecionado.
+    // Recarrega os membros da resposta nova para a lista não desaparecer.
+    if (QTreeWidgetItem* selected = m_groups->currentItem()) {
+        m_cur["id"] = selected->data(0, Qt::UserRole).toInt();
+        m_cur["name"] = selected->text(1);
+        m_cur["perms"] = QJsonDocument::fromJson(
+            selected->data(0, Qt::UserRole + 1).toString().toUtf8()).object();
+        refreshMembers(QJsonDocument::fromJson(
+            selected->data(0, Qt::UserRole + 5).toString().toUtf8()).array());
+        refreshUsers();
+    }
 }
 
 void ServerGroupsDialog::refreshMembers(const QJsonArray& members) {

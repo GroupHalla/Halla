@@ -48,6 +48,8 @@ static void saveList(const char* key, const QList<QJsonObject>& list) {
 #include <QComboBox>
 #include <QLineEdit>
 #include <functional>
+#include <QFileDialog>
+#include <QMessageBox>
 
 QStringList WhisperDialog::activeWhisperUids() {
     const QString uid = S::str("whisper/activeList");
@@ -156,7 +158,11 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     // ========================================== FOOTER
     QHBoxLayout* footerLayout = new QHBoxLayout;
     m_btnReload = new QPushButton(tr("Recarregar"), this);
+    QPushButton* importLists = new QPushButton(tr("Importar..."), this);
+    QPushButton* exportLists = new QPushButton(tr("Exportar..."), this);
     footerLayout->addWidget(m_btnReload);
+    footerLayout->addWidget(importLists);
+    footerLayout->addWidget(exportLists);
     footerLayout->addStretch(1);
 
     QPushButton* btnOk = new QPushButton(tr("OK"), this);
@@ -172,6 +178,49 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     connect(m_btnRemove, &QPushButton::clicked, this, &WhisperDialog::onRemoveList);
     connect(m_btnRename, &QPushButton::clicked, this, &WhisperDialog::onRenameList);
     connect(m_btnReload, &QPushButton::clicked, this, &WhisperDialog::onReload);
+    connect(exportLists, &QPushButton::clicked, this, [this] {
+        const QString path = QFileDialog::getSaveFileName(this, tr("Exportar listas de sussurro"),
+            QStringLiteral("listas-sussurro.json"), tr("Listas de sussurro (*.json)"));
+        if (path.isEmpty()) return;
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            QMessageBox::warning(this, tr("Exportar"), tr("Não foi possível criar o arquivo."));
+            return;
+        }
+        QJsonArray lists;
+        for (const QJsonObject& list : m_whispers) lists.append(list);
+        file.write(QJsonDocument(lists).toJson(QJsonDocument::Indented));
+    });
+    connect(importLists, &QPushButton::clicked, this, [this] {
+        const QString path = QFileDialog::getOpenFileName(this, tr("Importar listas de sussurro"),
+            QString(), tr("Listas de sussurro (*.json)"));
+        if (path.isEmpty()) return;
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            QMessageBox::warning(this, tr("Importar"), tr("Não foi possível abrir o arquivo."));
+            return;
+        }
+        QJsonParseError error;
+        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &error);
+        if (!doc.isArray()) {
+            QMessageBox::warning(this, tr("Importar"), tr("Arquivo de listas inválido."));
+            return;
+        }
+        QList<QJsonObject> imported;
+        for (const QJsonValue& value : doc.array()) {
+            const QJsonObject list = value.toObject();
+            if (list["name"].toString().trimmed().isEmpty()) continue;
+            imported << list;
+        }
+        if (imported.isEmpty() && !doc.array().isEmpty()) {
+            QMessageBox::warning(this, tr("Importar"), tr("Nenhuma lista válida foi encontrada."));
+            return;
+        }
+        m_whispers = imported;
+        saveSettings();
+        loadSettings();
+        emit settingsSaved();
+    });
     connect(m_syncList, &QListWidget::currentItemChanged, this, &WhisperDialog::onSelectedListChanged);
     connect(m_searchEdit, &QLineEdit::textChanged, this, &WhisperDialog::onSearchTextChanged);
     connect(m_filterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &WhisperDialog::onFilterChanged);
