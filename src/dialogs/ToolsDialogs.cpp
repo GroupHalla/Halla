@@ -25,6 +25,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QMessageBox>
+#include <QMenu>
 
 static QList<QJsonObject> loadList(const char* key) {
     QList<QJsonObject> out;
@@ -50,6 +51,7 @@ static void saveList(const char* key, const QList<QJsonObject>& list) {
 #include <functional>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QMenu>
 
 QStringList WhisperDialog::activeWhisperUids() {
     const QString uid = S::str("whisper/activeList");
@@ -65,30 +67,44 @@ QStringList WhisperDialog::activeWhisperUids() {
 
 WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     : QDialog(parent), m_data(data) {
-    setWindowTitle(tr("Listas de sussurro"));
-    resize(950, 550);
+    // Proporções e organização do diálogo clássico de listas de sussurro.
+    setWindowTitle(tr("Lista de sussurros"));
+    setFixedSize(701, 497);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
-    mainLayout->setSpacing(8);
+    mainLayout->setContentsMargins(8, 8, 8, 8);
+    mainLayout->setSpacing(6);
+
+    QHBoxLayout* headings = new QHBoxLayout;
+    QLabel* syncHeading = new QLabel(tr("Listas de sussurros sincronizadas"), this);
+    QLabel* detailHeading = new QLabel(tr("Detalhes da lista de sussurros"), this);
+    syncHeading->setFixedWidth(166);
+    headings->addWidget(syncHeading);
+    headings->addWidget(detailHeading, 1);
+    mainLayout->addLayout(headings);
+    QFrame* divider = new QFrame(this);
+    divider->setFrameShape(QFrame::HLine);
+    divider->setFrameShadow(QFrame::Sunken);
+    mainLayout->addWidget(divider);
 
     QHBoxLayout* columnsLayout = new QHBoxLayout;
     columnsLayout->setSpacing(10);
 
-    // ========================================== COLUMN 1: LEFT (Gerenciamento de Listas)
+    // Coluna esquerda — mesmo tamanho e ordem da referência.
     QVBoxLayout* colLeft = new QVBoxLayout;
-    
-    colLeft->addWidget(new QLabel(tr("Listas de sussurros sincronizadas"), this));
+    colLeft->setSpacing(5);
     m_syncList = new QListWidget(this);
-    m_syncList->setMinimumHeight(150);
-    colLeft->addWidget(m_syncList, 3);
-
+    m_syncList->setFixedWidth(166);
+    m_syncList->setMinimumHeight(153);
+    colLeft->addWidget(m_syncList);
     colLeft->addWidget(new QLabel(tr("Listas de sussurros locais"), this));
     m_localList = new QListWidget(this);
-    m_localList->setMinimumHeight(150);
-    colLeft->addWidget(m_localList, 2);
-
+    m_localList->setFixedWidth(166);
+    m_localList->setMinimumHeight(158);
+    colLeft->addWidget(m_localList);
     QHBoxLayout* leftButtons = new QHBoxLayout;
+    leftButtons->setContentsMargins(0, 0, 0, 0);
+    leftButtons->setSpacing(6);
     m_btnNew = new QPushButton(tr("Novo"), this);
     m_btnRemove = new QPushButton(tr("Remover"), this);
     m_btnRename = new QPushButton(tr("Renomear"), this);
@@ -96,75 +112,59 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     leftButtons->addWidget(m_btnRemove);
     leftButtons->addWidget(m_btnRename);
     colLeft->addLayout(leftButtons);
+    columnsLayout->addLayout(colLeft);
 
-    columnsLayout->addLayout(colLeft, 1);
-
-    // ========================================== COLUMN 2: CENTER (Detalhes e Árvore de Alvos)
+    // Área central: detalhes e os destinatários selecionados.
     QVBoxLayout* colCenter = new QVBoxLayout;
-    
+    colCenter->setSpacing(6);
     QFormLayout* centerForm = new QFormLayout;
+    centerForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
     centerForm->setSpacing(6);
-    centerForm->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
-
     m_hotkeyEdit = new HotkeyEdit(this);
-    m_hotkeyEdit->setMinimumWidth(180);
+    m_hotkeyEdit->setMinimumWidth(170);
     centerForm->addRow(tr("Tecla de atalho:"), m_hotkeyEdit);
-
     m_replyHotkeyEdit = new HotkeyEdit(this);
-    m_replyHotkeyEdit->setMinimumWidth(180);
+    m_replyHotkeyEdit->setMinimumWidth(170);
     centerForm->addRow(tr("Tecla de atalho para resposta:"), m_replyHotkeyEdit);
-
     m_scopeCombo = new QComboBox(this);
     m_scopeCombo->addItems({ tr("Clientes & canais"), tr("Grupos de servidores"), tr("Grupos de canais") });
     centerForm->addRow(tr("Enviar sussurro para:"), m_scopeCombo);
-
     colCenter->addLayout(centerForm);
-    colCenter->addSpacing(4);
-
-    colCenter->addWidget(new QLabel(tr("Árvore de Alvos"), this));
     m_targetsTree = new QTreeWidget(this);
     m_targetsTree->setHeaderHidden(true);
     m_targetsTree->setFrameShape(QFrame::StyledPanel);
     colCenter->addWidget(m_targetsTree, 1);
-
     columnsLayout->addLayout(colCenter, 1);
 
-    // ========================================== COLUMN 3: RIGHT (Navegador/Seletor de Canais e Usuários)
+    // Coluna direita: filtro, contatos/canais e pesquisa, sem títulos extras.
     QVBoxLayout* colRight = new QVBoxLayout;
-
-    QHBoxLayout* rightTop = new QHBoxLayout;
-    rightTop->addWidget(new QLabel(tr("Filtro:"), this));
+    colRight->setSpacing(6);
     m_filterCombo = new QComboBox(this);
     m_filterCombo->addItems({ tr("Ver tudo"), tr("Canais"), tr("Clientes") });
-    rightTop->addWidget(m_filterCombo, 1);
-    colRight->addLayout(rightTop);
-
-    colRight->addWidget(new QLabel(tr("Árvore do Servidor"), this));
+    m_filterCombo->setFixedWidth(163);
+    colRight->addWidget(m_filterCombo);
     m_serverTree = new QTreeWidget(this);
     m_serverTree->setHeaderHidden(true);
     m_serverTree->setFrameShape(QFrame::StyledPanel);
+    m_serverTree->setMinimumWidth(163);
     colRight->addWidget(m_serverTree, 1);
-
-    QHBoxLayout* searchLayout = new QHBoxLayout;
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setPlaceholderText(tr("Pesquisar..."));
-    searchLayout->addWidget(m_searchEdit, 1);
-    colRight->addLayout(searchLayout);
-
-    columnsLayout->addLayout(colRight, 1);
-
+    colRight->addWidget(m_searchEdit);
+    columnsLayout->addLayout(colRight);
     mainLayout->addLayout(columnsLayout, 1);
 
-    // ========================================== FOOTER
+    QLabel* profile = new QLabel(tr("Perfil atribuído: Predefinição"), this);
+    mainLayout->addWidget(profile);
+    QFrame* footerDivider = new QFrame(this);
+    footerDivider->setFrameShape(QFrame::HLine);
+    footerDivider->setFrameShadow(QFrame::Sunken);
+    mainLayout->addWidget(footerDivider);
     QHBoxLayout* footerLayout = new QHBoxLayout;
+    footerLayout->setContentsMargins(0, 0, 0, 0);
     m_btnReload = new QPushButton(tr("Recarregar"), this);
-    QPushButton* importLists = new QPushButton(tr("Importar..."), this);
-    QPushButton* exportLists = new QPushButton(tr("Exportar..."), this);
     footerLayout->addWidget(m_btnReload);
-    footerLayout->addWidget(importLists);
-    footerLayout->addWidget(exportLists);
     footerLayout->addStretch(1);
-
     QPushButton* btnOk = new QPushButton(tr("OK"), this);
     QPushButton* btnCancel = new QPushButton(tr("Cancelar"), this);
     QPushButton* btnApply = new QPushButton(tr("Aplicar"), this);
@@ -173,102 +173,59 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     footerLayout->addWidget(btnApply);
     mainLayout->addLayout(footerLayout);
 
-    // Connections
+    // Importar/exportar é acessível pelo menu de contexto, preservando o
+    // desenho literal da referência sem novos botões na barra inferior.
+    m_syncList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_syncList, &QListWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
+        QMenu menu(this);
+        QAction* importAction = menu.addAction(tr("Importar listas..."));
+        QAction* exportAction = menu.addAction(tr("Exportar listas..."));
+        QAction* choice = menu.exec(m_syncList->viewport()->mapToGlobal(pos));
+        if (choice == exportAction) {
+            const QString path = QFileDialog::getSaveFileName(this, tr("Exportar listas de sussurro"),
+                QStringLiteral("listas-sussurro.json"), tr("Listas de sussurro (*.json)"));
+            if (path.isEmpty()) return;
+            QFile file(path);
+            if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                QMessageBox::warning(this, tr("Exportar"), tr("Não foi possível criar o arquivo."));
+                return;
+            }
+            QJsonArray lists; for (const QJsonObject& list : m_whispers) lists.append(list);
+            file.write(QJsonDocument(lists).toJson(QJsonDocument::Indented));
+        } else if (choice == importAction) {
+            const QString path = QFileDialog::getOpenFileName(this, tr("Importar listas de sussurro"),
+                QString(), tr("Listas de sussurro (*.json)"));
+            if (path.isEmpty()) return;
+            QFile file(path);
+            if (!file.open(QIODevice::ReadOnly)) { QMessageBox::warning(this, tr("Importar"), tr("Não foi possível abrir o arquivo.")); return; }
+            QJsonParseError error; const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &error);
+            if (!doc.isArray()) { QMessageBox::warning(this, tr("Importar"), tr("Arquivo de listas inválido.")); return; }
+            QList<QJsonObject> imported;
+            for (const QJsonValue& value : doc.array()) { const QJsonObject list = value.toObject(); if (!list["name"].toString().trimmed().isEmpty()) imported << list; }
+            m_whispers = imported; saveSettings(); loadSettings(); emit settingsSaved();
+        }
+    });
+
     connect(m_btnNew, &QPushButton::clicked, this, &WhisperDialog::onNewList);
     connect(m_btnRemove, &QPushButton::clicked, this, &WhisperDialog::onRemoveList);
     connect(m_btnRename, &QPushButton::clicked, this, &WhisperDialog::onRenameList);
     connect(m_btnReload, &QPushButton::clicked, this, &WhisperDialog::onReload);
-    connect(exportLists, &QPushButton::clicked, this, [this] {
-        const QString path = QFileDialog::getSaveFileName(this, tr("Exportar listas de sussurro"),
-            QStringLiteral("listas-sussurro.json"), tr("Listas de sussurro (*.json)"));
-        if (path.isEmpty()) return;
-        QFile file(path);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            QMessageBox::warning(this, tr("Exportar"), tr("Não foi possível criar o arquivo."));
-            return;
-        }
-        QJsonArray lists;
-        for (const QJsonObject& list : m_whispers) lists.append(list);
-        file.write(QJsonDocument(lists).toJson(QJsonDocument::Indented));
-    });
-    connect(importLists, &QPushButton::clicked, this, [this] {
-        const QString path = QFileDialog::getOpenFileName(this, tr("Importar listas de sussurro"),
-            QString(), tr("Listas de sussurro (*.json)"));
-        if (path.isEmpty()) return;
-        QFile file(path);
-        if (!file.open(QIODevice::ReadOnly)) {
-            QMessageBox::warning(this, tr("Importar"), tr("Não foi possível abrir o arquivo."));
-            return;
-        }
-        QJsonParseError error;
-        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &error);
-        if (!doc.isArray()) {
-            QMessageBox::warning(this, tr("Importar"), tr("Arquivo de listas inválido."));
-            return;
-        }
-        QList<QJsonObject> imported;
-        for (const QJsonValue& value : doc.array()) {
-            const QJsonObject list = value.toObject();
-            if (list["name"].toString().trimmed().isEmpty()) continue;
-            imported << list;
-        }
-        if (imported.isEmpty() && !doc.array().isEmpty()) {
-            QMessageBox::warning(this, tr("Importar"), tr("Nenhuma lista válida foi encontrada."));
-            return;
-        }
-        m_whispers = imported;
-        saveSettings();
-        loadSettings();
-        emit settingsSaved();
-    });
     connect(m_syncList, &QListWidget::currentItemChanged, this, &WhisperDialog::onSelectedListChanged);
     connect(m_searchEdit, &QLineEdit::textChanged, this, &WhisperDialog::onSearchTextChanged);
     connect(m_filterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &WhisperDialog::onFilterChanged);
     connect(m_serverTree, &QTreeWidget::itemDoubleClicked, this, &WhisperDialog::onServerTreeDoubleClicked);
     connect(m_targetsTree, &QTreeWidget::itemChanged, this, &WhisperDialog::onTargetItemChanged);
-
     connect(m_hotkeyEdit, &HotkeyEdit::specChanged, this, [this](const QString& spec) {
-        if (m_isLoading) return;
-        QListWidgetItem* item = m_syncList->currentItem();
-        if (!item) return;
-        int index = m_syncList->row(item);
-        if (index >= 0 && index < m_whispers.size()) {
-            m_whispers[index]["key"] = spec;
-            QString name = m_whispers[index]["name"].toString();
-            QString displayKey = spec.isEmpty() ? tr("Nenhuma tecla de atalho atribuída") : spec;
-            item->setText(name + " (" + displayKey + ")");
-        }
+        if (m_isLoading) return; QListWidgetItem* item = m_syncList->currentItem(); if (!item) return;
+        const int index = m_syncList->row(item); if (index >= 0 && index < m_whispers.size()) { m_whispers[index]["key"] = spec; item->setText(m_whispers[index]["name"].toString() + " (" + (spec.isEmpty() ? tr("Nenhuma tecla de atalho atribuída") : spec) + ")"); }
     });
-
-    connect(m_replyHotkeyEdit, &HotkeyEdit::specChanged, this, [this](const QString& spec) {
-        if (m_isLoading) return;
-        QListWidgetItem* item = m_syncList->currentItem();
-        if (!item) return;
-        int index = m_syncList->row(item);
-        if (index >= 0 && index < m_whispers.size()) {
-            m_whispers[index]["replyKey"] = spec;
-        }
-    });
-
-    connect(m_scopeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int idx) {
-        if (m_isLoading) return;
-        QListWidgetItem* item = m_syncList->currentItem();
-        if (!item) return;
-        int index = m_syncList->row(item);
-        if (index >= 0 && index < m_whispers.size()) {
-            m_whispers[index]["scope"] = idx;
-        }
-    });
-
+    connect(m_replyHotkeyEdit, &HotkeyEdit::specChanged, this, [this](const QString& spec) { if (!m_isLoading && m_syncList->currentItem()) { const int index = m_syncList->row(m_syncList->currentItem()); if (index >= 0 && index < m_whispers.size()) m_whispers[index]["replyKey"] = spec; } });
+    connect(m_scopeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int idx) { if (!m_isLoading && m_syncList->currentItem()) { const int index = m_syncList->row(m_syncList->currentItem()); if (index >= 0 && index < m_whispers.size()) m_whispers[index]["scope"] = idx; } });
     connect(btnOk, &QPushButton::clicked, this, &WhisperDialog::onAccept);
     connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
     connect(btnApply, &QPushButton::clicked, this, &WhisperDialog::onApply);
-
-    // Initial load
-    loadSettings();
-    populateServerTree();
+    loadSettings(); populateServerTree();
 }
-
 void WhisperDialog::loadSettings() {
     m_isLoading = true;
     m_whispers = loadList("whispers");
