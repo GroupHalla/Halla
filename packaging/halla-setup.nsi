@@ -8,7 +8,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !define APP_NAME      "Halla"
-!define APP_VERSION   "3.13.62"
+!define APP_VERSION   "1.0.0"
 !define APP_PUBLISHER "Halla"
 !define APP_EXE       "Halla.exe"
 !define APP_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${APP_EXE}"

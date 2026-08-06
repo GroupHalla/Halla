@@ -88,20 +88,35 @@ jobs:
         run: |
           & "C:\Program Files (x86)\NSIS\makensis.exe" packaging/halla-setup.nsi
 
+      - name: Remover releases anteriores
+        if: startsWith(github.ref, 'refs/tags/') && github.ref_name == 'v1.0.0'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $current = "${{ github.ref_name }}"
+          $tags = gh release list --limit 100 --json tagName --jq '.[].tagName'
+          foreach ($tag in $tags) {
+            if ($tag -and $tag -ne $current) {
+              gh release delete $tag --cleanup-tag --yes
+            }
+          }
+
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla ${{ github.ref_name }} — grupos e registro
+          name: Halla Desktop v1.0.0 OFICIAL
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.62.exe
+          files: Halla-Setup-1.0.0.exe
           body: |
-            ## Halla Desktop v3.13.62
+            ## Halla Desktop v1.0.0 OFICIAL
 
-            ### Remoção do registro
-            * Removido o sistema de registro de usuários; o UID continua sendo a identidade persistente do cliente.
-            * Mantido o gerenciamento de grupos, membros e cargos.
+            ### Versão oficial
+            * UID como identidade persistente do cliente.
+            * Gerenciamento de grupos, membros e cargos.
+            * Interface de servidor com descrição e informações ao selecionar o nome.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
