@@ -337,7 +337,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                 .arg(d["playbackQueue"].toInt()).arg(n ? n->pingMs() : -1));
         });
         timer.start(400);
-        timer.timeout();
         dlg.exec();
     });
     mTools->addSeparator();
