@@ -284,35 +284,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     mTools->addAction(HIcons::contacts(), tr("Contatos..."), this,
                       [this] { ContactsDialog dlg(this); dlg.exec(); });
 
-    // ---- sussurro (voz direcionada a usuários específicos)
-    m_actWhisper = mTools->addAction(HIcons::contacts(), tr("Ativar sussurro"), this, [this](bool on) {
-        ServerTab* t = currentTab();
-        if (!t) return;
-        if (on) {
-            const QStringList uids = WhisperDialog::activeWhisperUids();
-            if (uids.isEmpty()) {
-                m_actWhisper->setChecked(false);
-                QMessageBox::information(this, tr("Sussurro"),
-                    tr("Configure uma lista em \"Listas de sussurro...\" e clique "
-                       "em \"Usar esta lista\"."));
-                return;
-            }
-            t->setWhisperUids(uids);
-        } else {
-            t->setWhisperUids({});
-        }
-    });
-    m_actWhisper->setCheckable(true);
+    // ---- listas de sussurro: a lista ativa é aplicada automaticamente.
+    // Não há um segundo interruptor de "ativar", pois ele criava estado
+    // divergente entre a lista salva, a barra e o áudio.
     mTools->addAction(tr("Listas de sussurro..."), this,
                       [this] {
                           ServerTab* t = currentTab();
                           WhisperDialog dlg(t ? &t->data() : nullptr, this);
                           dlg.exec();
+                          if (t) t->setWhisperUids(WhisperDialog::activeWhisperUids());
                       });
     mTools->addSeparator();
     m_actOptions = mTools->addAction(HIcons::optionsGear(), tr("Opções..."), this,
                       [this] {
-                          OptionsDialog dlg(this);
+                          OptionsDialog dlg(this, currentTab() ? &currentTab()->data() : nullptr);
                           connect(&dlg, &OptionsDialog::themeChanged, this,
                                   &MainWindow::applyTheme);
                           connect(&dlg, &OptionsDialog::designChanged, this, [this] {
@@ -385,7 +370,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
     QMenu* spkMenu = new QMenu(this);
     spkMenu->addAction(tr("Opções de reprodução..."), this, [this] {
-        OptionsDialog dlg(this);
+        OptionsDialog dlg(this, currentTab() ? &currentTab()->data() : nullptr);
         dlg.selectPage(tr("Reprodução"));
         dlg.exec();
     });
@@ -393,16 +378,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
     tb->addSeparator();
 
-    QMenu* whMenu = new QMenu(this);
-    whMenu->addAction(tr("Listas de sussurro..."), this, [this] {
-        ServerTab* t = currentTab();
-        WhisperDialog dlg(t ? &t->data() : nullptr, this);
-        dlg.exec();
-    });
-    m_actWhisper->setIcon(HIcons::contacts());
     QHBoxLayout* utilityGroup = makeGroup();
     addButton(utilityGroup, m_actOptions, nullptr);
-    addButton(utilityGroup, m_actWhisper, whMenu);
 
     // O indicador de notificações fica isolado à direita, como na referência.
     QWidget* toolbarSpacer = new QWidget(tb);
@@ -946,7 +923,6 @@ void MainWindow::updateConnectionUi() {
     m_actMuteMic->setEnabled(connected);
     m_actMuteSpk->setEnabled(connected);
     m_actRecord->setEnabled(connected);
-    m_actWhisper->setEnabled(connected);
     m_actRenameSelf->setEnabled(connected);
     m_actCommander->setEnabled(connected);
     m_whisperToggleOn = (t && t->whisperHoldActive());
@@ -956,19 +932,16 @@ void MainWindow::updateConnectionUi() {
         m_actMuteMic->blockSignals(true);
         m_actMuteSpk->blockSignals(true);
         m_actRecord->blockSignals(true);
-        m_actWhisper->blockSignals(true);
         m_actAway->setChecked(t->isAway());
         m_actMuteMic->setChecked(t->isMicMuted());
         m_actMuteSpk->setChecked(t->isSpkMuted());
         m_actRecord->setChecked(t->isRecording());
-        m_actWhisper->setChecked(t->whisperActive());
         m_actRecord->setText(t->isRecording() ? tr("Parar gravação")
                                               : tr("Iniciar gravação"));
         m_actAway->blockSignals(false);
         m_actMuteMic->blockSignals(false);
         m_actMuteSpk->blockSignals(false);
         m_actRecord->blockSignals(false);
-        m_actWhisper->blockSignals(false);
         m_actAway->setIcon(HIcons::away(t->isAway()));
         m_actMuteMic->setIcon(HIcons::muteMic(t->isMicMuted()));
         m_actMuteSpk->setIcon(HIcons::muteSpeaker(t->isSpkMuted()));

@@ -315,7 +315,11 @@ void ServerTab::attachNetwork(NetSession* net) {
             });
 
     // ---- voz
+    // A lista ativa é a fonte única de estado do sussurro; não depende de um
+    // botão adicional na barra de ferramentas.
+    m_whisperUids = WhisperDialog::activeWhisperUids();
     m_voice = new VoiceEngine(net, &m_data, this);
+    if (!m_whisperUids.isEmpty()) applyWhisper();
     if (m_voice->isActive()) {
         connect(m_voice, &VoiceEngine::talkingChanged, this, [this](bool on) {
             m_data.users[m_data.selfId].talking = on;
@@ -1076,10 +1080,23 @@ void ServerTab::setWhisperUids(const QStringList& uids) {
 }
 
 void ServerTab::applyWhisper() {
-    if (!m_net || m_whisperUids.isEmpty()) return;
+    if (!m_net) return;
     QList<int> ids;
-    for (const User& u : m_data.users)
-        if (m_whisperUids.contains(u.uniqueId) && u.id != m_data.selfId) ids << u.id;
+    QSet<int> channelTargets;
+    for (const QString& target : m_whisperUids) {
+        bool ok = false;
+        const int channelId = target.toInt(&ok);
+        if (ok && m_data.channels.contains(channelId)) channelTargets.insert(channelId);
+    }
+    // Uma lista pode conter usuários (UID) e canais. Expandir os canais aqui,
+    // no instante do envio, evita listas "vazias" quando seus membros entram,
+    // saem ou mudam de canal.
+    for (const User& u : m_data.users) {
+        if (u.id == m_data.selfId) continue;
+        const int userChannel = m_data.channelOfUser(u.id);
+        if (m_whisperUids.contains(u.uniqueId) || channelTargets.contains(userChannel))
+            if (!ids.contains(u.id)) ids << u.id;
+    }
     m_net->setWhisperIds(ids);
 }
 

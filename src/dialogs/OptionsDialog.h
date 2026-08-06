@@ -6,6 +6,7 @@
 #include <QStringList>
 
 class QLabel;
+struct ServerData;
 
 // Janela "Opções" — réplica do diálogo de opções do Halla (clássico):
 // menu lateral de categorias com ícones grandes à esquerda (separado por
@@ -15,7 +16,7 @@ class QLabel;
 class OptionsDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit OptionsDialog(QWidget* parent = nullptr);
+    explicit OptionsDialog(QWidget* parent = nullptr, const ServerData* whisperData = nullptr);
     void selectPage(const QString& pageName);
 
 signals:
@@ -43,4 +44,5 @@ private:
     QLabel* m_headerSubtitle = nullptr; // subtítulo da seção (menor)
     QLabel* m_headerIcon = nullptr;     // ícone da seção no canto direito
     QStringList m_pageSubtitles;        // subtítulo de cada página
+    const ServerData* m_whisperData = nullptr;
 };

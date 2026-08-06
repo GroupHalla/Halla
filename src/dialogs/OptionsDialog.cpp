@@ -4,6 +4,8 @@
 #include "AppLog.h"
 #include "SoundPack.h"
 #include "HotkeyEdit.h"
+#include "Models.h"
+#include "dialogs/ToolsDialogs.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -328,7 +330,7 @@ private:
     bool m_led = false;
 };
 
-OptionsDialog::OptionsDialog(QWidget* parent) : QDialog(parent) {
+OptionsDialog::OptionsDialog(QWidget* parent, const ServerData* whisperData) : QDialog(parent), m_whisperData(whisperData) {
     setWindowTitle(tr("Opções"));
     resize(970, 640);
 
@@ -1623,7 +1625,7 @@ QWidget* OptionsDialog::pageWhisper() {
     lr->addStretch(1);
     lay->addLayout(lr);
     connect(lists, &QPushButton::clicked, this, [this] {
-        WhisperDialog dlg(nullptr, this);
+        WhisperDialog dlg(m_whisperData, this);
         dlg.exec();
     });
 
