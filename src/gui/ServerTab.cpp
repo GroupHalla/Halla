@@ -347,11 +347,8 @@ void ServerTab::updatePermissionUi() {
                                                QStringLiteral("b_client_set_channel_commander") });
     const bool otherCommander = hasPermission({ QStringLiteral("setCommander"),
                                                 QStringLiteral("b_client_set_channel_commander") });
-    const bool selfRegister = hasPermission({ QStringLiteral("selfRegister") });
-    const bool registerOthers = hasPermission({ QStringLiteral("registerUsers") });
     m_tree->setCanMoveOthers(moveOthers);
     m_tree->setCommanderPermissions(selfCommander, otherCommander);
-    m_tree->setRegistrationPermissions(selfRegister, registerOthers);
 }
 
 void ServerTab::applyDisplayOptions() {
@@ -392,12 +389,6 @@ void ServerTab::hookSignals() {
             this, &ServerTab::renameSelf);
     connect(m_tree, &ServerTreeWidget::setDescriptionRequested,
             this, &ServerTab::setSelfDescription);
-    connect(m_tree, &ServerTreeWidget::registerSelfRequested, this, [this] {
-        if (m_net) m_net->registerSelf();
-    });
-    connect(m_tree, &ServerTreeWidget::registerUserRequested, this, [this](int userId) {
-        if (m_net) m_net->registerUser(userId);
-    });
     connect(m_tree, &ServerTreeWidget::channelDescriptionRequested, this,
             [this](int channelId) {
                 if (!m_data.channels.contains(channelId)) return;

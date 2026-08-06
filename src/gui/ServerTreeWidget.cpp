@@ -485,7 +485,6 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
     if (!u.sigla.isEmpty()) {
         displayName = u.sigla + " " + displayName;
     }
-    if (!u.registered) displayName += tr("  (não registrado)");
     item->setText(0, displayName);
     item->setIcon(0, leadingUserIcon(u, m_delegate ? m_delegate->showMinis() : true));
     item->setData(0, RoleKind, NodeUser);
@@ -578,11 +577,6 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
         menu.addSeparator();
 
         if (self) {
-            if (!u.registered && m_canRegisterSelf) {
-                menu.addAction(tr("Registrar este usuário"), this,
-                               [this] { emit registerSelfRequested(); });
-                menu.addSeparator();
-            }
             if (m_canSetSelfCommander) {
                 const QString label = u.commander ? tr("Remover comandante do canal")
                                                    : tr("Conceder comandante do canal");
@@ -595,11 +589,6 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
             menu.addAction(tr("Definir descrição do cliente"), this,
                            [this] { emit setDescriptionRequested(); });
         } else {
-            if (!u.registered && m_canRegisterOthers) {
-                menu.addAction(tr("Registrar usuário"), this,
-                               [this, id] { emit registerUserRequested(id); });
-                menu.addSeparator();
-            }
             menu.addAction(tr("Cutucar"), this, [this, id] { emit pokeRequested(id); });
             menu.addAction(tr("Registrar reclamação..."), this,
                            [this, id] { emit complaintRequested(id); });

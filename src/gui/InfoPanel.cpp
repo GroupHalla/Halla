@@ -141,7 +141,6 @@ QString InfoPanel::userHtml(const User& u) const {
     QString role = u.groupIcon.isEmpty() ? QString() : u.groupIcon + QStringLiteral(" ");
     role += u.sigla.isEmpty() ? u.serverGroups : QStringLiteral("%1 %2").arg(u.sigla, u.serverGroups);
     h += row(tr("Cargos:"), role.toHtmlEscaped());
-    h += row(tr("Registro:"), u.registered ? tr("Registrado") : tr("Não registrado"));
     h += row(tr("Volume:"), QStringLiteral("%1 dB").arg(u.volumeDb));
     QStringList flags;
     if (u.away)        flags << tr("Ausente");

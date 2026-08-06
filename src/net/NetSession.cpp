@@ -401,16 +401,6 @@ void NetSession::clientSetGroupUid(const QString& uid, int gid) {
     send(m);
 }
 
-void NetSession::registerSelf() {
-    send(HProto::msg("register"));
-}
-
-void NetSession::registerUser(int userId) {
-    QJsonObject m = HProto::msg("register");
-    m["id"] = userId;
-    send(m);
-}
-
 void NetSession::serverEdit(const QString& name, const QString& motd,
                              const QByteArray& banner, bool bannerChanged) {
     QJsonObject m = HProto::msg("server_edit");
@@ -440,7 +430,6 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.away = u["away"].toBool();
     usr.recording = u["rec"].toBool();
     usr.commander = u["cc"].toBool();
-    usr.registered = u.contains("registered") ? u["registered"].toBool() : true;
     usr.avatarHash = u["av"].toString();               // v3
     usr.op = d.users.value(usr.id).op;                 // preserva flag de operador
     if (usr.id == d.selfId) {
@@ -615,12 +604,6 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             emit systemEvent(QStringLiteral("Você entrou no canal \"%1\"").arg(cname));
         else
             emit systemEvent(QStringLiteral("%1 entrou no canal \"%2\"").arg(uname, cname));
-        emit stateChanged();
-        return;
-    }
-    if (t == "registration" || t == "user_registered") {
-        const int id = obj["id"].toInt(0);
-        if (id > 0 && d.users.contains(id)) d.users[id].registered = obj["registered"].toBool(true);
         emit stateChanged();
         return;
     }

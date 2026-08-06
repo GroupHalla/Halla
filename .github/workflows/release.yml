@@ -96,13 +96,12 @@ jobs:
           name: Halla ${{ github.ref_name }} — grupos e registro
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.61.exe
+          files: Halla-Setup-3.13.62.exe
           body: |
-            ## Halla Desktop v3.13.61
+            ## Halla Desktop v3.13.62
 
-            ### Correção do gerenciamento de grupos
-            * Corrigida a atualização da lista de grupos após atribuir um usuário.
-            * Remover um usuário do grupo Normal não o envia mais para o grupo Admin.
-            * A janela de grupos agora abre ampliada para mostrar grupos, membros e permissões.
+            ### Remoção do registro
+            * Removido o sistema de registro de usuários; o UID continua sendo a identidade persistente do cliente.
+            * Mantido o gerenciamento de grupos, membros e cargos.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

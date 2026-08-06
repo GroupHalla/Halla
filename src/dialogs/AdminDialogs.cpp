@@ -195,8 +195,6 @@ static const QList<QPair<QString, QString>>& permDefs() {
         { QStringLiteral("chanDelete"),       QStringLiteral("Excluir canais") },
         { QStringLiteral("serverEdit"),       QStringLiteral("Editar servidor virtual") },
         { QStringLiteral("groupEdit"),        QStringLiteral("Editar grupos e atribuições") },
-        { QStringLiteral("registerUsers"),    QStringLiteral("Registrar outros usuários") },
-        { QStringLiteral("selfRegister"),     QStringLiteral("Permitir auto-registro") },
         { QStringLiteral("ignoreChanPass"),   QStringLiteral("Ignorar senha de canal") },
         { QStringLiteral("ignoreTalkPower"),  QStringLiteral("Falar em canais moderados") },
     };
@@ -532,8 +530,6 @@ void ServerGroupsDialog::refreshMembers(const QJsonArray& members) {
         item->setText(2, member["online"].toBool() ? tr("online") : tr("offline"));
         item->setData(0, Qt::UserRole, member["uid"].toString());
         item->setData(0, Qt::UserRole + 1, member["id"].toInt(0));
-        if (!member["registered"].toBool(true))
-            item->setText(0, item->text(0) + tr(" (não registrado)"));
     }
 }
 
