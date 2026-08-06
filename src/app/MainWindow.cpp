@@ -292,7 +292,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                           ServerTab* t = currentTab();
                           WhisperDialog dlg(t ? &t->data() : nullptr, this);
                           dlg.exec();
-                          if (t) t->setWhisperUids(WhisperDialog::activeWhisperUids());
+                          // A lista apenas configura os destinos. O sussurro
+                          // só é transmitido enquanto sua tecla estiver pressionada.
                       });
     mTools->addSeparator();
     m_actOptions = mTools->addAction(HIcons::optionsGear(), tr("Opções..."), this,

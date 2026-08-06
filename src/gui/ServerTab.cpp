@@ -315,11 +315,9 @@ void ServerTab::attachNetwork(NetSession* net) {
             });
 
     // ---- voz
-    // A lista ativa é a fonte única de estado do sussurro; não depende de um
-    // botão adicional na barra de ferramentas.
-    m_whisperUids = WhisperDialog::activeWhisperUids();
+    // A lista ativa configura destinos; ela não transforma o PTT normal em
+    // sussurro. Apenas a tecla de sussurro ativa esse roteamento.
     m_voice = new VoiceEngine(net, &m_data, this);
-    if (!m_whisperUids.isEmpty()) applyWhisper();
     if (m_voice->isActive()) {
         connect(m_voice, &VoiceEngine::talkingChanged, this, [this](bool on) {
             m_data.users[m_data.selfId].talking = on;
@@ -1107,10 +1105,19 @@ QList<int> ServerTab::whisperTargetIds(int scope) const {
     QList<int> ids;
     const int self = m_data.selfId;
 
-    if (scope == 2) { // lista de usuários (Ferramentas > Listas de sussurro)
-        const QStringList uids = WhisperDialog::activeWhisperUids();
-        for (const User& u : m_data.users)
-            if (uids.contains(u.uniqueId) && u.id != self) ids << u.id;
+    if (scope == 2) { // lista configurada em Ferramentas > Listas de sussurro
+        const QStringList targets = WhisperDialog::activeWhisperUids();
+        QSet<int> channels;
+        for (const QString& target : targets) {
+            bool ok = false;
+            const int channelId = target.toInt(&ok);
+            if (ok && m_data.channels.contains(channelId)) channels.insert(channelId);
+        }
+        for (const User& u : m_data.users) {
+            if (u.id == self) continue;
+            if (targets.contains(u.uniqueId) || channels.contains(m_data.channelOfUser(u.id)))
+                if (!ids.contains(u.id)) ids << u.id;
+        }
         return ids;
     }
 
