@@ -291,6 +291,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                       [this] {
                           ServerTab* t = currentTab();
                           WhisperDialog dlg(t ? &t->data() : nullptr, this);
+                          connect(&dlg, &WhisperDialog::settingsSaved, this, [this] { applyHotkeys(); });
                           dlg.exec();
                           // A lista apenas configura os destinos. O sussurro
                           // só é transmitido enquanto sua tecla estiver pressionada.
@@ -309,6 +310,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                                       t->applyDisplayOptions();
                           });
                           connect(&dlg, &OptionsDialog::hotkeysChanged, this,
+                                  &MainWindow::applyHotkeys);
+                          connect(&dlg, &OptionsDialog::whisperListsChanged, this,
                                   &MainWindow::applyHotkeys);
                           connect(&dlg, &OptionsDialog::languageChanged, this, [this] {
                               // Os widgets são construídos com tr() durante a
@@ -372,6 +375,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     QMenu* spkMenu = new QMenu(this);
     spkMenu->addAction(tr("Opções de reprodução..."), this, [this] {
         OptionsDialog dlg(this, currentTab() ? &currentTab()->data() : nullptr);
+        connect(&dlg, &OptionsDialog::whisperListsChanged, this, &MainWindow::applyHotkeys);
         dlg.selectPage(tr("Reprodução"));
         dlg.exec();
     });

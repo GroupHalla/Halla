@@ -21,6 +21,9 @@ public:
     explicit WhisperDialog(const ServerData* data, QWidget* parent = nullptr);
     // uids da lista de sussurro ATIVA (0 se nenhuma)
     static QStringList activeWhisperUids();
+signals:
+    // Emitido após Aplicar/OK; permite registrar a tecla sem reiniciar.
+    void settingsSaved();
 private slots:
     void onNewList();
     void onRemoveList();

@@ -24,6 +24,7 @@ signals:
     void designChanged();
     void hotkeysChanged();
     void languageChanged();
+    void whisperListsChanged();
 
 private:
     QWidget* pageApplication();

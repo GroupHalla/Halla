@@ -1626,6 +1626,7 @@ QWidget* OptionsDialog::pageWhisper() {
     lay->addLayout(lr);
     connect(lists, &QPushButton::clicked, this, [this] {
         WhisperDialog dlg(m_whisperData, this);
+        connect(&dlg, &WhisperDialog::settingsSaved, this, &OptionsDialog::whisperListsChanged);
         dlg.exec();
     });
 

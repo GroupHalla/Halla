@@ -645,10 +645,12 @@ void WhisperDialog::onTargetItemChanged(QTreeWidgetItem* item, int column) {
 
 void WhisperDialog::onApply() {
     saveSettings();
+    emit settingsSaved();
 }
 
 void WhisperDialog::onAccept() {
     saveSettings();
+    emit settingsSaved();
     QDialog::accept();
 }
 
