@@ -473,94 +473,50 @@ void WhisperDialog::populateServerTree() {
 }
 
 void WhisperDialog::populateTargetsTreeForSelected() {
+    // A área central é uma lista de DESTINOS escolhidos, não uma segunda
+    // cópia da árvore do servidor. Canais/clientes só entram aqui depois de
+    // serem escolhidos na árvore à direita.
     m_isLoading = true;
     m_targetsTree->clear();
-    AppLog::info(QStringLiteral("Sussurro: Populando árvore de alvos. m_data=%1").arg(m_data ? "Sim" : "Não"));
-    
     QListWidgetItem* currentItem = m_syncList->currentItem();
-    if (!currentItem) {
-        m_isLoading = false;
-        return;
-    }
-    
-    int index = m_syncList->row(currentItem);
-    if (index < 0 || index >= m_whispers.size()) {
-        m_isLoading = false;
-        return;
-    }
-    
-    const QJsonObject& o = m_whispers[index];
-    QJsonArray uidsArr = o["uids"].toArray();
-    QStringList uids;
-    for (const QJsonValue& val : uidsArr) {
-        uids << val.toString();
-    }
-    
-    if (!m_data) {
-        for (const QString& uid : uids) {
-            QTreeWidgetItem* item = new QTreeWidgetItem(m_targetsTree);
-            item->setText(0, uid);
-            item->setIcon(0, HIcons::user(false, false));
-            item->setCheckState(0, Qt::Checked);
-            item->setData(0, Qt::UserRole, uid);
-            item->setData(0, Qt::UserRole + 1, "user");
-            item->setData(0, Qt::UserRole + 2, uid);
-        }
-        m_isLoading = false;
-        return;
-    }
-    
-    QList<int> rootChans = m_data->childChannels(0);
-    
-    std::function<void(QTreeWidgetItem*, int)> addTargetsChan = [&](QTreeWidgetItem* parentItem, int chanId) {
-        const Channel& chan = m_data->channels[chanId];
-        QTreeWidgetItem* chanItem = nullptr;
-        if (parentItem) {
-            chanItem = new QTreeWidgetItem(parentItem);
-        } else {
-            chanItem = new QTreeWidgetItem(m_targetsTree);
-        }
-        chanItem->setText(0, chan.name);
-        chanItem->setIcon(0, HIcons::channel(false, false, false, false));
-        chanItem->setData(0, Qt::UserRole, chan.name);
-        chanItem->setData(0, Qt::UserRole + 1, "channel");
-        chanItem->setData(0, Qt::UserRole + 2, QString::number(chan.id));
-        
-        bool isChanChecked = uids.contains(QString::number(chan.id));
-        chanItem->setCheckState(0, isChanChecked ? Qt::Checked : Qt::Unchecked);
-        
-        for (int userId : chan.users) {
-            if (m_data->users.contains(userId)) {
-                const User& u = m_data->users[userId];
-                QTreeWidgetItem* userItem = new QTreeWidgetItem(chanItem);
-                userItem->setText(0, u.name);
-                userItem->setIcon(0, HIcons::user(false, false));
-                userItem->setData(0, Qt::UserRole, u.name);
-                userItem->setData(0, Qt::UserRole + 1, "user");
-                userItem->setData(0, Qt::UserRole + 2, u.uniqueId);
-                
-                bool isUserChecked = uids.contains(u.uniqueId);
-                userItem->setCheckState(0, isUserChecked ? Qt::Checked : Qt::Unchecked);
+    if (!currentItem) { m_isLoading = false; return; }
+    const int index = m_syncList->row(currentItem);
+    if (index < 0 || index >= m_whispers.size()) { m_isLoading = false; return; }
+
+    const QJsonArray targets = m_whispers[index]["uids"].toArray();
+    for (const QJsonValue& value : targets) {
+        const QString id = value.toString();
+        QString name = id;
+        QString type = QStringLiteral("user");
+        bool numeric = false;
+        const int channelId = id.toInt(&numeric);
+        if (m_data && numeric && m_data->channels.contains(channelId)) {
+            type = QStringLiteral("channel");
+            name = m_data->channels[channelId].name;
+        } else if (m_data) {
+            for (const User& user : m_data->users) {
+                if (user.uniqueId == id) { name = user.name; break; }
             }
         }
-        
-        for (int childId : m_data->childChannels(chanId)) {
-            addTargetsChan(chanItem, childId);
-        }
-    };
-    
-    for (int rId : rootChans) {
-        addTargetsChan(nullptr, rId);
+        QTreeWidgetItem* item = new QTreeWidgetItem(m_targetsTree);
+        item->setText(0, name);
+        item->setIcon(0, type == QLatin1String("channel")
+            ? HIcons::channel(false, false, false, false) : HIcons::user(false, false));
+        item->setData(0, Qt::UserRole, name);
+        item->setData(0, Qt::UserRole + 1, type);
+        item->setData(0, Qt::UserRole + 2, id);
+        item->setCheckState(0, Qt::Checked);
     }
-    
-    m_targetsTree->expandAll();
     m_isLoading = false;
 }
-
 void WhisperDialog::onServerTreeDoubleClicked(QTreeWidgetItem* item, int column) {
     Q_UNUSED(column);
     QString type = item->data(0, Qt::UserRole + 1).toString();
     if (type.isEmpty() || type == "server") return;
+    const int filter = m_filterCombo->currentIndex();
+    // O filtro à direita determina exatamente o tipo que pode ser adicionado.
+    if ((filter == 1 && type != QLatin1String("channel")) ||
+        (filter == 2 && type != QLatin1String("user"))) return;
     QString name = item->text(0);
     QString uid = item->data(0, Qt::UserRole + 2).toString();
     
