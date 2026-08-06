@@ -17,12 +17,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "Halla"
             VALUE "FileDescription",  "Halla - Cliente de comunicação de voz"
-            VALUE "FileVersion",      "1.0.0"
+            VALUE "FileVersion",      "3.13.62"
             VALUE "InternalName",     "Halla"
             VALUE "LegalCopyright",   "© 2026 Halla"
             VALUE "OriginalFilename", "Halla.exe"
             VALUE "ProductName",      "Halla"
-            VALUE "ProductVersion",   "1.0.0"
+            VALUE "ProductVersion",   "3.13.62"
         END
     END
     BLOCK "VarFileInfo"

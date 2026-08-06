@@ -101,6 +101,9 @@ jobs:
               gh release delete $tag --cleanup-tag --yes
             }
           }
+          if (gh release view $current *> $null) {
+            gh release delete $current --yes
+          }
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -110,7 +113,7 @@ jobs:
           name: Halla Desktop v1.0.0 OFICIAL
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.0.exe
+          files: Halla-Setup-3.13.62.exe
           body: |
             ## Halla Desktop v1.0.0 OFICIAL
 
