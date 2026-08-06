@@ -111,12 +111,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla Desktop v1.0.0 OFICIAL
+          name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-3.13.62.exe
+          files: Halla-Setup-3.13.63.exe
           body: |
-            ## Halla Desktop v1.0.0 OFICIAL
+            ## Halla Desktop ${{ github.ref_name }}
 
             ### Versão oficial
             * UID como identidade persistente do cliente.

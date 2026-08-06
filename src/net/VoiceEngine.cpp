@@ -261,7 +261,10 @@ void VoiceEngine::captureTick() {
             continue;
         }
 
-        unsigned char out[512];
+        // Um pacote Opus pode chegar a 1275 bytes. O limite anterior de
+        // 512 bytes falhava silenciosamente em canais com bitrate alto:
+        // o indicador "falando" acendia, mas nenhum frame era transmitido.
+        unsigned char out[1276];
         const int n = opus_encode(m_encoder, pcm, 960, out, sizeof(out));
         if (n > 0) m_net->sendVoiceFrame(QByteArray(reinterpret_cast<char*>(out), n), ++m_seq);
 
