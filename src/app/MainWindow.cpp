@@ -773,7 +773,7 @@ void MainWindow::rebuildRecentMenu() {
 
 void MainWindow::checkUpdates(bool manual) {
     QNetworkAccessManager* nam = new QNetworkAccessManager(this);
-    QNetworkRequest req(QUrl(QStringLiteral("https://api.github.com/repos/farleybarbosa320-oss/Halla/releases/latest")));
+    QNetworkRequest req(QUrl(QStringLiteral("https://api.github.com/repos/GroupHalla/Halla/releases/latest")));
     req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("HallaUpdater"));
     
     QNetworkReply* reply = nam->get(req);
