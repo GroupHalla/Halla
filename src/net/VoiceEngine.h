@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QJsonObject>
 #include <QElapsedTimer>
 #include <QIODevice>
 #include <QByteArray>
@@ -34,6 +35,7 @@ public:
     void setWhisperHeld(bool held);
     bool whisperHeld() const { return m_whisperHeld; }
     bool isTalking() const { return m_talking; }
+    QJsonObject diagnostics() const;
 
     // ---- gravação local (WAV 48 kHz mono): recebidos + próprio microfone
     bool startRecording(const QString& wavPath);
@@ -78,6 +80,9 @@ private:
     bool m_whisperHeld = false;
     quint32 m_pttGen = 0; // geração de transições (atraso de soltura do PTT)
     QElapsedTimer m_silenceClock;
+    quint64 m_opusSent = 0, m_opusReceived = 0;
+    quint64 m_opusSentBytes = 0, m_opusReceivedBytes = 0;
+    int m_inputRms = 0;
 
     void recWrite(const char* pcm, int bytes);
     void recFinalize();

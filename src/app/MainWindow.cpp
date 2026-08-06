@@ -43,6 +43,9 @@
 #include <QLabel>
 #include <QToolButton>
 #include <QTimer>
+#include <QDialog>
+#include <QPushButton>
+#include <QJsonObject>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -296,6 +299,47 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                           // A lista apenas configura os destinos. O sussurro
                           // só é transmitido enquanto sua tecla estiver pressionada.
                       });
+    mTools->addAction(tr("Diagnóstico de voz..."), this, [this] {
+        ServerTab* tab = currentTab();
+        if (!tab || !tab->voice()) return;
+        QDialog dlg(this);
+        dlg.setWindowTitle(tr("Diagnóstico de voz"));
+        dlg.resize(460, 320);
+        QVBoxLayout layout(&dlg);
+        QLabel title(tr("Estado em tempo real do áudio, Opus e reprodução."), &dlg);
+        title.setWordWrap(true);
+        QLabel values(&dlg);
+        values.setTextInteractionFlags(Qt::TextSelectableByMouse);
+        QFont mono = values.font(); mono.setStyleHint(QFont::Monospace); values.setFont(mono);
+        layout.addWidget(&title);
+        layout.addWidget(&values, 1);
+        QPushButton close(tr("Fechar"), &dlg);
+        layout.addWidget(&close, 0, Qt::AlignRight);
+        connect(&close, &QPushButton::clicked, &dlg, &QDialog::accept);
+        QTimer timer(&dlg);
+        connect(&timer, &QTimer::timeout, &dlg, [&values, tab] {
+            if (!tab || !tab->voice()) return;
+            const QJsonObject d = tab->voice()->diagnostics();
+            const NetSession* n = tab->net();
+            values.setText(QObject::tr("Motor: %1\nFalando: %2\nPTT: %3\nSussurro: %4\n"
+                "Nível do microfone (RMS): %5 / 32767\n"
+                "Opus enviados: %6 frames, %7 bytes\n"
+                "Opus recebidos: %8 frames, %9 bytes\n"
+                "Fila de reprodução: %10 frames\n"
+                "Ping TCP: %11 ms")
+                .arg(d["active"].toBool() ? QObject::tr("ativo") : QObject::tr("indisponível"))
+                .arg(d["talking"].toBool() ? QObject::tr("sim") : QObject::tr("não"))
+                .arg(d["ptt"].toBool() ? QObject::tr("pressionado") : QObject::tr("solto"))
+                .arg(d["whisper"].toBool() ? QObject::tr("ativo") : QObject::tr("inativo"))
+                .arg(d["inputRms"].toInt())
+                .arg(d["opusSent"].toVariant().toLongLong()).arg(d["opusSentBytes"].toVariant().toLongLong())
+                .arg(d["opusReceived"].toVariant().toLongLong()).arg(d["opusReceivedBytes"].toVariant().toLongLong())
+                .arg(d["playbackQueue"].toInt()).arg(n ? n->pingMs() : -1));
+        });
+        timer.start(400);
+        timer.timeout();
+        dlg.exec();
+    });
     mTools->addSeparator();
     m_actOptions = mTools->addAction(HIcons::optionsGear(), tr("Opções..."), this,
                       [this] {

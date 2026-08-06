@@ -123,6 +123,8 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
                                     reinterpret_cast<const unsigned char*>(payload.constData()),
                                     payload.size(), pcm, 960, 0);
                 if (n <= 0) return;
+                ++m_opusReceived;
+                m_opusReceivedBytes += quint64(payload.size());
                 // volume por usuário (dB -> fator linear)
                 int vol = 0;
                 bool muted = false;
@@ -149,6 +151,21 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
                 m_playQueue.push_back(QByteArray(reinterpret_cast<char*>(pcm), n * 2));
                 while (m_playQueue.size() > 80) m_playQueue.pop_front(); // ~1.6 s
             });
+}
+
+QJsonObject VoiceEngine::diagnostics() const {
+    QJsonObject d;
+    d["active"] = m_active;
+    d["talking"] = m_talking;
+    d["ptt"] = m_pttHeld;
+    d["whisper"] = m_whisperHeld;
+    d["inputRms"] = m_inputRms;
+    d["opusSent"] = qint64(m_opusSent);
+    d["opusSentBytes"] = qint64(m_opusSentBytes);
+    d["opusReceived"] = qint64(m_opusReceived);
+    d["opusReceivedBytes"] = qint64(m_opusReceivedBytes);
+    d["playbackQueue"] = int(m_playQueue.size());
+    return d;
 }
 
 VoiceEngine::~VoiceEngine() {
@@ -235,6 +252,7 @@ void VoiceEngine::captureTick() {
         double sum = 0;
         for (int i = 0; i < 960; ++i) sum += double(pcm[i]) * double(pcm[i]);
         const double rms = qSqrt(sum / 960.0);
+        m_inputRms = qBound(0, int(rms), 32767);
         const int levelDb = S::num("capture/voiceLevel", -45);
         const double threshold = qPow(10.0, levelDb / 20.0) * 32767.0;
         bool voiceNow = rms > threshold;
@@ -266,7 +284,11 @@ void VoiceEngine::captureTick() {
         // o indicador "falando" acendia, mas nenhum frame era transmitido.
         unsigned char out[1276];
         const int n = opus_encode(m_encoder, pcm, 960, out, sizeof(out));
-        if (n > 0) m_net->sendVoiceFrame(QByteArray(reinterpret_cast<char*>(out), n), ++m_seq);
+        if (n > 0) {
+            m_net->sendVoiceFrame(QByteArray(reinterpret_cast<char*>(out), n), ++m_seq);
+            ++m_opusSent;
+            m_opusSentBytes += quint64(n);
+        }
 
         if (m_recFile) recWrite(reinterpret_cast<const char*>(pcm), 960 * 2); // próprio mic
 
