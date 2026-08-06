@@ -94,15 +94,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $repo = "GroupHalla/Halla"
           $current = "${{ github.ref_name }}"
-          $tags = gh release list --limit 100 --json tagName --jq '.[].tagName'
+          $tags = gh release list --repo $repo --limit 100 --json tagName --jq '.[].tagName'
           foreach ($tag in $tags) {
             if ($tag -and $tag -ne $current) {
-              gh release delete $tag --cleanup-tag --yes
+              gh release delete $tag --repo $repo --cleanup-tag --yes
             }
           }
-          if (gh release view $current *> $null) {
-            gh release delete $current --yes
+          if (gh release view $current --repo $repo *> $null) {
+            gh release delete $current --repo $repo --yes
           }
 
       - name: Create Release
