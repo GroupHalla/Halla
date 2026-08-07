@@ -204,6 +204,7 @@ void ComplaintsDialog::fill(const QJsonArray& complaints) {
 static const QList<QPair<QString, QString>>& permDefs() {
     static const QList<QPair<QString, QString>> defs = {
         { QStringLiteral("*"),                QStringLiteral("Todas as permissões (administrador total)") },
+        { QStringLiteral("join"),             QStringLiteral("Entrar em canais") },
         { QStringLiteral("kick"),             QStringLiteral("Expulsar clientes") },
         { QStringLiteral("ban"),              QStringLiteral("Banir clientes") },
         { QStringLiteral("banList"),          QStringLiteral("Ver lista de banidos e reclamações") },
@@ -476,6 +477,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                                                    QString(), &ok).trimmed();
         if (!ok || name.isEmpty()) return;
         QJsonObject perms;
+        perms["join"] = true;
         perms["poke"] = true;
         perms["privmsg"] = true;
         perms["talkPower"] = 25;
