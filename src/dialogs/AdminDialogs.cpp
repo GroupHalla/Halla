@@ -279,6 +279,12 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     m_sigla->setPlaceholderText(tr("Ex.: [Admin], [Mod]"));
     m_order = new QSpinBox(propBox);
     m_order->setRange(0, 100);
+    m_order->setToolTip(tr("Ordem de exibição na lista de cargos"));
+    
+    // Pilar 1: Position hierárquica (Discord-style)
+    m_position = new QSpinBox(propBox);
+    m_position->setRange(0, 1000);
+    m_position->setToolTip(tr("Quanto maior o número, maior a autoridade. Cargo com position maior vence."));
     
     QHBoxLayout* iconRow = new QHBoxLayout;
     m_icon = new QLineEdit(propBox);
@@ -288,7 +294,8 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     iconRow->addWidget(upload);
     
     pForm->addRow(tr("Prefixo/Sigla:"), m_sigla);
-    pForm->addRow(tr("Ordem de Hierarquia:"), m_order);
+    pForm->addRow(tr("Ordem de Exibição:"), m_order);
+    pForm->addRow(tr("Position (Hierarquia):"), m_position);
     pForm->addRow(tr("Ícone do Cargo:"), iconRow);
     el->addWidget(propBox);
 
@@ -402,11 +409,13 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                 m_cur["sigla"] = cur->data(0, Qt::UserRole + 2).toString();
                 m_cur["order"] = cur->data(0, Qt::UserRole + 3).toInt();
                 m_cur["icon"]  = cur->data(0, Qt::UserRole + 4).toString();
+                m_cur["position"] = cur->data(0, Qt::UserRole + 6).toInt(0);  // Pilar 1
                 
                 loadPerms(m_cur["perms"].toObject());
                 
                 m_sigla->setText(m_cur["sigla"].toString());
                 m_order->setValue(m_cur["order"].toInt());
+                m_position->setValue(m_cur["position"].toInt());  // Pilar 1
                 m_icon->setText(m_cur["icon"].toString());
                 this->refreshMembers(QJsonDocument::fromJson(
                     cur->data(0, Qt::UserRole + 5).toString().toUtf8()).array());
@@ -422,7 +431,9 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
         perms["poke"] = true;
         perms["privmsg"] = true;
         perms["talkPower"] = 25;
-        m_net->groupSet(0, name, perms); // id 0 = criar
+        // Pilar 1: position baseado no order * 10 (ex: order=5 -> position=50)
+        int position = m_order->value() * 10;
+        m_net->groupSet(0, name, perms, QString(), m_order->value(), QString(), position); // id 0 = criar
         m_net->requestGroupList();
     });
 
@@ -456,15 +467,19 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                                                    tr("Nome do grupo:"), QLineEdit::Normal,
                                                    m_cur["name"].toString(), &ok).trimmed();
         if (!ok || name.isEmpty()) return;
+        // Pilar 1: position baseado no order * 10
+        int position = m_order->value() * 10;
         m_net->groupSet(id, name, m_cur["perms"].toObject(),
-                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed());
+                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position);
         m_net->requestGroupList();
     });
 
     connect(apply, &QPushButton::clicked, this, [this] {
         if (m_cur.isEmpty()) return;
+        // Pilar 1: position baseado no order * 10
+        int position = m_order->value() * 10;
         m_net->groupSet(m_cur["id"].toInt(), m_cur["name"].toString(), collectPerms(),
-                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed());
+                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position);
         m_net->requestGroupList();
     });
 
@@ -511,6 +526,7 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
             it->setData(0, Qt::UserRole + 2, g["sigla"].toString());
             it->setData(0, Qt::UserRole + 3, g["order"].toInt());
             it->setData(0, Qt::UserRole + 4, g["icon"].toString());
+            it->setData(0, Qt::UserRole + 6, g["position"].toInt(0));  // Pilar 1: position hierárquica
             it->setData(0, Qt::UserRole + 5,
                         QString::fromUtf8(QJsonDocument(g["members"].toArray())
                                               .toJson(QJsonDocument::Compact)));

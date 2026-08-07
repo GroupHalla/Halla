@@ -370,7 +370,7 @@ void NetSession::unban(const QString& uid) {
 void NetSession::requestGroupList() { send(HProto::msg("group_list")); }
 
 void NetSession::groupSet(int id, const QString& name, const QJsonObject& perms,
-                          const QString& sigla, int order, const QString& icon) {
+                          const QString& sigla, int order, const QString& icon, int position) {
     QJsonObject m = HProto::msg("group_set");
     if (id > 0) m["id"] = id;
     if (!name.isEmpty()) m["name"] = name;
@@ -378,6 +378,7 @@ void NetSession::groupSet(int id, const QString& name, const QJsonObject& perms,
     m["sigla"] = sigla;
     m["order"] = order;
     m["icon"] = icon;
+    if (position >= 0) m["position"] = position;  // Pilar 1: position hierárquica
     send(m);
 }
 
@@ -426,6 +427,7 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.groupIcon = u["icon"].toString();
     usr.groupOrder = u["order"].toInt(0);
     usr.groupId = u["gid"].toInt(0);
+    usr.groupPosition = u["position"].toInt(0);  // Pilar 1: posição hierárquica
     usr.inputMuted = u["mic"].toBool();
     usr.outputMuted = u["spk"].toBool();
     usr.away = u["away"].toBool();
@@ -463,7 +465,8 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     ch.codec = c["codec"].toInt(4);
     ch.codecQuality = c["quality"].toInt(6);
     ch.bitrate = c["bitrate"].toInt(96);
-    ch.groupPerms = c["groupPerms"].toObject();
+    ch.groupPerms = c["groupPerms"].toObject();  // Pilar 3: Allow/Deny/Inherit
+    ch.groupPositionReqs = c["groupPositionReqs"].toObject();  // Pilar 1: requisitos de position
     ch.maxClients = c["max"].toInt(-1);
     ch.linkedChannels.clear();
     for (const QJsonValue& v : c["linked"].toArray()) {

@@ -55,6 +55,7 @@ struct User {
     QString groupIcon;               // ícone do cargo (nome ou emoji)
     int     groupOrder = 0;
     int     groupId = 0;          // ordem/prioridade do cargo (ex: menor valor = maior prioridade)
+    int     groupPosition = 0;       // Pilar 1: posição hierárquica do cargo (quanto maior, mais autoridade)
     bool    talking = false;
     bool    whispering = false;      // sussurrando (sinal laranja)
     QDateTime connectedAt = QDateTime::currentDateTime();
@@ -77,7 +78,8 @@ struct Channel {
     QStringList opUids;              // UIDs dos operadores deste canal (v3)
     int     codecQuality = 6;        // 0..10
     int     bitrate = 96;            // de 16kbps a 384kbps (padrão 96)
-    QJsonObject groupPerms;          // permissões de canal por cargo { "groupId": { "perm": bool } }
+    QJsonObject groupPerms;          // Pilar 3: permissões de canal por cargo { "groupId": { "perm": state } }
+    QJsonObject groupPositionReqs;   // Pilar 1: requisitos de position por grupo no canal
     int     maxClients = -1;         // -1 = ilimitado
     QList<int> linkedChannels;       // canais que compartilham o áudio com este canal
     QList<int> users;
