@@ -396,6 +396,34 @@ QIcon channel(bool hasPassword, bool moderated, bool isDefault, bool full) {
     }));
 }
 
+QIcon channelAccess(bool canJoin, bool temporary, bool hasPassword, bool full) {
+    // Estados solicitados: vermelho = sem entrada; amarelo = temporário;
+    // azul = entrada permitida. O cadeado/full continuam como sobreposição.
+    return QIcon(mk(24, [&](QPainter& p) {
+        const QColor fill = !canJoin ? QColor("#D9534F")
+                          : temporary ? QColor("#E8B23C") : QColor("#4D91D1");
+        p.setPen(QPen(fill.darker(145), 1.1));
+        p.setBrush(fill);
+        QRectF bubble(2.5, 4, 18.5, 14);
+        p.drawRoundedRect(bubble, 5, 5);
+        QPolygonF tail; tail << QPointF(8, 17) << QPointF(7, 21) << QPointF(12, 17);
+        p.drawPolygon(tail);
+        if (canJoin && !temporary) {
+            p.setPen(QPen(Qt::white, 1.8, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(7, 11), QPointF(10, 14));
+            p.drawLine(QPointF(10, 14), QPointF(16, 8));
+        } else if (!canJoin) {
+            p.setPen(QPen(Qt::white, 1.9, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(7, 11), QPointF(16, 11));
+        } else {
+            p.setPen(QPen(QColor("#744E00"), 1.3));
+            p.drawEllipse(QPointF(11.7, 10.8), 3.2, 3.2);
+        }
+        if (full) { p.setBrush(QColor("#8B1E1E")); p.setPen(Qt::NoPen); p.drawEllipse(QRectF(16, 16, 7, 7)); }
+        if (hasPassword) drawPadlock(p, QRectF(13.5, 13.5, 9.5, 9.5));
+    }));
+}
+
 // ---------------------------------------------------------------- usuário
 QIcon user(bool talking, bool away, int size, bool whispering) {
     return QIcon(mk(size, [&](QPainter& p) {

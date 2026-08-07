@@ -53,7 +53,8 @@ struct User {
     QString avatarHash;              // hash do avatar no servidor (v3)
     QString sigla;                   // prefixo/sigla do cargo (ex: "[Mod]")
     QString groupIcon;               // ícone do cargo (nome ou emoji)
-    int     groupOrder = 0;          // ordem/prioridade do cargo (ex: menor valor = maior prioridade)
+    int     groupOrder = 0;
+    int     groupId = 0;          // ordem/prioridade do cargo (ex: menor valor = maior prioridade)
     bool    talking = false;
     bool    whispering = false;      // sussurrando (sinal laranja)
     QDateTime connectedAt = QDateTime::currentDateTime();

@@ -425,6 +425,7 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.sigla = u["sigla"].toString();
     usr.groupIcon = u["icon"].toString();
     usr.groupOrder = u["order"].toInt(0);
+    usr.groupId = u["gid"].toInt(0);
     usr.inputMuted = u["mic"].toBool();
     usr.outputMuted = u["spk"].toBool();
     usr.away = u["away"].toBool();

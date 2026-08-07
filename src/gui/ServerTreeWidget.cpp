@@ -398,9 +398,19 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
         item->setFlags((item->flags() & ~Qt::ItemIsEnabled & ~Qt::ItemIsSelectable & ~Qt::ItemIsDragEnabled & ~Qt::ItemIsDropEnabled));
         item->setForeground(0, QColor("#8A939B")); // Cinza suave etched
     } else {
-        item->setIcon(0, c.noSymbol
-            ? QIcon()
-            : HIcons::channel(c.hasPassword, c.moderated, c.isDefault, full));
+        bool canJoin = true;
+        if (m_data && m_data->users.contains(m_data->selfId)) {
+            const int gid = m_data->users[m_data->selfId].groupId;
+            const QJsonObject own = c.groupPerms.value(QString::number(gid)).toObject();
+            if (own.contains(QStringLiteral("join"))) canJoin = own.value(QStringLiteral("join")).toBool();
+            // Sem traverse em qualquer ancestral também impede entrada.
+            for (int parent = c.parentId; parent && m_data->channels.contains(parent); parent = m_data->channels[parent].parentId) {
+                const QJsonObject parentPerms = m_data->channels[parent].groupPerms.value(QString::number(gid)).toObject();
+                if (parentPerms.contains(QStringLiteral("traverse")) && !parentPerms.value(QStringLiteral("traverse")).toBool()) { canJoin = false; break; }
+            }
+        }
+        item->setIcon(0, c.noSymbol ? QIcon()
+            : HIcons::channelAccess(canJoin, c.type == 0, c.hasPassword, full));
         item->setData(0, RoleKind, NodeChannel);
         item->setData(0, RoleId, c.id);
         item->setToolTip(0, channelTooltip(c));

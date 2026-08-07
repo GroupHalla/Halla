@@ -37,6 +37,7 @@ QIcon bell();
 // árvore do servidor
 QIcon server();
 QIcon channel(bool hasPassword, bool moderated, bool isDefault, bool full);
+QIcon channelAccess(bool canJoin, bool temporary, bool hasPassword, bool full);
 QIcon user(bool talking, bool away, int size = 20, bool whispering = false);
 QPixmap userStatusMinis(bool inputMuted, bool outputMuted, bool away,
                         bool recording, bool commander, bool op = false);
