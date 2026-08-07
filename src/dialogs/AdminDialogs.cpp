@@ -28,6 +28,28 @@
 #include <QScrollArea>
 #include <QJsonDocument>
 #include <QSignalBlocker>
+#include <QDropEvent>
+#include <functional>
+
+class DraggableGroupTreeWidget : public QTreeWidget {
+public:
+    explicit DraggableGroupTreeWidget(QWidget* parent = nullptr) : QTreeWidget(parent) {
+        setDragEnabled(true);
+        setAcceptDrops(true);
+        setDragDropMode(QAbstractItemView::InternalMove);
+        setDropIndicatorShown(true);
+    }
+    
+    std::function<void()> onDropCallback;
+    
+protected:
+    void dropEvent(QDropEvent* event) override {
+        QTreeWidget::dropEvent(event);
+        if (onDropCallback) {
+            onDropCallback();
+        }
+    }
+};
 
 static QString fmtTs(const QString& iso) {
     const QDateTime dt = QDateTime::fromString(iso, Qt::ISODate);
@@ -228,12 +250,38 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     QVBoxLayout* ll = new QVBoxLayout(left);
     ll->setContentsMargins(0, 0, 0, 0);
     ll->addWidget(new QLabel(tr("Grupos:"), left));
-    m_groups = new QTreeWidget(left);
+    DraggableGroupTreeWidget* dragTree = new DraggableGroupTreeWidget(left);
+    m_groups = dragTree;
     m_groups->setHeaderLabels({ tr("ID"), tr("Nome") });
     m_groups->setRootIsDecorated(false);
     m_groups->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_groups->header()->setStretchLastSection(true);
-    m_groups->setSortingEnabled(true);
+    m_groups->setSortingEnabled(false);
+    
+    dragTree->onDropCallback = [this]() {
+        int count = m_groups->topLevelItemCount();
+        for (int i = 0; i < count; ++i) {
+            QTreeWidgetItem* it = m_groups->topLevelItem(i);
+            int id = it->data(0, Qt::UserRole).toInt();
+            QString name = it->text(1);
+            QJsonObject perms = QJsonDocument::fromJson(it->data(0, Qt::UserRole + 1).toString().toUtf8()).object();
+            QString sigla = it->data(0, Qt::UserRole + 2).toString();
+            QString icon = it->data(0, Qt::UserRole + 4).toString();
+            
+            int newOrder = i * 10;
+            int newPosition = (count - 1 - i) * 10;
+            
+            if (id == 3) {
+                newPosition = qMax(newPosition, 100);
+            }
+            
+            it->setData(0, Qt::UserRole + 3, newOrder);
+            it->setData(0, Qt::UserRole + 6, newPosition);
+            
+            m_net->groupSet(id, name, perms, sigla, newOrder, icon, newPosition);
+        }
+        m_net->requestGroupList();
+    };
     ll->addWidget(m_groups, 1);
     QHBoxLayout* gbtns = new QHBoxLayout;
     QPushButton* add = new QPushButton(tr("Adicionar"), left);
@@ -467,8 +515,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                                                    tr("Nome do grupo:"), QLineEdit::Normal,
                                                    m_cur["name"].toString(), &ok).trimmed();
         if (!ok || name.isEmpty()) return;
-        // Pilar 1: position baseado no order * 10
-        int position = m_order->value() * 10;
+        int position = m_position->value();
         m_net->groupSet(id, name, m_cur["perms"].toObject(),
                         m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position);
         m_net->requestGroupList();
@@ -476,8 +523,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
 
     connect(apply, &QPushButton::clicked, this, [this] {
         if (m_cur.isEmpty()) return;
-        // Pilar 1: position baseado no order * 10
-        int position = m_order->value() * 10;
+        int position = m_position->value();
         m_net->groupSet(m_cur["id"].toInt(), m_cur["name"].toString(), collectPerms(),
                         m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position);
         m_net->requestGroupList();
@@ -512,8 +558,14 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
         QSignalBlocker blocker(m_groups);
         m_groups->setSortingEnabled(false);
         m_groups->clear();
-        for (const QJsonValue& v : groups) {
-            const QJsonObject g = v.toObject();
+        
+        QList<QJsonObject> sortedList;
+        for (const QJsonValue& v : groups) sortedList << v.toObject();
+        std::sort(sortedList.begin(), sortedList.end(), [](const QJsonObject& a, const QJsonObject& b) {
+            return a["order"].toInt(0) < b["order"].toInt(0);
+        });
+
+        for (const QJsonObject& g : sortedList) {
             const int id = g["id"].toInt(0);
             QTreeWidgetItem* it = new QTreeWidgetItem(m_groups);
             it->setText(0, QString::number(id));
@@ -532,7 +584,6 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
                                               .toJson(QJsonDocument::Compact)));
             if (id == keepId) keepItem = it;
         }
-        m_groups->setSortingEnabled(true);
     }
     if (keepItem) m_groups->setCurrentItem(keepItem);
     else if (m_groups->topLevelItemCount() > 0)

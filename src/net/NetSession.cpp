@@ -699,7 +699,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "group_list") {
-        emit groupListReceived(obj["groups"].toArray());
+        m_groups = obj["groups"].toArray();
+        emit groupListReceived(m_groups);
         return;
     }
     if (t == "ft_list") {
