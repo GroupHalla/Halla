@@ -298,7 +298,7 @@ void ChannelDialog::setChannel(const Channel& c) {
 
 Channel ChannelDialog::resultChannel() const {
     Channel c;
-    c.name = m_name->text().trimmed();
+    c.name = m_name->text(); // preserva espaços iniciais para canais decorativos
     c.topic = m_topic->text().trimmed();
     c.description = m_desc->toPlainText();
     c.passwordHash = m_password->text();
