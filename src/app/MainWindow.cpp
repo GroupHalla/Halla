@@ -58,6 +58,44 @@
 #include <utility>
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <QImage>
+#include <QPixmap>
+
+// Captura avançada de aplicativos com aceleração por hardware (GPU) via PrintWindow
+static QPixmap grabWindowsApp(HWND hwnd) {
+    if (!hwnd) return QPixmap();
+
+    RECT rect;
+    GetWindowRect(hwnd, &rect);
+    int width = rect.right - rect.left;
+    int height = rect.bottom - rect.top;
+    if (width <= 0 || height <= 0) return QPixmap();
+
+    HDC hdcWindow = GetWindowDC(hwnd);
+    HDC hdcMem = CreateCompatibleDC(hdcWindow);
+    HBITMAP hbmMem = CreateCompatibleBitmap(hdcWindow, width, height);
+    HGDIOBJ hOld = SelectObject(hdcMem, hbmMem);
+
+    // Flag 2 (PW_RENDERFULLCONTENT) força a renderização do conteúdo com aceleração gráfica!
+    BOOL ok = PrintWindow(hwnd, hdcMem, 2); 
+    if (!ok) {
+        ok = PrintWindow(hwnd, hdcMem, 0); // fallback padrão
+    }
+
+    SelectObject(hdcMem, hOld);
+    DeleteDC(hdcMem);
+    ReleaseDC(hwnd, hdcWindow);
+
+    QPixmap pix;
+    if (ok) {
+        pix = QPixmap::fromImage(QImage::fromHBITMAP(hbmMem));
+    }
+    DeleteObject(hbmMem);
+    return pix;
+}
+#endif
+
+#ifdef Q_OS_WIN
 // definida mais abaixo (mesmo arquivo)
 bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods);
 #endif
@@ -144,6 +182,10 @@ public:
         QPushButton* btn = new QPushButton(tr("Assista à transmissão"), this);
         connect(btn, &QPushButton::clicked, this, &ScreenshareHoverPopup::onWatchClicked);
         l->addWidget(btn);
+
+        m_timer = new QTimer(this);
+        connect(m_timer, &QTimer::timeout, this, &ScreenshareHoverPopup::checkMousePosition);
+        m_timer->start(100);
     }
     
 protected:
@@ -153,12 +195,22 @@ protected:
     }
     
 private:
+    void checkMousePosition() {
+        QPoint globalCursorPos = QCursor::pos();
+        QRect globalRect(mapToGlobal(QPoint(0,0)), size());
+        globalRect.adjust(-20, -20, 20, 20);
+        if (!globalRect.contains(globalCursorPos)) {
+            close();
+        }
+    }
+    
     void onWatchClicked();
     
     int m_userId;
     int m_channelId;
     class MainWindow* m_mw;
     QLabel* m_imgLabel;
+    QTimer* m_timer;
 };
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -1751,9 +1803,15 @@ void MainWindow::captureAndSendScreen() {
             pix = screen->grabWindow(0);
         }
     } else {
+        #ifdef Q_OS_WIN
+        if (m_screenShareSourceId > 0) {
+            pix = grabWindowsApp(HWND(m_screenShareSourceId));
+        }
+        #else
         if (screen && m_screenShareSourceId > 0) {
             pix = screen->grabWindow(WId(m_screenShareSourceId));
         }
+        #endif
     }
     
     if (pix.isNull()) return;
