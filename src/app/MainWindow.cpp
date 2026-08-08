@@ -1719,6 +1719,10 @@ void MainWindow::toggleScreenShare() {
         }
         t->net()->sendScreenShareStop();
         m_actScreenShare->setIcon(HIcons::screenShare(false));
+        
+        handleScreenshareStateChanged(t->data().selfId, false);
+        t->data().users[t->data().selfId].screensharing = false;
+        emit t->net()->stateChanged();
     }
 }
 
