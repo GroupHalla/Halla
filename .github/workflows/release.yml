@@ -114,13 +114,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.33.exe
+          files: Halla-Setup-1.0.34.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
-            ### Versão oficial
-            * UID como identidade persistente do cliente.
-            * Gerenciamento de grupos, membros e cargos.
-            * Interface de servidor com descrição e informações ao selecionar o nome.
+            ### Novidades
+            * Canal de controle TLS com trust-on-first-use e alerta quando o fingerprint do servidor muda.
+            * Correção da sincronização das chaves de voz recebidas no welcome, evitando áudio cifrado quebrado no primeiro login.
+            * Suporte a chaves compartilhadas entre canais vinculados para manter o relay puro sem quebrar a escuta.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

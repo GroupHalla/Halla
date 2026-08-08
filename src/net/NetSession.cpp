@@ -664,6 +664,16 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         m_udpPort = quint16(voice["udp"].toInt());
         m_voiceToken = voice["token"].toString().toUInt();
 
+        // Recebe as chaves de canal junto do welcome para evitar a corrida em
+        // que channel_key chegava antes de m_ready e era ignorado.
+        const QJsonObject keys = obj["channelKeys"].toObject();
+        for (auto it = keys.begin(); it != keys.end(); ++it) {
+            bool ok = false;
+            const int channelId = it.key().toInt(&ok);
+            if (ok && channelId > 0)
+                m_channelKeys[channelId] = QByteArray::fromBase64(it.value().toString().toLatin1());
+        }
+
         m_ready = true;
         m_pingTimer->start();
 
@@ -680,6 +690,11 @@ void NetSession::handleMessage(const QJsonObject& obj) {
                          .arg(m_hostPort, d.users[d.selfId].name));
         emit welcomeReceived();
         emit stateChanged();
+        return;
+    }
+
+    if (t == "channel_key") {
+        m_channelKeys[obj["channel"].toInt()] = QByteArray::fromBase64(obj["key"].toString().toLatin1());
         return;
     }
 
@@ -829,10 +844,6 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     if (t == "group_list") {
         m_groups = obj["groups"].toArray();
         emit groupListReceived(m_groups);
-        return;
-    }
-    if (t == "channel_key") {
-        m_channelKeys[obj["channel"].toInt()] = QByteArray::fromBase64(obj["key"].toString().toLatin1());
         return;
     }
     if (t == "ft_list") {
