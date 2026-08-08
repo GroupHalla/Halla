@@ -35,6 +35,14 @@ public:
 
     void loadDemoState(); // usado apenas pelo modo --demo (capturas de tela)
 
+    // ---- Compartilhamento de Tela (screenshare)
+    void toggleScreenShare();
+    void captureAndSendScreen();
+    void handleScreenshareStateChanged(int userId, bool on);
+    void handleScreenshareFrameReceived(int userId, const QByteArray& jpegData);
+    void handleScreenshareHovered(int userId, int channelId, const QPoint& pos);
+    void watchStream(int userId, int channelId);
+
 protected:
     void closeEvent(QCloseEvent* e) override;
     void changeEvent(QEvent* e) override; // minimizar para a bandeja
@@ -58,14 +66,6 @@ private:
     void updateConnectionUi();
     void updateStatusBar();
     void saveSession();
-
-    // ---- Compartilhamento de Tela (screenshare)
-    void toggleScreenShare();
-    void captureAndSendScreen();
-    void handleScreenshareStateChanged(int userId, bool on);
-    void handleScreenshareFrameReceived(int userId, const QByteArray& jpegData);
-    void handleScreenshareHovered(int userId, int channelId, const QPoint& pos);
-    void watchStream(int userId, int channelId);
 
     QStackedWidget* m_stack = nullptr;
     WelcomePage* m_welcome = nullptr;

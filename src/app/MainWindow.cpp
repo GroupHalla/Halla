@@ -1797,18 +1797,40 @@ void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoin
     ServerTab* t = currentTab();
     if (!t || !t->net()) return;
     
-    // Se o usuário não tiver permissão para entrar no canal da transmissão, não faz nada (bloqueado de ver a prévia!)
     User selfUser;
     if (t->data().users.contains(t->data().selfId)) {
         selfUser = t->data().users[t->data().selfId];
     }
-    if (!t->net()->hasChannelPerm(&selfUser, channelId, QStringLiteral("join"))) {
+    
+    bool canJoin = true;
+    if (t->data().channels.contains(channelId)) {
+        const Channel& ch = t->data().channels[channelId];
+        if (selfUser.groupId == 3 || selfUser.serverGroups.toLower() == "admin") {
+            canJoin = true;
+        } else {
+            QString myGidStr = QString::number(selfUser.groupId);
+            if (ch.groupPerms.contains(myGidStr)) {
+                QJsonObject gPerms = ch.groupPerms[myGidStr].toObject();
+                if (gPerms.value(QStringLiteral("join")).toInt(-1) == 0) {
+                    canJoin = false;
+                }
+            }
+            QString normalGidStr = QStringLiteral("2");
+            if (ch.groupPerms.contains(normalGidStr)) {
+                QJsonObject gPerms = ch.groupPerms[normalGidStr].toObject();
+                if (gPerms.value(QStringLiteral("join")).toInt(-1) == 0) {
+                    canJoin = false;
+                }
+            }
+        }
+    }
+    if (!canJoin) {
         return;
     }
     
     // Evita abrir múltiplos popups redundantes
     for (QWidget* w : QApplication::topLevelWidgets()) {
-        if (qobject_cast<ScreenshareHoverPopup*>(w)) {
+        if (dynamic_cast<ScreenshareHoverPopup*>(w)) {
             return;
         }
     }
@@ -1833,7 +1855,30 @@ void MainWindow::watchStream(int userId, int channelId) {
     if (t->data().users.contains(t->data().selfId)) {
         selfUser = t->data().users[t->data().selfId];
     }
-    if (!t->net()->hasChannelPerm(&selfUser, channelId, QStringLiteral("join"))) {
+    
+    bool canJoin = true;
+    if (t->data().channels.contains(channelId)) {
+        const Channel& ch = t->data().channels[channelId];
+        if (selfUser.groupId == 3 || selfUser.serverGroups.toLower() == "admin") {
+            canJoin = true;
+        } else {
+            QString myGidStr = QString::number(selfUser.groupId);
+            if (ch.groupPerms.contains(myGidStr)) {
+                QJsonObject gPerms = ch.groupPerms[myGidStr].toObject();
+                if (gPerms.value(QStringLiteral("join")).toInt(-1) == 0) {
+                    canJoin = false;
+                }
+            }
+            QString normalGidStr = QStringLiteral("2");
+            if (ch.groupPerms.contains(normalGidStr)) {
+                QJsonObject gPerms = ch.groupPerms[normalGidStr].toObject();
+                if (gPerms.value(QStringLiteral("join")).toInt(-1) == 0) {
+                    canJoin = false;
+                }
+            }
+        }
+    }
+    if (!canJoin) {
         QMessageBox::warning(this, tr("Transmissão"), tr("Você não tem permissão para entrar no canal desta transmissão."));
         return;
     }
