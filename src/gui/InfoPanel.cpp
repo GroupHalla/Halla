@@ -138,16 +138,20 @@ QString InfoPanel::userHtml(const User& u) const {
     if (u.id == m_data->selfId) h += row(tr("Tipo:"), tr("Você (este cliente)"));
     h += row(tr("Versão:"), QStringLiteral("%1 no %2").arg(u.version, u.platform));
     h += row(tr("Tempo online:"), uptime(u.connectedAt));
-    QStringList roles = u.serverGroups.split(QStringLiteral("\n"));
-    for (const QString& r : roles) {
-        if (!r.trimmed().isEmpty()) {
-            QString singleRole = u.groupIcon.isEmpty() ? QString() : u.groupIcon + QStringLiteral(" ");
-            singleRole += r;
-            h += QStringLiteral("<tr><td colspan=\"2\" style=\"font-weight:bold; color:#8B5CF6; padding: 2px 0;\">%1</td></tr>")
-                 .arg(singleRole.toHtmlEscaped());
-        }
-    }
     h += row(tr("Volume:"), QStringLiteral("%1 dB").arg(u.volumeDb));
+    
+    QStringList roles = u.serverGroups.split(QStringLiteral("\n"));
+    int printedIndex = 0;
+    for (const QString& r : roles) {
+        if (r.trimmed().isEmpty()) continue;
+        if (printedIndex == 0) {
+            h += row(tr("Cargos:"), r.toHtmlEscaped());
+        } else {
+            h += row(QString(), r.toHtmlEscaped());
+        }
+        printedIndex++;
+    }
+    
     QStringList flags;
     if (u.away)        flags << tr("Ausente");
     if (u.inputMuted)  flags << tr("Microfone mudo");
