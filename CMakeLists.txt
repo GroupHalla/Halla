@@ -21,21 +21,13 @@ else()
     set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech)
 endif()
 
-# Opus (biblioteca do sistema no Linux, estática incluída no Windows)
-if (WIN32)
-    add_library(opus STATIC IMPORTED GLOBAL)
-    set_target_properties(opus PROPERTIES
-        IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/third_party/opus/libopus.a
-        INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/opus/include)
-    set(OPUS_LIBS opus)
-else()
-    find_path(OPUS_INCLUDE_DIR opus.h PATH_SUFFIXES opus REQUIRED)
-    find_library(OPUS_LIBRARY opus REQUIRED)
-    add_library(opus SHARED IMPORTED GLOBAL)
-    set_target_properties(opus PROPERTIES IMPORTED_LOCATION ${OPUS_LIBRARY})
-    target_include_directories(opus INTERFACE ${OPUS_INCLUDE_DIR})
-    set(OPUS_LIBS opus)
-endif()
+# Opus vem da toolchain/sistema. Não versionamos mais libopus.a no Git.
+find_path(OPUS_INCLUDE_DIR opus.h PATH_SUFFIXES opus third_party/opus/include REQUIRED)
+find_library(OPUS_LIBRARY opus REQUIRED)
+add_library(opus UNKNOWN IMPORTED GLOBAL)
+set_target_properties(opus PROPERTIES IMPORTED_LOCATION ${OPUS_LIBRARY})
+target_include_directories(opus INTERFACE ${OPUS_INCLUDE_DIR})
+set(OPUS_LIBS opus)
 
 set(HALLA_SOURCES
     src/main.cpp

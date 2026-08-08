@@ -8,12 +8,14 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     name: Build Windows Client
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
@@ -32,6 +34,7 @@ jobs:
             mingw-w64-x86_64-qt6-multimedia
             mingw-w64-x86_64-qt6-speech
             mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-opus
 
       - name: Configure CMake
         shell: msys2 {0}
@@ -115,13 +118,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.35.exe
+          files: Halla-Setup-1.0.36.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
             ### Novidades
-            * Identidades locais agora usam par de chaves Ed25519 e UID derivado da chave pública.
-            * Login responde ao desafio do servidor assinando o nonce localmente; a chave privada nunca sai do cliente.
-            * Migração automática de identidades antigas para identidades criptográficas.
+            * Workflow com permissões mínimas por job para reduzir risco na cadeia de distribuição.
+            * Mantém identidade criptográfica Ed25519 e login com desafio assinado.
+            * Preparado para servidores com validação/rate-limit reforçados.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
