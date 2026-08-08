@@ -6,14 +6,23 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QTabWidget>
 
 class ScreenShareDialog : public QDialog {
     Q_OBJECT
 public:
     explicit ScreenShareDialog(QWidget* parent = nullptr);
-    int selectedSource() const { return m_selectedSource; } // 0 = entire screen, 1 = app window
+    int selectedSourceType() const { return m_selectedSourceType; } // 0 = screen, 1 = window
+    quintptr selectedSourceId() const { return m_selectedSourceId; } // WId / HWND
 
 private:
-    QListWidget* m_list;
-    int m_selectedSource = 0;
+    void populateWindows();
+    void populateScreens();
+
+    QTabWidget* m_tabs;
+    QListWidget* m_screenList;
+    QListWidget* m_windowList;
+    
+    int m_selectedSourceType = 0;
+    quintptr m_selectedSourceId = 0;
 };

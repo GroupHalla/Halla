@@ -83,7 +83,8 @@ private:
     QAction* m_actScreenShare = nullptr;
     QTimer*  m_screenShareTimer = nullptr;
     quint16  m_screenShareSeq = 0;
-    int      m_screenShareSource = 0;
+    int      m_screenShareSourceType = 0;
+    quintptr m_screenShareSourceId = 0;
     QMap<int, class ScreenShareWindow*> m_screenShareWindows;
     QAction* m_actRecord = nullptr;
     QAction* m_actWhisper = nullptr;

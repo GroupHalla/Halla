@@ -1633,7 +1633,8 @@ void MainWindow::toggleScreenShare() {
     if (m_actScreenShare->isChecked()) {
         ScreenShareDialog dlg(this);
         if (dlg.exec() == QDialog::Accepted) {
-            m_screenShareSource = dlg.selectedSource();
+            m_screenShareSourceType = dlg.selectedSourceType();
+            m_screenShareSourceId = dlg.selectedSourceId();
             m_screenShareSeq = 0;
             
             if (!m_screenShareTimer) {
@@ -1666,11 +1667,19 @@ void MainWindow::captureAndSendScreen() {
     }
     
     QPixmap pix;
-    if (m_screenShareSource == 0) {
-        QScreen* screen = QGuiApplication::primaryScreen();
-        if (screen) pix = screen->grabWindow(0);
+    QScreen* screen = QGuiApplication::primaryScreen();
+    if (m_screenShareSourceType == 0) {
+        int sIdx = int(m_screenShareSourceId);
+        QList<QScreen*> screens = QGuiApplication::screens();
+        if (sIdx >= 0 && sIdx < screens.size() && screens[sIdx]) {
+            pix = screens[sIdx]->grabWindow(0);
+        } else if (screen) {
+            pix = screen->grabWindow(0);
+        }
     } else {
-        pix = this->grab();
+        if (screen && m_screenShareSourceId > 0) {
+            pix = screen->grabWindow(WId(m_screenShareSourceId));
+        }
     }
     
     if (pix.isNull()) return;
