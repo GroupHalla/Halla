@@ -87,6 +87,8 @@ private:
     quint16  m_screenShareSeq = 0;
     int      m_screenShareSourceType = 0;
     quintptr m_screenShareSourceId = 0;
+    QImage   m_prevThumbnail;
+    int      m_keepAliveTicks = 0;
     QMap<int, class ScreenShareWindow*> m_screenShareWindows;
     QMap<int, QByteArray> m_lastScreenshareFrames;
     QAction* m_actRecord = nullptr;

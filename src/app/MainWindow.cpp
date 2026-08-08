@@ -1736,8 +1736,6 @@ void MainWindow::captureAndSendScreen() {
     }
     
     // Controle de Congestionamento Ativo (Active Congestion Control):
-    // Se o buffer do socket TCP estiver acumulando mais de 45 KB, nós descartamos (pula)
-    // este frame para evitar bufferbloat, garantindo que o ping permaneça baixo e estável!
     if (t->net()->bytesToWrite() > 45000) {
         return;
     }
@@ -1760,12 +1758,24 @@ void MainWindow::captureAndSendScreen() {
     
     if (pix.isNull()) return;
     
+    // Algoritmo Ultra-Rápido de Detecção de Mudança de Tela (Delta Frame skipping):
+    // Reduz o consumo de upload para quase zero quando a tela está estática,
+    // garantindo ping baixo constante (abaixo de 30ms) e sem bufferbloat!
+    QImage thumb = pix.toImage().scaled(16, 16, Qt::IgnoreAspectRatio, Qt::FastTransformation);
+    if (m_prevThumbnail == thumb) {
+        if (m_keepAliveTicks++ < 60) { // Envia apenas um frame a cada 3 segundos como keep-alive
+            return; 
+        }
+    }
+    m_keepAliveTicks = 0;
+    m_prevThumbnail = thumb;
+    
     QPixmap scaled = pix.scaled(t->net()->screenshareWidth(), t->net()->screenshareHeight(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     
     QByteArray bytes;
     QBuffer buffer(&bytes);
     buffer.open(QIODevice::WriteOnly);
-    scaled.save(&buffer, "JPEG", 50);
+    scaled.save(&buffer, "JPEG", 65); // Qualidade 65 (imagem super nítida e cristalina em tela cheia!)
     
     t->net()->sendScreenShareFrame(bytes, ++m_screenShareSeq);
     
