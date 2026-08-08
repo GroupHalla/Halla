@@ -149,6 +149,7 @@ private:
     QHostAddress m_udpHostAddress;
     quint16 m_port = 9987;
     QString m_hostPort;
+    QString m_identityUid;
     QJsonObject m_pendingHello;
     QJsonObject m_myPerms;        // v3 (welcome.myPerms)
     QJsonArray  m_groups;         // v3 (welcome.groups)

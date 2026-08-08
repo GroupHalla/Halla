@@ -1,6 +1,7 @@
 #include "NetSession.h"
 #include "HallaProtocol.h"
 #include "core/AppLog.h"
+#include "dialogs/IdentityDialog.h"
 
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -81,6 +82,7 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
     }
     m_port = port;
     m_hostPort = port == 9987 ? host : QStringLiteral("%1:%2").arg(host).arg(port);
+    m_identityUid = uid;
     m_udpPort = 0;
     m_voiceToken = 0;
     m_udpRegistrationSeq = 0;
@@ -101,6 +103,9 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
     m_pendingHello = HProto::msg("hello");
     m_pendingHello["proto"] = HProto::kProtoVersion;
     m_pendingHello["uid"] = uid;
+    const QByteArray publicKey = IdentityDialog::publicKeyForUid(uid);
+    if (!publicKey.isEmpty())
+        m_pendingHello["idPub"] = QString::fromLatin1(publicKey.toBase64());
     m_pendingHello["nick"] = nickname;
     m_pendingHello["ver"] = "3.6.2";
     m_pendingHello["platform"] =
@@ -621,6 +626,20 @@ void NetSession::refreshOperators() {
 void NetSession::handleMessage(const QJsonObject& obj) {
     const QString t = obj["t"].toString();
     ServerData& d = target();
+
+    if (t == "identity_challenge") {
+        const QByteArray nonce = QByteArray::fromBase64(obj["nonce"].toString().toLatin1());
+        const QByteArray sig = IdentityDialog::signNonce(m_identityUid, nonce);
+        if (sig.isEmpty()) {
+            emit connectionFailed(QStringLiteral("Não foi possível assinar o desafio da identidade"));
+            m_tcp->abort();
+            return;
+        }
+        QJsonObject proof = HProto::msg("identity_proof");
+        proof["sig"] = QString::fromLatin1(sig.toBase64());
+        send(proof);
+        return;
+    }
 
     if (t == "error") {
         const QString code = obj["code"].toString();

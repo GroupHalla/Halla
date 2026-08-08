@@ -9,6 +9,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+find_package(OpenSSL REQUIRED)
+
 # Qt 6
 find_package(Qt6 6.2 QUIET COMPONENTS Widgets Network Multimedia TextToSpeech)
 if (Qt6_FOUND)
@@ -79,7 +81,7 @@ target_include_directories(Halla PRIVATE
     src/net
 )
 
-target_link_libraries(Halla PRIVATE ${QT_LIBS} ${OPUS_LIBS})
+target_link_libraries(Halla PRIVATE ${QT_LIBS} ${OPUS_LIBS} OpenSSL::Crypto)
 
 if (MSVC)
     target_compile_options(Halla PRIVATE /W3 /utf-8)

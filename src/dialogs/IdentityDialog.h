@@ -11,6 +11,8 @@ public:
     explicit IdentityDialog(QWidget* parent = nullptr);
 
     static QString generateUniqueId();
+    static QByteArray publicKeyForUid(const QString& uid);
+    static QByteArray signNonce(const QString& uid, const QByteArray& nonce);
     static QList<QStringList> loadAll();     // [default, nome, fonético, id único]
     static void saveAll(const QList<QStringList>& rows);
     static QString defaultNickname();

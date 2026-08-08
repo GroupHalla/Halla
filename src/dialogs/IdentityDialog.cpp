@@ -18,28 +18,79 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QCryptographicHash>
+#include <openssl/evp.h>
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+
+static QString keyBase(const QString& uid, const QString& field) {
+    return QStringLiteral("identityKeys/%1/%2").arg(uid, field);
+}
+
+static QString storeIdentityKey(EVP_PKEY* key) {
+    int pubLen = i2d_PUBKEY(key, nullptr);
+    int privLen = i2d_PrivateKey(key, nullptr);
+    if (pubLen <= 0 || privLen <= 0) return QString();
+    QByteArray pub(pubLen, 0), priv(privLen, 0);
+    unsigned char* p = reinterpret_cast<unsigned char*>(pub.data());
+    i2d_PUBKEY(key, &p);
+    p = reinterpret_cast<unsigned char*>(priv.data());
+    i2d_PrivateKey(key, &p);
+    const QString uid = QString::fromLatin1(QCryptographicHash::hash(pub, QCryptographicHash::Sha256).toBase64());
+    S::set(keyBase(uid, QStringLiteral("publicDer")), QString::fromLatin1(pub.toBase64()));
+    S::set(keyBase(uid, QStringLiteral("privateDer")), QString::fromLatin1(priv.toBase64()));
+    return uid;
+}
 
 QString IdentityDialog::generateUniqueId() {
-    QByteArray bytes(21, 0);
-    for (int i = 0; i < bytes.size(); i += 4) {
-        quint32 r = QRandomGenerator::global()->generate();
-        int n = qMin(4, bytes.size() - i);
-        memcpy(bytes.data() + i, &r, n);
-    }
-    return QString::fromLatin1(bytes.toBase64());
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
+    EVP_PKEY* key = nullptr;
+    QString uid;
+    if (ctx && EVP_PKEY_keygen_init(ctx) == 1 && EVP_PKEY_keygen(ctx, &key) == 1)
+        uid = storeIdentityKey(key);
+    EVP_PKEY_free(key);
+    EVP_PKEY_CTX_free(ctx);
+    return uid;
+}
+
+QByteArray IdentityDialog::publicKeyForUid(const QString& uid) {
+    return QByteArray::fromBase64(S::str(keyBase(uid, QStringLiteral("publicDer"))).toLatin1());
+}
+
+QByteArray IdentityDialog::signNonce(const QString& uid, const QByteArray& nonce) {
+    QByteArray priv = QByteArray::fromBase64(S::str(keyBase(uid, QStringLiteral("privateDer"))).toLatin1());
+    if (priv.isEmpty() || nonce.isEmpty()) return QByteArray();
+    const unsigned char* p = reinterpret_cast<const unsigned char*>(priv.constData());
+    EVP_PKEY* key = d2i_AutoPrivateKey(nullptr, &p, priv.size());
+    if (!key) return QByteArray();
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    QByteArray sig(64, 0);
+    size_t sigLen = sig.size();
+    bool ok = ctx && EVP_DigestSignInit(ctx, nullptr, nullptr, nullptr, key) == 1
+           && EVP_DigestSign(ctx, reinterpret_cast<unsigned char*>(sig.data()), &sigLen,
+                             reinterpret_cast<const unsigned char*>(nonce.constData()), nonce.size()) == 1;
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(key);
+    if (!ok) return QByteArray();
+    sig.resize(int(sigLen));
+    return sig;
 }
 
 QList<QStringList> IdentityDialog::loadAll() {
     QList<QStringList> rows;
     QJsonDocument doc = QJsonDocument::fromJson(S::str("identities").toUtf8());
+    bool migrated = false;
     if (doc.isArray()) {
         for (const QJsonValue& v : doc.array()) {
             QJsonObject o = v.toObject();
+            QString uid = o["uid"].toString();
+            if (uid.isEmpty() || publicKeyForUid(uid).isEmpty()) { uid = generateUniqueId(); migrated = true; }
             rows << QStringList{ o["def"].toBool() ? "1" : "0",
                                  o["nick"].toString(), o["phon"].toString(),
-                                 o["uid"].toString() };
+                                 uid };
         }
     }
+    if (migrated && !rows.isEmpty()) saveAll(rows);
     if (rows.isEmpty()) {
         // identidade inicial: gerar UMA vez e persistir — o ID único precisa
         // ser estável entre execuções (o servidor o usa para bans, grupos e

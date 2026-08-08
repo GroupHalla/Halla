@@ -31,6 +31,7 @@ jobs:
             mingw-w64-x86_64-qt6-base
             mingw-w64-x86_64-qt6-multimedia
             mingw-w64-x86_64-qt6-speech
+            mingw-w64-x86_64-openssl
 
       - name: Configure CMake
         shell: msys2 {0}
@@ -114,13 +115,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.34.exe
+          files: Halla-Setup-1.0.35.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
             ### Novidades
-            * Canal de controle TLS com trust-on-first-use e alerta quando o fingerprint do servidor muda.
-            * Correção da sincronização das chaves de voz recebidas no welcome, evitando áudio cifrado quebrado no primeiro login.
-            * Suporte a chaves compartilhadas entre canais vinculados para manter o relay puro sem quebrar a escuta.
+            * Identidades locais agora usam par de chaves Ed25519 e UID derivado da chave pública.
+            * Login responde ao desafio do servidor assinando o nonce localmente; a chave privada nunca sai do cliente.
+            * Migração automática de identidades antigas para identidades criptográficas.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
