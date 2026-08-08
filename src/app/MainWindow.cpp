@@ -1689,9 +1689,13 @@ void MainWindow::captureAndSendScreen() {
     QByteArray bytes;
     QBuffer buffer(&bytes);
     buffer.open(QIODevice::WriteOnly);
-    scaled.save(&buffer, "JPG", 50);
+    scaled.save(&buffer, "JPEG", 50);
     
     t->net()->sendScreenShareFrame(bytes, ++m_screenShareSeq);
+    
+    if (m_screenShareWindows.contains(t->data().selfId)) {
+        m_screenShareWindows[t->data().selfId]->updateFrame(bytes);
+    }
 }
 
 void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
