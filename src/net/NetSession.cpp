@@ -124,15 +124,40 @@ void NetSession::onUdpReadyRead() {
         bool isScreenShare = memcmp(data.constData(), "HALF", 4) == 0;
         if (!isVoice && !isScreenShare) continue;
         
-        quint32 fromId;
-        quint16 seq;
-        memcpy(&fromId, data.constData() + 4, 4);
-        memcpy(&seq, data.constData() + 8, 2);
-        
         if (isVoice) {
+            quint32 fromId;
+            quint16 seq;
+            memcpy(&fromId, data.constData() + 4, 4);
+            memcpy(&seq, data.constData() + 8, 2);
             emit voicePacketReceived(int(fromId), seq, data.mid(10));
         } else {
-            emit screenshareFrameReceived(int(fromId), data.mid(10));
+            quint32 fromId;
+            quint16 seq;
+            memcpy(&fromId, data.constData() + 4, 4);
+            memcpy(&seq, data.constData() + 8, 2);
+
+            if (data.size() < 12) continue;
+            quint8 chunkIdx = quint8(data[10]);
+            quint8 chunkCount = quint8(data[11]);
+            QByteArray chunkPayload = data.mid(12);
+
+            int uid = int(fromId);
+            m_reassembly[uid][seq][chunkIdx] = chunkPayload;
+
+            if (m_reassembly[uid][seq].size() == chunkCount) {
+                QByteArray combined;
+                for (int i = 0; i < chunkCount; ++i) {
+                    combined.append(m_reassembly[uid][seq][i]);
+                }
+                emit screenshareFrameReceived(uid, combined);
+
+                QList<quint16> seqs = m_reassembly[uid].keys();
+                for (quint16 s : seqs) {
+                    if (s < seq || (seq < 100 && s > 64000)) {
+                        m_reassembly[uid].remove(s);
+                    }
+                }
+            }
         }
     }
 }
@@ -747,10 +772,6 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         emit stateChanged();
         return;
     }
-    if (t == "user_screenshare_frame") {
-        emit screenshareFrameReceived(obj["id"].toInt(), QByteArray::fromBase64(obj["data"].toString().toLatin1()));
-        return;
-    }
     if (t == "kicked") {
         emit kickedReceived(obj["reason"].toString(), obj["ban"].toBool(),
                             obj["minutes"].toInt(0));
@@ -777,9 +798,31 @@ void NetSession::sendScreenShareStop() {
 }
 
 void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
-    Q_UNUSED(seq);
-    if (!m_ready || !m_allowScreenShare) return;
-    QJsonObject m = HProto::msg("screenshare_frame");
-    m["data"] = QString::fromLatin1(jpeg.toBase64());
-    send(m);
+    if (!m_ready || !m_voiceToken || !m_udpPort || jpeg.isEmpty()) return;
+    const QHostAddress destination = m_udpHostAddress.isNull()
+        ? QHostAddress(m_host) : m_udpHostAddress;
+    if (destination.isNull()) return;
+
+    const int maxChunkSize = 1200;
+    const int totalChunks = (jpeg.size() + maxChunkSize - 1) / maxChunkSize;
+    if (totalChunks > 255) return;
+
+    for (int i = 0; i < totalChunks; ++i) {
+        int offset = i * maxChunkSize;
+        int size = qMin(maxChunkSize, jpeg.size() - offset);
+        QByteArray chunkData = jpeg.mid(offset, size);
+
+        QByteArray p;
+        p.reserve(12 + chunkData.size());
+        p.append("HALF", 4);
+        p.append(reinterpret_cast<const char*>(&m_voiceToken), 4);
+        p.append(reinterpret_cast<const char*>(&seq), 2);
+        quint8 idx = quint8(i);
+        quint8 count = quint8(totalChunks);
+        p.append(reinterpret_cast<const char*>(&idx), 1);
+        p.append(reinterpret_cast<const char*>(&count), 1);
+        p.append(chunkData);
+
+        m_udp->writeDatagram(p, destination, m_udpPort);
+    }
 }

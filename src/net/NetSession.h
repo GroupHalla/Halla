@@ -156,6 +156,7 @@ private:
     quint16 m_udpPort = 0;
     quint32 m_voiceToken = 0;
     quint16 m_udpRegistrationSeq = 0;
+    QMap<int, QMap<quint16, QMap<int, QByteArray>>> m_reassembly;
     bool m_ready = false;
     bool m_fatalError = false;
     int m_pingMs = 0;
