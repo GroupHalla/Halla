@@ -1,7 +1,8 @@
 #pragma once
 
 #include <QObject>
-#include <QTcpSocket>
+#include <QSslSocket>
+#include <QSslError>
 #include <QUdpSocket>
 #include <QTimer>
 #include <QJsonObject>
@@ -126,6 +127,7 @@ private slots:
     void onDisconnected();
     void onUdpReadyRead();
     void onPingTimer();
+    void onSslErrors(const QList<QSslError>& errors);
 
 private:
     void send(const QJsonObject& obj);
@@ -135,12 +137,13 @@ private:
     void refreshOperators();
     ServerData& target() { return m_target ? *m_target : m_data; }
 
-    QTcpSocket* m_tcp = nullptr;
+    QSslSocket* m_tcp = nullptr;
     QUdpSocket* m_udp = nullptr;
     QTimer* m_pingTimer = nullptr;
     QByteArray m_buffer;
     ServerData m_data;
     ServerData* m_target = nullptr;
+    QMap<int, QByteArray> m_channelKeys; // channelId -> key (16 bytes)
 
     QString m_host;
     QHostAddress m_udpHostAddress;

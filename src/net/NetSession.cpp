@@ -6,12 +6,59 @@
 #include <QJsonArray>
 #include <QNetworkDatagram>
 #include <QHostInfo>
+#include <QSettings>
+#include <QCryptographicHash>
+
+class VoiceCipher {
+public:
+    static QByteArray encryptDecrypt(const QByteArray& data, const QByteArray& key, quint16 seq) {
+        if (key.size() < 16) return data;
+
+        QByteArray output = data;
+        
+        quint32 state[4];
+        memcpy(state, key.constData(), 16);
+        state[0] ^= seq;
+        state[1] ^= (seq << 16);
+        state[2] ^= 0xDEADBEEF;
+        state[3] ^= 0xCAFEBABE;
+
+        auto next = [&]() -> quint32 {
+            const quint32 result = rotl(state[0] + state[3], 7) * 9;
+            const quint32 t = state[1] << 9;
+            state[2] ^= state[0];
+            state[3] ^= state[1];
+            state[1] ^= state[2];
+            state[0] ^= state[3];
+            state[2] ^= t;
+            state[3] = rotl(state[3], 11);
+            return result;
+        };
+
+        int size = data.size();
+        char* outPtr = output.data();
+        for (int i = 0; i < size; i += 4) {
+            quint32 keystream = next();
+            int limit = qMin(4, size - i);
+            for (int j = 0; j < limit; ++j) {
+                outPtr[i + j] ^= (reinterpret_cast<char*>(&keystream))[j];
+            }
+        }
+        return output;
+    }
+
+private:
+    static inline quint32 rotl(const quint32 x, int k) {
+        return (x << k) | (x >> (32 - k));
+    }
+};
 
 NetSession::NetSession(QObject* parent) : QObject(parent) {
-    m_tcp = new QTcpSocket(this);
+    m_tcp = new QSslSocket(this);
     connect(m_tcp, &QTcpSocket::connected, this, &NetSession::onConnected);
     connect(m_tcp, &QTcpSocket::readyRead, this, &NetSession::onReadyRead);
     connect(m_tcp, &QTcpSocket::disconnected, this, &NetSession::onDisconnected);
+    connect(m_tcp, &QSslSocket::sslErrors, this, &NetSession::onSslErrors);
 
     m_udp = new QUdpSocket(this);
     m_udp->bind();
@@ -65,7 +112,29 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
     if (!password.isEmpty()) m_pendingHello["pass"] = password;
     if (!adminPassword.isEmpty()) m_pendingHello["adminPass"] = adminPassword;
 
-    m_tcp->connectToHost(host, port);
+    m_tcp->connectToHostEncrypted(host, port);
+}
+
+void NetSession::onSslErrors(const QList<QSslError>& errors) {
+    Q_UNUSED(errors);
+    QSslCertificate cert = m_tcp->peerCertificate();
+    QByteArray fingerprint = cert.digest(QCryptographicHash::Sha256).toHex();
+    
+    QSettings settings;
+    QString key = QStringLiteral("ssl/fingerprint_%1_%2").arg(m_host).arg(m_port);
+    QString saved = settings.value(key).toString();
+    
+    if (saved.isEmpty()) {
+        settings.setValue(key, fingerprint);
+        m_tcp->ignoreSslErrors();
+    } else if (saved == fingerprint) {
+        m_tcp->ignoreSslErrors();
+    } else {
+        emit connectionFailed(tr("ALERTA DE SEGURANÇA: A impressão digital SSL deste servidor mudou!\n"
+                                 "Isso pode indicar um ataque Man-in-the-Middle (MITM).\n"
+                                 "Conexão recusada para sua proteção."));
+        m_tcp->abort();
+    }
 }
 
 void NetSession::onConnected() {
@@ -129,7 +198,14 @@ void NetSession::onUdpReadyRead() {
             quint16 seq;
             memcpy(&fromId, data.constData() + 4, 4);
             memcpy(&seq, data.constData() + 8, 2);
-            emit voicePacketReceived(int(fromId), seq, data.mid(10));
+            
+            QByteArray payload = data.mid(10);
+            int chanId = m_target ? m_target->channelOfUser(int(fromId)) : 0;
+            if (chanId > 0 && m_channelKeys.contains(chanId)) {
+                payload = VoiceCipher::encryptDecrypt(payload, m_channelKeys[chanId], seq);
+            }
+            
+            emit voicePacketReceived(int(fromId), seq, payload);
         } else {
             quint32 fromId;
             quint16 seq;
@@ -142,6 +218,11 @@ void NetSession::onUdpReadyRead() {
             QByteArray chunkPayload = data.mid(12);
 
             int uid = int(fromId);
+            int chanId = m_target ? m_target->channelOfUser(uid) : 0;
+            if (chanId > 0 && m_channelKeys.contains(chanId)) {
+                chunkPayload = VoiceCipher::encryptDecrypt(chunkPayload, m_channelKeys[chanId], seq);
+            }
+            
             m_reassembly[uid][seq][chunkIdx] = chunkPayload;
 
             if (m_reassembly[uid][seq].size() == chunkCount) {
@@ -167,7 +248,16 @@ void NetSession::sendVoiceFrame(const QByteArray& opus, quint16 seq) {
     const QHostAddress destination = m_udpHostAddress.isNull()
         ? QHostAddress(m_host) : m_udpHostAddress;
     if (destination.isNull()) return;
-    m_udp->writeDatagram(HProto::encodeVoiceClient(m_voiceToken, seq, opus),
+    
+    QByteArray encryptedOpus = opus;
+    if (m_target) {
+        int chanId = m_target->channelOfUser(m_target->selfId);
+        if (chanId > 0 && m_channelKeys.contains(chanId)) {
+            encryptedOpus = VoiceCipher::encryptDecrypt(opus, m_channelKeys[chanId], seq);
+        }
+    }
+    
+    m_udp->writeDatagram(HProto::encodeVoiceClient(m_voiceToken, seq, encryptedOpus),
                          destination, m_udpPort);
 }
 
@@ -741,6 +831,10 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         emit groupListReceived(m_groups);
         return;
     }
+    if (t == "channel_key") {
+        m_channelKeys[obj["channel"].toInt()] = QByteArray::fromBase64(obj["key"].toString().toLatin1());
+        return;
+    }
     if (t == "ft_list") {
         emit ftListReceived(obj["channel"].toInt(), obj["files"].toArray());
         return;
@@ -807,10 +901,16 @@ void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
     const int totalChunks = (jpeg.size() + maxChunkSize - 1) / maxChunkSize;
     if (totalChunks > 255) return;
 
+    int chanId = m_target ? m_target->channelOfUser(m_target->selfId) : 0;
+
     for (int i = 0; i < totalChunks; ++i) {
         int offset = i * maxChunkSize;
         int size = qMin(maxChunkSize, jpeg.size() - offset);
         QByteArray chunkData = jpeg.mid(offset, size);
+
+        if (chanId > 0 && m_channelKeys.contains(chanId)) {
+            chunkData = VoiceCipher::encryptDecrypt(chunkData, m_channelKeys[chanId], seq);
+        }
 
         QByteArray p;
         p.reserve(12 + chunkData.size());
