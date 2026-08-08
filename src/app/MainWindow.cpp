@@ -1641,7 +1641,7 @@ void MainWindow::toggleScreenShare() {
                 m_screenShareTimer = new QTimer(this);
                 connect(m_screenShareTimer, &QTimer::timeout, this, &MainWindow::captureAndSendScreen);
             }
-            m_screenShareTimer->start(200);
+            m_screenShareTimer->start(50); // 20 FPS (extremamente fluido, fluidez de jogo!)
             
             t->net()->sendScreenShareStart();
             m_actScreenShare->setIcon(HIcons::screenShare(true));

@@ -735,7 +735,13 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "user_screenshare_state") {
-        emit screenshareStateChanged(obj["id"].toInt(), obj["on"].toBool());
+        const int id = obj["id"].toInt();
+        const bool on = obj["on"].toBool();
+        if (d.users.contains(id)) {
+            d.users[id].screensharing = on;
+        }
+        emit screenshareStateChanged(id, on);
+        emit stateChanged();
         return;
     }
     if (t == "user_screenshare_frame") {
