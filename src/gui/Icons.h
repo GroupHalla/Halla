@@ -32,6 +32,7 @@ QIcon logPage();
 QIcon away(bool on);
 QIcon muteMic(bool muted);
 QIcon muteSpeaker(bool muted);
+QIcon screenShare(bool on);
 QIcon bell();
 
 // árvore do servidor

@@ -30,6 +30,7 @@ public:
     // v3: permissões do meu grupo + grupos do servidor (vindos do welcome)
     QJsonObject myPerms() const { return m_myPerms; }
     QJsonArray  serverGroups() const { return m_groups; }
+    bool        allowScreenShare() const { return m_allowScreenShare; }
 
     // ---- estrutura pública (aplicada em ServerData e emitindo stateChanged)
     void attachTo(ServerData* target) { m_target = target; }
@@ -80,6 +81,9 @@ public:
 
     // ---- voz
     void sendVoiceFrame(const QByteArray& opus, quint16 seq);
+    void sendScreenShareStart();
+    void sendScreenShareStop();
+    void sendScreenShareFrame(const QByteArray& jpeg, quint16 seq);
 
 signals:
     void welcomeReceived();                     // estado completo carregado
@@ -93,6 +97,8 @@ signals:
     void connectionFailed(const QString& reason);                // TCP falhou/negado
     void disconnectedUnexpected();
     void voicePacketReceived(int fromId, quint16 seq, const QByteArray& payload);
+    void screenshareStateChanged(int userId, bool on);
+    void screenshareFrameReceived(int userId, const QByteArray& jpegData);
     void pingUpdated(int ms);
 
     // ---- v3
@@ -139,6 +145,7 @@ private:
     QJsonObject m_pendingHello;
     QJsonObject m_myPerms;        // v3 (welcome.myPerms)
     QJsonArray  m_groups;         // v3 (welcome.groups)
+    bool        m_allowScreenShare = true;
     quint16 m_udpPort = 0;
     quint32 m_voiceToken = 0;
     quint16 m_udpRegistrationSeq = 0;

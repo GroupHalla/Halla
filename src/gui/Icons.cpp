@@ -280,6 +280,21 @@ QIcon muteSpeaker(bool muted) {
     }));
 }
 
+QIcon screenShare(bool on) {
+    return QIcon(mk(24, [&](QPainter& p) {
+        QColor body = on ? green() : blue();
+        QLinearGradient g(0, 4, 0, 20);
+        g.setColorAt(0, body.lighter(125));
+        g.setColorAt(1, body);
+        p.setPen(QPen(body.darker(140), 1));
+        p.setBrush(g);
+        p.drawRoundedRect(QRectF(3, 4, 18, 12), 2, 2);
+        p.setBrush(body.darker(120));
+        p.drawRect(QRectF(8, 16, 8, 1));
+        p.drawRect(QRectF(11, 17, 2, 3));
+    }));
+}
+
 QIcon bell() {
     return QIcon(mk(24, [&](QPainter& p) {
         QLinearGradient g(0, 3, 0, 19);

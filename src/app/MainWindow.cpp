@@ -19,6 +19,11 @@
 #include "dialogs/ToolsDialogs.h"
 #include "dialogs/AdminDialogs.h"
 #include "dialogs/AboutDialog.h"
+#include "dialogs/ScreenShareDialog.h"
+#include <QScreen>
+#include <QGuiApplication>
+#include <QPixmap>
+#include <QBuffer>
 #include "net/VoiceEngine.h"
 #include "SoundPack.h"
 #include "Speech.h"
@@ -56,6 +61,42 @@
 // definida mais abaixo (mesmo arquivo)
 bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods);
 #endif
+
+class ScreenShareWindow : public QDialog {
+public:
+    explicit ScreenShareWindow(int userId, const QString& userName, QWidget* parent = nullptr) 
+        : QDialog(parent), m_userId(userId) {
+        setWindowTitle(tr("Compartilhamento de Tela - %1").arg(userName));
+        resize(800, 480);
+        setStyleSheet(QStringLiteral("background-color: #0D0E15; color: #FFFFFF;"));
+        
+        QVBoxLayout* l = new QVBoxLayout(this);
+        l->setContentsMargins(0, 0, 0, 0);
+        m_label = new QLabel(this);
+        m_label->setAlignment(Qt::AlignCenter);
+        m_label->setText(tr("Aguardando transmissão..."));
+        m_label->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: bold; color: #8A939B;"));
+        l->addWidget(m_label);
+    }
+    
+    int userId() const { return m_userId; }
+    
+    void updateFrame(const QByteArray& jpegData) {
+        QPixmap pix;
+        if (pix.loadFromData(jpegData, "JPG")) {
+            m_label->setPixmap(pix.scaled(m_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        }
+    }
+    
+protected:
+    void resizeEvent(QResizeEvent* e) override {
+        QDialog::resizeEvent(e);
+    }
+
+private:
+    int m_userId;
+    QLabel* m_label;
+};
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(QString::fromUtf8(halla::kAppName));
@@ -133,6 +174,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         if (ServerTab* t = currentTab()) t->setSpeakersMuted(m_actMuteSpk->isChecked());
         updateConnectionUi();
     });
+
+    m_actScreenShare = new QAction(HIcons::screenShare(false), tr("Compartilhar tela"), this);
+    m_actScreenShare->setCheckable(true);
+    m_actScreenShare->setToolTip(tr("Compartilhar a tela do seu PC"));
+    connect(m_actScreenShare, &QAction::triggered, this, &MainWindow::toggleScreenShare);
 
     m_actRenameSelf = new QAction(HIcons::identity(), tr("Alterar apelido..."), this);
     connect(m_actRenameSelf, &QAction::triggered, this, [this] {
@@ -423,6 +469,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         dlg.exec();
     });
     addButton(audioGroup, m_actMuteSpk, spkMenu);
+    addButton(audioGroup, m_actScreenShare, nullptr);
 
     tb->addSeparator();
 
@@ -668,6 +715,10 @@ void MainWindow::wireTab(ServerTab* tab) {
             updateStatusBar();
         }
     });
+    if (tab->net()) {
+        connect(tab->net(), &NetSession::screenshareStateChanged, this, &MainWindow::handleScreenshareStateChanged);
+        connect(tab->net(), &NetSession::screenshareFrameReceived, this, &MainWindow::handleScreenshareFrameReceived);
+    }
 }
 
 // aba local offline (modo --demo para capturas de tela)
@@ -686,6 +737,14 @@ void MainWindow::createLocalTab(const ServerData& initial) {
 
 void MainWindow::disconnectTab(ServerTab* tab, bool notify) {
     if (!tab) return;
+    if (m_screenShareTimer) {
+        m_screenShareTimer->stop();
+    }
+    m_actScreenShare->setChecked(false);
+    m_actScreenShare->setIcon(HIcons::screenShare(false));
+    qDeleteAll(m_screenShareWindows);
+    m_screenShareWindows.clear();
+
     if (tab->net()) tab->net()->quit();
     const int idx = m_tabs->indexOf(tab);
     const QString addr = tab->data().address;
@@ -1555,6 +1614,109 @@ void MainWindow::loadDemoState() {
     t->chat()->addChannelSystem(tr("Você entrou no canal \"Canal padrão\"."));
     t->chat()->addServerChat(QStringLiteral("Farley Barbosa Mobile"),
                              QStringLiteral("Olá! [b]Bem-vindo ao Halla[/b]"));
+}
+
+void MainWindow::toggleScreenShare() {
+    ServerTab* t = currentTab();
+    if (!t || !t->net()) {
+        m_actScreenShare->setChecked(false);
+        return;
+    }
+    
+    if (!t->net()->allowScreenShare()) {
+        m_actScreenShare->setChecked(false);
+        QMessageBox::warning(this, tr("Compartilhamento de Tela"),
+                             tr("O compartilhamento de tela está desativado pelas configurações deste servidor."));
+        return;
+    }
+    
+    if (m_actScreenShare->isChecked()) {
+        ScreenShareDialog dlg(this);
+        if (dlg.exec() == QDialog::Accepted) {
+            m_screenShareSource = dlg.selectedSource();
+            m_screenShareSeq = 0;
+            
+            if (!m_screenShareTimer) {
+                m_screenShareTimer = new QTimer(this);
+                connect(m_screenShareTimer, &QTimer::timeout, this, &MainWindow::captureAndSendScreen);
+            }
+            m_screenShareTimer->start(200);
+            
+            t->net()->sendScreenShareStart();
+            m_actScreenShare->setIcon(HIcons::screenShare(true));
+        } else {
+            m_actScreenShare->setChecked(false);
+        }
+    } else {
+        if (m_screenShareTimer) {
+            m_screenShareTimer->stop();
+        }
+        t->net()->sendScreenShareStop();
+        m_actScreenShare->setIcon(HIcons::screenShare(false));
+    }
+}
+
+void MainWindow::captureAndSendScreen() {
+    ServerTab* t = currentTab();
+    if (!t || !t->net()) {
+        if (m_screenShareTimer) m_screenShareTimer->stop();
+        m_actScreenShare->setChecked(false);
+        m_actScreenShare->setIcon(HIcons::screenShare(false));
+        return;
+    }
+    
+    QPixmap pix;
+    if (m_screenShareSource == 0) {
+        QScreen* screen = QGuiApplication::primaryScreen();
+        if (screen) pix = screen->grabWindow(0);
+    } else {
+        pix = this->grab();
+    }
+    
+    if (pix.isNull()) return;
+    
+    QPixmap scaled = pix.scaled(800, 450, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    buffer.open(QIODevice::WriteOnly);
+    scaled.save(&buffer, "JPG", 50);
+    
+    t->net()->sendScreenShareFrame(bytes, ++m_screenShareSeq);
+}
+
+void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
+    ServerTab* t = currentTab();
+    if (!t) return;
+    
+    if (on) {
+        if (!m_screenShareWindows.contains(userId)) {
+            QString userName = QStringLiteral("Usuário #%1").arg(userId);
+            if (t->data().users.contains(userId)) {
+                userName = t->data().users[userId].name;
+            }
+            ScreenShareWindow* win = new ScreenShareWindow(userId, userName, this);
+            m_screenShareWindows[userId] = win;
+            
+            connect(win, &QDialog::finished, this, [this, userId]() {
+                m_screenShareWindows.remove(userId);
+            });
+            win->show();
+        }
+    } else {
+        if (m_screenShareWindows.contains(userId)) {
+            ScreenShareWindow* win = m_screenShareWindows[userId];
+            win->close();
+            win->deleteLater();
+            m_screenShareWindows.remove(userId);
+        }
+    }
+}
+
+void MainWindow::handleScreenshareFrameReceived(int userId, const QByteArray& jpegData) {
+    if (m_screenShareWindows.contains(userId)) {
+        m_screenShareWindows[userId]->updateFrame(jpegData);
+    }
 }
 
 // -- restauração de sessão usa a rede (já era) ---------------------------

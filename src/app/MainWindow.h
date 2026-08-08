@@ -59,6 +59,12 @@ private:
     void updateStatusBar();
     void saveSession();
 
+    // ---- Compartilhamento de Tela (screenshare)
+    void toggleScreenShare();
+    void captureAndSendScreen();
+    void handleScreenshareStateChanged(int userId, bool on);
+    void handleScreenshareFrameReceived(int userId, const QByteArray& jpegData);
+
     QStackedWidget* m_stack = nullptr;
     WelcomePage* m_welcome = nullptr;
     QSplitter* m_center = nullptr;
@@ -74,6 +80,11 @@ private:
     QAction* m_actAway = nullptr;
     QAction* m_actMuteMic = nullptr;
     QAction* m_actMuteSpk = nullptr;
+    QAction* m_actScreenShare = nullptr;
+    QTimer*  m_screenShareTimer = nullptr;
+    quint16  m_screenShareSeq = 0;
+    int      m_screenShareSource = 0;
+    QMap<int, class ScreenShareWindow*> m_screenShareWindows;
     QAction* m_actRecord = nullptr;
     QAction* m_actWhisper = nullptr;
     QAction* m_actBookmarkAdd = nullptr;
