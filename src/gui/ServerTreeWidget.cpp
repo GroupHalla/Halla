@@ -226,6 +226,9 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     m_delegate = new ServerRowDelegate(this);
     setItemDelegate(m_delegate);
 
+    setMouseTracking(true);
+    connect(this, &QTreeWidget::itemEntered, this, &ServerTreeWidget::onItemEntered);
+
     // as cores vêm do tema global (HTheme) — stylesheet fixo aqui impedia
     // o tema escuro no Windows
     setObjectName(QStringLiteral("serverTree"));
@@ -788,4 +791,19 @@ bool ServerTreeWidget::dropMimeData(QTreeWidgetItem* parent, int index, const QM
                          : parent->data(0, RoleId).toInt();
     emit moveUserRequested(uid, target);
     return true;
+}
+
+void ServerTreeWidget::onItemEntered(QTreeWidgetItem* item, int column) {
+    Q_UNUSED(column);
+    if (!item || !m_data) return;
+    int kind = item->data(0, RoleKind).toInt();
+    int id = item->data(0, RoleId).toInt();
+    if (kind == NodeUser && m_data->users.contains(id)) {
+        const User& u = m_data->users[id];
+        if (u.screensharing) {
+            int chanId = m_data->channelOfUser(id);
+            QPoint pos = QCursor::pos();
+            emit screenshareHovered(id, chanId, pos);
+        }
+    }
 }

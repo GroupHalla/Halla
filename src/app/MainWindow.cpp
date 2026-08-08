@@ -98,6 +98,60 @@ private:
     QLabel* m_label;
 };
 
+class ScreenshareHoverPopup : public QFrame {
+public:
+    explicit ScreenshareHoverPopup(int userId, const QString& userName, int channelId, const QByteArray& jpegData, class MainWindow* mw, QWidget* parent = nullptr)
+        : QFrame(parent, Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint),
+          m_userId(userId), m_channelId(channelId), m_mw(mw) {
+        setAttribute(Qt::WA_DeleteOnClose);
+        setFixedSize(180, 160);
+        setStyleSheet(QStringLiteral(
+            "QFrame { background-color: #151322; border: 1px solid #8B5CF6; border-radius: 8px; }"
+            "QLabel { color: #FFFFFF; font-size: 11px; font-weight: bold; border: none; background: transparent; }"
+            "QPushButton { background-color: #8B5CF6; border: none; border-radius: 4px; color: #FFFFFF; font-weight: bold; padding: 6px; font-size: 11px; }"
+            "QPushButton:hover { background-color: #A78BFA; }"
+        ));
+        
+        QVBoxLayout* l = new QVBoxLayout(this);
+        l->setContentsMargins(8, 8, 8, 8);
+        l->setSpacing(6);
+        
+        QLabel* title = new QLabel(userName, this);
+        title->setAlignment(Qt::AlignCenter);
+        l->addWidget(title);
+        
+        m_imgLabel = new QLabel(this);
+        m_imgLabel->setFixedSize(164, 92);
+        m_imgLabel->setAlignment(Qt::AlignCenter);
+        QPixmap pix;
+        if (!jpegData.isEmpty() && pix.loadFromData(jpegData)) {
+            m_imgLabel->setPixmap(pix.scaled(m_imgLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        } else {
+            m_imgLabel->setText(tr("Sem sinal"));
+            m_imgLabel->setStyleSheet(QStringLiteral("color: #8A939B; background-color: #0D0E15; border-radius: 4px;"));
+        }
+        l->addWidget(m_imgLabel);
+        
+        QPushButton* btn = new QPushButton(tr("Assista à transmissão"), this);
+        connect(btn, &QPushButton::clicked, this, &ScreenshareHoverPopup::onWatchClicked);
+        l->addWidget(btn);
+    }
+    
+protected:
+    void leaveEvent(QEvent* e) override {
+        QFrame::leaveEvent(e);
+        close();
+    }
+    
+private:
+    void onWatchClicked();
+    
+    int m_userId;
+    int m_channelId;
+    class MainWindow* m_mw;
+    QLabel* m_imgLabel;
+};
+
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(QString::fromUtf8(halla::kAppName));
     // Mantém uma fonte grande para que o Windows escolha uma versão nítida
@@ -719,6 +773,7 @@ void MainWindow::wireTab(ServerTab* tab) {
         connect(tab->net(), &NetSession::screenshareStateChanged, this, &MainWindow::handleScreenshareStateChanged);
         connect(tab->net(), &NetSession::screenshareFrameReceived, this, &MainWindow::handleScreenshareFrameReceived);
     }
+    connect(tab->tree(), &ServerTreeWidget::screenshareHovered, this, &MainWindow::handleScreenshareHovered);
 }
 
 // aba local offline (modo --demo para capturas de tela)
@@ -1727,9 +1782,68 @@ void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
 }
 
 void MainWindow::handleScreenshareFrameReceived(int userId, const QByteArray& jpegData) {
+    m_lastScreenshareFrames[userId] = jpegData;
     if (m_screenShareWindows.contains(userId)) {
         m_screenShareWindows[userId]->updateFrame(jpegData);
     }
+}
+
+void ScreenshareHoverPopup::onWatchClicked() {
+    close();
+    m_mw->watchStream(m_userId, m_channelId);
+}
+
+void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoint& pos) {
+    ServerTab* t = currentTab();
+    if (!t || !t->net()) return;
+    
+    // Se o usuário não tiver permissão para entrar no canal da transmissão, não faz nada (bloqueado de ver a prévia!)
+    User selfUser;
+    if (t->data().users.contains(t->data().selfId)) {
+        selfUser = t->data().users[t->data().selfId];
+    }
+    if (!t->net()->hasChannelPerm(&selfUser, channelId, QStringLiteral("join"))) {
+        return;
+    }
+    
+    // Evita abrir múltiplos popups redundantes
+    for (QWidget* w : QApplication::topLevelWidgets()) {
+        if (qobject_cast<ScreenshareHoverPopup*>(w)) {
+            return;
+        }
+    }
+    
+    QString userName = QStringLiteral("Usuário #%1").arg(userId);
+    if (t->data().users.contains(userId)) {
+        userName = t->data().users[userId].name;
+    }
+    
+    QByteArray lastFrame = m_lastScreenshareFrames.value(userId);
+    
+    ScreenshareHoverPopup* popup = new ScreenshareHoverPopup(userId, userName, channelId, lastFrame, this, this);
+    popup->move(pos + QPoint(15, 15));
+    popup->show();
+}
+
+void MainWindow::watchStream(int userId, int channelId) {
+    ServerTab* t = currentTab();
+    if (!t || !t->net()) return;
+    
+    User selfUser;
+    if (t->data().users.contains(t->data().selfId)) {
+        selfUser = t->data().users[t->data().selfId];
+    }
+    if (!t->net()->hasChannelPerm(&selfUser, channelId, QStringLiteral("join"))) {
+        QMessageBox::warning(this, tr("Transmissão"), tr("Você não tem permissão para entrar no canal desta transmissão."));
+        return;
+    }
+    
+    int myChan = t->data().channelOfUser(t->data().selfId);
+    if (myChan != channelId) {
+        t->net()->moveToChannel(channelId);
+    }
+    
+    handleScreenshareStateChanged(userId, true);
 }
 
 // -- restauração de sessão usa a rede (já era) ---------------------------

@@ -64,6 +64,8 @@ private:
     void captureAndSendScreen();
     void handleScreenshareStateChanged(int userId, bool on);
     void handleScreenshareFrameReceived(int userId, const QByteArray& jpegData);
+    void handleScreenshareHovered(int userId, int channelId, const QPoint& pos);
+    void watchStream(int userId, int channelId);
 
     QStackedWidget* m_stack = nullptr;
     WelcomePage* m_welcome = nullptr;
@@ -86,6 +88,7 @@ private:
     int      m_screenShareSourceType = 0;
     quintptr m_screenShareSourceId = 0;
     QMap<int, class ScreenShareWindow*> m_screenShareWindows;
+    QMap<int, QByteArray> m_lastScreenshareFrames;
     QAction* m_actRecord = nullptr;
     QAction* m_actWhisper = nullptr;
     QAction* m_actBookmarkAdd = nullptr;

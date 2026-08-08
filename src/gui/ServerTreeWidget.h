@@ -84,6 +84,7 @@ signals:
     void channelLinkRequested(const QList<int>& channelIds, bool link);
     void commanderRequested(int userId, bool on);
     void privateMessageRequested(int userId);
+    void screenshareHovered(int userId, int channelId, const QPoint& pos);
     void disconnectRequested();
     void addBookmarkRequested();
     void editVirtualServerRequested();
@@ -97,6 +98,9 @@ protected:
     void dropEvent(QDropEvent* event) override;
     bool dropMimeData(QTreeWidgetItem* parent, int index, const QMimeData* data,
                       Qt::DropAction action) override;
+
+private slots:
+    void onItemEntered(QTreeWidgetItem* item, int column);
 
 private:
     QTreeWidgetItem* buildChannelItem(const Channel& c, QTreeWidgetItem* parentItem);
