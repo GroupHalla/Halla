@@ -1735,6 +1735,13 @@ void MainWindow::captureAndSendScreen() {
         return;
     }
     
+    // Controle de Congestionamento Ativo (Active Congestion Control):
+    // Se o buffer do socket TCP estiver acumulando mais de 45 KB, nós descartamos (pula)
+    // este frame para evitar bufferbloat, garantindo que o ping permaneça baixo e estável!
+    if (t->net()->bytesToWrite() > 45000) {
+        return;
+    }
+    
     QPixmap pix;
     QScreen* screen = QGuiApplication::primaryScreen();
     if (m_screenShareSourceType == 0) {

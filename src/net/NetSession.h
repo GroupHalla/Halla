@@ -34,6 +34,7 @@ public:
     int         screenshareWidth() const { return m_screenshareWidth; }
     int         screenshareHeight() const { return m_screenshareHeight; }
     int         screenshareFps() const    { return m_screenshareFps; }
+    qint64      bytesToWrite() const     { return m_tcp ? m_tcp->bytesToWrite() : 0; }
 
     // ---- estrutura pública (aplicada em ServerData e emitindo stateChanged)
     void attachTo(ServerData* target) { m_target = target; }
