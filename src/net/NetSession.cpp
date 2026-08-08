@@ -530,6 +530,9 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         d.platform = srv["platform"].toString("Linux");
         d.maxClients = srv["maxClients"].toInt(32);
         m_allowScreenShare = srv["screenshare"].toBool(true);
+        m_screenshareWidth = srv["screenshare_w"].toInt(800);
+        m_screenshareHeight = srv["screenshare_h"].toInt(450);
+        m_screenshareFps = srv["screenshare_fps"].toInt(20);
         d.serverBanner = QByteArray::fromBase64(srv["banner"].toString().toLatin1());
 
         d.users.clear();

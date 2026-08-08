@@ -31,6 +31,9 @@ public:
     QJsonObject myPerms() const { return m_myPerms; }
     QJsonArray  serverGroups() const { return m_groups; }
     bool        allowScreenShare() const { return m_allowScreenShare; }
+    int         screenshareWidth() const { return m_screenshareWidth; }
+    int         screenshareHeight() const { return m_screenshareHeight; }
+    int         screenshareFps() const    { return m_screenshareFps; }
 
     // ---- estrutura pública (aplicada em ServerData e emitindo stateChanged)
     void attachTo(ServerData* target) { m_target = target; }
@@ -146,6 +149,9 @@ private:
     QJsonObject m_myPerms;        // v3 (welcome.myPerms)
     QJsonArray  m_groups;         // v3 (welcome.groups)
     bool        m_allowScreenShare = true;
+    int         m_screenshareWidth = 800;
+    int         m_screenshareHeight = 450;
+    int         m_screenshareFps = 20;
     quint16 m_udpPort = 0;
     quint32 m_voiceToken = 0;
     quint16 m_udpRegistrationSeq = 0;

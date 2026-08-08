@@ -68,6 +68,8 @@ public:
         : QDialog(parent), m_userId(userId) {
         setWindowTitle(tr("Compartilhamento de Tela - %1").arg(userName));
         resize(800, 480);
+        setMinimumSize(400, 240);
+        setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
         setStyleSheet(QStringLiteral("background-color: #0D0E15; color: #FFFFFF;"));
         
         QVBoxLayout* l = new QVBoxLayout(this);
@@ -82,20 +84,27 @@ public:
     int userId() const { return m_userId; }
     
     void updateFrame(const QByteArray& jpegData) {
-        QPixmap pix;
-        if (pix.loadFromData(jpegData)) {
-            m_label->setPixmap(pix.scaled(m_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        if (m_currentPixmap.loadFromData(jpegData)) {
+            scaleFrame();
         }
     }
     
 protected:
     void resizeEvent(QResizeEvent* e) override {
         QDialog::resizeEvent(e);
+        scaleFrame();
     }
 
 private:
+    void scaleFrame() {
+        if (!m_currentPixmap.isNull()) {
+            m_label->setPixmap(m_currentPixmap.scaled(m_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        }
+    }
+    
     int m_userId;
     QLabel* m_label;
+    QPixmap m_currentPixmap;
 };
 
 class ScreenshareHoverPopup : public QFrame {
@@ -1696,7 +1705,8 @@ void MainWindow::toggleScreenShare() {
                 m_screenShareTimer = new QTimer(this);
                 connect(m_screenShareTimer, &QTimer::timeout, this, &MainWindow::captureAndSendScreen);
             }
-            m_screenShareTimer->start(50); // 20 FPS (extremamente fluido, fluidez de jogo!)
+            int interval = qBound(10, 1000 / t->net()->screenshareFps(), 1000);
+            m_screenShareTimer->start(interval);
             
             t->net()->sendScreenShareStart();
             m_actScreenShare->setIcon(HIcons::screenShare(true));
@@ -1739,7 +1749,7 @@ void MainWindow::captureAndSendScreen() {
     
     if (pix.isNull()) return;
     
-    QPixmap scaled = pix.scaled(800, 450, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QPixmap scaled = pix.scaled(t->net()->screenshareWidth(), t->net()->screenshareHeight(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     
     QByteArray bytes;
     QBuffer buffer(&bytes);
