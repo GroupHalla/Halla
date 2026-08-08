@@ -58,9 +58,11 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
     m_tabs = new QTabWidget(this);
     
     m_screenList = new QListWidget(m_tabs);
+    m_screenList->setIconSize(QSize(120, 90));
     m_tabs->addTab(m_screenList, tr("💻 Telas"));
     
     m_windowList = new QListWidget(m_tabs);
+    m_windowList->setIconSize(QSize(120, 90));
     m_tabs->addTab(m_windowList, tr("🗔 Janelas"));
 
     mainLayout->addWidget(m_tabs);
@@ -104,6 +106,12 @@ void ScreenShareDialog::populateScreens() {
         QListWidgetItem* item = new QListWidgetItem(m_screenList);
         item->setText(tr("Tela %1 (%2x%3)").arg(QString::number(i + 1)).arg(s->geometry().width()).arg(s->geometry().height()));
         item->setData(Qt::UserRole, i);
+        
+        QPixmap preview = s->grabWindow(0).scaled(120, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        if (!preview.isNull()) {
+            item->setIcon(QIcon(preview));
+        }
+        
         m_screenList->addItem(item);
     }
     if (m_screenList->count() > 0) m_screenList->setCurrentRow(0);
@@ -114,10 +122,19 @@ void ScreenShareDialog::populateWindows() {
 #ifdef Q_OS_WIN
     QList<WindowInfo> windows;
     EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&windows));
+    QScreen* screen = QGuiApplication::primaryScreen();
     for (const WindowInfo& win : windows) {
         QListWidgetItem* item = new QListWidgetItem(m_windowList);
         item->setText(win.title);
         item->setData(Qt::UserRole, qulonglong(win.hwnd));
+        
+        if (screen && win.hwnd) {
+            QPixmap preview = screen->grabWindow(WId(win.hwnd)).scaled(120, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            if (!preview.isNull()) {
+                item->setIcon(QIcon(preview));
+            }
+        }
+        
         m_windowList->addItem(item);
     }
 #else

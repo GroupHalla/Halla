@@ -738,6 +738,10 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         emit screenshareStateChanged(obj["id"].toInt(), obj["on"].toBool());
         return;
     }
+    if (t == "user_screenshare_frame") {
+        emit screenshareFrameReceived(obj["id"].toInt(), QByteArray::fromBase64(obj["data"].toString().toLatin1()));
+        return;
+    }
     if (t == "kicked") {
         emit kickedReceived(obj["reason"].toString(), obj["ban"].toBool(),
                             obj["minutes"].toInt(0));
@@ -764,16 +768,9 @@ void NetSession::sendScreenShareStop() {
 }
 
 void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
-    if (!m_ready || !m_voiceToken || !m_udpPort) return;
-    const QHostAddress destination = m_udpHostAddress.isNull()
-        ? QHostAddress(m_host) : m_udpHostAddress;
-    if (destination.isNull()) return;
-    
-    QByteArray p;
-    p.reserve(10 + jpeg.size());
-    p.append("HALF", 4);
-    p.append(reinterpret_cast<const char*>(&m_voiceToken), 4);
-    p.append(reinterpret_cast<const char*>(&seq), 2);
-    p.append(jpeg);
-    m_udp->writeDatagram(p, destination, m_udpPort);
+    Q_UNUSED(seq);
+    if (!m_ready || !m_allowScreenShare) return;
+    QJsonObject m = HProto::msg("screenshare_frame");
+    m["data"] = QString::fromLatin1(jpeg.toBase64());
+    send(m);
 }

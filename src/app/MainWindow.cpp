@@ -83,7 +83,7 @@ public:
     
     void updateFrame(const QByteArray& jpegData) {
         QPixmap pix;
-        if (pix.loadFromData(jpegData, "JPG")) {
+        if (pix.loadFromData(jpegData)) {
             m_label->setPixmap(pix.scaled(m_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
     }

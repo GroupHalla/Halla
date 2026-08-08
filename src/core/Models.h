@@ -58,6 +58,7 @@ struct User {
     int     groupPosition = 0;       // Pilar 1: posição hierárquica do cargo (quanto maior, mais autoridade)
     bool    talking = false;
     bool    whispering = false;      // sussurrando (sinal laranja)
+    bool    screensharing = false;   // compartilhando tela (🔴 LIVE)
     QDateTime connectedAt = QDateTime::currentDateTime();
 };
 

@@ -495,6 +495,9 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
     if (!u.sigla.isEmpty()) {
         displayName = u.sigla + " " + displayName;
     }
+    if (u.screensharing) {
+        displayName += QStringLiteral(" 🔴 LIVE");
+    }
     item->setText(0, displayName);
     item->setIcon(0, leadingUserIcon(u, m_delegate ? m_delegate->showMinis() : true));
     item->setData(0, RoleKind, NodeUser);
