@@ -118,13 +118,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.44.exe
+          files: Halla-Setup-1.0.45.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
-            ### WebRTC nativo - fundação
-            * Adiciona adapter HallaWebRtcSession com stubs compiláveis e opção CMake para SDK libwebrtc pré-compilado.
-            * O cliente já conecta signaling WebRTC ao adapter e mantém fallback clássico quando o SDK nativo não está presente.
+            ### Correção de build
+            * Corrige include do adapter HallaWebRtcSession no MainWindow para compilar o stub WebRTC.
+            * Mantém fallback clássico quando o SDK libwebrtc nativo não está presente.
             * Prepara consumo futuro de HALLA_WEBRTC_SDK_DIR sem quebrar o build atual.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

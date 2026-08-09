@@ -20,6 +20,7 @@
 #include "dialogs/AdminDialogs.h"
 #include "dialogs/AboutDialog.h"
 #include "dialogs/ScreenShareDialog.h"
+#include "webrtc/HallaWebRtcSession.h"
 #include <QScreen>
 #include <QGuiApplication>
 #include <QPixmap>
