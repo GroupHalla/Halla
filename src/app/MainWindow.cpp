@@ -1585,40 +1585,43 @@ void MainWindow::toggleScreenShare() {
         m_actScreenShare->setChecked(false);
         return;
     }
-    
+
     if (!t->net()->allowScreenShare()) {
         m_actScreenShare->setChecked(false);
         QMessageBox::warning(this, tr("Compartilhamento de Tela"),
                              tr("O compartilhamento de tela está desativado pelas configurações deste servidor."));
         return;
     }
-    
+
     if (m_actScreenShare->isChecked()) {
-        ScreenShareDialog dlg(this);
-        if (dlg.exec() == QDialog::Accepted) {
-            m_screenShareSourceType = dlg.selectedSourceType();
-            m_screenShareSourceId = dlg.selectedSourceId();
-            m_screenShareSeq = 0;
-            
-            if (!m_screenShareTimer) {
-                m_screenShareTimer = new QTimer(this);
-                connect(m_screenShareTimer, &QTimer::timeout, this, &MainWindow::captureAndSendScreen);
-            }
-            int interval = qBound(10, 1000 / t->net()->screenshareFps(), 1000);
-            m_screenShareTimer->start(interval);
-            
-            t->net()->sendScreenShareStart();
-            m_actScreenShare->setIcon(HIcons::screenShare(true));
-        } else {
-            m_actScreenShare->setChecked(false);
+        if (!m_webrtcShare) {
+            m_webrtcShare = new WebRtcScreenShareBridge(t->net(), this);
+            connect(m_webrtcShare, &WebRtcScreenShareBridge::closedByUser, this, [this] {
+                if (ServerTab* tab = currentTab()) {
+                    if (tab->net()) tab->net()->sendWebRtcStreamStop();
+                }
+                if (m_actScreenShare) {
+                    m_actScreenShare->setChecked(false);
+                    m_actScreenShare->setIcon(HIcons::screenShare(false));
+                }
+            });
+            connect(t->net(), &NetSession::webRtcSignalReceived, m_webrtcShare,
+                    &WebRtcScreenShareBridge::handleSignal);
         }
+        m_webrtcShare->show();
+        m_webrtcShare->raise();
+        m_webrtcShare->activateWindow();
+        t->net()->sendWebRtcStreamStart();
+        m_actScreenShare->setIcon(HIcons::screenShare(true));
+        t->data().users[t->data().selfId].screensharing = true;
+        emit t->net()->stateChanged();
     } else {
-        if (m_screenShareTimer) {
-            m_screenShareTimer->stop();
+        if (m_webrtcShare) {
+            m_webrtcShare->stopAll();
+            m_webrtcShare->hide();
         }
-        t->net()->sendScreenShareStop();
+        t->net()->sendWebRtcStreamStop();
         m_actScreenShare->setIcon(HIcons::screenShare(false));
-        
         handleScreenshareStateChanged(t->data().selfId, false);
         t->data().users[t->data().selfId].screensharing = false;
         emit t->net()->stateChanged();

@@ -33,6 +33,8 @@ jobs:
             mingw-w64-x86_64-qt6-base
             mingw-w64-x86_64-qt6-multimedia
             mingw-w64-x86_64-qt6-speech
+            mingw-w64-x86_64-qt6-webengine
+            mingw-w64-x86_64-qt6-webchannel
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-opus
 
@@ -118,13 +120,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.41.exe
+          files: Halla-Setup-1.0.42.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
-            ### WebRTC signaling
-            * Adiciona API de signaling WebRTC no NetSession: stream start/stop, watch request/stop, offer, answer e ICE.
-            * Desktop passa a receber sinais WebRTC roteados pelo HallaServer para a futura transmissão nativa.
-            * Base inicial para substituir o screen share JPEG/UDP por WebRTC.
+            ### WebRTC transmitter inicial
+            * Adiciona transmissor WebRTC baseado em Qt WebEngine/getDisplayMedia e signaling via HallaServer.
+            * Botão de transmissão abre janela WebRTC para escolher tela e gerar offers para viewers Mobile.
+            * Mantém API de signaling WebRTC no NetSession.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
