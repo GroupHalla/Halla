@@ -833,6 +833,13 @@ void MainWindow::wireTab(ServerTab* tab) {
     if (tab->net()) {
         connect(tab->net(), &NetSession::screenshareStateChanged, this, &MainWindow::handleScreenshareStateChanged);
         connect(tab->net(), &NetSession::screenshareFrameReceived, this, &MainWindow::handleScreenshareFrameReceived);
+        if (!m_webrtcSession) {
+            m_webrtcSession = new HallaWebRtcSession(tab->net(), this);
+            connect(m_webrtcSession, &HallaWebRtcSession::unavailable, this,
+                    [this](const QString& reason) { statusBar()->showMessage(reason, 7000); });
+        }
+        connect(tab->net(), &NetSession::webRtcSignalReceived,
+                m_webrtcSession, &HallaWebRtcSession::handleSignal);
     }
     connect(tab->tree(), &ServerTreeWidget::screenshareHovered, this, &MainWindow::handleScreenshareHovered);
 }
@@ -1594,6 +1601,13 @@ void MainWindow::toggleScreenShare() {
     }
 
     if (m_actScreenShare->isChecked()) {
+        if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
+            m_webrtcSession->startBroadcast();
+            m_actScreenShare->setIcon(HIcons::screenShare(true));
+            t->data().users[t->data().selfId].screensharing = true;
+            emit t->net()->stateChanged();
+            return;
+        }
         ScreenShareDialog dlg(this);
         if (dlg.exec() == QDialog::Accepted) {
             m_screenShareSourceType = dlg.selectedSourceType();
@@ -1613,6 +1627,9 @@ void MainWindow::toggleScreenShare() {
             m_actScreenShare->setChecked(false);
         }
     } else {
+        if (m_webrtcSession && m_webrtcSession->isBroadcasting()) {
+            m_webrtcSession->stopBroadcast();
+        }
         if (m_screenShareTimer) {
             m_screenShareTimer->stop();
         }

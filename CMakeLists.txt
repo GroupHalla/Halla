@@ -9,6 +9,9 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+option(HALLA_ENABLE_WEBRTC "Enable native WebRTC integration when SDK is available" ON)
+set(HALLA_WEBRTC_SDK_DIR "" CACHE PATH "Path to prebuilt Halla/libwebrtc SDK")
+
 find_package(OpenSSL REQUIRED)
 
 # Qt 6
@@ -61,6 +64,8 @@ set(HALLA_SOURCES
     src/app/Speech.cpp
     src/net/NetSession.cpp
     src/net/VoiceEngine.cpp
+    src/webrtc/HallaWebRtcSession.cpp
+    src/webrtc/HallaWebRtcSession.h
 )
 
 add_executable(Halla ${HALLA_SOURCES})
@@ -72,9 +77,31 @@ target_include_directories(Halla PRIVATE
     src/dialogs
     src/app
     src/net
+    src/webrtc
 )
 
 target_link_libraries(Halla PRIVATE ${QT_LIBS} ${OPUS_LIBS} OpenSSL::Crypto)
+
+if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
+    set(HALLA_WEBRTC_INCLUDE_DIR "${HALLA_WEBRTC_SDK_DIR}/include")
+    if (WIN32)
+        set(HALLA_WEBRTC_LIBRARY "${HALLA_WEBRTC_SDK_DIR}/lib/windows-x64/webrtc.lib")
+    elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        set(HALLA_WEBRTC_LIBRARY "${HALLA_WEBRTC_SDK_DIR}/lib/linux-arm64/libwebrtc.a")
+    else()
+        set(HALLA_WEBRTC_LIBRARY "${HALLA_WEBRTC_SDK_DIR}/lib/linux-x64/libwebrtc.a")
+    endif()
+    if (EXISTS "${HALLA_WEBRTC_INCLUDE_DIR}" AND EXISTS "${HALLA_WEBRTC_LIBRARY}")
+        target_compile_definitions(Halla PRIVATE HALLA_WEBRTC_NATIVE=1)
+        target_include_directories(Halla PRIVATE "${HALLA_WEBRTC_INCLUDE_DIR}")
+        target_link_libraries(Halla PRIVATE "${HALLA_WEBRTC_LIBRARY}")
+        message(STATUS "Halla: WebRTC nativo habilitado (${HALLA_WEBRTC_LIBRARY})")
+    else()
+        message(WARNING "Halla: HALLA_ENABLE_WEBRTC=ON, mas SDK não encontrado; usando stub WebRTC")
+    endif()
+else()
+    message(STATUS "Halla: WebRTC nativo desabilitado/sem SDK; usando stub")
+endif()
 
 if (MSVC)
     target_compile_options(Halla PRIVATE /W3 /utf-8)
