@@ -118,13 +118,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.36.exe
+          files: Halla-Setup-1.0.37.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
             ### Novidades
-            * Workflow com permissões mínimas por job para reduzir risco na cadeia de distribuição.
-            * Mantém identidade criptográfica Ed25519 e login com desafio assinado.
-            * Preparado para servidores com validação/rate-limit reforçados.
+            * Refatoração inicial da MainWindow: atualização, notificações e sessão movidas para MainWindowUpdates.cpp.
+            * Workflow com permissões mínimas por job e libopus obtida da toolchain, sem binário estático versionado.
+            * Mantém identidade criptográfica Ed25519 e compatibilidade com servidores reforçados.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

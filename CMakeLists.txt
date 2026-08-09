@@ -55,6 +55,7 @@ set(HALLA_SOURCES
     src/dialogs/AboutDialog.cpp
     src/dialogs/ScreenShareDialog.cpp
     src/app/MainWindow.cpp
+    src/app/MainWindowUpdates.cpp
     src/app/Theme.cpp
     src/app/SoundPack.cpp
     src/app/Speech.cpp
