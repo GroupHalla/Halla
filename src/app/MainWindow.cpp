@@ -77,7 +77,7 @@ static QPixmap grabWindowsApp(HWND hwnd) {
     HGDIOBJ hOld = SelectObject(hdcMem, hbmMem);
 
     // Flag 2 (PW_RENDERFULLCONTENT) força a renderização do conteúdo com aceleração gráfica!
-    BOOL ok = PrintWindow(hwnd, hdcMem, 2); 
+    BOOL ok = PrintWindow(hwnd, hdcMem, 2);
     if (!ok) {
         ok = PrintWindow(hwnd, hdcMem, 0); // fallback padrão
     }
@@ -102,14 +102,14 @@ bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods);
 
 class ScreenShareWindow : public QDialog {
 public:
-    explicit ScreenShareWindow(int userId, const QString& userName, QWidget* parent = nullptr) 
+    explicit ScreenShareWindow(int userId, const QString& userName, QWidget* parent = nullptr)
         : QDialog(parent), m_userId(userId) {
         setWindowTitle(tr("Compartilhamento de Tela - %1").arg(userName));
         resize(800, 480);
         setMinimumSize(400, 240);
         setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
         setStyleSheet(QStringLiteral("background-color: #0D0E15; color: #FFFFFF;"));
-        
+
         QVBoxLayout* l = new QVBoxLayout(this);
         l->setContentsMargins(0, 0, 0, 0);
         m_label = new QLabel(this);
@@ -118,15 +118,15 @@ public:
         m_label->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: bold; color: #8A939B;"));
         l->addWidget(m_label);
     }
-    
+
     int userId() const { return m_userId; }
-    
+
     void updateFrame(const QByteArray& jpegData) {
         if (m_currentPixmap.loadFromData(jpegData)) {
             scaleFrame();
         }
     }
-    
+
 protected:
     void resizeEvent(QResizeEvent* e) override {
         QDialog::resizeEvent(e);
@@ -139,7 +139,7 @@ private:
             m_label->setPixmap(m_currentPixmap.scaled(m_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
     }
-    
+
     int m_userId;
     QLabel* m_label;
     QPixmap m_currentPixmap;
@@ -158,15 +158,15 @@ public:
             "QPushButton { background-color: #8B5CF6; border: none; border-radius: 4px; color: #FFFFFF; font-weight: bold; padding: 6px; font-size: 11px; }"
             "QPushButton:hover { background-color: #A78BFA; }"
         ));
-        
+
         QVBoxLayout* l = new QVBoxLayout(this);
         l->setContentsMargins(8, 8, 8, 8);
         l->setSpacing(6);
-        
+
         QLabel* title = new QLabel(userName, this);
         title->setAlignment(Qt::AlignCenter);
         l->addWidget(title);
-        
+
         m_imgLabel = new QLabel(this);
         m_imgLabel->setFixedSize(164, 92);
         m_imgLabel->setAlignment(Qt::AlignCenter);
@@ -178,7 +178,7 @@ public:
             m_imgLabel->setStyleSheet(QStringLiteral("color: #8A939B; background-color: #0D0E15; border-radius: 4px;"));
         }
         l->addWidget(m_imgLabel);
-        
+
         QPushButton* btn = new QPushButton(tr("Assista à transmissão"), this);
         connect(btn, &QPushButton::clicked, this, &ScreenshareHoverPopup::onWatchClicked);
         l->addWidget(btn);
@@ -187,13 +187,13 @@ public:
         connect(m_timer, &QTimer::timeout, this, &ScreenshareHoverPopup::checkMousePosition);
         m_timer->start(100);
     }
-    
+
 protected:
     void leaveEvent(QEvent* e) override {
         QFrame::leaveEvent(e);
         close();
     }
-    
+
 private:
     void checkMousePosition() {
         QPoint globalCursorPos = QCursor::pos();
@@ -203,9 +203,9 @@ private:
             close();
         }
     }
-    
+
     void onWatchClicked();
-    
+
     int m_userId;
     int m_channelId;
     class MainWindow* m_mw;
@@ -752,7 +752,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowOpacity(qBound(0.5, S::num("design/opacity", 100) / 100.0, 1.0));
 
     AppLog::info(tr("Halla %1 iniciado").arg(QString::fromUtf8(halla::kAppVersion)));
-    
+
     // Silently check for updates 3 seconds after startup
     QTimer::singleShot(3000, this, [this]{ checkUpdates(false); });
 }
@@ -1400,11 +1400,11 @@ void MainWindow::whisperSetHeld(int idx, bool held) {
     if (idx < 0 || idx >= m_whisperHolds.size()) return;
     ServerTab* t = currentTab();
     if (!t) return;
-    
+
     if (held && !m_whisperHolds[idx].whisperListName.isEmpty()) {
         S::set("whisper/activeList", m_whisperHolds[idx].whisperListName);
     }
-    
+
     t->setWhisperHold(held, m_whisperHolds[idx].scope);
 }
 
@@ -1594,34 +1594,31 @@ void MainWindow::toggleScreenShare() {
     }
 
     if (m_actScreenShare->isChecked()) {
-        if (!m_webrtcShare) {
-            m_webrtcShare = new WebRtcScreenShareBridge(t->net(), this);
-            connect(m_webrtcShare, &WebRtcScreenShareBridge::closedByUser, this, [this] {
-                if (ServerTab* tab = currentTab()) {
-                    if (tab->net()) tab->net()->sendWebRtcStreamStop();
-                }
-                if (m_actScreenShare) {
-                    m_actScreenShare->setChecked(false);
-                    m_actScreenShare->setIcon(HIcons::screenShare(false));
-                }
-            });
-            connect(t->net(), &NetSession::webRtcSignalReceived, m_webrtcShare,
-                    &WebRtcScreenShareBridge::handleSignal);
+        ScreenShareDialog dlg(this);
+        if (dlg.exec() == QDialog::Accepted) {
+            m_screenShareSourceType = dlg.selectedSourceType();
+            m_screenShareSourceId = dlg.selectedSourceId();
+            m_screenShareSeq = 0;
+
+            if (!m_screenShareTimer) {
+                m_screenShareTimer = new QTimer(this);
+                connect(m_screenShareTimer, &QTimer::timeout, this, &MainWindow::captureAndSendScreen);
+            }
+            int interval = qBound(10, 1000 / t->net()->screenshareFps(), 1000);
+            m_screenShareTimer->start(interval);
+
+            t->net()->sendScreenShareStart();
+            m_actScreenShare->setIcon(HIcons::screenShare(true));
+        } else {
+            m_actScreenShare->setChecked(false);
         }
-        m_webrtcShare->show();
-        m_webrtcShare->raise();
-        m_webrtcShare->activateWindow();
-        t->net()->sendWebRtcStreamStart();
-        m_actScreenShare->setIcon(HIcons::screenShare(true));
-        t->data().users[t->data().selfId].screensharing = true;
-        emit t->net()->stateChanged();
     } else {
-        if (m_webrtcShare) {
-            m_webrtcShare->stopAll();
-            m_webrtcShare->hide();
+        if (m_screenShareTimer) {
+            m_screenShareTimer->stop();
         }
-        t->net()->sendWebRtcStreamStop();
+        t->net()->sendScreenShareStop();
         m_actScreenShare->setIcon(HIcons::screenShare(false));
+
         handleScreenshareStateChanged(t->data().selfId, false);
         t->data().users[t->data().selfId].screensharing = false;
         emit t->net()->stateChanged();
@@ -1636,12 +1633,12 @@ void MainWindow::captureAndSendScreen() {
         m_actScreenShare->setIcon(HIcons::screenShare(false));
         return;
     }
-    
+
     // Controle de Congestionamento Ativo (Active Congestion Control):
     if (t->net()->bytesToWrite() > 45000) {
         return;
     }
-    
+
     QPixmap pix;
     QScreen* screen = QGuiApplication::primaryScreen();
     if (m_screenShareSourceType == 0) {
@@ -1663,16 +1660,16 @@ void MainWindow::captureAndSendScreen() {
         }
         #endif
     }
-    
+
     if (pix.isNull()) return;
-    
+
     // Envia frames continuamente no FPS configurado. O antigo delta-skip por
     // thumbnail 16x16 economizava upload, mas em clientes Mobile a transmissão
     // aparentava ficar congelada quando mudanças pequenas/cursor não alteravam
     // a miniatura. A fluidez da transmissão tem prioridade aqui.
     m_keepAliveTicks = 0;
     m_prevThumbnail = QImage();
-    
+
     // Screen share usa UDP sem retransmissão. Em 1920x1080 cada frame vira
     // centenas de datagramas; basta perder um chunk para o Mobile descartar o
     // frame e a transmissão aparentar ficar travada. Limitamos o stream enviado
@@ -1680,14 +1677,14 @@ void MainWindow::captureAndSendScreen() {
     const int targetW = qMin(t->net()->screenshareWidth(), 960);
     const int targetH = qMin(t->net()->screenshareHeight(), 540);
     QPixmap scaled = pix.scaled(targetW, targetH, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    
+
     QByteArray bytes;
     QBuffer buffer(&bytes);
     buffer.open(QIODevice::WriteOnly);
     scaled.save(&buffer, "JPEG", 45);
-    
+
     t->net()->sendScreenShareFrame(bytes, ++m_screenShareSeq);
-    
+
     if (m_screenShareWindows.contains(t->data().selfId)) {
         m_screenShareWindows[t->data().selfId]->updateFrame(bytes);
     }
@@ -1696,7 +1693,7 @@ void MainWindow::captureAndSendScreen() {
 void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
     ServerTab* t = currentTab();
     if (!t) return;
-    
+
     if (on) {
         if (!m_screenShareWindows.contains(userId)) {
             QString userName = QStringLiteral("Usuário #%1").arg(userId);
@@ -1705,7 +1702,7 @@ void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
             }
             ScreenShareWindow* win = new ScreenShareWindow(userId, userName, this);
             m_screenShareWindows[userId] = win;
-            
+
             connect(win, &QDialog::finished, this, [this, userId]() {
                 m_screenShareWindows.remove(userId);
             });
@@ -1736,12 +1733,12 @@ void ScreenshareHoverPopup::onWatchClicked() {
 void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoint& pos) {
     ServerTab* t = currentTab();
     if (!t || !t->net()) return;
-    
+
     User selfUser;
     if (t->data().users.contains(t->data().selfId)) {
         selfUser = t->data().users[t->data().selfId];
     }
-    
+
     bool canJoin = true;
     if (t->data().channels.contains(channelId)) {
         const Channel& ch = t->data().channels[channelId];
@@ -1767,21 +1764,21 @@ void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoin
     if (!canJoin) {
         return;
     }
-    
+
     // Evita abrir múltiplos popups redundantes
     for (QWidget* w : QApplication::topLevelWidgets()) {
         if (dynamic_cast<ScreenshareHoverPopup*>(w)) {
             return;
         }
     }
-    
+
     QString userName = QStringLiteral("Usuário #%1").arg(userId);
     if (t->data().users.contains(userId)) {
         userName = t->data().users[userId].name;
     }
-    
+
     QByteArray lastFrame = m_lastScreenshareFrames.value(userId);
-    
+
     ScreenshareHoverPopup* popup = new ScreenshareHoverPopup(userId, userName, channelId, lastFrame, this, this);
     popup->move(pos + QPoint(15, 15));
     popup->show();
@@ -1790,12 +1787,12 @@ void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoin
 void MainWindow::watchStream(int userId, int channelId) {
     ServerTab* t = currentTab();
     if (!t || !t->net()) return;
-    
+
     User selfUser;
     if (t->data().users.contains(t->data().selfId)) {
         selfUser = t->data().users[t->data().selfId];
     }
-    
+
     bool canJoin = true;
     if (t->data().channels.contains(channelId)) {
         const Channel& ch = t->data().channels[channelId];
@@ -1822,12 +1819,12 @@ void MainWindow::watchStream(int userId, int channelId) {
         QMessageBox::warning(this, tr("Transmissão"), tr("Você não tem permissão para entrar no canal desta transmissão."));
         return;
     }
-    
+
     int myChan = t->data().channelOfUser(t->data().selfId);
     if (myChan != channelId) {
         t->net()->moveToChannel(channelId);
     }
-    
+
     handleScreenshareStateChanged(userId, true);
 }
 

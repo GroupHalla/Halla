@@ -14,7 +14,6 @@ class QToolButton;
 class ServerTab;
 class WelcomePage;
 class LogDialog;
-class WebRtcScreenShareBridge;
 
 // Janela principal do Halla — reproduz fielmente a janela clássica do
 // tema claro clássico: barra de menus (Conexões, Marcadores, Si mesmo,
@@ -92,7 +91,6 @@ private:
     int      m_keepAliveTicks = 0;
     QMap<int, class ScreenShareWindow*> m_screenShareWindows;
     QMap<int, QByteArray> m_lastScreenshareFrames;
-    WebRtcScreenShareBridge* m_webrtcShare = nullptr;
     QAction* m_actRecord = nullptr;
     QAction* m_actWhisper = nullptr;
     QAction* m_actBookmarkAdd = nullptr;

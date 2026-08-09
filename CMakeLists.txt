@@ -12,13 +12,13 @@ set(CMAKE_AUTORCC ON)
 find_package(OpenSSL REQUIRED)
 
 # Qt 6
-find_package(Qt6 6.2 QUIET COMPONENTS Widgets Network Multimedia TextToSpeech WebEngineWidgets WebChannel)
+find_package(Qt6 6.2 QUIET COMPONENTS Widgets Network Multimedia TextToSpeech)
 if (Qt6_FOUND)
-    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech Qt6::WebEngineWidgets Qt6::WebChannel)
+    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech)
     message(STATUS "Halla: usando Qt ${Qt6_VERSION}")
 else()
-    find_package(Qt6 REQUIRED COMPONENTS Widgets Network Multimedia TextToSpeech WebEngineWidgets WebChannel)
-    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech Qt6::WebEngineWidgets Qt6::WebChannel)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets Network Multimedia TextToSpeech)
+    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech)
 endif()
 
 # Opus vem da toolchain/sistema. Não versionamos mais libopus.a no Git.
@@ -56,8 +56,6 @@ set(HALLA_SOURCES
     src/dialogs/ScreenShareDialog.cpp
     src/app/MainWindow.cpp
     src/app/MainWindowUpdates.cpp
-    src/app/WebRtcScreenShareBridge.cpp
-    src/app/WebRtcScreenShareBridge.h
     src/app/Theme.cpp
     src/app/SoundPack.cpp
     src/app/Speech.cpp
