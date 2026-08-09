@@ -90,6 +90,16 @@ public:
     void sendScreenShareStop();
     void sendScreenShareFrame(const QByteArray& jpeg, quint16 seq);
 
+    // WebRTC signaling v1 (TCP/TLS signaling; media is negotiated by clients)
+    void sendWebRtcStreamStart();
+    void sendWebRtcStreamStop();
+    void sendWebRtcWatchRequest(int userId);
+    void sendWebRtcWatchStop(int userId);
+    void sendWebRtcOffer(int toUserId, const QString& sdp);
+    void sendWebRtcAnswer(int toUserId, const QString& sdp);
+    void sendWebRtcIce(int toUserId, const QString& candidate,
+                       const QString& sdpMid = QString(), int sdpMLineIndex = -1);
+
 signals:
     void welcomeReceived();                     // estado completo carregado
     void stateChanged();                        // ServerData mudou (rebuild da UI)
@@ -104,6 +114,7 @@ signals:
     void voicePacketReceived(int fromId, quint16 seq, const QByteArray& payload);
     void screenshareStateChanged(int userId, bool on);
     void screenshareFrameReceived(int userId, const QByteArray& jpegData);
+    void webRtcSignalReceived(const QJsonObject& signal);
     void pingUpdated(int ms);
 
     // ---- v3

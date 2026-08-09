@@ -118,13 +118,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.40.exe
+          files: Halla-Setup-1.0.41.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
-            ### Correções
-            * Transmissão de tela limita o envio a 960x540 e JPEG 45 para reduzir perda de chunks UDP no Mobile.
-            * Mantém envio contínuo de frames, evitando congelamento após o primeiro frame.
-            * Mantém voz cifrada com ChaCha20-Poly1305 e identidade Ed25519.
+            ### WebRTC signaling
+            * Adiciona API de signaling WebRTC no NetSession: stream start/stop, watch request/stop, offer, answer e ICE.
+            * Desktop passa a receber sinais WebRTC roteados pelo HallaServer para a futura transmissão nativa.
+            * Base inicial para substituir o screen share JPEG/UDP por WebRTC.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -927,6 +927,11 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         emit stateChanged();
         return;
     }
+    if (t == "webrtc_watch_request" || t == "webrtc_watch_stop" ||
+        t == "webrtc_offer" || t == "webrtc_answer" || t == "webrtc_ice") {
+        emit webRtcSignalReceived(obj);
+        return;
+    }
     if (t == "kicked") {
         emit kickedReceived(obj["reason"].toString(), obj["ban"].toBool(),
                             obj["minutes"].toInt(0));
@@ -942,6 +947,50 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         }
         return;
     }
+}
+
+void NetSession::sendWebRtcStreamStart() {
+    send(HProto::msg("webrtc_stream_start"));
+}
+
+void NetSession::sendWebRtcStreamStop() {
+    send(HProto::msg("webrtc_stream_stop"));
+}
+
+void NetSession::sendWebRtcWatchRequest(int userId) {
+    QJsonObject m = HProto::msg("webrtc_watch_request");
+    m["to"] = userId;
+    send(m);
+}
+
+void NetSession::sendWebRtcWatchStop(int userId) {
+    QJsonObject m = HProto::msg("webrtc_watch_stop");
+    m["to"] = userId;
+    send(m);
+}
+
+void NetSession::sendWebRtcOffer(int toUserId, const QString& sdp) {
+    QJsonObject m = HProto::msg("webrtc_offer");
+    m["to"] = toUserId;
+    m["sdp"] = sdp;
+    send(m);
+}
+
+void NetSession::sendWebRtcAnswer(int toUserId, const QString& sdp) {
+    QJsonObject m = HProto::msg("webrtc_answer");
+    m["to"] = toUserId;
+    m["sdp"] = sdp;
+    send(m);
+}
+
+void NetSession::sendWebRtcIce(int toUserId, const QString& candidate,
+                               const QString& sdpMid, int sdpMLineIndex) {
+    QJsonObject m = HProto::msg("webrtc_ice");
+    m["to"] = toUserId;
+    m["candidate"] = candidate;
+    if (!sdpMid.isEmpty()) m["sdpMid"] = sdpMid;
+    if (sdpMLineIndex >= 0) m["sdpMLineIndex"] = sdpMLineIndex;
+    send(m);
 }
 
 void NetSession::sendScreenShareStart() {
