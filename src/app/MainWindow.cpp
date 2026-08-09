@@ -1670,12 +1670,18 @@ void MainWindow::captureAndSendScreen() {
     m_keepAliveTicks = 0;
     m_prevThumbnail = QImage();
     
-    QPixmap scaled = pix.scaled(t->net()->screenshareWidth(), t->net()->screenshareHeight(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    // Screen share usa UDP sem retransmissão. Em 1920x1080 cada frame vira
+    // centenas de datagramas; basta perder um chunk para o Mobile descartar o
+    // frame e a transmissão aparentar ficar travada. Limitamos o stream enviado
+    // para uma resolução mobile-friendly e qualidade moderada, mantendo fluidez.
+    const int targetW = qMin(t->net()->screenshareWidth(), 960);
+    const int targetH = qMin(t->net()->screenshareHeight(), 540);
+    QPixmap scaled = pix.scaled(targetW, targetH, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     
     QByteArray bytes;
     QBuffer buffer(&bytes);
     buffer.open(QIODevice::WriteOnly);
-    scaled.save(&buffer, "JPEG", 65); // Qualidade 65 (imagem super nítida e cristalina em tela cheia!)
+    scaled.save(&buffer, "JPEG", 45);
     
     t->net()->sendScreenShareFrame(bytes, ++m_screenShareSeq);
     
