@@ -118,13 +118,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.38.exe
+          files: Halla-Setup-1.0.39.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
-            ### Segurança
-            * Voz cifrada com ChaCha20-Poly1305 autenticado em vez do antigo XOR/scrambler.
-            * Nonce por remetente + contador de 32 bits + sequência, evitando reuso prático de keystream.
-            * Mantém identidade criptográfica Ed25519 e compatibilidade com servidores reforçados.
+            ### Correções
+            * Transmissão de tela agora envia frames continuamente no FPS configurado, evitando congelamento no Mobile.
+            * Remove delta-skip por thumbnail que podia travar a imagem em mudanças pequenas/cursor.
+            * Mantém voz cifrada com ChaCha20-Poly1305 e identidade Ed25519.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

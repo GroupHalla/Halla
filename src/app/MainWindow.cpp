@@ -1663,17 +1663,12 @@ void MainWindow::captureAndSendScreen() {
     
     if (pix.isNull()) return;
     
-    // Algoritmo Ultra-Rápido de Detecção de Mudança de Tela (Delta Frame skipping):
-    // Reduz o consumo de upload para quase zero quando a tela está estática,
-    // garantindo ping baixo constante (abaixo de 30ms) e sem bufferbloat!
-    QImage thumb = pix.toImage().scaled(16, 16, Qt::IgnoreAspectRatio, Qt::FastTransformation);
-    if (m_prevThumbnail == thumb) {
-        if (m_keepAliveTicks++ < 60) { // Envia apenas um frame a cada 3 segundos como keep-alive
-            return; 
-        }
-    }
+    // Envia frames continuamente no FPS configurado. O antigo delta-skip por
+    // thumbnail 16x16 economizava upload, mas em clientes Mobile a transmissão
+    // aparentava ficar congelada quando mudanças pequenas/cursor não alteravam
+    // a miniatura. A fluidez da transmissão tem prioridade aqui.
     m_keepAliveTicks = 0;
-    m_prevThumbnail = thumb;
+    m_prevThumbnail = QImage();
     
     QPixmap scaled = pix.scaled(t->net()->screenshareWidth(), t->net()->screenshareHeight(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     
