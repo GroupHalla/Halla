@@ -9,51 +9,78 @@
 #include <QHostInfo>
 #include <QSettings>
 #include <QCryptographicHash>
+#include <openssl/evp.h>
 
-class VoiceCipher {
+class AeadVoiceCipher {
 public:
-    static QByteArray encryptDecrypt(const QByteArray& data, const QByteArray& key, quint16 seq) {
-        if (key.size() < 16) return data;
+    static QByteArray encrypt(const QByteArray& plain, const QByteArray& key,
+                              quint32 senderId, quint16 seq, quint32 counter) {
+        if (plain.isEmpty() || key.size() < 32) return plain;
+        QByteArray nonce = makeNonce(senderId, counter, seq);
+        QByteArray cipher(plain.size(), 0);
+        QByteArray tag(16, 0);
+        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        int outLen = 0;
+        int total = 0;
+        bool ok = ctx
+            && EVP_EncryptInit_ex(ctx, EVP_chacha20_poly1305(), nullptr, nullptr, nullptr) == 1
+            && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, nonce.size(), nullptr) == 1
+            && EVP_EncryptInit_ex(ctx, nullptr, nullptr,
+                                  reinterpret_cast<const unsigned char*>(key.constData()),
+                                  reinterpret_cast<const unsigned char*>(nonce.constData())) == 1
+            && EVP_EncryptUpdate(ctx, reinterpret_cast<unsigned char*>(cipher.data()), &outLen,
+                                 reinterpret_cast<const unsigned char*>(plain.constData()), plain.size()) == 1;
+        total = outLen;
+        if (ok) ok = EVP_EncryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(cipher.data()) + total, &outLen) == 1;
+        if (ok) ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, tag.size(), tag.data()) == 1;
+        EVP_CIPHER_CTX_free(ctx);
+        if (!ok) return QByteArray();
+        QByteArray out;
+        out.reserve(4 + cipher.size() + tag.size());
+        out.append(reinterpret_cast<const char*>(&counter), 4);
+        out.append(cipher);
+        out.append(tag);
+        return out;
+    }
 
-        QByteArray output = data;
-        
-        quint32 state[4];
-        memcpy(state, key.constData(), 16);
-        state[0] ^= seq;
-        state[1] ^= (seq << 16);
-        state[2] ^= 0xDEADBEEF;
-        state[3] ^= 0xCAFEBABE;
-
-        auto next = [&]() -> quint32 {
-            const quint32 result = rotl(state[0] + state[3], 7) * 9;
-            const quint32 t = state[1] << 9;
-            state[2] ^= state[0];
-            state[3] ^= state[1];
-            state[1] ^= state[2];
-            state[0] ^= state[3];
-            state[2] ^= t;
-            state[3] = rotl(state[3], 11);
-            return result;
-        };
-
-        int size = data.size();
-        char* outPtr = output.data();
-        for (int i = 0; i < size; i += 4) {
-            quint32 keystream = next();
-            int limit = qMin(4, size - i);
-            for (int j = 0; j < limit; ++j) {
-                outPtr[i + j] ^= (reinterpret_cast<char*>(&keystream))[j];
-            }
-        }
-        return output;
+    static QByteArray decrypt(const QByteArray& packet, const QByteArray& key,
+                              quint32 senderId, quint16 seq) {
+        if (key.size() < 32) return packet;
+        if (packet.size() < 4 + 16) return QByteArray();
+        quint32 counter = 0;
+        memcpy(&counter, packet.constData(), 4);
+        const int cipherLen = packet.size() - 4 - 16;
+        QByteArray nonce = makeNonce(senderId, counter, seq);
+        QByteArray plain(cipherLen, 0);
+        const char* cipher = packet.constData() + 4;
+        const char* tag = packet.constData() + 4 + cipherLen;
+        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        int outLen = 0;
+        int total = 0;
+        bool ok = ctx
+            && EVP_DecryptInit_ex(ctx, EVP_chacha20_poly1305(), nullptr, nullptr, nullptr) == 1
+            && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_IVLEN, nonce.size(), nullptr) == 1
+            && EVP_DecryptInit_ex(ctx, nullptr, nullptr,
+                                  reinterpret_cast<const unsigned char*>(key.constData()),
+                                  reinterpret_cast<const unsigned char*>(nonce.constData())) == 1
+            && EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char*>(plain.data()), &outLen,
+                                 reinterpret_cast<const unsigned char*>(cipher), cipherLen) == 1;
+        total = outLen;
+        if (ok) ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, 16, const_cast<char*>(tag)) == 1;
+        if (ok) ok = EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(plain.data()) + total, &outLen) == 1;
+        EVP_CIPHER_CTX_free(ctx);
+        return ok ? plain : QByteArray();
     }
 
 private:
-    static inline quint32 rotl(const quint32 x, int k) {
-        return (x << k) | (x >> (32 - k));
+    static QByteArray makeNonce(quint32 senderId, quint32 counter, quint16 seq) {
+        QByteArray n(12, '\0');
+        memcpy(n.data(), &senderId, 4);
+        memcpy(n.data() + 4, &counter, 4);
+        memcpy(n.data() + 8, &seq, 2);
+        return n;
     }
 };
-
 NetSession::NetSession(QObject* parent) : QObject(parent) {
     m_tcp = new QSslSocket(this);
     connect(m_tcp, &QTcpSocket::connected, this, &NetSession::onConnected);
@@ -207,7 +234,8 @@ void NetSession::onUdpReadyRead() {
             QByteArray payload = data.mid(10);
             int chanId = m_target ? m_target->channelOfUser(int(fromId)) : 0;
             if (chanId > 0 && m_channelKeys.contains(chanId)) {
-                payload = VoiceCipher::encryptDecrypt(payload, m_channelKeys[chanId], seq);
+                payload = AeadVoiceCipher::decrypt(payload, m_channelKeys[chanId], fromId, seq);
+                if (payload.isEmpty()) continue;
             }
             
             emit voicePacketReceived(int(fromId), seq, payload);
@@ -225,7 +253,8 @@ void NetSession::onUdpReadyRead() {
             int uid = int(fromId);
             int chanId = m_target ? m_target->channelOfUser(uid) : 0;
             if (chanId > 0 && m_channelKeys.contains(chanId)) {
-                chunkPayload = VoiceCipher::encryptDecrypt(chunkPayload, m_channelKeys[chanId], seq);
+                chunkPayload = AeadVoiceCipher::decrypt(chunkPayload, m_channelKeys[chanId], fromId, seq);
+                if (chunkPayload.isEmpty()) continue;
             }
             
             m_reassembly[uid][seq][chunkIdx] = chunkPayload;
@@ -258,7 +287,9 @@ void NetSession::sendVoiceFrame(const QByteArray& opus, quint16 seq) {
     if (m_target) {
         int chanId = m_target->channelOfUser(m_target->selfId);
         if (chanId > 0 && m_channelKeys.contains(chanId)) {
-            encryptedOpus = VoiceCipher::encryptDecrypt(opus, m_channelKeys[chanId], seq);
+            encryptedOpus = AeadVoiceCipher::encrypt(opus, m_channelKeys[chanId],
+                                                     quint32(m_target->selfId), seq, ++m_cryptoCounter);
+            if (encryptedOpus.isEmpty()) return;
         }
     }
     
@@ -939,7 +970,9 @@ void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
         QByteArray chunkData = jpeg.mid(offset, size);
 
         if (chanId > 0 && m_channelKeys.contains(chanId)) {
-            chunkData = VoiceCipher::encryptDecrypt(chunkData, m_channelKeys[chanId], seq);
+            chunkData = AeadVoiceCipher::encrypt(chunkData, m_channelKeys[chanId],
+                                                 quint32(m_target ? m_target->selfId : 0), seq, ++m_cryptoCounter);
+            if (chunkData.isEmpty()) continue;
         }
 
         QByteArray p;

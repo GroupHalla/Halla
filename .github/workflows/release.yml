@@ -118,13 +118,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.37.exe
+          files: Halla-Setup-1.0.38.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
-            ### Novidades
-            * Refatoração inicial da MainWindow: atualização, notificações e sessão movidas para MainWindowUpdates.cpp.
-            * Workflow com permissões mínimas por job e libopus obtida da toolchain, sem binário estático versionado.
+            ### Segurança
+            * Voz cifrada com ChaCha20-Poly1305 autenticado em vez do antigo XOR/scrambler.
+            * Nonce por remetente + contador de 32 bits + sequência, evitando reuso prático de keystream.
             * Mantém identidade criptográfica Ed25519 e compatibilidade com servidores reforçados.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

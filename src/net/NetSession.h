@@ -143,7 +143,7 @@ private:
     QByteArray m_buffer;
     ServerData m_data;
     ServerData* m_target = nullptr;
-    QMap<int, QByteArray> m_channelKeys; // channelId -> key (16 bytes)
+    QMap<int, QByteArray> m_channelKeys; // channelId -> AEAD key (32 bytes)
 
     QString m_host;
     QHostAddress m_udpHostAddress;
@@ -160,6 +160,7 @@ private:
     quint16 m_udpPort = 0;
     quint32 m_voiceToken = 0;
     quint16 m_udpRegistrationSeq = 0;
+    quint32 m_cryptoCounter = 0;
     QMap<int, QMap<quint16, QMap<int, QByteArray>>> m_reassembly;
     bool m_ready = false;
     bool m_fatalError = false;
