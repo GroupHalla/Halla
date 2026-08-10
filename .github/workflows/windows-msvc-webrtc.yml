@@ -72,7 +72,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist\Halla-WebRTC | Out-Null
           Copy-Item build-msvc-webrtc\Halla.exe dist\Halla-WebRTC\
-          & "$env:Qt6_DIR\..\..\bin\windeployqt.exe" --release --no-translations --dir dist\Halla-WebRTC dist\Halla-WebRTC\Halla.exe
+          $deploy = Join-Path $env:QT_ROOT_DIR "bin\windeployqt.exe"
+          if (!(Test-Path $deploy)) { throw "windeployqt not found at $deploy" }
+          & $deploy --release --no-translations --dir dist\Halla-WebRTC dist\Halla-WebRTC\Halla.exe
           Copy-Item packaging\LEIA-ME.txt dist\Halla-WebRTC\ -ErrorAction SilentlyContinue
           Copy-Item packaging\LICENSE.txt dist\Halla-WebRTC\ -ErrorAction SilentlyContinue
           Compress-Archive -Path dist\Halla-WebRTC\* -DestinationPath Halla-WebRTC-msvc-x64.zip -Force
