@@ -105,6 +105,15 @@ if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
                 endif()
             endforeach()
             target_compile_definitions(Halla PRIVATE HALLA_WEBRTC_NATIVE=1)
+            if (WIN32)
+                target_compile_definitions(Halla PRIVATE WEBRTC_WIN=1 NOMINMAX WIN32_LEAN_AND_MEAN)
+            else()
+                target_compile_definitions(Halla PRIVATE WEBRTC_POSIX=1)
+            endif()
+            # WebRTC headers from current Chromium use C++20 features such as
+            # std::span and constrained templates. Keep the default project at
+            # C++17, but raise the target when native WebRTC is explicitly ON.
+            target_compile_features(Halla PRIVATE cxx_std_20)
             target_include_directories(Halla PRIVATE ${HALLA_WEBRTC_INCLUDE_DIRS})
             target_link_libraries(Halla PRIVATE "${HALLA_WEBRTC_LIBRARY}")
             message(STATUS "Halla: WebRTC nativo habilitado (${HALLA_WEBRTC_LIBRARY})")
