@@ -9,9 +9,12 @@
 #include <QTimer>
 
 #ifdef HALLA_WEBRTC_NATIVE
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 using nullptr_t = std::nullptr_t;
@@ -21,7 +24,6 @@ using nullptr_t = std::nullptr_t;
 #include "api/jsep.h"
 #include "api/make_ref_counted.h"
 #include "api/media_stream_interface.h"
-#include "api/video/adapted_video_track_source.h"
 #include "api/video/i420_buffer.h"
 #include "api/video/video_frame.h"
 #include "rtc_base/ref_counted_object.h"
@@ -65,12 +67,58 @@ private:
     int m_peerId = 0;
 };
 
-class QtScreenVideoSource : public webrtc::AdaptedVideoTrackSource {
+class QtScreenVideoSource : public webrtc::VideoTrackSourceInterface {
 public:
     bool is_screencast() const override { return true; }
     std::optional<bool> needs_denoising() const override { return false; }
     SourceState state() const override { return kLive; }
     bool remote() const override { return false; }
+
+    void RegisterObserver(webrtc::ObserverInterface* observer) override {
+        if (!observer) return;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (std::find(m_observers.begin(), m_observers.end(), observer) == m_observers.end())
+            m_observers.push_back(observer);
+    }
+
+    void UnregisterObserver(webrtc::ObserverInterface* observer) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_observers.erase(std::remove(m_observers.begin(), m_observers.end(), observer), m_observers.end());
+    }
+
+    void AddOrUpdateSink(webrtc::VideoSinkInterface<webrtc::VideoFrame>* sink,
+                         const webrtc::VideoSinkWants& wants) override {
+        if (!sink) return;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        for (auto& item : m_sinks) {
+            if (item.sink == sink) {
+                item.wants = wants;
+                return;
+            }
+        }
+        m_sinks.push_back({sink, wants});
+    }
+
+    void RemoveSink(webrtc::VideoSinkInterface<webrtc::VideoFrame>* sink) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_sinks.erase(std::remove_if(m_sinks.begin(), m_sinks.end(),
+                                     [sink](const SinkEntry& item) { return item.sink == sink; }),
+                      m_sinks.end());
+    }
+
+    bool GetStats(Stats* stats) override {
+        if (!stats) return false;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_lastWidth <= 0 || m_lastHeight <= 0) return false;
+        stats->input_width = m_lastWidth;
+        stats->input_height = m_lastHeight;
+        return true;
+    }
+
+    bool SupportsEncodedOutput() const override { return false; }
+    void GenerateKeyFrame() override {}
+    void AddEncodedSink(webrtc::VideoSinkInterface<webrtc::RecordableEncodedFrame>*) override {}
+    void RemoveEncodedSink(webrtc::VideoSinkInterface<webrtc::RecordableEncodedFrame>*) override {}
 
     void PushImage(const QImage& image) {
         if (image.isNull()) return;
@@ -107,8 +155,32 @@ public:
             .set_timestamp_ms(QDateTime::currentMSecsSinceEpoch())
             .set_rotation(webrtc::kVideoRotation_0)
             .build();
-        OnFrame(frame);
+
+        std::vector<webrtc::VideoSinkInterface<webrtc::VideoFrame>*> sinks;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_lastWidth = w;
+            m_lastHeight = h;
+            sinks.reserve(m_sinks.size());
+            for (const auto& item : m_sinks) sinks.push_back(item.sink);
+        }
+        for (auto* sink : sinks) if (sink) sink->OnFrame(frame);
     }
+
+protected:
+    ~QtScreenVideoSource() override = default;
+
+private:
+    struct SinkEntry {
+        webrtc::VideoSinkInterface<webrtc::VideoFrame>* sink = nullptr;
+        webrtc::VideoSinkWants wants;
+    };
+
+    mutable std::mutex m_mutex;
+    std::vector<SinkEntry> m_sinks;
+    std::vector<webrtc::ObserverInterface*> m_observers;
+    int m_lastWidth = 0;
+    int m_lastHeight = 0;
 };
 }
 #endif
@@ -118,6 +190,7 @@ struct HallaWebRtcSession::PeerContext {
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pc;
     std::unique_ptr<PeerObserver> observer;
     std::vector<webrtc::scoped_refptr<webrtc::CreateSessionDescriptionObserver>> pendingOffers;
+    bool trackAdded = false;
 };
 #endif
 
@@ -231,6 +304,15 @@ void HallaWebRtcSession::sendNativeOffer(int peerId, const std::string& sdp) {
 void HallaWebRtcSession::createOfferForPeer(int peerId) {
     PeerContext* ctx = ensurePeer(peerId);
     if (!ctx || !ctx->pc) return;
+    if (!ctx->trackAdded && m_native->videoTrack) {
+        auto result = ctx->pc->AddTrack(m_native->videoTrack, {"halla-screen"});
+        if (!result.ok()) {
+            AppLog::warn(QStringLiteral("WebRTC AddTrack falhou: %1")
+                             .arg(QString::fromStdString(result.error().message())));
+        } else {
+            ctx->trackAdded = true;
+        }
+    }
     auto obs = webrtc::make_ref_counted<OfferObserver>(this, peerId);
     ctx->pendingOffers.push_back(obs);
     webrtc::PeerConnectionInterface::RTCOfferAnswerOptions opts;
