@@ -95,8 +95,17 @@ if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
     if (EXISTS "${HALLA_WEBRTC_INCLUDE_DIR}" AND EXISTS "${HALLA_WEBRTC_LIBRARY}")
         message(STATUS "Halla: WebRTC SDK encontrado em ${HALLA_WEBRTC_SDK_DIR}")
         if (HALLA_ENABLE_WEBRTC_NATIVE)
+            set(HALLA_WEBRTC_INCLUDE_DIRS "${HALLA_WEBRTC_INCLUDE_DIR}")
+            foreach(extra_dir
+                    "${HALLA_WEBRTC_INCLUDE_DIR}/third_party/abseil-cpp"
+                    "${HALLA_WEBRTC_INCLUDE_DIR}/third_party/libyuv/include"
+                    "${HALLA_WEBRTC_INCLUDE_DIR}/third_party/boringssl/src/include")
+                if (EXISTS "${extra_dir}")
+                    list(APPEND HALLA_WEBRTC_INCLUDE_DIRS "${extra_dir}")
+                endif()
+            endforeach()
             target_compile_definitions(Halla PRIVATE HALLA_WEBRTC_NATIVE=1)
-            target_include_directories(Halla PRIVATE "${HALLA_WEBRTC_INCLUDE_DIR}")
+            target_include_directories(Halla PRIVATE ${HALLA_WEBRTC_INCLUDE_DIRS})
             target_link_libraries(Halla PRIVATE "${HALLA_WEBRTC_LIBRARY}")
             message(STATUS "Halla: WebRTC nativo habilitado (${HALLA_WEBRTC_LIBRARY})")
         else()
