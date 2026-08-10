@@ -31,6 +31,8 @@ using nullptr_t = std::nullptr_t;
 #include "api/media_stream_interface.h"
 #include "api/video/i420_buffer.h"
 #include "api/video/video_frame.h"
+#include "api/video_codecs/video_encoder_factory.h"
+#include "modules/video_coding/codecs/vp8/include/vp8.h"
 #include "rtc_base/ref_counted_object.h"
 #include "rtc_base/ssl_adapter.h"
 #include "rtc_base/thread.h"
@@ -101,6 +103,27 @@ public:
 private:
     HallaWebRtcSession* m_owner = nullptr;
     int m_peerId = 0;
+};
+
+class HallaVp8EncoderFactory : public webrtc::VideoEncoderFactory {
+public:
+    std::vector<webrtc::SdpVideoFormat> GetSupportedFormats() const override {
+        return { webrtc::SdpVideoFormat("VP8") };
+    }
+
+    CodecSupport QueryCodecSupport(const webrtc::SdpVideoFormat& format,
+                                   std::optional<std::string> scalabilityMode,
+                                   std::optional<webrtc::Resolution> resolution) const override {
+        Q_UNUSED(scalabilityMode);
+        Q_UNUSED(resolution);
+        return { format.name == "VP8" || format.name == "vp8", false };
+    }
+
+    std::unique_ptr<webrtc::VideoEncoder> Create(const webrtc::Environment& env,
+                                                 const webrtc::SdpVideoFormat& format) override {
+        if (format.name != "VP8" && format.name != "vp8") return nullptr;
+        return webrtc::CreateVp8Encoder(env);
+    }
 };
 
 class QtScreenVideoSource : public webrtc::VideoTrackSourceInterface {
@@ -297,7 +320,7 @@ bool HallaWebRtcSession::ensureNativeFactory() {
         nullptr,
         webrtc::CreateBuiltinAudioEncoderFactory(),
         webrtc::CreateBuiltinAudioDecoderFactory(),
-        nullptr, nullptr,
+        std::make_unique<HallaVp8EncoderFactory>(), nullptr,
         nullptr, nullptr);
     if (m_native->factory) {
         m_native->videoSource = webrtc::make_ref_counted<QtScreenVideoSource>();
