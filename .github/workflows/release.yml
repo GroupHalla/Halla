@@ -16,6 +16,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      HALLA_WEBRTC_SDK_VERSION: v0.1.3
 
     steps:
       - name: Checkout Code
@@ -36,10 +38,19 @@ jobs:
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-opus
 
+      - name: Download Halla WebRTC SDK
+        shell: pwsh
+        run: |
+          $url = "https://github.com/GroupHalla/Halla-WebRTC-Builds/releases/download/$env:HALLA_WEBRTC_SDK_VERSION/halla-webrtc-windows-x64-$env:HALLA_WEBRTC_SDK_VERSION.zip"
+          New-Item -ItemType Directory -Force third_party/webrtc-sdk | Out-Null
+          Invoke-WebRequest -Uri $url -OutFile webrtc-sdk.zip
+          Expand-Archive -Path webrtc-sdk.zip -DestinationPath third_party/webrtc-sdk -Force
+          Get-ChildItem third_party/webrtc-sdk -Recurse | Select-Object -First 20 | ForEach-Object { Write-Host $_.FullName }
+
       - name: Configure CMake
         shell: msys2 {0}
         run: |
-          cmake -S . -B build -G "Ninja" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_PREFIX_PATH="/mingw64" -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -G "Ninja" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_PREFIX_PATH="/mingw64" -DCMAKE_BUILD_TYPE=Release -DHALLA_WEBRTC_SDK_DIR="$PWD/third_party/webrtc-sdk" -DHALLA_ENABLE_WEBRTC_NATIVE=OFF
 
       - name: Build Application
         shell: msys2 {0}
@@ -118,13 +129,13 @@ jobs:
           name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: Halla-Setup-1.0.45.exe
+          files: Halla-Setup-1.0.46.exe
           body: |
             ## Halla Desktop ${{ github.ref_name }}
 
-            ### Correção de build
-            * Corrige include do adapter HallaWebRtcSession no MainWindow para compilar o stub WebRTC.
-            * Mantém fallback clássico quando o SDK libwebrtc nativo não está presente.
-            * Prepara consumo futuro de HALLA_WEBRTC_SDK_DIR sem quebrar o build atual.
+            ### WebRTC SDK plumbing
+            * Workflow do Desktop baixa o Halla WebRTC SDK v0.1.3 e valida o layout antes do build.
+            * CMake separa SDK disponível de implementação nativa: por enquanto o build usa stub seguro até a integração C++ real.
+            * Mantém fallback clássico enquanto HALLA_ENABLE_WEBRTC_NATIVE permanece desligado.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
