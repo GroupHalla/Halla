@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QGuiApplication>
 #include <QImage>
+#include <QPixmap>
 #include <QScreen>
 #include <QTimer>
 
