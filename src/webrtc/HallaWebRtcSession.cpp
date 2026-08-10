@@ -31,6 +31,7 @@ using nullptr_t = std::nullptr_t;
 #include "api/media_stream_interface.h"
 #include "api/video/i420_buffer.h"
 #include "api/video/video_frame.h"
+#include "api/video_codecs/video_decoder_factory.h"
 #include "api/video_codecs/video_encoder_factory.h"
 #include "modules/video_coding/codecs/vp8/include/vp8.h"
 #include "rtc_base/ref_counted_object.h"
@@ -83,9 +84,19 @@ public:
 class PeerObserver : public webrtc::PeerConnectionObserver {
 public:
     PeerObserver(HallaWebRtcSession* owner, int peerId) : m_owner(owner), m_peerId(peerId) {}
-    void OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState) override {}
+    void OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState state) override {
+        AppLog::info(QStringLiteral("WebRTC signaling peer #%1: %2").arg(m_peerId).arg(int(state)));
+    }
     void OnDataChannel(webrtc::scoped_refptr<webrtc::DataChannelInterface>) override {}
-    void OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState) override {}
+    void OnIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState state) override {
+        AppLog::info(QStringLiteral("WebRTC ICE peer #%1: %2").arg(m_peerId).arg(int(state)));
+    }
+    void OnConnectionChange(webrtc::PeerConnectionInterface::PeerConnectionState state) override {
+        AppLog::info(QStringLiteral("WebRTC conexão peer #%1: %2").arg(m_peerId).arg(int(state)));
+    }
+    void OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState state) override {
+        AppLog::info(QStringLiteral("WebRTC ICE gathering peer #%1: %2").arg(m_peerId).arg(int(state)));
+    }
     void OnIceCandidate(const webrtc::IceCandidate* candidate) override;
 private:
     HallaWebRtcSession* m_owner = nullptr;
@@ -123,6 +134,27 @@ public:
                                                  const webrtc::SdpVideoFormat& format) override {
         if (format.name != "VP8" && format.name != "vp8") return nullptr;
         return webrtc::CreateVp8Encoder(env);
+    }
+};
+
+class HallaVp8DecoderFactory : public webrtc::VideoDecoderFactory {
+public:
+    std::vector<webrtc::SdpVideoFormat> GetSupportedFormats() const override {
+        return { webrtc::SdpVideoFormat("VP8") };
+    }
+
+    CodecSupport QueryCodecSupport(const webrtc::SdpVideoFormat& format,
+                                   bool referenceScaling,
+                                   std::optional<webrtc::Resolution> resolution) const override {
+        Q_UNUSED(referenceScaling);
+        Q_UNUSED(resolution);
+        return { format.name == "VP8" || format.name == "vp8", false };
+    }
+
+    std::unique_ptr<webrtc::VideoDecoder> Create(const webrtc::Environment& env,
+                                                 const webrtc::SdpVideoFormat& format) override {
+        if (format.name != "VP8" && format.name != "vp8") return nullptr;
+        return webrtc::CreateVp8Decoder(env);
     }
 };
 
@@ -320,7 +352,8 @@ bool HallaWebRtcSession::ensureNativeFactory() {
         nullptr,
         webrtc::CreateBuiltinAudioEncoderFactory(),
         webrtc::CreateBuiltinAudioDecoderFactory(),
-        std::make_unique<HallaVp8EncoderFactory>(), nullptr,
+        std::make_unique<HallaVp8EncoderFactory>(),
+        std::make_unique<HallaVp8DecoderFactory>(),
         nullptr, nullptr);
     if (m_native->factory) {
         m_native->videoSource = webrtc::make_ref_counted<QtScreenVideoSource>();
@@ -339,6 +372,7 @@ HallaWebRtcSession::PeerContext* HallaWebRtcSession::ensurePeer(int peerId) {
     auto ctx = std::make_unique<PeerContext>();
     ctx->observer = std::make_unique<PeerObserver>(this, peerId);
     webrtc::PeerConnectionInterface::RTCConfiguration cfg;
+    cfg.sdp_semantics = webrtc::SdpSemantics::kUnifiedPlan;
     webrtc::PeerConnectionInterface::IceServer stun;
     stun.urls.push_back("stun:stun.l.google.com:19302");
     cfg.servers.push_back(stun);
