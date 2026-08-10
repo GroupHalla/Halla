@@ -28,15 +28,9 @@ public slots:
     void stopBroadcast();
     void handleSignal(const QJsonObject& signal);
 
-signals:
-    void unavailable(const QString& reason);
-    void broadcastStarted();
-    void broadcastStopped();
-
-private:
-    struct NativeState;
-    struct PeerContext;
 #ifdef HALLA_WEBRTC_NATIVE
+public:
+    struct PeerContext;
     bool ensureNativeFactory();
     PeerContext* ensurePeer(int peerId);
     void createOfferForPeer(int peerId);
@@ -46,6 +40,14 @@ private:
     void sendNativeIce(int peerId, const std::string& candidate, const std::string& mid, int mline);
     void sendNativeOffer(int peerId, const std::string& sdp);
 #endif
+
+signals:
+    void unavailable(const QString& reason);
+    void broadcastStarted();
+    void broadcastStopped();
+
+private:
+    struct NativeState;
     std::unique_ptr<NativeState> m_native;
     NetSession* m_net = nullptr;
     bool m_broadcasting = false;

@@ -185,9 +185,10 @@ void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
     if (!ctx || !ctx->pc) return;
     const QString candidate = signal.value(QStringLiteral("candidate")).toString();
     if (candidate.isEmpty()) return;
-    auto ice = webrtc::CreateIceCandidate(signal.value(QStringLiteral("sdpMid")).toString(QStringLiteral("0")).toStdString(),
-                                          signal.value(QStringLiteral("sdpMLineIndex")).toInt(0),
-                                          candidate.toStdString(), nullptr);
+    std::unique_ptr<webrtc::IceCandidate> ice(webrtc::CreateIceCandidate(
+        signal.value(QStringLiteral("sdpMid")).toString(QStringLiteral("0")).toStdString(),
+        signal.value(QStringLiteral("sdpMLineIndex")).toInt(0),
+        candidate.toStdString(), nullptr));
     if (ice) ctx->pc->AddIceCandidate(std::move(ice), [](webrtc::RTCError) {});
 }
 
