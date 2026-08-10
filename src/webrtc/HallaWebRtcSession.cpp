@@ -2,6 +2,12 @@
 #include "net/NetSession.h"
 #include "core/AppLog.h"
 
+#include <QDateTime>
+#include <QGuiApplication>
+#include <QImage>
+#include <QScreen>
+#include <QTimer>
+
 #ifdef HALLA_WEBRTC_NATIVE
 #include <cstddef>
 #include <map>
@@ -14,6 +20,10 @@ using nullptr_t = std::nullptr_t;
 #include "api/audio_codecs/builtin_audio_encoder_factory.h"
 #include "api/jsep.h"
 #include "api/make_ref_counted.h"
+#include "api/media_stream_interface.h"
+#include "api/video/adapted_video_track_source.h"
+#include "api/video/i420_buffer.h"
+#include "api/video/video_frame.h"
 #include "rtc_base/ref_counted_object.h"
 #include "rtc_base/ssl_adapter.h"
 #include "rtc_base/thread.h"
@@ -54,6 +64,52 @@ private:
     HallaWebRtcSession* m_owner = nullptr;
     int m_peerId = 0;
 };
+
+class QtScreenVideoSource : public webrtc::AdaptedVideoTrackSource {
+public:
+    bool is_screencast() const override { return true; }
+    std::optional<bool> needs_denoising() const override { return false; }
+    SourceState state() const override { return kLive; }
+    bool remote() const override { return false; }
+
+    void PushImage(const QImage& image) {
+        if (image.isNull()) return;
+        QImage img = image.convertToFormat(QImage::Format_RGB32);
+        const int w = img.width() & ~1;
+        const int h = img.height() & ~1;
+        if (w <= 1 || h <= 1) return;
+        auto buffer = webrtc::I420Buffer::Create(w, h);
+        auto clamp = [](int v) -> uint8_t { return uint8_t(v < 0 ? 0 : (v > 255 ? 255 : v)); };
+        for (int y = 0; y < h; ++y) {
+            const QRgb* row = reinterpret_cast<const QRgb*>(img.constScanLine(y));
+            uint8_t* dstY = buffer->MutableDataY() + y * buffer->StrideY();
+            for (int x = 0; x < w; ++x) {
+                const int r = qRed(row[x]);
+                const int g = qGreen(row[x]);
+                const int b = qBlue(row[x]);
+                dstY[x] = clamp(((66 * r + 129 * g + 25 * b + 128) >> 8) + 16);
+            }
+        }
+        for (int y = 0; y < h; y += 2) {
+            const QRgb* row = reinterpret_cast<const QRgb*>(img.constScanLine(y));
+            uint8_t* dstU = buffer->MutableDataU() + (y / 2) * buffer->StrideU();
+            uint8_t* dstV = buffer->MutableDataV() + (y / 2) * buffer->StrideV();
+            for (int x = 0; x < w; x += 2) {
+                const int r = qRed(row[x]);
+                const int g = qGreen(row[x]);
+                const int b = qBlue(row[x]);
+                dstU[x / 2] = clamp(((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128);
+                dstV[x / 2] = clamp(((112 * r - 94 * g - 18 * b + 128) >> 8) + 128);
+            }
+        }
+        webrtc::VideoFrame frame = webrtc::VideoFrame::Builder()
+            .set_video_frame_buffer(buffer)
+            .set_timestamp_ms(QDateTime::currentMSecsSinceEpoch())
+            .set_rotation(webrtc::kVideoRotation_0)
+            .build();
+        OnFrame(frame);
+    }
+};
 }
 #endif
 
@@ -71,6 +127,8 @@ struct HallaWebRtcSession::NativeState {
     std::unique_ptr<webrtc::Thread> workerThread;
     std::unique_ptr<webrtc::Thread> signalingThread;
     webrtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> factory;
+    webrtc::scoped_refptr<QtScreenVideoSource> videoSource;
+    webrtc::scoped_refptr<webrtc::VideoTrackInterface> videoTrack;
     std::map<int, std::unique_ptr<PeerContext>> peers;
     bool sslInitialized = false;
 #endif
@@ -84,6 +142,8 @@ HallaWebRtcSession::~HallaWebRtcSession() {
 #ifdef HALLA_WEBRTC_NATIVE
     if (m_native) {
         m_native->peers.clear();
+        m_native->videoTrack = nullptr;
+        m_native->videoSource = nullptr;
         m_native->factory = nullptr;
         m_native->signalingThread.reset();
         m_native->workerThread.reset();
@@ -125,7 +185,12 @@ bool HallaWebRtcSession::ensureNativeFactory() {
         webrtc::CreateBuiltinAudioDecoderFactory(),
         nullptr, nullptr,
         nullptr, nullptr);
-    if (m_native->factory) AppLog::info(tr("WebRTC nativo inicializado (factory pronta)"));
+    if (m_native->factory) {
+        m_native->videoSource = webrtc::make_ref_counted<QtScreenVideoSource>();
+        m_native->videoTrack = m_native->factory->CreateVideoTrack(m_native->videoSource, "halla-screen");
+        if (m_native->videoTrack) m_native->videoTrack->set_enabled(true);
+        AppLog::info(tr("WebRTC nativo inicializado (factory e video track prontos)"));
+    }
     return m_native->factory != nullptr;
 }
 
@@ -199,6 +264,16 @@ void HallaWebRtcSession::closePeer(int peerId) {
         m_native->peers.erase(it);
     }
 }
+
+void HallaWebRtcSession::captureFrame() {
+    if (!m_broadcasting || !m_native || !m_native->videoSource) return;
+    QScreen* screen = QGuiApplication::primaryScreen();
+    if (!screen) return;
+    QPixmap pix = screen->grabWindow(0);
+    if (pix.isNull()) return;
+    QImage img = pix.toImage().scaled(1280, 720, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    m_native->videoSource->PushImage(img);
+}
 #endif
 
 void HallaWebRtcSession::startBroadcast() {
@@ -210,6 +285,15 @@ void HallaWebRtcSession::startBroadcast() {
         return;
     }
     m_broadcasting = true;
+    if (!m_captureTimer) {
+        m_captureTimer = new QTimer(this);
+        connect(m_captureTimer, &QTimer::timeout, this, [this] {
+#ifdef HALLA_WEBRTC_NATIVE
+            captureFrame();
+#endif
+        });
+    }
+    m_captureTimer->start(100);
     if (m_net) m_net->sendWebRtcStreamStart();
     emit broadcastStarted();
 #else
@@ -223,6 +307,7 @@ void HallaWebRtcSession::startBroadcast() {
 void HallaWebRtcSession::stopBroadcast() {
     if (!m_broadcasting) return;
     m_broadcasting = false;
+    if (m_captureTimer) m_captureTimer->stop();
 #ifdef HALLA_WEBRTC_NATIVE
     for (auto& kv : m_native->peers) if (kv.second->pc) kv.second->pc->Close();
     m_native->peers.clear();

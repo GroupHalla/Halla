@@ -5,6 +5,7 @@
 #include <string>
 #include <QJsonObject>
 #include <QString>
+class QTimer;
 
 class NetSession;
 
@@ -39,6 +40,7 @@ public:
     void closePeer(int peerId);
     void sendNativeIce(int peerId, const std::string& candidate, const std::string& mid, int mline);
     void sendNativeOffer(int peerId, const std::string& sdp);
+    void captureFrame();
 #endif
 
 signals:
@@ -50,5 +52,6 @@ private:
     struct NativeState;
     std::unique_ptr<NativeState> m_native;
     NetSession* m_net = nullptr;
+    QTimer* m_captureTimer = nullptr;
     bool m_broadcasting = false;
 };
