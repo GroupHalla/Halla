@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <memory>
+#include <string>
 #include <QJsonObject>
 #include <QString>
 
@@ -34,6 +35,17 @@ signals:
 
 private:
     struct NativeState;
+    struct PeerContext;
+#ifdef HALLA_WEBRTC_NATIVE
+    bool ensureNativeFactory();
+    PeerContext* ensurePeer(int peerId);
+    void createOfferForPeer(int peerId);
+    void setRemoteAnswer(int peerId, const QString& sdp);
+    void addRemoteIce(int peerId, const QJsonObject& signal);
+    void closePeer(int peerId);
+    void sendNativeIce(int peerId, const std::string& candidate, const std::string& mid, int mline);
+    void sendNativeOffer(int peerId, const std::string& sdp);
+#endif
     std::unique_ptr<NativeState> m_native;
     NetSession* m_net = nullptr;
     bool m_broadcasting = false;
