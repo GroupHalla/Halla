@@ -1,0 +1,84 @@
+name: Build Windows MSVC WebRTC Client
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdk_version:
+        description: 'Halla-WebRTC-Builds release tag'
+        required: true
+        default: 'v0.1.4'
+
+permissions:
+  contents: read
+
+jobs:
+  build-msvc-webrtc:
+    name: Build Windows x64 MSVC + WebRTC
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC dev shell
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt MSVC
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtmultimedia qtspeech'
+          cache: true
+
+      - name: Install native dependencies with vcpkg
+        shell: pwsh
+        run: |
+          vcpkg install opus:x64-windows openssl:x64-windows
+
+      - name: Download Halla WebRTC SDK
+        shell: pwsh
+        env:
+          SDK_TOKEN: ${{ secrets.HALLA_WEBRTC_SDK_TOKEN }}
+          SDK_VERSION: ${{ github.event.inputs.sdk_version }}
+        run: |
+          if (-not $env:SDK_TOKEN) { throw "Missing secret HALLA_WEBRTC_SDK_TOKEN" }
+          $url = "https://github.com/GroupHalla/Halla-WebRTC-Builds/releases/download/$env:SDK_VERSION/halla-webrtc-windows-x64-$env:SDK_VERSION.zip"
+          New-Item -ItemType Directory -Force third_party/webrtc-sdk | Out-Null
+          Invoke-WebRequest -Headers @{ Authorization = "Bearer $env:SDK_TOKEN" } -Uri $url -OutFile webrtc-sdk.zip
+          Expand-Archive -Path webrtc-sdk.zip -DestinationPath third_party/webrtc-sdk -Force
+          Get-ChildItem third_party/webrtc-sdk -Recurse | Select-Object -First 30 | ForEach-Object { Write-Host $_.FullName }
+
+      - name: Configure CMake MSVC WebRTC
+        shell: pwsh
+        run: |
+          cmake -S . -B build-msvc-webrtc -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DHALLA_WEBRTC_SDK_DIR="$pwd\third_party\webrtc-sdk" `
+            -DHALLA_ENABLE_WEBRTC_NATIVE=ON
+
+      - name: Build MSVC WebRTC client
+        shell: pwsh
+        run: cmake --build build-msvc-webrtc --config Release --verbose
+
+      - name: Prepare portable artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist\Halla-WebRTC | Out-Null
+          Copy-Item build-msvc-webrtc\Release\Halla.exe dist\Halla-WebRTC\
+          & "$env:Qt6_DIR\..\..\bin\windeployqt.exe" --release --no-translations --dir dist\Halla-WebRTC dist\Halla-WebRTC\Halla.exe
+          Copy-Item packaging\LEIA-ME.txt dist\Halla-WebRTC\ -ErrorAction SilentlyContinue
+          Copy-Item packaging\LICENSE.txt dist\Halla-WebRTC\ -ErrorAction SilentlyContinue
+          Compress-Archive -Path dist\Halla-WebRTC\* -DestinationPath Halla-WebRTC-msvc-x64.zip -Force
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Halla-WebRTC-msvc-x64
+          path: Halla-WebRTC-msvc-x64.zip
