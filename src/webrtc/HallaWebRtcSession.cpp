@@ -60,7 +60,7 @@ private:
 #ifdef HALLA_WEBRTC_NATIVE
 struct HallaWebRtcSession::PeerContext {
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pc;
-    webrtc::scoped_refptr<PeerObserver> observer;
+    std::unique_ptr<PeerObserver> observer;
     std::vector<webrtc::scoped_refptr<webrtc::CreateSessionDescriptionObserver>> pendingOffers;
 };
 #endif
@@ -135,7 +135,7 @@ HallaWebRtcSession::PeerContext* HallaWebRtcSession::ensurePeer(int peerId) {
     if (it != m_native->peers.end()) return it->second.get();
 
     auto ctx = std::make_unique<PeerContext>();
-    ctx->observer = webrtc::make_ref_counted<PeerObserver>(this, peerId);
+    ctx->observer = std::make_unique<PeerObserver>(this, peerId);
     webrtc::PeerConnectionInterface::RTCConfiguration cfg;
     webrtc::PeerConnectionInterface::IceServer stun;
     stun.urls.push_back("stun:stun.l.google.com:19302");
