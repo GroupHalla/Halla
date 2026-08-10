@@ -3,6 +3,11 @@
 #include "core/AppLog.h"
 
 #ifdef HALLA_WEBRTC_NATIVE
+#include <cstddef>
+// Some Chromium/WebRTC headers refer to nullptr_t unqualified when compiled
+// outside their GN toolchain. Provide the same global alias for C++ compilers
+// that only expose std::nullptr_t.
+using nullptr_t = std::nullptr_t;
 #include "api/create_peerconnection_factory.h"
 #include "api/audio_codecs/builtin_audio_decoder_factory.h"
 #include "api/audio_codecs/builtin_audio_encoder_factory.h"
