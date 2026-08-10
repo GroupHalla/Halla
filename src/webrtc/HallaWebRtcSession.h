@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <memory>
 #include <QJsonObject>
 #include <QString>
 
@@ -32,6 +33,8 @@ signals:
     void broadcastStopped();
 
 private:
+    struct NativeState;
+    std::unique_ptr<NativeState> m_native;
     NetSession* m_net = nullptr;
     bool m_broadcasting = false;
 };

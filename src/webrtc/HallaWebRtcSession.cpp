@@ -2,11 +2,43 @@
 #include "net/NetSession.h"
 #include "core/AppLog.h"
 
+#ifdef HALLA_WEBRTC_NATIVE
+#include "api/create_peerconnection_factory.h"
+#include "api/audio_codecs/builtin_audio_decoder_factory.h"
+#include "api/audio_codecs/builtin_audio_encoder_factory.h"
+#include "api/video_codecs/builtin_video_decoder_factory.h"
+#include "api/video_codecs/builtin_video_encoder_factory.h"
+#include "rtc_base/ssl_adapter.h"
+#include "rtc_base/thread.h"
+#endif
+
+struct HallaWebRtcSession::NativeState {
+#ifdef HALLA_WEBRTC_NATIVE
+    std::unique_ptr<webrtc::Thread> networkThread;
+    std::unique_ptr<webrtc::Thread> workerThread;
+    std::unique_ptr<webrtc::Thread> signalingThread;
+    webrtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> factory;
+    bool sslInitialized = false;
+#endif
+};
+
 HallaWebRtcSession::HallaWebRtcSession(NetSession* net, QObject* parent)
-    : QObject(parent), m_net(net) {}
+    : QObject(parent), m_native(std::make_unique<NativeState>()), m_net(net) {}
 
 HallaWebRtcSession::~HallaWebRtcSession() {
     stopBroadcast();
+#ifdef HALLA_WEBRTC_NATIVE
+    if (m_native) {
+        m_native->factory = nullptr;
+        m_native->signalingThread.reset();
+        m_native->workerThread.reset();
+        m_native->networkThread.reset();
+        if (m_native->sslInitialized) {
+            webrtc::CleanupSSL();
+            m_native->sslInitialized = false;
+        }
+    }
+#endif
 }
 
 bool HallaWebRtcSession::isNativeAvailable() const {
@@ -19,9 +51,43 @@ bool HallaWebRtcSession::isNativeAvailable() const {
 
 void HallaWebRtcSession::startBroadcast() {
 #ifdef HALLA_WEBRTC_NATIVE
-    // TODO: inicializar PeerConnectionFactory, capturer nativo e video track.
-    // A API pública e o signaling já estão prontos; esta seção será ligada ao
-    // SDK libwebrtc pré-compilado na próxima etapa.
+    if (!m_native->sslInitialized) {
+        if (!webrtc::InitializeSSL()) {
+            const QString reason = tr("Falha ao inicializar SSL do WebRTC nativo");
+            AppLog::error(reason);
+            emit unavailable(reason);
+            return;
+        }
+        m_native->sslInitialized = true;
+    }
+    if (!m_native->factory) {
+        m_native->networkThread = webrtc::Thread::CreateWithSocketServer();
+        m_native->workerThread = webrtc::Thread::Create();
+        m_native->signalingThread = webrtc::Thread::Create();
+        if (!m_native->networkThread || !m_native->workerThread || !m_native->signalingThread
+                || !m_native->networkThread->Start() || !m_native->workerThread->Start()
+                || !m_native->signalingThread->Start()) {
+            const QString reason = tr("Falha ao iniciar threads do WebRTC nativo");
+            AppLog::error(reason);
+            emit unavailable(reason);
+            return;
+        }
+        m_native->factory = webrtc::CreatePeerConnectionFactory(
+            m_native->networkThread.get(), m_native->workerThread.get(), m_native->signalingThread.get(),
+            nullptr,
+            webrtc::CreateBuiltinAudioEncoderFactory(),
+            webrtc::CreateBuiltinAudioDecoderFactory(),
+            webrtc::CreateBuiltinVideoEncoderFactory(),
+            webrtc::CreateBuiltinVideoDecoderFactory(),
+            nullptr, nullptr);
+        if (!m_native->factory) {
+            const QString reason = tr("Falha ao criar PeerConnectionFactory WebRTC nativa");
+            AppLog::error(reason);
+            emit unavailable(reason);
+            return;
+        }
+        AppLog::info(tr("WebRTC nativo inicializado (PeerConnectionFactory pronta)"));
+    }
     m_broadcasting = true;
     if (m_net) m_net->sendWebRtcStreamStart();
     emit broadcastStarted();
