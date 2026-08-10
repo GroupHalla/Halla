@@ -120,7 +120,8 @@ private:
         }
         return output;
     }
-};NetSession::NetSession(QObject* parent) : QObject(parent) {
+};
+NetSession::NetSession(QObject* parent) : QObject(parent) {
     m_tcp = new QSslSocket(this);
     connect(m_tcp, &QTcpSocket::connected, this, &NetSession::onConnected);
     connect(m_tcp, &QTcpSocket::readyRead, this, &NetSession::onReadyRead);
