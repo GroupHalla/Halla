@@ -6,7 +6,7 @@ on:
       sdk_version:
         description: 'Halla-WebRTC-Builds release tag'
         required: true
-        default: 'v0.1.7'
+        default: 'v0.1.6'
 
 permissions:
   contents: read
