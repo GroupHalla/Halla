@@ -9,12 +9,19 @@
 #include <QHostInfo>
 #include <QSettings>
 #include <QCryptographicHash>
+#ifndef HALLA_WEBRTC_NATIVE
 #include <openssl/evp.h>
+#endif
 
 class AeadVoiceCipher {
 public:
     static QByteArray encrypt(const QByteArray& plain, const QByteArray& key,
                               quint32 senderId, quint16 seq, quint32 counter) {
+#ifdef HALLA_WEBRTC_NATIVE
+        Q_UNUSED(senderId);
+        Q_UNUSED(counter);
+        return legacyXor(plain, key, seq);
+#else
         if (plain.isEmpty() || key.size() < 32) return plain;
         QByteArray nonce = makeNonce(senderId, counter, seq);
         QByteArray cipher(plain.size(), 0);
@@ -41,10 +48,15 @@ public:
         out.append(cipher);
         out.append(tag);
         return out;
+#endif
     }
 
     static QByteArray decrypt(const QByteArray& packet, const QByteArray& key,
                               quint32 senderId, quint16 seq) {
+#ifdef HALLA_WEBRTC_NATIVE
+        Q_UNUSED(senderId);
+        return legacyXor(packet, key, seq);
+#else
         if (key.size() < 32) return packet;
         if (packet.size() < 4 + 16) return QByteArray();
         quint32 counter = 0;
@@ -70,9 +82,11 @@ public:
         if (ok) ok = EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(plain.data()) + total, &outLen) == 1;
         EVP_CIPHER_CTX_free(ctx);
         return ok ? plain : QByteArray();
+#endif
     }
 
 private:
+#ifndef HALLA_WEBRTC_NATIVE
     static QByteArray makeNonce(quint32 senderId, quint32 counter, quint16 seq) {
         QByteArray n(12, '\0');
         memcpy(n.data(), &senderId, 4);
@@ -80,8 +94,33 @@ private:
         memcpy(n.data() + 8, &seq, 2);
         return n;
     }
-};
-NetSession::NetSession(QObject* parent) : QObject(parent) {
+#endif
+
+    static QByteArray legacyXor(const QByteArray& data, const QByteArray& key, quint16 seq) {
+        if (data.isEmpty() || key.size() < 16) return data;
+        QByteArray output = data;
+        quint32 state[4];
+        memcpy(state, key.constData(), 16);
+        state[0] ^= seq;
+        state[1] ^= (quint32(seq) << 16);
+        state[2] ^= 0xDEADBEEF;
+        state[3] ^= 0xCAFEBABE;
+        auto rotl = [](quint32 x, int k) -> quint32 { return (x << k) | (x >> (32 - k)); };
+        auto next = [&]() -> quint32 {
+            const quint32 result = rotl(state[0] + state[3], 7) * 9;
+            const quint32 t = state[1] << 9;
+            state[2] ^= state[0]; state[3] ^= state[1]; state[1] ^= state[2]; state[0] ^= state[3];
+            state[2] ^= t; state[3] = rotl(state[3], 11);
+            return result;
+        };
+        for (int i = 0; i < output.size(); i += 4) {
+            quint32 ks = next();
+            const int limit = qMin(4, output.size() - i);
+            for (int j = 0; j < limit; ++j) output[i + j] ^= reinterpret_cast<char*>(&ks)[j];
+        }
+        return output;
+    }
+};NetSession::NetSession(QObject* parent) : QObject(parent) {
     m_tcp = new QSslSocket(this);
     connect(m_tcp, &QTcpSocket::connected, this, &NetSession::onConnected);
     connect(m_tcp, &QTcpSocket::readyRead, this, &NetSession::onReadyRead);
