@@ -1602,18 +1602,20 @@ void MainWindow::toggleScreenShare() {
     }
 
     if (m_actScreenShare->isChecked()) {
-        if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
-            m_webrtcSession->startBroadcast();
-            m_actScreenShare->setIcon(HIcons::screenShare(true));
-            t->data().users[t->data().selfId].screensharing = true;
-            emit t->net()->stateChanged();
-            return;
-        }
         ScreenShareDialog dlg(this);
         if (dlg.exec() == QDialog::Accepted) {
             m_screenShareSourceType = dlg.selectedSourceType();
             m_screenShareSourceId = dlg.selectedSourceId();
             m_screenShareSeq = 0;
+
+            if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
+                m_webrtcSession->setCaptureSource(m_screenShareSourceType, m_screenShareSourceId);
+                m_webrtcSession->startBroadcast();
+                m_actScreenShare->setIcon(HIcons::screenShare(true));
+                t->data().users[t->data().selfId].screensharing = true;
+                emit t->net()->stateChanged();
+                return;
+            }
 
             if (!m_screenShareTimer) {
                 m_screenShareTimer = new QTimer(this);
@@ -1711,6 +1713,13 @@ void MainWindow::captureAndSendScreen() {
 void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
     ServerTab* t = currentTab();
     if (!t) return;
+
+    // No WebRTC nativo, a transmissão local não deve abrir a janela legada
+    // de preview JPEG (ela ficaria em "Aguardando transmissão...").
+    if (on && m_webrtcSession && m_webrtcSession->isBroadcasting() &&
+        userId == t->data().selfId) {
+        return;
+    }
 
     if (on) {
         if (!m_screenShareWindows.contains(userId)) {

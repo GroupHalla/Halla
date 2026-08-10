@@ -5,6 +5,7 @@
 #include <string>
 #include <QJsonObject>
 #include <QString>
+#include <QtGlobal>
 class QTimer;
 
 class NetSession;
@@ -23,6 +24,7 @@ public:
 
     bool isNativeAvailable() const;
     bool isBroadcasting() const { return m_broadcasting; }
+    void setCaptureSource(int sourceType, quintptr sourceId);
 
 public slots:
     void startBroadcast();
@@ -53,5 +55,7 @@ private:
     std::unique_ptr<NativeState> m_native;
     NetSession* m_net = nullptr;
     QTimer* m_captureTimer = nullptr;
+    int m_captureSourceType = 0;
+    quintptr m_captureSourceId = 0;
     bool m_broadcasting = false;
 };

@@ -9,6 +9,10 @@
 #include <QScreen>
 #include <QTimer>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 #ifdef HALLA_WEBRTC_NATIVE
 #include <algorithm>
 #include <cstddef>
@@ -34,6 +38,37 @@ using nullptr_t = std::nullptr_t;
 
 #ifdef HALLA_WEBRTC_NATIVE
 namespace {
+#ifdef Q_OS_WIN
+static QPixmap grabWindowsAppForWebRtc(quintptr sourceId) {
+    HWND hwnd = reinterpret_cast<HWND>(sourceId);
+    if (!hwnd) return QPixmap();
+
+    RECT rect;
+    GetWindowRect(hwnd, &rect);
+    const int width = rect.right - rect.left;
+    const int height = rect.bottom - rect.top;
+    if (width <= 0 || height <= 0) return QPixmap();
+
+    HDC hdcWindow = GetWindowDC(hwnd);
+    if (!hdcWindow) return QPixmap();
+    HDC hdcMem = CreateCompatibleDC(hdcWindow);
+    HBITMAP hbmMem = CreateCompatibleBitmap(hdcWindow, width, height);
+    HGDIOBJ hOld = SelectObject(hdcMem, hbmMem);
+
+    BOOL ok = PrintWindow(hwnd, hdcMem, 2);
+    if (!ok) ok = PrintWindow(hwnd, hdcMem, 0);
+
+    SelectObject(hdcMem, hOld);
+    DeleteDC(hdcMem);
+    ReleaseDC(hwnd, hdcWindow);
+
+    QPixmap pix;
+    if (ok) pix = QPixmap::fromImage(QImage::fromHBITMAP(hbmMem));
+    DeleteObject(hbmMem);
+    return pix;
+}
+#endif
+
 class NoopSetObserver : public webrtc::SetSessionDescriptionObserver {
 public:
     void OnSuccess() override {}
@@ -238,6 +273,11 @@ bool HallaWebRtcSession::isNativeAvailable() const {
 #endif
 }
 
+void HallaWebRtcSession::setCaptureSource(int sourceType, quintptr sourceId) {
+    m_captureSourceType = sourceType;
+    m_captureSourceId = sourceId;
+}
+
 #ifdef HALLA_WEBRTC_NATIVE
 bool HallaWebRtcSession::ensureNativeFactory() {
     if (!m_native->sslInitialized) {
@@ -350,9 +390,26 @@ void HallaWebRtcSession::closePeer(int peerId) {
 
 void HallaWebRtcSession::captureFrame() {
     if (!m_broadcasting || !m_native || !m_native->videoSource) return;
-    QScreen* screen = QGuiApplication::primaryScreen();
-    if (!screen) return;
-    QPixmap pix = screen->grabWindow(0);
+
+    QPixmap pix;
+    QScreen* primary = QGuiApplication::primaryScreen();
+    if (m_captureSourceType == 0) {
+        const QList<QScreen*> screens = QGuiApplication::screens();
+        const int screenIndex = int(m_captureSourceId);
+        if (screenIndex >= 0 && screenIndex < screens.size() && screens[screenIndex]) {
+            pix = screens[screenIndex]->grabWindow(0);
+        } else if (primary) {
+            pix = primary->grabWindow(0);
+        }
+    } else {
+#ifdef Q_OS_WIN
+        if (m_captureSourceId > 0) pix = grabWindowsAppForWebRtc(m_captureSourceId);
+#else
+        if (primary && m_captureSourceId > 0) pix = primary->grabWindow(WId(m_captureSourceId));
+#endif
+        if (pix.isNull() && primary) pix = primary->grabWindow(0);
+    }
+
     if (pix.isNull()) return;
     QImage img = pix.toImage().scaled(1280, 720, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     m_native->videoSource->PushImage(img);
