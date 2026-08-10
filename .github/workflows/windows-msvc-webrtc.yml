@@ -57,7 +57,7 @@ jobs:
       - name: Configure CMake MSVC WebRTC
         shell: pwsh
         run: |
-          cmake -S . -B build-msvc-webrtc -G "Visual Studio 17 2022" -A x64 `
+          cmake -S . -B build-msvc-webrtc -G "Ninja" `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DCMAKE_BUILD_TYPE=Release `
             -DHALLA_WEBRTC_SDK_DIR="$pwd\third_party\webrtc-sdk" `
@@ -65,13 +65,13 @@ jobs:
 
       - name: Build MSVC WebRTC client
         shell: pwsh
-        run: cmake --build build-msvc-webrtc --config Release --verbose
+        run: cmake --build build-msvc-webrtc --verbose
 
       - name: Prepare portable artifact
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist\Halla-WebRTC | Out-Null
-          Copy-Item build-msvc-webrtc\Release\Halla.exe dist\Halla-WebRTC\
+          Copy-Item build-msvc-webrtc\Halla.exe dist\Halla-WebRTC\
           & "$env:Qt6_DIR\..\..\bin\windeployqt.exe" --release --no-translations --dir dist\Halla-WebRTC dist\Halla-WebRTC\Halla.exe
           Copy-Item packaging\LEIA-ME.txt dist\Halla-WebRTC\ -ErrorAction SilentlyContinue
           Copy-Item packaging\LICENSE.txt dist\Halla-WebRTC\ -ErrorAction SilentlyContinue
