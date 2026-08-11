@@ -48,6 +48,9 @@ FetchContent_Declare(qtkeychain
     GIT_REPOSITORY https://github.com/frankosterfeld/qtkeychain.git
     GIT_TAG ad7344c45a86a4f66cbafc4b081b5f7b876cb0b7
     GIT_SHALLOW FALSE
+    PATCH_COMMAND ${CMAKE_COMMAND}
+        -DQTKEYCHAIN_CMAKELISTS=<SOURCE_DIR>/qtkeychain/CMakeLists.txt
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/PatchQtKeychain.cmake
 )
 FetchContent_MakeAvailable(qtkeychain)
 
