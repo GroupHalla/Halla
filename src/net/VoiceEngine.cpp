@@ -86,11 +86,15 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
     if (!inDev.isNull()) {
         m_source = new QAudioSource(inDev, fmt, this);
+        // Dá folga para a captura de voz sobreviver a pequenos picos de CPU
+        // causados pelo grab/encode de tela sem perder amostras.
+        m_source->setBufferSize(960 * 2 * 20); // ~400 ms
         m_srcDev = m_source->start();
-        m_captureBuf.reserve(960 * 2 * 2);
+        m_captureBuf.reserve(960 * 2 * 20);
 
         m_capTimer = new QTimer(this);
-        m_capTimer->setInterval(10);
+        m_capTimer->setTimerType(Qt::PreciseTimer);
+        m_capTimer->setInterval(5);
         connect(m_capTimer, &QTimer::timeout, this, &VoiceEngine::captureTick);
         m_capTimer->start();
     } else {
@@ -103,7 +107,8 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         m_sinkDev = m_sink->start();
 
         m_playTimer = new QTimer(this);
-        m_playTimer->setInterval(10);
+        m_playTimer->setTimerType(Qt::PreciseTimer);
+        m_playTimer->setInterval(5);
         connect(m_playTimer, &QTimer::timeout, this, &VoiceEngine::playbackTick);
         m_playTimer->start();
     } else {

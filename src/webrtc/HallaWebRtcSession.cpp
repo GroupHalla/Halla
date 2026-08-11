@@ -396,6 +396,20 @@ void HallaWebRtcSession::createOfferForPeer(int peerId) {
             AppLog::warn(QStringLiteral("WebRTC AddTrack falhou: %1")
                              .arg(QString::fromStdString(result.error().message())));
         } else {
+            auto sender = result.MoveValue();
+            auto params = sender->GetParameters();
+            if (params.encodings.empty()) params.encodings.emplace_back();
+            for (auto& encoding : params.encodings) {
+                encoding.max_framerate = 30.0;
+                // 960x540 screen-share at 30 fps. Keeping this bounded prevents
+                // VP8/network spikes from starving UDP voice.
+                encoding.max_bitrate_bps = 1200 * 1000;
+            }
+            const auto setParamsError = sender->SetParameters(params);
+            if (!setParamsError.ok()) {
+                AppLog::warn(QStringLiteral("WebRTC SetParameters falhou: %1")
+                                 .arg(QString::fromStdString(setParamsError.message())));
+            }
             ctx->trackAdded = true;
         }
     }
@@ -456,7 +470,7 @@ void HallaWebRtcSession::captureFrame() {
     }
 
     if (pix.isNull()) return;
-    QImage img = pix.toImage().scaled(1280, 720, Qt::KeepAspectRatio, Qt::FastTransformation);
+    QImage img = pix.toImage().scaled(960, 540, Qt::KeepAspectRatio, Qt::FastTransformation);
     m_native->videoSource->PushImage(img);
 }
 #endif
@@ -472,6 +486,7 @@ void HallaWebRtcSession::startBroadcast() {
     m_broadcasting = true;
     if (!m_captureTimer) {
         m_captureTimer = new QTimer(this);
+        m_captureTimer->setTimerType(Qt::PreciseTimer);
         connect(m_captureTimer, &QTimer::timeout, this, [this] {
 #ifdef HALLA_WEBRTC_NATIVE
             captureFrame();
