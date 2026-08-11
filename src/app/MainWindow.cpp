@@ -877,9 +877,18 @@ void MainWindow::wireTab(ServerTab* tab) {
     }
     connect(tab->tree(), &ServerTreeWidget::screenshareHovered, this, &MainWindow::handleScreenshareHovered);
     connect(tab->tree(), &ServerTreeWidget::screenshareHoverLeft, this, [this] {
-        for (QWidget* w : QApplication::topLevelWidgets()) {
-            if (dynamic_cast<ScreenshareHoverPopup*>(w)) w->close();
-        }
+        // Atrasa um pouco para permitir mover o mouse do nome do usuário para
+        // o botão. Se o cursor não estiver no botão, ele some imediatamente
+        // depois desse pequeno intervalo.
+        QTimer::singleShot(180, this, [] {
+            const QPoint cursor = QCursor::pos();
+            for (QWidget* w : QApplication::topLevelWidgets()) {
+                if (dynamic_cast<ScreenshareHoverPopup*>(w)) {
+                    const QRect globalRect(w->mapToGlobal(QPoint(0, 0)), w->size());
+                    if (!globalRect.contains(cursor)) w->close();
+                }
+            }
+        });
     });
 }
 
