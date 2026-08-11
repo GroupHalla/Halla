@@ -5,7 +5,9 @@ root = Path(__file__).resolve().parents[1]
 version = (root / "VERSION").read_text(encoding="utf-8").strip()
 assert re.fullmatch(r"\d+\.\d+\.\d+", version), version
 assert "@HALLA_VERSION@" in (root / "src/version.h.in").read_text(encoding="utf-8")
-assert "@HALLA_VERSION@" in (root / "src/halla.rc.in").read_text(encoding="utf-8")
+resource_template = (root / "src/halla.rc.in").read_text(encoding="utf-8")
+assert "@HALLA_VERSION@" in resource_template
+assert "@PROJECT_VERSION_MAJOR@" in resource_template
 cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8")
 assert "file(STRINGS" in cmake and "VERSION" in cmake
 protocol = (root / "src/net/HallaProtocol.h").read_text(encoding="utf-8")
