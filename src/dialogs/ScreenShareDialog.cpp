@@ -140,6 +140,29 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
 
     mainLayout->addWidget(qualityBox);
 
+    QFrame* audioBox = new QFrame(this);
+    audioBox->setStyleSheet(QStringLiteral("background-color: %1; border-radius: 8px; padding: 4px;").arg(qualityBoxBg));
+    QHBoxLayout* aLayout = new QHBoxLayout(audioBox);
+    aLayout->setContentsMargins(12, 8, 12, 8);
+    aLayout->setSpacing(10);
+
+    QLabel* audioLabel = new QLabel(tr("ÁUDIO DA TRANSMISSÃO:"), audioBox);
+    audioLabel->setStyleSheet(QStringLiteral("color: %1; font-size: 11px; font-weight: bold;").arg(qualityBoxText));
+    aLayout->addWidget(audioLabel);
+
+    m_audioCombo = new QComboBox(audioBox);
+    m_audioCombo->addItem(tr("Sem áudio do PC"), 0);
+    m_audioCombo->addItem(tr("Áudio de todo o PC"), 1);
+    m_audioCombo->setCurrentIndex(0);
+    m_audioCombo->setStyleSheet(m_qualityCombo->styleSheet());
+    aLayout->addWidget(m_audioCombo, 1);
+
+    QLabel* audioHint = new QLabel(tr("Captura WASAPI loopback."), audioBox);
+    audioHint->setStyleSheet(QStringLiteral("color: %1; font-size: 10px; font-weight: normal;").arg(qualityBoxText));
+    aLayout->addWidget(audioHint);
+
+    mainLayout->addWidget(audioBox);
+
     QHBoxLayout* btnRow = new QHBoxLayout;
     btnRow->addStretch(1);
     btnRow->setSpacing(10);
@@ -204,6 +227,10 @@ int ScreenShareDialog::selectedBitrateKbps() const {
     case 1: return 4500;
     default: return 8000;
     }
+}
+
+bool ScreenShareDialog::captureSystemAudio() const {
+    return m_audioCombo && m_audioCombo->currentData().toInt() == 1;
 }
 
 void ScreenShareDialog::populateScreens() {

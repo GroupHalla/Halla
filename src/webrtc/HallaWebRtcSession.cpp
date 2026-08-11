@@ -472,6 +472,13 @@ void HallaWebRtcSession::setCaptureQuality(int width, int height, int fps, int b
     }
 }
 
+void HallaWebRtcSession::setCaptureSystemAudio(bool enabled) {
+    m_captureSystemAudio = enabled;
+    if (enabled) {
+        AppLog::info(QStringLiteral("WebRTC: captura de áudio de todo o PC solicitada (WASAPI loopback pendente)"));
+    }
+}
+
 #ifdef HALLA_WEBRTC_NATIVE
 bool HallaWebRtcSession::ensureNativeFactory() {
     if (!m_native->sslInitialized) {

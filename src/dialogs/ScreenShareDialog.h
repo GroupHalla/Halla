@@ -20,6 +20,7 @@ public:
     int selectedHeight() const;
     int selectedFps() const;
     int selectedBitrateKbps() const;
+    bool captureSystemAudio() const;
 
 private:
     void populateWindows();
@@ -29,6 +30,7 @@ private:
     QListWidget* m_screenList;
     QListWidget* m_windowList;
     QComboBox* m_qualityCombo = nullptr;
+    QComboBox* m_audioCombo = nullptr;
     
     int m_selectedSourceType = 0;
     quintptr m_selectedSourceId = 0;
