@@ -487,7 +487,10 @@ bool HallaWebRtcSession::ensureNativeFactory() {
     if (m_native->factory) {
         m_native->videoSource = webrtc::make_ref_counted<QtScreenVideoSource>();
         m_native->videoTrack = m_native->factory->CreateVideoTrack(m_native->videoSource, "halla-screen");
-        if (m_native->videoTrack) m_native->videoTrack->set_enabled(true);
+        if (m_native->videoTrack) {
+            m_native->videoTrack->set_enabled(true);
+            m_native->videoTrack->set_content_hint(webrtc::VideoTrackInterface::ContentHint::kDetailed);
+        }
         AppLog::info(tr("WebRTC nativo inicializado (factory e video track prontos)"));
     }
     return m_native->factory != nullptr;
@@ -541,10 +544,11 @@ void HallaWebRtcSession::createOfferForPeer(int peerId) {
             auto params = sender->GetParameters();
             if (params.encodings.empty()) params.encodings.emplace_back();
             for (auto& encoding : params.encodings) {
-                encoding.max_framerate = 30.0;
-                // 1280x720 screen-share at 30 fps. Keeping this bounded prevents
-                // VP8/network spikes from starving UDP voice.
-                encoding.max_bitrate_bps = 2500 * 1000;
+                encoding.max_framerate = 60.0;
+                // 1920x1080 screen-share at 60 fps. This is an experimental
+                // high-quality profile; DXGI keeps capture cheap, while the
+                // bitrate cap avoids unbounded VP8/network spikes.
+                encoding.max_bitrate_bps = 8000 * 1000;
             }
             const auto setParamsError = sender->SetParameters(params);
             if (!setParamsError.ok()) {
@@ -619,7 +623,7 @@ void HallaWebRtcSession::captureFrame() {
 
     if (frameImage.isNull() && !pix.isNull()) frameImage = pix.toImage();
     if (frameImage.isNull()) return;
-    QImage img = frameImage.scaled(1280, 720, Qt::KeepAspectRatio, Qt::FastTransformation);
+    QImage img = frameImage.scaled(1920, 1080, Qt::KeepAspectRatio, Qt::FastTransformation);
     m_native->videoSource->PushImage(img);
 }
 #endif
@@ -642,7 +646,7 @@ void HallaWebRtcSession::startBroadcast() {
 #endif
         });
     }
-    m_captureTimer->start(33);
+    m_captureTimer->start(16);
     if (m_net) m_net->sendWebRtcStreamStart();
     emit broadcastStarted();
 #else
