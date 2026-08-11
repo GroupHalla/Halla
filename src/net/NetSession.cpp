@@ -11,6 +11,25 @@
 #include <QCryptographicHash>
 #ifndef HALLA_WEBRTC_NATIVE
 #include <openssl/evp.h>
+#else
+extern "C" {
+struct evp_aead_st;
+typedef struct evp_aead_st EVP_AEAD;
+struct evp_aead_ctx_st;
+typedef struct evp_aead_ctx_st EVP_AEAD_CTX;
+const EVP_AEAD* EVP_aead_chacha20_poly1305(void);
+EVP_AEAD_CTX* EVP_AEAD_CTX_new(const EVP_AEAD* aead, const unsigned char* key,
+                               size_t key_len, size_t tag_len);
+void EVP_AEAD_CTX_free(EVP_AEAD_CTX* ctx);
+int EVP_AEAD_CTX_seal(const EVP_AEAD_CTX* ctx, unsigned char* out, size_t* out_len,
+                      size_t max_out_len, const unsigned char* nonce, size_t nonce_len,
+                      const unsigned char* in, size_t in_len,
+                      const unsigned char* ad, size_t ad_len);
+int EVP_AEAD_CTX_open(const EVP_AEAD_CTX* ctx, unsigned char* out, size_t* out_len,
+                      size_t max_out_len, const unsigned char* nonce, size_t nonce_len,
+                      const unsigned char* in, size_t in_len,
+                      const unsigned char* ad, size_t ad_len);
+}
 #endif
 
 class AeadVoiceCipher {
@@ -18,9 +37,25 @@ public:
     static QByteArray encrypt(const QByteArray& plain, const QByteArray& key,
                               quint32 senderId, quint16 seq, quint32 counter) {
 #ifdef HALLA_WEBRTC_NATIVE
-        Q_UNUSED(senderId);
-        Q_UNUSED(counter);
-        return legacyXor(plain, key, seq);
+        if (plain.isEmpty() || key.size() < 32) return plain;
+        QByteArray nonce = makeNonce(senderId, counter, seq);
+        QByteArray sealed(plain.size() + 16, 0);
+        size_t outLen = 0;
+        EVP_AEAD_CTX* ctx = EVP_AEAD_CTX_new(EVP_aead_chacha20_poly1305(),
+            reinterpret_cast<const unsigned char*>(key.constData()), 32, 16);
+        const int ok = ctx && EVP_AEAD_CTX_seal(ctx,
+            reinterpret_cast<unsigned char*>(sealed.data()), &outLen, sealed.size(),
+            reinterpret_cast<const unsigned char*>(nonce.constData()), nonce.size(),
+            reinterpret_cast<const unsigned char*>(plain.constData()), plain.size(),
+            nullptr, 0);
+        EVP_AEAD_CTX_free(ctx);
+        if (!ok || outLen == 0) return QByteArray();
+        sealed.resize(int(outLen));
+        QByteArray out;
+        out.reserve(4 + sealed.size());
+        out.append(reinterpret_cast<const char*>(&counter), 4);
+        out.append(sealed);
+        return out;
 #else
         if (plain.isEmpty() || key.size() < 32) return plain;
         QByteArray nonce = makeNonce(senderId, counter, seq);
@@ -54,7 +89,28 @@ public:
     static QByteArray decrypt(const QByteArray& packet, const QByteArray& key,
                               quint32 senderId, quint16 seq) {
 #ifdef HALLA_WEBRTC_NATIVE
-        Q_UNUSED(senderId);
+        if (key.size() >= 32 && packet.size() >= 4 + 16) {
+            quint32 counter = 0;
+            memcpy(&counter, packet.constData(), 4);
+            QByteArray nonce = makeNonce(senderId, counter, seq);
+            const char* sealed = packet.constData() + 4;
+            const int sealedLen = packet.size() - 4;
+            QByteArray plain(sealedLen - 16, 0);
+            size_t outLen = 0;
+            EVP_AEAD_CTX* ctx = EVP_AEAD_CTX_new(EVP_aead_chacha20_poly1305(),
+                reinterpret_cast<const unsigned char*>(key.constData()), 32, 16);
+            const int ok = ctx && EVP_AEAD_CTX_open(ctx,
+                reinterpret_cast<unsigned char*>(plain.data()), &outLen, plain.size(),
+                reinterpret_cast<const unsigned char*>(nonce.constData()), nonce.size(),
+                reinterpret_cast<const unsigned char*>(sealed), sealedLen,
+                nullptr, 0);
+            EVP_AEAD_CTX_free(ctx);
+            if (ok && outLen > 0) {
+                plain.resize(int(outLen));
+                return plain;
+            }
+        }
+        // Compatibilidade com pacotes antigos gerados pelo build WebRTC inicial.
         return legacyXor(packet, key, seq);
 #else
         if (key.size() < 32) return packet;
@@ -86,7 +142,6 @@ public:
     }
 
 private:
-#ifndef HALLA_WEBRTC_NATIVE
     static QByteArray makeNonce(quint32 senderId, quint32 counter, quint16 seq) {
         QByteArray n(12, '\0');
         memcpy(n.data(), &senderId, 4);
@@ -94,7 +149,6 @@ private:
         memcpy(n.data() + 8, &seq, 2);
         return n;
     }
-#endif
 
     static QByteArray legacyXor(const QByteArray& data, const QByteArray& key, quint16 seq) {
         if (data.isEmpty() || key.size() < 16) return data;

@@ -26,12 +26,9 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     m_encoder = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &err);
     m_decoder = opus_decoder_create(48000, 1, &err);
     if (m_encoder) {
-        opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(48000));
-        opus_encoder_ctl(m_encoder, OPUS_SET_VBR(0));
-        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
-        opus_encoder_ctl(m_encoder, OPUS_SET_INBAND_FEC(1));
-        opus_encoder_ctl(m_encoder, OPUS_SET_PACKET_LOSS_PERC(10));
-        opus_encoder_ctl(m_encoder, OPUS_SET_COMPLEXITY(5));
+        opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(32000));
+        opus_encoder_ctl(m_encoder, OPUS_SET_VBR(1));
+        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1)); // suprime quadros de silêncio
 
         // Registra o endpoint UDP do PC com um frame Opus válido. Alguns
         // relays antigos ignoram o pacote HALL de 10 bytes sem payload; sem
@@ -43,7 +40,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
         const int encoded = opus_encode(m_encoder, silence, 960,
                                         registration, sizeof(registration));
-        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
+        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1));
         if (encoded > 0 && m_net) {
             for (quint16 seq = 1; seq <= 3; ++seq)
                 m_net->sendVoiceFrame(
@@ -201,7 +198,7 @@ void VoiceEngine::sendEndpointRegistration() {
     opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
     const int encoded = opus_encode(m_encoder, silence, 960,
                                     registration, sizeof(registration));
-    opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
+    opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1));
     if (encoded > 0)
         m_net->sendVoiceFrame(QByteArray(reinterpret_cast<const char*>(registration), encoded), ++m_seq);
 }
@@ -219,11 +216,9 @@ void VoiceEngine::updateCodecSettings() {
         app = OPUS_APPLICATION_AUDIO;
     }
     
-    opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(qMax(bitrate, 48000)));
-    opus_encoder_ctl(m_encoder, OPUS_SET_VBR(0));
-    opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
-    opus_encoder_ctl(m_encoder, OPUS_SET_INBAND_FEC(1));
-    opus_encoder_ctl(m_encoder, OPUS_SET_PACKET_LOSS_PERC(10));
+    opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(bitrate));
+    opus_encoder_ctl(m_encoder, OPUS_SET_VBR(1));
+    opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1));
     opus_encoder_ctl(m_encoder, OPUS_SET_SIGNAL(app == OPUS_APPLICATION_AUDIO ? OPUS_SIGNAL_MUSIC : OPUS_SIGNAL_VOICE));
 }
 

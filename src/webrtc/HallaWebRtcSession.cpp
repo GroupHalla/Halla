@@ -219,10 +219,10 @@ public:
         const int h = img.height() & ~1;
         if (w <= 1 || h <= 1) return;
         auto buffer = webrtc::I420Buffer::Create(w, h);
-        // QImage::Format_RGB32/ARGB32 is stored as BGRA bytes on little-endian
+        // QImage::Format_RGB32 is compatible with libyuv ARGB on little-endian
         // Windows. libyuv is much faster than the previous per-pixel C++ loop
         // and avoids starving audio while screen sharing.
-        const int converted = libyuv::BGRAToI420(
+        const int converted = libyuv::ARGBToI420(
             img.constBits(), img.bytesPerLine(),
             buffer->MutableDataY(), buffer->StrideY(),
             buffer->MutableDataU(), buffer->StrideU(),
