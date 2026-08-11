@@ -26,9 +26,12 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     m_encoder = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &err);
     m_decoder = opus_decoder_create(48000, 1, &err);
     if (m_encoder) {
-        opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(32000));
-        opus_encoder_ctl(m_encoder, OPUS_SET_VBR(1));
-        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1)); // suprime quadros de silêncio
+        opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(48000));
+        opus_encoder_ctl(m_encoder, OPUS_SET_VBR(0));
+        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
+        opus_encoder_ctl(m_encoder, OPUS_SET_INBAND_FEC(1));
+        opus_encoder_ctl(m_encoder, OPUS_SET_PACKET_LOSS_PERC(10));
+        opus_encoder_ctl(m_encoder, OPUS_SET_COMPLEXITY(5));
 
         // Registra o endpoint UDP do PC com um frame Opus válido. Alguns
         // relays antigos ignoram o pacote HALL de 10 bytes sem payload; sem
@@ -40,7 +43,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
         const int encoded = opus_encode(m_encoder, silence, 960,
                                         registration, sizeof(registration));
-        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1));
+        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
         if (encoded > 0 && m_net) {
             for (quint16 seq = 1; seq <= 3; ++seq)
                 m_net->sendVoiceFrame(
@@ -198,7 +201,7 @@ void VoiceEngine::sendEndpointRegistration() {
     opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
     const int encoded = opus_encode(m_encoder, silence, 960,
                                     registration, sizeof(registration));
-    opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1));
+    opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
     if (encoded > 0)
         m_net->sendVoiceFrame(QByteArray(reinterpret_cast<const char*>(registration), encoded), ++m_seq);
 }
@@ -216,7 +219,11 @@ void VoiceEngine::updateCodecSettings() {
         app = OPUS_APPLICATION_AUDIO;
     }
     
-    opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(bitrate));
+    opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(qMax(bitrate, 48000)));
+    opus_encoder_ctl(m_encoder, OPUS_SET_VBR(0));
+    opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
+    opus_encoder_ctl(m_encoder, OPUS_SET_INBAND_FEC(1));
+    opus_encoder_ctl(m_encoder, OPUS_SET_PACKET_LOSS_PERC(10));
     opus_encoder_ctl(m_encoder, OPUS_SET_SIGNAL(app == OPUS_APPLICATION_AUDIO ? OPUS_SIGNAL_MUSIC : OPUS_SIGNAL_VOICE));
 }
 
@@ -401,15 +408,17 @@ void VoiceEngine::playbackTick() {
         m_playQueue.clear();
         return;
     }
-    // escreve no dispositivo enquanto houver espaço e dados
-    QByteArray chunk;
-    while (!m_playQueue.empty() && chunk.size() < 960 * 2 * 8) {
-        chunk.append(m_playQueue.front());
+    // Escreve apenas frames completos quando houver espaço suficiente. A lógica
+    // anterior removia o frame da fila e gravava só bytesFree(), descartando o
+    // restante; isso picotava a voz principalmente durante screen share.
+    int free = int(m_sink->bytesFree());
+    while (!m_playQueue.empty()) {
+        const QByteArray& frame = m_playQueue.front();
+        if (free < frame.size()) break;
+        const qint64 written = m_sinkDev->write(frame.constData(), frame.size());
+        if (written <= 0) break;
+        if (m_recFile) recWrite(frame.constData(), int(written));
+        free -= int(written);
         m_playQueue.pop_front();
-    }
-    if (!chunk.isEmpty()) {
-        const int free = int(m_sink->bytesFree());
-        m_sinkDev->write(chunk.constData(), qMin<qint64>(chunk.size(), free));
-        if (m_recFile) recWrite(chunk.constData(), chunk.size()); // grava o que sai nos fones
     }
 }

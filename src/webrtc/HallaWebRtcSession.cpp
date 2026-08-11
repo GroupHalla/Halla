@@ -34,6 +34,7 @@ using nullptr_t = std::nullptr_t;
 #include "api/video_codecs/video_decoder_factory.h"
 #include "api/video_codecs/video_encoder_factory.h"
 #include "modules/video_coding/codecs/vp8/include/vp8.h"
+#include "libyuv/convert.h"
 #include "rtc_base/ref_counted_object.h"
 #include "rtc_base/ssl_adapter.h"
 #include "rtc_base/thread.h"
@@ -218,29 +219,16 @@ public:
         const int h = img.height() & ~1;
         if (w <= 1 || h <= 1) return;
         auto buffer = webrtc::I420Buffer::Create(w, h);
-        auto clamp = [](int v) -> uint8_t { return uint8_t(v < 0 ? 0 : (v > 255 ? 255 : v)); };
-        for (int y = 0; y < h; ++y) {
-            const QRgb* row = reinterpret_cast<const QRgb*>(img.constScanLine(y));
-            uint8_t* dstY = buffer->MutableDataY() + y * buffer->StrideY();
-            for (int x = 0; x < w; ++x) {
-                const int r = qRed(row[x]);
-                const int g = qGreen(row[x]);
-                const int b = qBlue(row[x]);
-                dstY[x] = clamp(((66 * r + 129 * g + 25 * b + 128) >> 8) + 16);
-            }
-        }
-        for (int y = 0; y < h; y += 2) {
-            const QRgb* row = reinterpret_cast<const QRgb*>(img.constScanLine(y));
-            uint8_t* dstU = buffer->MutableDataU() + (y / 2) * buffer->StrideU();
-            uint8_t* dstV = buffer->MutableDataV() + (y / 2) * buffer->StrideV();
-            for (int x = 0; x < w; x += 2) {
-                const int r = qRed(row[x]);
-                const int g = qGreen(row[x]);
-                const int b = qBlue(row[x]);
-                dstU[x / 2] = clamp(((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128);
-                dstV[x / 2] = clamp(((112 * r - 94 * g - 18 * b + 128) >> 8) + 128);
-            }
-        }
+        // QImage::Format_RGB32/ARGB32 is stored as BGRA bytes on little-endian
+        // Windows. libyuv is much faster than the previous per-pixel C++ loop
+        // and avoids starving audio while screen sharing.
+        const int converted = libyuv::BGRAToI420(
+            img.constBits(), img.bytesPerLine(),
+            buffer->MutableDataY(), buffer->StrideY(),
+            buffer->MutableDataU(), buffer->StrideU(),
+            buffer->MutableDataV(), buffer->StrideV(),
+            w, h);
+        if (converted != 0) return;
         webrtc::VideoFrame frame = webrtc::VideoFrame::Builder()
             .set_video_frame_buffer(buffer)
             .set_timestamp_ms(QDateTime::currentMSecsSinceEpoch())
@@ -468,7 +456,7 @@ void HallaWebRtcSession::captureFrame() {
     }
 
     if (pix.isNull()) return;
-    QImage img = pix.toImage().scaled(1280, 720, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QImage img = pix.toImage().scaled(1280, 720, Qt::KeepAspectRatio, Qt::FastTransformation);
     m_native->videoSource->PushImage(img);
 }
 #endif
@@ -490,7 +478,7 @@ void HallaWebRtcSession::startBroadcast() {
 #endif
         });
     }
-    m_captureTimer->start(100);
+    m_captureTimer->start(33);
     if (m_net) m_net->sendWebRtcStreamStart();
     emit broadcastStarted();
 #else
