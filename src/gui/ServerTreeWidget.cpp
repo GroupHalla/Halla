@@ -86,6 +86,24 @@ static QPixmap createGroupIconPixmap(const QString& iconText, ServerTreeWidget* 
 // Statuses are placed in the same leading area as the user's avatar. The
 // reference shows microphone/headphone/away indicators before the nickname,
 // never after it.
+static QPixmap liveBadgePixmap() {
+    QPixmap pm(54, 18);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QRectF r(0.5, 1.5, 53, 15);
+    p.setPen(QPen(QColor("#EF4444"), 1));
+    p.setBrush(QColor("#B91C1C"));
+    p.drawRoundedRect(r, 8, 8);
+    p.setPen(Qt::white);
+    QFont f = p.font();
+    f.setPixelSize(9);
+    f.setBold(true);
+    p.setFont(f);
+    p.drawText(QRect(0, 0, 54, 18), Qt::AlignCenter, QStringLiteral("● LIVE"));
+    return pm;
+}
+
 static QPixmap treeUserSphere(const User& u) {
     QPixmap pm(16, 16);
     pm.fill(Qt::transparent);
@@ -169,6 +187,7 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
             }
         }
     }
+    if (u.screensharing) iconPms << liveBadgePixmap();
 
     int totalW = 0;
     for (const QPixmap& pm : iconPms) totalW += pm.width() + 4;
@@ -497,9 +516,6 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
     QString displayName = u.name;
     if (!u.sigla.isEmpty()) {
         displayName = u.sigla + " " + displayName;
-    }
-    if (u.screensharing) {
-        displayName += QStringLiteral(" 🔴 LIVE");
     }
     item->setText(0, displayName);
     item->setIcon(0, leadingUserIcon(u, m_delegate ? m_delegate->showMinis() : true));

@@ -202,9 +202,10 @@ static QPixmap makePurpleLiveWavePixmap(const QSize& size) {
 
 class ScreenshareHoverPopup : public QFrame {
 public:
-    explicit ScreenshareHoverPopup(int userId, const QString& userName, int channelId, const QByteArray& jpegData, class MainWindow* mw, QWidget* parent = nullptr)
+    explicit ScreenshareHoverPopup(int userId, const QString& userName, int channelId, const QByteArray& jpegData,
+                                     const QRect& sourceRect, class MainWindow* mw, QWidget* parent = nullptr)
         : QFrame(parent, Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint),
-          m_userId(userId), m_channelId(channelId), m_mw(mw) {
+          m_userId(userId), m_channelId(channelId), m_sourceRect(sourceRect), m_mw(mw) {
         Q_UNUSED(userName);
         Q_UNUSED(jpegData);
         setAttribute(Qt::WA_DeleteOnClose);
@@ -229,22 +230,35 @@ public:
         btn->setText(tr("◉   Assistir à transmissão                                      ›"));
         connect(btn, &QPushButton::clicked, this, &ScreenshareHoverPopup::onWatchClicked);
         layout->addWidget(btn);
+
+        m_timer = new QTimer(this);
+        connect(m_timer, &QTimer::timeout, this, &ScreenshareHoverPopup::checkMousePosition);
+        m_timer->start(80);
     }
 
 protected:
     void leaveEvent(QEvent* e) override {
         QFrame::leaveEvent(e);
-        close();
+        checkMousePosition();
     }
 
 private:
-    void checkMousePosition() {}
+    void checkMousePosition() {
+        const QPoint cursor = QCursor::pos();
+        const QRect buttonRect(mapToGlobal(QPoint(0, 0)), size());
+        if (!buttonRect.adjusted(-4, -4, 4, 4).contains(cursor)
+                && !m_sourceRect.adjusted(-6, -8, 6, 8).contains(cursor)) {
+            close();
+        }
+    }
 
     void onWatchClicked();
 
     int m_userId;
     int m_channelId;
+    QRect m_sourceRect;
     class MainWindow* m_mw;
+    QTimer* m_timer = nullptr;
 };
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -876,20 +890,6 @@ void MainWindow::wireTab(ServerTab* tab) {
                 m_webrtcSession, &HallaWebRtcSession::handleSignal);
     }
     connect(tab->tree(), &ServerTreeWidget::screenshareHovered, this, &MainWindow::handleScreenshareHovered);
-    connect(tab->tree(), &ServerTreeWidget::screenshareHoverLeft, this, [this] {
-        // Atrasa um pouco para permitir mover o mouse do nome do usuário para
-        // o botão. Se o cursor não estiver no botão, ele some imediatamente
-        // depois desse pequeno intervalo.
-        QTimer::singleShot(180, this, [] {
-            const QPoint cursor = QCursor::pos();
-            for (QWidget* w : QApplication::topLevelWidgets()) {
-                if (dynamic_cast<ScreenshareHoverPopup*>(w)) {
-                    const QRect globalRect(w->mapToGlobal(QPoint(0, 0)), w->size());
-                    if (!globalRect.contains(cursor)) w->close();
-                }
-            }
-        });
-    });
 }
 
 // aba local offline (modo --demo para capturas de tela)
@@ -1857,7 +1857,8 @@ void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoin
 
     QByteArray lastFrame = m_lastScreenshareFrames.value(userId);
 
-    ScreenshareHoverPopup* popup = new ScreenshareHoverPopup(userId, userName, channelId, lastFrame, this, this);
+    const QRect sourceRect(pos - QPoint(190, 14), QSize(380, 30));
+    ScreenshareHoverPopup* popup = new ScreenshareHoverPopup(userId, userName, channelId, lastFrame, sourceRect, this, this);
     popup->move(pos + QPoint(18, 2));
     popup->show();
 }
