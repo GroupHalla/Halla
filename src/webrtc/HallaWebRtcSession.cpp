@@ -191,7 +191,7 @@ private:
 };
 
 
-class SystemLoopbackAudioDeviceModule final
+class SystemLoopbackAudioDeviceModule
     : public webrtc::webrtc_impl::AudioDeviceModuleDefault<webrtc::AudioDeviceModuleForTest> {
 public:
     ~SystemLoopbackAudioDeviceModule() override { StopRecording(); }
