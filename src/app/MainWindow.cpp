@@ -1927,6 +1927,25 @@ void MainWindow::watchStream(int userId, int channelId) {
         return;
     }
 
+    const int selfId = t->data().selfId;
+    if (userId == selfId) {
+        // O servidor rejeita watch_request para si mesmo. Para a própria live,
+        // apenas abre/reabre a preview local; a transmissão continua controlada
+        // pelo botão principal de transmitir.
+        if (!m_screenShareWindows.contains(selfId)) {
+            QString userName = t->data().users.contains(selfId) ? t->data().users[selfId].name : tr("Minha transmissão");
+            ScreenShareWindow* win = new ScreenShareWindow(selfId, userName, this);
+            m_screenShareWindows[selfId] = win;
+            connect(win, &QDialog::finished, this, [this, selfId]() { m_screenShareWindows.remove(selfId); });
+            win->show();
+        } else {
+            m_screenShareWindows[selfId]->show();
+            m_screenShareWindows[selfId]->raise();
+            m_screenShareWindows[selfId]->activateWindow();
+        }
+        return;
+    }
+
     int myChan = t->data().channelOfUser(t->data().selfId);
     if (myChan != channelId) {
         t->net()->moveToChannel(channelId);

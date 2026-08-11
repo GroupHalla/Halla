@@ -187,7 +187,26 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
             }
         }
     }
-    if (u.screensharing) iconPms << liveBadgePixmap();
+    const QPixmap liveBadge = u.screensharing ? liveBadgePixmap() : QPixmap();
+
+    QStyleOptionViewItem o = opt;
+    initStyleOption(&o, index);
+    const QStyle* style = o.widget ? o.widget->style() : nullptr;
+    QRect textRect = style ? style->subElementRect(QStyle::SE_ItemViewItemText, &o, o.widget)
+                           : o.rect;
+    QFontMetrics fm(o.font);
+    const int textW = fm.horizontalAdvance(o.text);
+
+    int liveRightLimit = textRect.left() + textW;
+    if (!liveBadge.isNull()) {
+        const int liveX = qMin(textRect.left() + textW + 8,
+                               opt.rect.right() - liveBadge.width() - 4);
+        const int liveY = opt.rect.top() + (opt.rect.height() - liveBadge.height()) / 2;
+        if (liveX > textRect.left()) {
+            p->drawPixmap(liveX, liveY, liveBadge);
+            liveRightLimit = liveX + liveBadge.width();
+        }
+    }
 
     int totalW = 0;
     for (const QPixmap& pm : iconPms) totalW += pm.width() + 4;
@@ -203,20 +222,9 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
         currentX += pm.width() + 4;
     }
 
-    QStyleOptionViewItem o = opt;
-    initStyleOption(&o, index);
-    const QStyle* style = o.widget ? o.widget->style() : nullptr;
-    const int iconW = o.decorationSize.width();
-    QRect textRect = style ? style->subElementRect(QStyle::SE_ItemViewItemText, &o, o.widget)
-                           : o.rect;
-    QFontMetrics fm(o.font);
-    const int textW = fm.horizontalAdvance(o.text);
-
     int x = o.rect.right() - combined.width() - 8;
-    int textRightLimit = textRect.left() + iconW + 6 + textW + 8;
-    if (x < textRightLimit) {
-        x = textRightLimit;
-    }
+    const int rightLimit = liveRightLimit + 8;
+    if (x < rightLimit) x = rightLimit;
     const int y = o.rect.top() + (o.rect.height() - combined.height()) / 2;
     int w = combined.width();
     const int maxX = o.rect.right() - 4;

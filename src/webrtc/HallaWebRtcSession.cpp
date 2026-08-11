@@ -938,7 +938,12 @@ void HallaWebRtcSession::captureFrame() {
 
     if (frameImage.isNull() && !pix.isNull()) frameImage = pix.toImage();
     if (frameImage.isNull()) return;
-    QImage img = frameImage.scaled(m_captureWidth, m_captureHeight, Qt::KeepAspectRatio, Qt::FastTransformation);
+    QImage img;
+    if (frameImage.width() == m_captureWidth && frameImage.height() == m_captureHeight) {
+        img = frameImage;
+    } else {
+        img = frameImage.scaled(m_captureWidth, m_captureHeight, Qt::KeepAspectRatio, Qt::FastTransformation);
+    }
     emit localPreviewFrame(img);
     m_native->videoSource->PushImage(img);
 }
