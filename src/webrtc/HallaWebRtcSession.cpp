@@ -11,12 +11,16 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <d3d11.h>
+#include <dxgi1_2.h>
+#include <wrl/client.h>
 #endif
 
 #ifdef HALLA_WEBRTC_NATIVE
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -43,6 +47,140 @@ using nullptr_t = std::nullptr_t;
 #ifdef HALLA_WEBRTC_NATIVE
 namespace {
 #ifdef Q_OS_WIN
+class DxgiScreenCapturer {
+public:
+    QImage grab(int screenIndex) {
+        if (screenIndex < 0) screenIndex = 0;
+        if (!m_duplication || m_screenIndex != screenIndex) {
+            reset();
+            if (!init(screenIndex)) return QImage();
+        }
+
+        DXGI_OUTDUPL_FRAME_INFO frameInfo = {};
+        Microsoft::WRL::ComPtr<IDXGIResource> resource;
+        HRESULT hr = m_duplication->AcquireNextFrame(0, &frameInfo, &resource);
+        if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
+            return m_lastFrame;
+        }
+        if (hr == DXGI_ERROR_ACCESS_LOST || hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
+            reset();
+            return QImage();
+        }
+        if (FAILED(hr)) return QImage();
+
+        QImage out;
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+        if (SUCCEEDED(resource.As(&texture)) && texture) {
+            D3D11_TEXTURE2D_DESC desc = {};
+            texture->GetDesc(&desc);
+            ensureStaging(desc);
+            if (m_staging) {
+                m_context->CopyResource(m_staging.Get(), texture.Get());
+                D3D11_MAPPED_SUBRESOURCE mapped = {};
+                if (SUCCEEDED(m_context->Map(m_staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
+                    out = QImage(int(desc.Width), int(desc.Height), QImage::Format_ARGB32);
+                    const int rowBytes = int(desc.Width) * 4;
+                    for (int y = 0; y < out.height(); ++y) {
+                        memcpy(out.scanLine(y),
+                               static_cast<const char*>(mapped.pData) + y * mapped.RowPitch,
+                               rowBytes);
+                    }
+                    m_context->Unmap(m_staging.Get(), 0);
+                }
+            }
+        }
+        m_duplication->ReleaseFrame();
+        if (!out.isNull()) m_lastFrame = out;
+        return out;
+    }
+
+private:
+    bool init(int screenIndex) {
+        Microsoft::WRL::ComPtr<IDXGIFactory1> factory;
+        if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(factory.GetAddressOf()))))
+            return false;
+
+        Microsoft::WRL::ComPtr<IDXGIAdapter1> selectedAdapter;
+        Microsoft::WRL::ComPtr<IDXGIOutput> selectedOutput;
+        int current = 0;
+        for (UINT ai = 0; ; ++ai) {
+            Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
+            if (factory->EnumAdapters1(ai, &adapter) == DXGI_ERROR_NOT_FOUND) break;
+            for (UINT oi = 0; ; ++oi) {
+                Microsoft::WRL::ComPtr<IDXGIOutput> output;
+                if (adapter->EnumOutputs(oi, &output) == DXGI_ERROR_NOT_FOUND) break;
+                if (current == screenIndex || !selectedOutput) {
+                    selectedAdapter = adapter;
+                    selectedOutput = output;
+                    if (current == screenIndex) break;
+                }
+                ++current;
+            }
+            if (selectedOutput && current == screenIndex) break;
+        }
+        if (!selectedAdapter || !selectedOutput) return false;
+
+        const D3D_FEATURE_LEVEL levels[] = {
+            D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0,
+            D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0
+        };
+        D3D_FEATURE_LEVEL level = D3D_FEATURE_LEVEL_11_0;
+        HRESULT hr = D3D11CreateDevice(selectedAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr,
+                                       D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+                                       levels, UINT(sizeof(levels) / sizeof(levels[0])), D3D11_SDK_VERSION,
+                                       &m_device, &level, &m_context);
+        if (FAILED(hr)) return false;
+
+        Microsoft::WRL::ComPtr<IDXGIOutput1> output1;
+        if (FAILED(selectedOutput.As(&output1))) return false;
+        if (FAILED(output1->DuplicateOutput(m_device.Get(), &m_duplication))) {
+            reset();
+            return false;
+        }
+        m_screenIndex = screenIndex;
+        AppLog::info(QStringLiteral("WebRTC DXGI Desktop Duplication ativo na tela #%1").arg(screenIndex));
+        return true;
+    }
+
+    void ensureStaging(const D3D11_TEXTURE2D_DESC& srcDesc) {
+        if (m_staging && m_width == srcDesc.Width && m_height == srcDesc.Height) return;
+        m_staging.Reset();
+        D3D11_TEXTURE2D_DESC desc = srcDesc;
+        desc.BindFlags = 0;
+        desc.MiscFlags = 0;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        desc.Usage = D3D11_USAGE_STAGING;
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+        desc.SampleDesc.Count = 1;
+        desc.SampleDesc.Quality = 0;
+        if (SUCCEEDED(m_device->CreateTexture2D(&desc, nullptr, &m_staging))) {
+            m_width = srcDesc.Width;
+            m_height = srcDesc.Height;
+        }
+    }
+
+    void reset() {
+        m_duplication.Reset();
+        m_staging.Reset();
+        m_context.Reset();
+        m_device.Reset();
+        m_lastFrame = QImage();
+        m_width = 0;
+        m_height = 0;
+        m_screenIndex = -1;
+    }
+
+    Microsoft::WRL::ComPtr<ID3D11Device> m_device;
+    Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_context;
+    Microsoft::WRL::ComPtr<IDXGIOutputDuplication> m_duplication;
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> m_staging;
+    QImage m_lastFrame;
+    UINT m_width = 0;
+    UINT m_height = 0;
+    int m_screenIndex = -1;
+};
+
 static QPixmap grabWindowsAppForWebRtc(quintptr sourceId) {
     HWND hwnd = reinterpret_cast<HWND>(sourceId);
     if (!hwnd) return QPixmap();
@@ -281,6 +419,9 @@ struct HallaWebRtcSession::NativeState {
     webrtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> factory;
     webrtc::scoped_refptr<QtScreenVideoSource> videoSource;
     webrtc::scoped_refptr<webrtc::VideoTrackInterface> videoTrack;
+#ifdef Q_OS_WIN
+    std::unique_ptr<DxgiScreenCapturer> dxgiCapturer;
+#endif
     std::map<int, std::unique_ptr<PeerContext>> peers;
     bool sslInitialized = false;
 #endif
@@ -401,9 +542,9 @@ void HallaWebRtcSession::createOfferForPeer(int peerId) {
             if (params.encodings.empty()) params.encodings.emplace_back();
             for (auto& encoding : params.encodings) {
                 encoding.max_framerate = 30.0;
-                // 960x540 screen-share at 30 fps. Keeping this bounded prevents
+                // 1280x720 screen-share at 30 fps. Keeping this bounded prevents
                 // VP8/network spikes from starving UDP voice.
-                encoding.max_bitrate_bps = 1200 * 1000;
+                encoding.max_bitrate_bps = 2500 * 1000;
             }
             const auto setParamsError = sender->SetParameters(params);
             if (!setParamsError.ok()) {
@@ -450,15 +591,22 @@ void HallaWebRtcSession::closePeer(int peerId) {
 void HallaWebRtcSession::captureFrame() {
     if (!m_broadcasting || !m_native || !m_native->videoSource) return;
 
+    QImage frameImage;
     QPixmap pix;
     QScreen* primary = QGuiApplication::primaryScreen();
     if (m_captureSourceType == 0) {
-        const QList<QScreen*> screens = QGuiApplication::screens();
         const int screenIndex = int(m_captureSourceId);
-        if (screenIndex >= 0 && screenIndex < screens.size() && screens[screenIndex]) {
-            pix = screens[screenIndex]->grabWindow(0);
-        } else if (primary) {
-            pix = primary->grabWindow(0);
+#ifdef Q_OS_WIN
+        if (!m_native->dxgiCapturer) m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
+        frameImage = m_native->dxgiCapturer->grab(screenIndex);
+#endif
+        if (frameImage.isNull()) {
+            const QList<QScreen*> screens = QGuiApplication::screens();
+            if (screenIndex >= 0 && screenIndex < screens.size() && screens[screenIndex]) {
+                pix = screens[screenIndex]->grabWindow(0);
+            } else if (primary) {
+                pix = primary->grabWindow(0);
+            }
         }
     } else {
 #ifdef Q_OS_WIN
@@ -469,8 +617,9 @@ void HallaWebRtcSession::captureFrame() {
         if (pix.isNull() && primary) pix = primary->grabWindow(0);
     }
 
-    if (pix.isNull()) return;
-    QImage img = pix.toImage().scaled(960, 540, Qt::KeepAspectRatio, Qt::FastTransformation);
+    if (frameImage.isNull() && !pix.isNull()) frameImage = pix.toImage();
+    if (frameImage.isNull()) return;
+    QImage img = frameImage.scaled(1280, 720, Qt::KeepAspectRatio, Qt::FastTransformation);
     m_native->videoSource->PushImage(img);
 }
 #endif
