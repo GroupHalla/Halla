@@ -207,12 +207,12 @@ public:
           m_userId(userId), m_channelId(channelId), m_mw(mw) {
         Q_UNUSED(jpegData);
         setAttribute(Qt::WA_DeleteOnClose);
-        setFixedSize(714, 474);
+        setFixedSize(360, 245);
         setObjectName(QStringLiteral("liveHover"));
         setStyleSheet(QStringLiteral(
             "QFrame#liveHover { background-color: #090914; border: 1px solid #1F1B36; border-radius: 22px; }"
             "QLabel { color: #FFFFFF; background: transparent; border: none; }"
-            "QPushButton#watchButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8B2CFF, stop:1 #1D72FF); border: none; border-radius: 13px; color: #FFFFFF; font-weight: 800; font-size: 22px; padding: 14px; }"
+            "QPushButton#watchButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8B2CFF, stop:1 #1D72FF); border: none; border-radius: 8px; color: #FFFFFF; font-weight: 800; font-size: 12px; padding: 7px; }"
             "QPushButton#watchButton:hover { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #9F45FF, stop:1 #3B82FF); }"
         ));
         auto* shadow = new QGraphicsDropShadowEffect(this);
@@ -222,32 +222,32 @@ public:
         setGraphicsEffect(shadow);
 
         QVBoxLayout* root = new QVBoxLayout(this);
-        root->setContentsMargins(28, 24, 28, 28);
-        root->setSpacing(14);
+        root->setContentsMargins(14, 12, 14, 14);
+        root->setSpacing(7);
 
         QHBoxLayout* header = new QHBoxLayout;
-        header->setSpacing(18);
+        header->setSpacing(9);
 
         QLabel* liveIcon = new QLabel(this);
-        liveIcon->setFixedSize(92, 92);
-        QPixmap icon(92, 92);
+        liveIcon->setFixedSize(46, 46);
+        QPixmap icon(46, 46);
         icon.fill(Qt::transparent);
         {
             QPainter p(&icon);
             p.setRenderHint(QPainter::Antialiasing, true);
             p.setPen(QPen(QColor(124, 58, 237, 35), 1));
-            p.drawEllipse(QRectF(4, 4, 84, 84));
-            p.drawEllipse(QRectF(12, 12, 68, 68));
+            p.drawEllipse(QRectF(2, 2, 42, 42));
+            p.drawEllipse(QRectF(6, 6, 34, 34));
             p.setBrush(QColor(112, 36, 245));
             p.setPen(QPen(QColor(179, 89, 255), 2));
-            p.drawEllipse(QRectF(22, 22, 48, 48));
+            p.drawEllipse(QRectF(11, 11, 24, 24));
             p.setPen(QPen(Qt::white, 3, Qt::SolidLine, Qt::RoundCap));
-            p.drawArc(QRectF(37, 35, 18, 22), 40 * 16, 100 * 16);
-            p.drawArc(QRectF(30, 29, 32, 34), 35 * 16, 110 * 16);
-            p.drawArc(QRectF(25, 23, 44, 46), 35 * 16, 110 * 16);
+            p.drawArc(QRectF(18, 17, 10, 12), 40 * 16, 100 * 16);
+            p.drawArc(QRectF(15, 14, 16, 17), 35 * 16, 110 * 16);
+            p.drawArc(QRectF(12, 11, 22, 23), 35 * 16, 110 * 16);
             p.setBrush(Qt::white);
             p.setPen(Qt::NoPen);
-            p.drawEllipse(QPointF(46, 46), 3, 3);
+            p.drawEllipse(QPointF(23, 23), 2, 2);
         }
         liveIcon->setPixmap(icon);
         header->addWidget(liveIcon, 0, Qt::AlignTop);
@@ -255,46 +255,46 @@ public:
         QVBoxLayout* titleCol = new QVBoxLayout;
         titleCol->setSpacing(8);
         QLabel* title = new QLabel(tr("Transmissão ao vivo"), this);
-        title->setStyleSheet(QStringLiteral("font-size: 26px; font-weight: 900;"));
+        title->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: 900;"));
         titleCol->addWidget(title);
         QLabel* subtitle = new QLabel(tr("Este usuário está ao vivo para\ntodos os membros deste canal."), this);
-        subtitle->setStyleSheet(QStringLiteral("color: #A3A3B5; font-size: 15px; line-height: 130%;"));
+        subtitle->setStyleSheet(QStringLiteral("color: #A3A3B5; font-size: 9px;"));
         titleCol->addWidget(subtitle);
         header->addLayout(titleCol, 1);
 
         QLabel* pill = new QLabel(tr("  ●  AO VIVO  "), this);
         pill->setAlignment(Qt::AlignCenter);
-        pill->setFixedHeight(38);
-        pill->setStyleSheet(QStringLiteral("background-color: rgba(168, 24, 48, 90); color: white; border: 1px solid #E23A57; border-radius: 19px; font-size: 16px; font-weight: 900;"));
+        pill->setFixedHeight(22);
+        pill->setStyleSheet(QStringLiteral("background-color: rgba(168, 24, 48, 90); color: white; border: 1px solid #E23A57; border-radius: 19px; font-size: 9px; font-weight: 900;"));
         header->addWidget(pill, 0, Qt::AlignTop);
         root->addLayout(header);
 
         QFrame* panel = new QFrame(this);
-        panel->setStyleSheet(QStringLiteral("background-color: #0D0B1A; border-radius: 18px;"));
+        panel->setStyleSheet(QStringLiteral("background-color: #0D0B1A; border-radius: 10px;"));
         QVBoxLayout* panelLayout = new QVBoxLayout(panel);
-        panelLayout->setContentsMargins(14, 12, 14, 14);
-        panelLayout->setSpacing(10);
+        panelLayout->setContentsMargins(8, 6, 8, 8);
+        panelLayout->setSpacing(4);
 
         QLabel* wave = new QLabel(panel);
-        wave->setFixedHeight(150);
-        wave->setPixmap(makePurpleLiveWavePixmap(QSize(636, 150)));
+        wave->setFixedHeight(70);
+        wave->setPixmap(makePurpleLiveWavePixmap(QSize(320, 70)));
         wave->setAlignment(Qt::AlignCenter);
         panelLayout->addWidget(wave);
 
         QLabel* durationHint = new QLabel(tr("●  Tempo ao vivo"), panel);
         durationHint->setAlignment(Qt::AlignCenter);
-        durationHint->setStyleSheet(QStringLiteral("color: #A9A3BE; font-size: 12px;"));
+        durationHint->setStyleSheet(QStringLiteral("color: #A9A3BE; font-size: 8px;"));
         panelLayout->addWidget(durationHint);
         m_durationLabel = new QLabel(QStringLiteral("00:00:00"), panel);
         m_durationLabel->setAlignment(Qt::AlignCenter);
-        m_durationLabel->setStyleSheet(QStringLiteral("font-size: 32px; font-weight: 900;"));
+        m_durationLabel->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: 900;"));
         panelLayout->addWidget(m_durationLabel);
 
         QHBoxLayout* stats = new QHBoxLayout;
-        stats->setContentsMargins(70, 0, 70, 0);
-        stats->setSpacing(22);
+        stats->setContentsMargins(26, 0, 26, 0);
+        stats->setSpacing(8);
         auto addStat = [&](const QString& iconText, const QString& number, const QString& label) {
-            QLabel* st = new QLabel(QStringLiteral("<span style='color:#A855F7;font-size:22px;font-weight:900;'>%1</span> <span style='font-size:18px;font-weight:800;'>%2</span><br><span style='color:#A7A2B7;font-size:11px;'>%3</span>").arg(iconText, number, label), panel);
+            QLabel* st = new QLabel(QStringLiteral("<span style='color:#A855F7;font-size:8px;font-weight:900;'>%1</span> <span style='font-size:10px;font-weight:800;'>%2</span><br><span style='color:#A7A2B7;font-size:8px;'>%3</span>").arg(iconText, number, label), panel);
             st->setAlignment(Qt::AlignCenter);
             stats->addWidget(st, 1);
         };
@@ -303,16 +303,15 @@ public:
         addStat(QStringLiteral("▮▮▮"), QStringLiteral("1080p 60fps"), tr("qualidade"));
         panelLayout->addLayout(stats);
 
-        QPushButton* btn = new QPushButton(tr("◉   Assistir à transmissão                                      ›"), panel);
+        QPushButton* btn = new QPushButton(tr("◉  Assistir à transmissão                         ›"), panel);
         btn->setObjectName(QStringLiteral("watchButton"));
         connect(btn, &QPushButton::clicked, this, &ScreenshareHoverPopup::onWatchClicked);
         panelLayout->addWidget(btn);
         root->addWidget(panel, 1);
 
         m_startedMs = QDateTime::currentMSecsSinceEpoch();
-        m_timer = new QTimer(this);
-        connect(m_timer, &QTimer::timeout, this, &ScreenshareHoverPopup::checkMousePosition);
-        m_timer->start(100);
+        // Não usamos timer para fechar automaticamente: o popup antigo sumia
+        // enquanto o cursor ainda estava sobre o usuário transmitindo.
         m_elapsedTimer = new QTimer(this);
         connect(m_elapsedTimer, &QTimer::timeout, this, [this] {
             const qint64 s = (QDateTime::currentMSecsSinceEpoch() - m_startedMs) / 1000;

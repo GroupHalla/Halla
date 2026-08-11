@@ -11,6 +11,11 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <audioclient.h>
+#include <mmdeviceapi.h>
+#include <functiondiscoverykeys_devpkey.h>
+#include <mmreg.h>
+#include <ksmedia.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>
@@ -21,10 +26,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 using nullptr_t = std::nullptr_t;
 #include "api/create_peerconnection_factory.h"
@@ -33,6 +40,8 @@ using nullptr_t = std::nullptr_t;
 #include "api/jsep.h"
 #include "api/make_ref_counted.h"
 #include "api/media_stream_interface.h"
+#include "api/audio/audio_device_defines.h"
+#include "modules/audio_device/include/audio_device_default.h"
 #include "api/video/i420_buffer.h"
 #include "api/video/video_frame.h"
 #include "api/video_codecs/video_decoder_factory.h"
@@ -179,6 +188,166 @@ private:
     UINT m_width = 0;
     UINT m_height = 0;
     int m_screenIndex = -1;
+};
+
+
+class SystemLoopbackAudioDeviceModule final
+    : public webrtc::webrtc_impl::AudioDeviceModuleDefault<webrtc::AudioDeviceModuleForTest> {
+public:
+    ~SystemLoopbackAudioDeviceModule() override { StopRecording(); }
+
+    int32_t RegisterAudioCallback(webrtc::AudioTransport* audioCallback) override {
+        m_audioCallback.store(audioCallback, std::memory_order_release);
+        return 0;
+    }
+    int32_t ActiveAudioLayer(webrtc::AudioDeviceModule::AudioLayer* audioLayer) const override {
+        if (audioLayer) *audioLayer = webrtc::AudioDeviceModule::kWindowsCoreAudio;
+        return 0;
+    }
+    int32_t RecordingIsAvailable(bool* available) override { if (available) *available = true; return 0; }
+    bool RecordingIsInitialized() const override { return true; }
+    int32_t InitRecording() override { return 0; }
+    int32_t StartRecording() override {
+        if (m_running.exchange(true)) return 0;
+        m_thread = std::thread([this] { captureLoop(); });
+        return 0;
+    }
+    int32_t StopRecording() override {
+        if (!m_running.exchange(false)) return 0;
+        if (m_thread.joinable()) m_thread.join();
+        return 0;
+    }
+    bool Recording() const override { return m_running.load(); }
+    int RestartPlayoutInternally() override { return 0; }
+    int RestartRecordingInternally() override { StopRecording(); return StartRecording(); }
+    int SetPlayoutSampleRate(uint32_t) override { return 0; }
+    int SetRecordingSampleRate(uint32_t sample_rate) override { m_forcedSampleRate = sample_rate; return 0; }
+
+private:
+    static bool isFloatFormat(const WAVEFORMATEX* fmt) {
+        if (!fmt) return false;
+        if (fmt->wFormatTag == WAVE_FORMAT_IEEE_FLOAT) return true;
+        if (fmt->wFormatTag == WAVE_FORMAT_EXTENSIBLE && fmt->cbSize >= 22) {
+            const auto* ext = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(fmt);
+            return IsEqualGUID(ext->SubFormat, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
+        }
+        return false;
+    }
+    static bool isPcmFormat(const WAVEFORMATEX* fmt) {
+        if (!fmt) return false;
+        if (fmt->wFormatTag == WAVE_FORMAT_PCM) return true;
+        if (fmt->wFormatTag == WAVE_FORMAT_EXTENSIBLE && fmt->cbSize >= 22) {
+            const auto* ext = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(fmt);
+            return IsEqualGUID(ext->SubFormat, KSDATAFORMAT_SUBTYPE_PCM);
+        }
+        return false;
+    }
+    static int16_t clamp16(float v) {
+        if (v > 32767.0f) return 32767;
+        if (v < -32768.0f) return -32768;
+        return static_cast<int16_t>(v);
+    }
+
+    void pushSamples(const int16_t* samples, size_t count, uint32_t sampleRate) {
+        if (!samples || count == 0) return;
+        m_pcm.insert(m_pcm.end(), samples, samples + count);
+        const size_t frameSamples = std::max<size_t>(1, sampleRate / 100); // 10 ms mono
+        webrtc::AudioTransport* cb = m_audioCallback.load(std::memory_order_acquire);
+        while (cb && m_pcm.size() >= frameSamples) {
+            uint32_t newMicLevel = 0;
+            cb->RecordedDataIsAvailable(m_pcm.data(), frameSamples, 2, 1, sampleRate,
+                                        0, 0, 0, false, newMicLevel);
+            m_pcm.erase(m_pcm.begin(), m_pcm.begin() + frameSamples);
+            cb = m_audioCallback.load(std::memory_order_acquire);
+        }
+        if (m_pcm.size() > sampleRate) m_pcm.clear();
+    }
+
+    void captureLoop() {
+        HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        const bool comOk = SUCCEEDED(hr) || hr == RPC_E_CHANGED_MODE;
+        Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator;
+        Microsoft::WRL::ComPtr<IMMDevice> device;
+        Microsoft::WRL::ComPtr<IAudioClient> client;
+        Microsoft::WRL::ComPtr<IAudioCaptureClient> capture;
+        WAVEFORMATEX* mix = nullptr;
+
+        if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                    __uuidof(IMMDeviceEnumerator), reinterpret_cast<void**>(enumerator.GetAddressOf()))) ||
+            FAILED(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device)) ||
+            FAILED(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, reinterpret_cast<void**>(client.GetAddressOf()))) ||
+            FAILED(client->GetMixFormat(&mix))) {
+            AppLog::warn(QStringLiteral("WASAPI loopback: falha ao abrir dispositivo padrão de reprodução"));
+            if (mix) CoTaskMemFree(mix);
+            if (comOk && hr != RPC_E_CHANGED_MODE) CoUninitialize();
+            m_running = false;
+            return;
+        }
+
+        const REFERENCE_TIME bufferDuration = 10000000; // 1s
+        hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED,
+                                AUDCLNT_STREAMFLAGS_LOOPBACK,
+                                bufferDuration, 0, mix, nullptr);
+        if (FAILED(hr) || FAILED(client->GetService(__uuidof(IAudioCaptureClient), reinterpret_cast<void**>(capture.GetAddressOf()))) ||
+            FAILED(client->Start())) {
+            AppLog::warn(QStringLiteral("WASAPI loopback: falha ao iniciar captura"));
+            CoTaskMemFree(mix);
+            if (comOk && hr != RPC_E_CHANGED_MODE) CoUninitialize();
+            m_running = false;
+            return;
+        }
+
+        const uint32_t sampleRate = m_forcedSampleRate ? m_forcedSampleRate : mix->nSamplesPerSec;
+        const int channels = std::max<int>(1, mix->nChannels);
+        const bool isFloat = isFloatFormat(mix);
+        const bool isPcm = isPcmFormat(mix);
+        const int bits = mix->wBitsPerSample;
+        AppLog::info(QStringLiteral("WASAPI loopback ativo: %1 Hz, %2 canais, %3 bits")
+                         .arg(sampleRate).arg(channels).arg(bits));
+
+        while (m_running.load()) {
+            UINT32 packetFrames = 0;
+            if (FAILED(capture->GetNextPacketSize(&packetFrames))) break;
+            if (packetFrames == 0) { Sleep(5); continue; }
+            while (packetFrames > 0 && m_running.load()) {
+                BYTE* data = nullptr;
+                UINT32 frames = 0;
+                DWORD flags = 0;
+                if (FAILED(capture->GetBuffer(&data, &frames, &flags, nullptr, nullptr))) break;
+                std::vector<int16_t> mono(frames);
+                if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
+                    std::fill(mono.begin(), mono.end(), 0);
+                } else if (isFloat && bits == 32) {
+                    const float* f = reinterpret_cast<const float*>(data);
+                    for (UINT32 i = 0; i < frames; ++i) {
+                        float acc = 0.0f;
+                        for (int c = 0; c < channels; ++c) acc += f[i * channels + c];
+                        mono[i] = clamp16((acc / float(channels)) * 32767.0f);
+                    }
+                } else if (isPcm && bits == 16) {
+                    const int16_t* in = reinterpret_cast<const int16_t*>(data);
+                    for (UINT32 i = 0; i < frames; ++i) {
+                        int acc = 0;
+                        for (int c = 0; c < channels; ++c) acc += in[i * channels + c];
+                        mono[i] = int16_t(acc / channels);
+                    }
+                }
+                if (!mono.empty()) pushSamples(mono.data(), mono.size(), sampleRate);
+                capture->ReleaseBuffer(frames);
+                if (FAILED(capture->GetNextPacketSize(&packetFrames))) break;
+            }
+        }
+        client->Stop();
+        CoTaskMemFree(mix);
+        if (comOk && hr != RPC_E_CHANGED_MODE) CoUninitialize();
+        m_running = false;
+    }
+
+    std::atomic<webrtc::AudioTransport*> m_audioCallback{nullptr};
+    std::atomic<bool> m_running{false};
+    std::thread m_thread;
+    std::vector<int16_t> m_pcm;
+    uint32_t m_forcedSampleRate = 48000;
 };
 
 static QPixmap grabWindowsAppForWebRtc(quintptr sourceId) {
@@ -408,6 +577,7 @@ struct HallaWebRtcSession::PeerContext {
     std::unique_ptr<PeerObserver> observer;
     std::vector<webrtc::scoped_refptr<webrtc::CreateSessionDescriptionObserver>> pendingOffers;
     bool trackAdded = false;
+    bool audioTrackAdded = false;
 };
 #endif
 
@@ -417,6 +587,9 @@ struct HallaWebRtcSession::NativeState {
     std::unique_ptr<webrtc::Thread> workerThread;
     std::unique_ptr<webrtc::Thread> signalingThread;
     webrtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> factory;
+    webrtc::scoped_refptr<webrtc::AudioDeviceModule> loopbackAdm;
+    webrtc::scoped_refptr<webrtc::AudioSourceInterface> systemAudioSource;
+    webrtc::scoped_refptr<webrtc::AudioTrackInterface> systemAudioTrack;
     webrtc::scoped_refptr<QtScreenVideoSource> videoSource;
     webrtc::scoped_refptr<webrtc::VideoTrackInterface> videoTrack;
 #ifdef Q_OS_WIN
@@ -435,6 +608,8 @@ HallaWebRtcSession::~HallaWebRtcSession() {
 #ifdef HALLA_WEBRTC_NATIVE
     if (m_native) {
         m_native->peers.clear();
+        m_native->systemAudioTrack = nullptr;
+        m_native->systemAudioSource = nullptr;
         m_native->videoTrack = nullptr;
         m_native->videoSource = nullptr;
         m_native->factory = nullptr;
@@ -493,9 +668,18 @@ bool HallaWebRtcSession::ensureNativeFactory() {
         return false;
     if (!m_native->networkThread->Start() || !m_native->workerThread->Start() || !m_native->signalingThread->Start())
         return false;
+#ifdef Q_OS_WIN
+    if (!m_native->loopbackAdm) {
+        m_native->loopbackAdm = webrtc::make_ref_counted<SystemLoopbackAudioDeviceModule>();
+    }
+#endif
     m_native->factory = webrtc::CreatePeerConnectionFactory(
         m_native->networkThread.get(), m_native->workerThread.get(), m_native->signalingThread.get(),
+#ifdef Q_OS_WIN
+        m_native->loopbackAdm,
+#else
         nullptr,
+#endif
         webrtc::CreateBuiltinAudioEncoderFactory(),
         webrtc::CreateBuiltinAudioDecoderFactory(),
         std::make_unique<HallaVp8EncoderFactory>(),
@@ -508,7 +692,10 @@ bool HallaWebRtcSession::ensureNativeFactory() {
             m_native->videoTrack->set_enabled(true);
             m_native->videoTrack->set_content_hint(webrtc::VideoTrackInterface::ContentHint::kDetailed);
         }
-        AppLog::info(tr("WebRTC nativo inicializado (factory e video track prontos)"));
+        m_native->systemAudioSource = m_native->factory->CreateAudioSource(webrtc::AudioOptions());
+        m_native->systemAudioTrack = m_native->factory->CreateAudioTrack("halla-system-audio", m_native->systemAudioSource.get());
+        if (m_native->systemAudioTrack) m_native->systemAudioTrack->set_enabled(true);
+        AppLog::info(tr("WebRTC nativo inicializado (factory, video e áudio de sistema prontos)"));
     }
     return m_native->factory != nullptr;
 }
@@ -572,6 +759,16 @@ void HallaWebRtcSession::createOfferForPeer(int peerId) {
                                  .arg(QString::fromStdString(setParamsError.message())));
             }
             ctx->trackAdded = true;
+        }
+    }
+    if (m_captureSystemAudio && !ctx->audioTrackAdded && m_native->systemAudioTrack) {
+        auto audioResult = ctx->pc->AddTrack(m_native->systemAudioTrack, {"halla-system-audio"});
+        if (!audioResult.ok()) {
+            AppLog::warn(QStringLiteral("WebRTC AddTrack áudio sistema falhou: %1")
+                             .arg(QString::fromStdString(audioResult.error().message())));
+        } else {
+            ctx->audioTrackAdded = true;
+            AppLog::info(QStringLiteral("WebRTC áudio de todo o PC adicionado ao peer #%1").arg(peerId));
         }
     }
     auto obs = webrtc::make_ref_counted<OfferObserver>(this, peerId);

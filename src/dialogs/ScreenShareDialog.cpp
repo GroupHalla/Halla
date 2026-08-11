@@ -157,10 +157,6 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
     m_audioCombo->setStyleSheet(m_qualityCombo->styleSheet());
     aLayout->addWidget(m_audioCombo, 1);
 
-    QLabel* audioHint = new QLabel(tr("Captura WASAPI loopback."), audioBox);
-    audioHint->setStyleSheet(QStringLiteral("color: %1; font-size: 10px; font-weight: normal;").arg(qualityBoxText));
-    aLayout->addWidget(audioHint);
-
     mainLayout->addWidget(audioBox);
 
     QHBoxLayout* btnRow = new QHBoxLayout;
