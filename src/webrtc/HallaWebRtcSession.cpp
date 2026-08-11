@@ -762,7 +762,7 @@ void HallaWebRtcSession::createOfferForPeer(int peerId) {
         }
     }
     if (m_captureSystemAudio && !ctx->audioTrackAdded && m_native->systemAudioTrack) {
-        auto audioResult = ctx->pc->AddTrack(m_native->systemAudioTrack, {"halla-system-audio"});
+        auto audioResult = ctx->pc->AddTrack(m_native->systemAudioTrack, {"halla-screen"});
         if (!audioResult.ok()) {
             AppLog::warn(QStringLiteral("WebRTC AddTrack áudio sistema falhou: %1")
                              .arg(QString::fromStdString(audioResult.error().message())));

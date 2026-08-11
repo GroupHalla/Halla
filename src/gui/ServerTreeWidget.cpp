@@ -793,6 +793,24 @@ bool ServerTreeWidget::dropMimeData(QTreeWidgetItem* parent, int index, const QM
     return true;
 }
 
+
+void ServerTreeWidget::mouseMoveEvent(QMouseEvent* e) {
+    QTreeWidget::mouseMoveEvent(e);
+    if (!m_data) return;
+    QTreeWidgetItem* item = itemAt(e->pos());
+    bool overStreamingUser = false;
+    if (item && item->data(0, RoleKind).toInt() == NodeUser) {
+        const int id = item->data(0, RoleId).toInt();
+        overStreamingUser = m_data->users.contains(id) && m_data->users[id].screensharing;
+    }
+    if (!overStreamingUser) emit screenshareHoverLeft();
+}
+
+void ServerTreeWidget::leaveEvent(QEvent* e) {
+    QTreeWidget::leaveEvent(e);
+    emit screenshareHoverLeft();
+}
+
 void ServerTreeWidget::onItemEntered(QTreeWidgetItem* item, int column) {
     Q_UNUSED(column);
     if (!item || !m_data) return;

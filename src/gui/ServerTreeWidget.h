@@ -5,6 +5,8 @@
 #include "core/Models.h"
 
 class QDropEvent;
+class QMouseEvent;
+class QEvent;
 
 // Papel dos nós da árvore
 enum NodeKind { NodeServer = 0, NodeChannel = 1, NodeUser = 2 };
@@ -85,6 +87,7 @@ signals:
     void commanderRequested(int userId, bool on);
     void privateMessageRequested(int userId);
     void screenshareHovered(int userId, int channelId, const QPoint& pos);
+    void screenshareHoverLeft();
     void disconnectRequested();
     void addBookmarkRequested();
     void editVirtualServerRequested();
@@ -92,6 +95,8 @@ signals:
 
 protected:
     void contextMenuEvent(QContextMenuEvent* e) override;
+    void mouseMoveEvent(QMouseEvent* e) override;
+    void leaveEvent(QEvent* e) override;
     void mouseDoubleClickEvent(QMouseEvent* e) override;
     QStringList mimeTypes() const override;
     QMimeData* mimeData(const QList<QTreeWidgetItem*>& items) const override;

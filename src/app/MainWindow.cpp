@@ -205,122 +205,30 @@ public:
     explicit ScreenshareHoverPopup(int userId, const QString& userName, int channelId, const QByteArray& jpegData, class MainWindow* mw, QWidget* parent = nullptr)
         : QFrame(parent, Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint),
           m_userId(userId), m_channelId(channelId), m_mw(mw) {
+        Q_UNUSED(userName);
         Q_UNUSED(jpegData);
         setAttribute(Qt::WA_DeleteOnClose);
-        setFixedSize(360, 245);
-        setObjectName(QStringLiteral("liveHover"));
+        setFixedSize(374, 44);
+        setObjectName(QStringLiteral("watchPill"));
         setStyleSheet(QStringLiteral(
-            "QFrame#liveHover { background-color: #090914; border: 1px solid #1F1B36; border-radius: 22px; }"
-            "QLabel { color: #FFFFFF; background: transparent; border: none; }"
-            "QPushButton#watchButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8B2CFF, stop:1 #1D72FF); border: none; border-radius: 8px; color: #FFFFFF; font-weight: 800; font-size: 12px; padding: 7px; }"
-            "QPushButton#watchButton:hover { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #9F45FF, stop:1 #3B82FF); }"
+            "QFrame#watchPill { background: transparent; border: none; }"
+            "QPushButton#watchButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #9B2CFF, stop:0.48 #6D2CFF, stop:1 #1E63FF); border: none; border-radius: 11px; color: #FFFFFF; font-weight: 900; font-size: 14px; padding: 0px; }"
+            "QPushButton#watchButton:hover { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #A43DFF, stop:0.48 #7A3DFF, stop:1 #3478FF); }"
         ));
         auto* shadow = new QGraphicsDropShadowEffect(this);
-        shadow->setBlurRadius(40);
-        shadow->setColor(QColor(0, 0, 0, 180));
-        shadow->setOffset(0, 16);
+        shadow->setBlurRadius(22);
+        shadow->setColor(QColor(0, 0, 0, 165));
+        shadow->setOffset(0, 8);
         setGraphicsEffect(shadow);
 
-        QVBoxLayout* root = new QVBoxLayout(this);
-        root->setContentsMargins(14, 12, 14, 14);
-        root->setSpacing(7);
-
-        QHBoxLayout* header = new QHBoxLayout;
-        header->setSpacing(9);
-
-        QLabel* liveIcon = new QLabel(this);
-        liveIcon->setFixedSize(46, 46);
-        QPixmap icon(46, 46);
-        icon.fill(Qt::transparent);
-        {
-            QPainter p(&icon);
-            p.setRenderHint(QPainter::Antialiasing, true);
-            p.setPen(QPen(QColor(124, 58, 237, 35), 1));
-            p.drawEllipse(QRectF(2, 2, 42, 42));
-            p.drawEllipse(QRectF(6, 6, 34, 34));
-            p.setBrush(QColor(112, 36, 245));
-            p.setPen(QPen(QColor(179, 89, 255), 2));
-            p.drawEllipse(QRectF(11, 11, 24, 24));
-            p.setPen(QPen(Qt::white, 3, Qt::SolidLine, Qt::RoundCap));
-            p.drawArc(QRectF(18, 17, 10, 12), 40 * 16, 100 * 16);
-            p.drawArc(QRectF(15, 14, 16, 17), 35 * 16, 110 * 16);
-            p.drawArc(QRectF(12, 11, 22, 23), 35 * 16, 110 * 16);
-            p.setBrush(Qt::white);
-            p.setPen(Qt::NoPen);
-            p.drawEllipse(QPointF(23, 23), 2, 2);
-        }
-        liveIcon->setPixmap(icon);
-        header->addWidget(liveIcon, 0, Qt::AlignTop);
-
-        QVBoxLayout* titleCol = new QVBoxLayout;
-        titleCol->setSpacing(8);
-        QLabel* title = new QLabel(tr("Transmissão ao vivo"), this);
-        title->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: 900;"));
-        titleCol->addWidget(title);
-        QLabel* subtitle = new QLabel(tr("Este usuário está ao vivo para\ntodos os membros deste canal."), this);
-        subtitle->setStyleSheet(QStringLiteral("color: #A3A3B5; font-size: 9px;"));
-        titleCol->addWidget(subtitle);
-        header->addLayout(titleCol, 1);
-
-        QLabel* pill = new QLabel(tr("  ●  AO VIVO  "), this);
-        pill->setAlignment(Qt::AlignCenter);
-        pill->setFixedHeight(22);
-        pill->setStyleSheet(QStringLiteral("background-color: rgba(168, 24, 48, 90); color: white; border: 1px solid #E23A57; border-radius: 19px; font-size: 9px; font-weight: 900;"));
-        header->addWidget(pill, 0, Qt::AlignTop);
-        root->addLayout(header);
-
-        QFrame* panel = new QFrame(this);
-        panel->setStyleSheet(QStringLiteral("background-color: #0D0B1A; border-radius: 10px;"));
-        QVBoxLayout* panelLayout = new QVBoxLayout(panel);
-        panelLayout->setContentsMargins(8, 6, 8, 8);
-        panelLayout->setSpacing(4);
-
-        QLabel* wave = new QLabel(panel);
-        wave->setFixedHeight(70);
-        wave->setPixmap(makePurpleLiveWavePixmap(QSize(320, 70)));
-        wave->setAlignment(Qt::AlignCenter);
-        panelLayout->addWidget(wave);
-
-        QLabel* durationHint = new QLabel(tr("●  Tempo ao vivo"), panel);
-        durationHint->setAlignment(Qt::AlignCenter);
-        durationHint->setStyleSheet(QStringLiteral("color: #A9A3BE; font-size: 8px;"));
-        panelLayout->addWidget(durationHint);
-        m_durationLabel = new QLabel(QStringLiteral("00:00:00"), panel);
-        m_durationLabel->setAlignment(Qt::AlignCenter);
-        m_durationLabel->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: 900;"));
-        panelLayout->addWidget(m_durationLabel);
-
-        QHBoxLayout* stats = new QHBoxLayout;
-        stats->setContentsMargins(26, 0, 26, 0);
-        stats->setSpacing(8);
-        auto addStat = [&](const QString& iconText, const QString& number, const QString& label) {
-            QLabel* st = new QLabel(QStringLiteral("<span style='color:#A855F7;font-size:8px;font-weight:900;'>%1</span> <span style='font-size:10px;font-weight:800;'>%2</span><br><span style='color:#A7A2B7;font-size:8px;'>%3</span>").arg(iconText, number, label), panel);
-            st->setAlignment(Qt::AlignCenter);
-            stats->addWidget(st, 1);
-        };
-        addStat(QStringLiteral("👥"), QStringLiteral("1"), tr("assistindo"));
-        addStat(QStringLiteral("▣"), QStringLiteral("0"), tr("mensagens"));
-        addStat(QStringLiteral("▮▮▮"), QStringLiteral("1080p 60fps"), tr("qualidade"));
-        panelLayout->addLayout(stats);
-
-        QPushButton* btn = new QPushButton(tr("◉  Assistir à transmissão                         ›"), panel);
+        QHBoxLayout* layout = new QHBoxLayout(this);
+        layout->setContentsMargins(0, 0, 0, 0);
+        QPushButton* btn = new QPushButton(this);
         btn->setObjectName(QStringLiteral("watchButton"));
+        btn->setFixedSize(374, 44);
+        btn->setText(tr("◉   Assistir à transmissão                                      ›"));
         connect(btn, &QPushButton::clicked, this, &ScreenshareHoverPopup::onWatchClicked);
-        panelLayout->addWidget(btn);
-        root->addWidget(panel, 1);
-
-        m_startedMs = QDateTime::currentMSecsSinceEpoch();
-        // Não usamos timer para fechar automaticamente: o popup antigo sumia
-        // enquanto o cursor ainda estava sobre o usuário transmitindo.
-        m_elapsedTimer = new QTimer(this);
-        connect(m_elapsedTimer, &QTimer::timeout, this, [this] {
-            const qint64 s = (QDateTime::currentMSecsSinceEpoch() - m_startedMs) / 1000;
-            m_durationLabel->setText(QStringLiteral("%1:%2:%3")
-                .arg(s / 3600, 2, 10, QLatin1Char('0'))
-                .arg((s / 60) % 60, 2, 10, QLatin1Char('0'))
-                .arg(s % 60, 2, 10, QLatin1Char('0')));
-        });
-        m_elapsedTimer->start(1000);
+        layout->addWidget(btn);
     }
 
 protected:
@@ -330,25 +238,13 @@ protected:
     }
 
 private:
-    void checkMousePosition() {
-        QPoint globalCursorPos = QCursor::pos();
-        QRect globalRect(mapToGlobal(QPoint(0,0)), size());
-        globalRect.adjust(-20, -20, 20, 20);
-        if (!globalRect.contains(globalCursorPos)) {
-            close();
-        }
-    }
+    void checkMousePosition() {}
 
     void onWatchClicked();
 
     int m_userId;
     int m_channelId;
     class MainWindow* m_mw;
-    QLabel* m_imgLabel = nullptr;
-    QLabel* m_durationLabel = nullptr;
-    QTimer* m_timer = nullptr;
-    QTimer* m_elapsedTimer = nullptr;
-    qint64 m_startedMs = 0;
 };
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -980,6 +876,11 @@ void MainWindow::wireTab(ServerTab* tab) {
                 m_webrtcSession, &HallaWebRtcSession::handleSignal);
     }
     connect(tab->tree(), &ServerTreeWidget::screenshareHovered, this, &MainWindow::handleScreenshareHovered);
+    connect(tab->tree(), &ServerTreeWidget::screenshareHoverLeft, this, [this] {
+        for (QWidget* w : QApplication::topLevelWidgets()) {
+            if (dynamic_cast<ScreenshareHoverPopup*>(w)) w->close();
+        }
+    });
 }
 
 // aba local offline (modo --demo para capturas de tela)
@@ -1932,10 +1833,11 @@ void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoin
         return;
     }
 
-    // Evita abrir múltiplos popups redundantes
+    // Evita abrir múltiplos popups redundantes, mas substitui o antigo para
+    // manter o botão sempre grudado no usuário sob o cursor.
     for (QWidget* w : QApplication::topLevelWidgets()) {
         if (dynamic_cast<ScreenshareHoverPopup*>(w)) {
-            return;
+            w->close();
         }
     }
 
@@ -1947,7 +1849,7 @@ void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoin
     QByteArray lastFrame = m_lastScreenshareFrames.value(userId);
 
     ScreenshareHoverPopup* popup = new ScreenshareHoverPopup(userId, userName, channelId, lastFrame, this, this);
-    popup->move(pos + QPoint(15, 15));
+    popup->move(pos + QPoint(18, 2));
     popup->show();
 }
 
