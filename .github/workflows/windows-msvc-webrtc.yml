@@ -6,7 +6,7 @@ on:
       sdk_version:
         description: Halla-WebRTC-Builds release tag
         required: true
-        default: v0.1.13
+        default: v0.1.14
   push:
     tags: ['desktop-webrtc-v*']
 
@@ -15,10 +15,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 150
     env:
-      SDK_VERSION: ${{ inputs.sdk_version || 'v0.1.13' }}
+      SDK_VERSION: ${{ inputs.sdk_version || 'v0.1.14' }}
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
