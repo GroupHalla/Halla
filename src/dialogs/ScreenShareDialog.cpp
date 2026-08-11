@@ -111,22 +111,33 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
     populateWindows(); // Mostra Aplicativos na aba "Aplicativos" (m_windowList)
     populateScreens(); // Mostra Telas na aba "Telas" (m_screenList)
 
-    // Caixa decorativa de Qualidade de Transmissão (estilo Discord)
+    // Qualidade da transmissão WebRTC (estilo Discord)
     QFrame* qualityBox = new QFrame(this);
     qualityBox->setStyleSheet(QStringLiteral("background-color: %1; border-radius: 8px; padding: 4px;").arg(qualityBoxBg));
     QHBoxLayout* qLayout = new QHBoxLayout(qualityBox);
-    qLayout->setContentsMargins(12, 6, 12, 6);
-    
-    QLabel* resLabel = new QLabel(tr("RESOLUÇÃO: 720p"), qualityBox);
-    resLabel->setStyleSheet(QStringLiteral("color: %1; font-size: 11px; font-weight: bold;").arg(qualityBoxText));
-    qLayout->addWidget(resLabel);
-    
-    qLayout->addStretch(1);
-    
-    QLabel* fpsLabel = new QLabel(tr("TAXA DE QUADROS: 20 FPS"), qualityBox);
-    fpsLabel->setStyleSheet(QStringLiteral("color: %1; font-size: 11px; font-weight: bold;").arg(qualityBoxText));
-    qLayout->addWidget(fpsLabel);
-    
+    qLayout->setContentsMargins(12, 8, 12, 8);
+    qLayout->setSpacing(10);
+
+    QLabel* qualityLabel = new QLabel(tr("QUALIDADE:"), qualityBox);
+    qualityLabel->setStyleSheet(QStringLiteral("color: %1; font-size: 11px; font-weight: bold;").arg(qualityBoxText));
+    qLayout->addWidget(qualityLabel);
+
+    m_qualityCombo = new QComboBox(qualityBox);
+    m_qualityCombo->addItem(tr("Desempenho — 720p 30 FPS"), 0);
+    m_qualityCombo->addItem(tr("Equilibrado — 1080p 30 FPS"), 1);
+    m_qualityCombo->addItem(tr("Qualidade — 1080p 60 FPS"), 2);
+    m_qualityCombo->setCurrentIndex(2);
+    m_qualityCombo->setStyleSheet(QStringLiteral(
+        "QComboBox { background-color: %1; color: %2; border: 1px solid %3; border-radius: 6px; padding: 6px 10px; font-weight: bold; }"
+        "QComboBox::drop-down { border: none; width: 24px; }"
+        "QComboBox QAbstractItemView { background-color: %1; color: %2; selection-background-color: %4; border: 1px solid %3; }"
+    ).arg(tabPaneBg, itemTextColor, tabBorder, tabBgSelected));
+    qLayout->addWidget(m_qualityCombo, 1);
+
+    QLabel* hintLabel = new QLabel(tr("Maior qualidade usa mais CPU/rede."), qualityBox);
+    hintLabel->setStyleSheet(QStringLiteral("color: %1; font-size: 10px; font-weight: normal;").arg(qualityBoxText));
+    qLayout->addWidget(hintLabel);
+
     mainLayout->addWidget(qualityBox);
 
     QHBoxLayout* btnRow = new QHBoxLayout;
@@ -156,6 +167,43 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
     btnRow->addWidget(shareBtn);
 
     mainLayout->addLayout(btnRow);
+}
+
+
+int ScreenShareDialog::selectedQualityProfile() const {
+    return m_qualityCombo ? m_qualityCombo->currentData().toInt(2) : 2;
+}
+
+int ScreenShareDialog::selectedWidth() const {
+    switch (selectedQualityProfile()) {
+    case 0: return 1280;
+    case 1: return 1920;
+    default: return 1920;
+    }
+}
+
+int ScreenShareDialog::selectedHeight() const {
+    switch (selectedQualityProfile()) {
+    case 0: return 720;
+    case 1: return 1080;
+    default: return 1080;
+    }
+}
+
+int ScreenShareDialog::selectedFps() const {
+    switch (selectedQualityProfile()) {
+    case 0: return 30;
+    case 1: return 30;
+    default: return 60;
+    }
+}
+
+int ScreenShareDialog::selectedBitrateKbps() const {
+    switch (selectedQualityProfile()) {
+    case 0: return 2500;
+    case 1: return 4500;
+    default: return 8000;
+    }
 }
 
 void ScreenShareDialog::populateScreens() {

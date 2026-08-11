@@ -1610,6 +1610,8 @@ void MainWindow::toggleScreenShare() {
 
             if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
                 m_webrtcSession->setCaptureSource(m_screenShareSourceType, m_screenShareSourceId);
+                m_webrtcSession->setCaptureQuality(dlg.selectedWidth(), dlg.selectedHeight(),
+                                                   dlg.selectedFps(), dlg.selectedBitrateKbps());
                 m_webrtcSession->startBroadcast();
                 m_actScreenShare->setIcon(HIcons::screenShare(true));
                 t->data().users[t->data().selfId].screensharing = true;

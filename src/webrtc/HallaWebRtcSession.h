@@ -25,6 +25,7 @@ public:
     bool isNativeAvailable() const;
     bool isBroadcasting() const { return m_broadcasting; }
     void setCaptureSource(int sourceType, quintptr sourceId);
+    void setCaptureQuality(int width, int height, int fps, int bitrateKbps);
 
 public slots:
     void startBroadcast();
@@ -57,5 +58,9 @@ private:
     QTimer* m_captureTimer = nullptr;
     int m_captureSourceType = 0;
     quintptr m_captureSourceId = 0;
+    int m_captureWidth = 1920;
+    int m_captureHeight = 1080;
+    int m_captureFps = 60;
+    int m_captureBitrateKbps = 8000;
     bool m_broadcasting = false;
 };

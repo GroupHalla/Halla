@@ -462,6 +462,16 @@ void HallaWebRtcSession::setCaptureSource(int sourceType, quintptr sourceId) {
     m_captureSourceId = sourceId;
 }
 
+void HallaWebRtcSession::setCaptureQuality(int width, int height, int fps, int bitrateKbps) {
+    m_captureWidth = qBound(640, width, 3840);
+    m_captureHeight = qBound(360, height, 2160);
+    m_captureFps = qBound(15, fps, 60);
+    m_captureBitrateKbps = qBound(800, bitrateKbps, 20000);
+    if (m_captureTimer && m_captureTimer->isActive()) {
+        m_captureTimer->start(qMax(1, 1000 / m_captureFps));
+    }
+}
+
 #ifdef HALLA_WEBRTC_NATIVE
 bool HallaWebRtcSession::ensureNativeFactory() {
     if (!m_native->sslInitialized) {
@@ -544,11 +554,10 @@ void HallaWebRtcSession::createOfferForPeer(int peerId) {
             auto params = sender->GetParameters();
             if (params.encodings.empty()) params.encodings.emplace_back();
             for (auto& encoding : params.encodings) {
-                encoding.max_framerate = 60.0;
-                // 1920x1080 screen-share at 60 fps. This is an experimental
-                // high-quality profile; DXGI keeps capture cheap, while the
-                // bitrate cap avoids unbounded VP8/network spikes.
-                encoding.max_bitrate_bps = 8000 * 1000;
+                encoding.max_framerate = double(m_captureFps);
+                // User-selected screen-share profile. The bitrate cap avoids
+                // unbounded VP8/network spikes while keeping text readable.
+                encoding.max_bitrate_bps = m_captureBitrateKbps * 1000;
             }
             const auto setParamsError = sender->SetParameters(params);
             if (!setParamsError.ok()) {
@@ -623,7 +632,7 @@ void HallaWebRtcSession::captureFrame() {
 
     if (frameImage.isNull() && !pix.isNull()) frameImage = pix.toImage();
     if (frameImage.isNull()) return;
-    QImage img = frameImage.scaled(1920, 1080, Qt::KeepAspectRatio, Qt::FastTransformation);
+    QImage img = frameImage.scaled(m_captureWidth, m_captureHeight, Qt::KeepAspectRatio, Qt::FastTransformation);
     m_native->videoSource->PushImage(img);
 }
 #endif
@@ -646,7 +655,7 @@ void HallaWebRtcSession::startBroadcast() {
 #endif
         });
     }
-    m_captureTimer->start(16);
+    m_captureTimer->start(qMax(1, 1000 / m_captureFps));
     if (m_net) m_net->sendWebRtcStreamStart();
     emit broadcastStarted();
 #else
