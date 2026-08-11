@@ -171,7 +171,7 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
 
 
 int ScreenShareDialog::selectedQualityProfile() const {
-    return m_qualityCombo ? m_qualityCombo->currentData().toInt(2) : 2;
+    return m_qualityCombo ? m_qualityCombo->currentData().toInt() : 2;
 }
 
 int ScreenShareDialog::selectedWidth() const {
