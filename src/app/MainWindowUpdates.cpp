@@ -135,7 +135,7 @@ void MainWindow::checkUpdates(bool manual) {
         }
 
         const int answer = QMessageBox::question(this, tr("Nova atualização disponível"),
-            tr("Uma nova versão (%1) está disponível!\nO instalador será validado por SHA-256 e Authenticode.\nDeseja continuar?").arg(latestVersion),
+            tr("Uma nova versão (%1) está disponível!\nO SHA-256 é obrigatório; a assinatura Authenticode será validada quando disponível.\nDeseja continuar?").arg(latestVersion),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
         if (answer == QMessageBox::Yes)
             downloadAndInstallUpdate(downloadUrl, checksumUrl, latestVersion);
@@ -223,16 +223,24 @@ void MainWindow::downloadAndInstallUpdate(const QString& url, const QString& che
             file.close();
 
             QString signatureDetail;
-            if (!verifyAuthenticode(installerPath, &signatureDetail)) {
-                QFile::remove(installerPath);
-                QMessageBox::critical(this, tr("Atualização insegura"),
-                    tr("A assinatura Authenticode do instalador é inválida.\n%1").arg(signatureDetail));
-                dlg->close();
-                return;
+            const bool signatureValid = verifyAuthenticode(installerPath, &signatureDetail);
+            if (!signatureValid) {
+                const int unsignedAnswer = QMessageBox::warning(this, tr("Instalador sem certificado"),
+                    tr("O SHA-256 publicado foi validado, mas este instalador ainda não possui uma assinatura Authenticode confiável.\n"
+                       "O Windows poderá mostrar ‘Editor desconhecido’.\n\nDetalhes: %1\n\nDeseja executar mesmo assim?")
+                        .arg(signatureDetail),
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                if (unsignedAnswer != QMessageBox::Yes) {
+                    QFile::remove(installerPath);
+                    dlg->close();
+                    return;
+                }
             }
 
             QMessageBox::information(this, tr("Download concluído"),
-                tr("SHA-256 e assinatura Authenticode validados. O instalador será executado agora."));
+                signatureValid
+                    ? tr("SHA-256 e assinatura Authenticode validados. O instalador será executado agora.")
+                    : tr("SHA-256 validado. O instalador sem certificado será executado por sua confirmação."));
             S::set("app/forceQuit", true);
             QProcess::startDetached(installerPath, {});
             qApp->quit();
