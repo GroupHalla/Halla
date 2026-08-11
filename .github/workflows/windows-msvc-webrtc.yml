@@ -1,86 +1,184 @@
-name: Build Windows MSVC WebRTC Client
+name: Build and release Windows MSVC WebRTC
 
 on:
   workflow_dispatch:
     inputs:
       sdk_version:
-        description: 'Halla-WebRTC-Builds release tag'
+        description: Halla-WebRTC-Builds release tag
         required: true
-        default: 'v0.1.6'
+        default: v0.1.13
+  push:
+    tags: ['desktop-webrtc-v*']
 
 permissions:
   contents: read
 
 jobs:
-  build-msvc-webrtc:
-    name: Build Windows x64 MSVC + WebRTC
+  build:
     runs-on: windows-latest
-    timeout-minutes: 120
-
+    timeout-minutes: 150
+    env:
+      SDK_VERSION: ${{ inputs.sdk_version || 'v0.1.13' }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Setup MSVC dev shell
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Validate version and tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid VERSION=$version" }
+          if ('${{ github.ref_type }}' -eq 'tag' -and '${{ github.ref_name }}' -ne "desktop-webrtc-v$version") {
+            throw "Tag ${{ github.ref_name }} does not match VERSION=$version"
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Validate repository policy
+        run: python tests/repo_sanity.py
+
+      - name: Set up MSVC x64
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
         with:
           arch: x64
 
       - name: Install Qt MSVC
-        uses: jurplel/install-qt-action@v4
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
-          version: '6.8.3'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2022_64'
-          modules: 'qtmultimedia qtspeech'
+          version: 6.8.3
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtmultimedia qtspeech
           cache: true
 
-      - name: Install native dependencies with vcpkg
+      - name: Install native dependencies
         shell: pwsh
-        run: |
-          vcpkg install opus:x64-windows openssl:x64-windows
+        run: vcpkg install opus:x64-windows openssl:x64-windows
 
-      - name: Download Halla WebRTC SDK
+      - name: Download and verify WebRTC SDK
         shell: pwsh
-        env:
-          SDK_TOKEN: ${{ secrets.HALLA_WEBRTC_SDK_TOKEN }}
-          SDK_VERSION: ${{ github.event.inputs.sdk_version }}
         run: |
-          if (-not $env:SDK_TOKEN) { throw "Missing secret HALLA_WEBRTC_SDK_TOKEN" }
-          $url = "https://github.com/GroupHalla/Halla-WebRTC-Builds/releases/download/$env:SDK_VERSION/halla-webrtc-windows-x64-$env:SDK_VERSION.zip"
-          New-Item -ItemType Directory -Force third_party/webrtc-sdk | Out-Null
-          Invoke-WebRequest -Headers @{ Authorization = "Bearer $env:SDK_TOKEN" } -Uri $url -OutFile webrtc-sdk.zip
-          Expand-Archive -Path webrtc-sdk.zip -DestinationPath third_party/webrtc-sdk -Force
-          Get-ChildItem third_party/webrtc-sdk -Recurse | Select-Object -First 30 | ForEach-Object { Write-Host $_.FullName }
+          $base = "https://github.com/GroupHalla/Halla-WebRTC-Builds/releases/download/$env:SDK_VERSION/halla-webrtc-windows-x64-$env:SDK_VERSION.zip"
+          Invoke-WebRequest -Uri $base -OutFile webrtc-sdk.zip
+          Invoke-WebRequest -Uri "$base.sha256" -OutFile webrtc-sdk.zip.sha256
+          $expected = ((Get-Content webrtc-sdk.zip.sha256 -Raw) -split '\s+')[0].ToLower()
+          $actual = (Get-FileHash webrtc-sdk.zip -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $expected) { throw "WebRTC SDK SHA-256 mismatch" }
+          New-Item -ItemType Directory -Force third_party\webrtc-sdk | Out-Null
+          Expand-Archive webrtc-sdk.zip -DestinationPath third_party\webrtc-sdk -Force
+          $manifest = "third_party\webrtc-sdk\MANIFEST.sha256"
+          if (!(Test-Path $manifest)) { throw "SDK manifest missing" }
+          foreach ($line in Get-Content $manifest) {
+            if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw "Malformed SDK manifest line: $line" }
+            $file = Join-Path "third_party\webrtc-sdk" $Matches[2]
+            if (!(Test-Path $file)) { throw "SDK file missing: $file" }
+            if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLower() -ne $Matches[1]) { throw "SDK file hash mismatch: $file" }
+          }
 
-      - name: Configure CMake MSVC WebRTC
+      - name: Configure native WebRTC build
         shell: pwsh
         run: |
-          cmake -S . -B build-msvc-webrtc -G "Ninja" `
+          cmake -S . -B build-msvc-webrtc -G Ninja `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" `
             -DCMAKE_BUILD_TYPE=Release `
             -DHALLA_WEBRTC_SDK_DIR="$pwd\third_party\webrtc-sdk" `
             -DHALLA_ENABLE_WEBRTC_NATIVE=ON
 
-      - name: Build MSVC WebRTC client
+      - name: Build
         shell: pwsh
         run: cmake --build build-msvc-webrtc --verbose
 
-      - name: Prepare portable artifact
+      - name: Prepare distribution
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force dist\Halla-WebRTC | Out-Null
-          Copy-Item build-msvc-webrtc\Halla.exe dist\Halla-WebRTC\
+          New-Item -ItemType Directory -Force dist\Halla | Out-Null
+          Copy-Item build-msvc-webrtc\Halla.exe dist\Halla\
           $deploy = Join-Path $env:QT_ROOT_DIR "bin\windeployqt.exe"
-          if (!(Test-Path $deploy)) { throw "windeployqt not found at $deploy" }
-          & $deploy --release --no-translations --dir dist\Halla-WebRTC dist\Halla-WebRTC\Halla.exe
-          Copy-Item packaging\LEIA-ME.txt dist\Halla-WebRTC\ -ErrorAction SilentlyContinue
-          Copy-Item packaging\LICENSE.txt dist\Halla-WebRTC\ -ErrorAction SilentlyContinue
-          Compress-Archive -Path dist\Halla-WebRTC\* -DestinationPath Halla-WebRTC-msvc-x64.zip -Force
+          & $deploy --release --no-translations --dir dist\Halla dist\Halla\Halla.exe
+          Copy-Item packaging\LEIA-ME.txt, packaging\LICENSE.txt dist\Halla\
+          $redist = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022" -Recurse -Filter vc_redist.x64.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($redist) { Copy-Item $redist.FullName dist\Halla\vc_redist.x64.exe }
 
-      - name: Upload portable artifact
-        uses: actions/upload-artifact@v4
+      - name: Require signing secrets for tagged releases
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          PFX: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+        run: |
+          if (-not $env:PFX -or -not $env:PASSWORD) { throw "Configure WINDOWS_SIGNING_PFX_BASE64 and WINDOWS_SIGNING_PFX_PASSWORD" }
+
+      - name: Sign application when certificate is configured
+        shell: pwsh
+        env:
+          PFX: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+          TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          if (-not $env:PFX) { Write-Host "Signing certificate not configured; manual artifact remains unsigned"; exit 0 }
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\halla-signing.pfx", [Convert]::FromBase64String($env:PFX))
+          $timestamp = if ($env:TIMESTAMP_URL) { $env:TIMESTAMP_URL } else { "http://timestamp.digicert.com" }
+          signtool sign /fd SHA256 /td SHA256 /tr $timestamp /f "$env:RUNNER_TEMP\halla-signing.pfx" /p "$env:PASSWORD" dist\Halla\Halla.exe
+          signtool verify /pa /v dist\Halla\Halla.exe
+
+      - name: Build NSIS installer
+        shell: pwsh
+        run: |
+          choco install nsis --no-progress -y
+          $version = '${{ steps.version.outputs.value }}'
+          & "C:\Program Files (x86)\NSIS\makensis.exe" "/DAPP_VERSION=$version" packaging\halla-setup.nsi
+          Move-Item "Halla-Setup-$version.exe" "Halla-Setup-WebRTC-$version.exe" -Force
+
+      - name: Sign installer when certificate is configured
+        shell: pwsh
+        env:
+          PFX: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+          TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          if (-not $env:PFX) { Write-Host "Signing certificate not configured; manual installer remains unsigned"; exit 0 }
+          $version = '${{ steps.version.outputs.value }}'
+          $timestamp = if ($env:TIMESTAMP_URL) { $env:TIMESTAMP_URL } else { "http://timestamp.digicert.com" }
+          signtool sign /fd SHA256 /td SHA256 /tr $timestamp /f "$env:RUNNER_TEMP\halla-signing.pfx" /p "$env:PASSWORD" "Halla-Setup-WebRTC-$version.exe"
+          signtool verify /pa /v "Halla-Setup-WebRTC-$version.exe"
+
+      - name: Generate installer checksum
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.value }}'
+          $file = "Halla-Setup-WebRTC-$version.exe"
+          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+          "$hash  $file" | Set-Content -Encoding ascii "$file.sha256"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: Halla-WebRTC-msvc-x64
-          path: Halla-WebRTC-msvc-x64.zip
+          name: halla-desktop-webrtc-installer
+          if-no-files-found: error
+          path: |
+            Halla-Setup-WebRTC-${{ steps.version.outputs.value }}.exe
+            Halla-Setup-WebRTC-${{ steps.version.outputs.value }}.exe.sha256
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: halla-desktop-webrtc-installer
+      - name: Publish signed release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Halla Desktop WebRTC ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            Halla-Setup-WebRTC-*.exe
+            Halla-Setup-WebRTC-*.exe.sha256

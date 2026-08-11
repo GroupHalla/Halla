@@ -2,6 +2,7 @@
 #include "TsBanner.h"
 #include "Icons.h"
 #include "Settings.h"
+#include "core/SecureStore.h"
 #include "AppLog.h"
 
 #include <QVBoxLayout>
@@ -37,8 +38,15 @@ static QString storeIdentityKey(EVP_PKEY* key) {
     p = reinterpret_cast<unsigned char*>(priv.data());
     i2d_PrivateKey(key, &p);
     const QString uid = QString::fromLatin1(QCryptographicHash::hash(pub, QCryptographicHash::Sha256).toBase64());
+    QString secureError;
+    if (!SecureStore::write(keyBase(uid, QStringLiteral("privateDer")), priv, &secureError)) {
+        AppLog::error(QObject::tr("Não foi possível salvar a identidade no cofre do sistema: %1").arg(secureError));
+        return QString();
+    }
     S::set(keyBase(uid, QStringLiteral("publicDer")), QString::fromLatin1(pub.toBase64()));
-    S::set(keyBase(uid, QStringLiteral("privateDer")), QString::fromLatin1(priv.toBase64()));
+    // Remove material legado em texto simples após migração/gravação segura.
+    S::store().remove(keyBase(uid, QStringLiteral("privateDer")));
+    S::store().sync();
     return uid;
 }
 
@@ -58,7 +66,17 @@ QByteArray IdentityDialog::publicKeyForUid(const QString& uid) {
 }
 
 QByteArray IdentityDialog::signNonce(const QString& uid, const QByteArray& nonce) {
-    QByteArray priv = QByteArray::fromBase64(S::str(keyBase(uid, QStringLiteral("privateDer"))).toLatin1());
+    const QString privateKeyName = keyBase(uid, QStringLiteral("privateDer"));
+    QByteArray priv = SecureStore::read(privateKeyName);
+    if (priv.isEmpty()) {
+        // Migração única de instalações anteriores que gravavam PKCS#8 em QSettings.
+        const QByteArray legacy = QByteArray::fromBase64(S::str(privateKeyName).toLatin1());
+        if (!legacy.isEmpty() && SecureStore::write(privateKeyName, legacy)) {
+            priv = legacy;
+            S::store().remove(privateKeyName);
+            S::store().sync();
+        }
+    }
     if (priv.isEmpty() || nonce.isEmpty()) return QByteArray();
     const unsigned char* p = reinterpret_cast<const unsigned char*>(priv.constData());
     EVP_PKEY* key = d2i_AutoPrivateKey(nullptr, &p, priv.size());

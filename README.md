@@ -149,7 +149,8 @@ com o `HallaServer`):
 - Porta padrão: **9987/tcp+udp**.
 - Protocolo versionado (`kProtoVersion` / `kProtoMin`): o servidor aceita
   clientes de versões antigas, mas recursos novos (permissões granulares,
-  banlist, grupos por UID, talk power) exigem a v3.
+  banlist e grupos por UID exigem v3; o protocolo v4 adiciona credencial UDP
+  CSPRNG de 128 bits e distribuição de ICE/TURN pelo servidor.
 
 ## Áudio e voz
 

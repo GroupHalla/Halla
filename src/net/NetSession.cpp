@@ -1,3 +1,4 @@
+#include "version.h"
 #include "NetSession.h"
 #include "HallaProtocol.h"
 #include "core/AppLog.h"
@@ -205,7 +206,7 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
     m_hostPort = port == 9987 ? host : QStringLiteral("%1:%2").arg(host).arg(port);
     m_identityUid = uid;
     m_udpPort = 0;
-    m_voiceToken = 0;
+    m_voiceToken.clear();
     m_udpRegistrationSeq = 0;
     m_buffer.clear();
 
@@ -228,7 +229,7 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
     if (!publicKey.isEmpty())
         m_pendingHello["idPub"] = QString::fromLatin1(publicKey.toBase64());
     m_pendingHello["nick"] = nickname;
-    m_pendingHello["ver"] = "3.6.2";
+    m_pendingHello["ver"] = QString::fromUtf8(halla::kAppVersion);
     m_pendingHello["platform"] =
 #ifdef Q_OS_WIN
         "Windows";
@@ -287,7 +288,7 @@ void NetSession::onReadyRead() {
 void NetSession::onDisconnected() {
     m_pingTimer->stop();
     m_udpPort = 0;
-    m_voiceToken = 0;
+    m_voiceToken.clear();
     m_udpRegistrationSeq = 0;
     if (!m_ready && !m_fatalError)
         emit connectionFailed(QStringLiteral("Não foi possível conectar ao servidor"));
@@ -305,7 +306,7 @@ void NetSession::onPingTimer() {
     // não abriu o microfone/encoder. O servidor registra o endereço antes de
     // validar o payload, então este frame não audível também atravessa NAT e
     // impede que a primeira fala do Mobile dependa de o PC falar antes.
-    if (m_voiceToken && m_udpPort) {
+    if (!m_voiceToken.isEmpty() && m_udpPort) {
         sendVoiceFrame(QByteArray(1, '\0'), ++m_udpRegistrationSeq);
     }
 }
@@ -372,7 +373,7 @@ void NetSession::onUdpReadyRead() {
 }
 
 void NetSession::sendVoiceFrame(const QByteArray& opus, quint16 seq) {
-    if (!m_voiceToken || m_udpPort == 0) return;
+    if (m_voiceToken.isEmpty() || m_udpPort == 0) return;
     const QHostAddress destination = m_udpHostAddress.isNull()
         ? QHostAddress(m_host) : m_udpHostAddress;
     if (destination.isNull()) return;
@@ -792,6 +793,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         m_screenshareWidth = srv["screenshare_w"].toInt(800);
         m_screenshareHeight = srv["screenshare_h"].toInt(450);
         m_screenshareFps = srv["screenshare_fps"].toInt(20);
+        m_webRtcIceServers = obj["iceServers"].toArray();
         d.serverBanner = QByteArray::fromBase64(srv["banner"].toString().toLatin1());
 
         d.users.clear();
@@ -806,7 +808,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
 
         QJsonObject voice = obj["voice"].toObject();
         m_udpPort = quint16(voice["udp"].toInt());
-        m_voiceToken = voice["token"].toString().toUInt();
+        m_voiceToken = QByteArray::fromHex(voice["token"].toString().toLatin1());
+        if (m_voiceToken.size() != HProto::kVoiceTokenBytes) m_voiceToken.clear();
 
         // Recebe as chaves de canal junto do welcome para evitar a corrida em
         // que channel_key chegava antes de m_ready e era ignorado.
@@ -824,7 +827,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         // Registra o endpoint UDP com um payload não vazio. Relays antigos
         // ignoravam datagramas HALL de apenas 10 bytes; nesse cenário o PC
         // só passava a ser destino válido depois de falar uma vez.
-        if (m_voiceToken && m_udpPort) {
+        if (!m_voiceToken.isEmpty() && m_udpPort) {
             for (quint16 seq = 1; seq <= 3; ++seq)
                 sendVoiceFrame(QByteArray(1, '\0'), seq);
             m_udpRegistrationSeq = 3;
@@ -1023,6 +1026,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "webrtc_watch_request" || t == "webrtc_watch_stop" ||
         t == "webrtc_offer" || t == "webrtc_answer" || t == "webrtc_ice") {
+        if (obj.value(QStringLiteral("iceServers")).isArray())
+            m_webRtcIceServers = obj.value(QStringLiteral("iceServers")).toArray();
         emit webRtcSignalReceived(obj);
         return;
     }
@@ -1033,8 +1038,9 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "voice_token") {
         m_udpPort = quint16(obj["udp"].toInt());
-        m_voiceToken = obj["token"].toString().toUInt();
-        if (m_voiceToken && m_udpPort) {
+        m_voiceToken = QByteArray::fromHex(obj["token"].toString().toLatin1());
+        if (m_voiceToken.size() != HProto::kVoiceTokenBytes) m_voiceToken.clear();
+        if (!m_voiceToken.isEmpty() && m_udpPort) {
             for (quint16 seq = 1; seq <= 3; ++seq)
                 sendVoiceFrame(QByteArray(1, '\0'), seq);
             m_udpRegistrationSeq = 3;
@@ -1096,7 +1102,7 @@ void NetSession::sendScreenShareStop() {
 }
 
 void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
-    if (!m_ready || !m_voiceToken || !m_udpPort || jpeg.isEmpty()) return;
+    if (!m_ready || m_voiceToken.isEmpty() || !m_udpPort || jpeg.isEmpty()) return;
     const QHostAddress destination = m_udpHostAddress.isNull()
         ? QHostAddress(m_host) : m_udpHostAddress;
     if (destination.isNull()) return;
@@ -1118,17 +1124,13 @@ void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
             if (chunkData.isEmpty()) continue;
         }
 
-        QByteArray p;
-        p.reserve(12 + chunkData.size());
-        p.append("HALF", 4);
-        p.append(reinterpret_cast<const char*>(&m_voiceToken), 4);
-        p.append(reinterpret_cast<const char*>(&seq), 2);
+        QByteArray framed;
         quint8 idx = quint8(i);
         quint8 count = quint8(totalChunks);
-        p.append(reinterpret_cast<const char*>(&idx), 1);
-        p.append(reinterpret_cast<const char*>(&count), 1);
-        p.append(chunkData);
-
-        m_udp->writeDatagram(p, destination, m_udpPort);
+        framed.append(reinterpret_cast<const char*>(&idx), 1);
+        framed.append(reinterpret_cast<const char*>(&count), 1);
+        framed.append(chunkData);
+        const QByteArray packet = HProto::encodeScreenClient(m_voiceToken, seq, framed);
+        if (!packet.isEmpty()) m_udp->writeDatagram(packet, destination, m_udpPort);
     }
 }

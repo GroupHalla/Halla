@@ -3,6 +3,8 @@
 #include "core/AppLog.h"
 
 #include <QDateTime>
+#include <QJsonArray>
+#include <QJsonValue>
 #include <QGuiApplication>
 #include <QImage>
 #include <QPixmap>
@@ -767,9 +769,26 @@ HallaWebRtcSession::PeerContext* HallaWebRtcSession::ensurePeer(int peerId) {
     ctx->observer = std::make_unique<PeerObserver>(this, peerId);
     webrtc::PeerConnectionInterface::RTCConfiguration cfg;
     cfg.sdp_semantics = webrtc::SdpSemantics::kUnifiedPlan;
-    webrtc::PeerConnectionInterface::IceServer stun;
-    stun.urls.push_back("stun:stun.l.google.com:19302");
-    cfg.servers.push_back(stun);
+    const QJsonArray configuredServers = m_net ? m_net->webRtcIceServers() : QJsonArray();
+    for (const QJsonValue& value : configuredServers) {
+        const QJsonObject object = value.toObject();
+        webrtc::PeerConnectionInterface::IceServer server;
+        const QJsonValue urls = object.value(QStringLiteral("urls"));
+        if (urls.isArray()) {
+            for (const QJsonValue& url : urls.toArray())
+                if (!url.toString().isEmpty()) server.urls.push_back(url.toString().toStdString());
+        } else if (!urls.toString().isEmpty()) {
+            server.urls.push_back(urls.toString().toStdString());
+        }
+        server.username = object.value(QStringLiteral("username")).toString().toStdString();
+        server.password = object.value(QStringLiteral("credential")).toString().toStdString();
+        if (!server.urls.empty()) cfg.servers.push_back(std::move(server));
+    }
+    if (cfg.servers.empty()) {
+        webrtc::PeerConnectionInterface::IceServer fallback;
+        fallback.urls.push_back("stun:stun.l.google.com:19302");
+        cfg.servers.push_back(std::move(fallback));
+    }
     webrtc::PeerConnectionDependencies deps(ctx->observer.get());
     auto result = m_native->factory->CreatePeerConnectionOrError(cfg, std::move(deps));
     if (!result.ok()) {
@@ -978,6 +997,13 @@ void HallaWebRtcSession::captureFrame() {
     }
     emit localPreviewFrame(img);
     m_native->videoSource->PushImage(img);
+}
+#endif
+
+#ifndef HALLA_WEBRTC_NATIVE
+void HallaWebRtcSession::startWatching(int userId) {
+    Q_UNUSED(userId);
+    emit unavailable(tr("Este build não contém o WebRTC nativo necessário para assistir transmissões."));
 }
 #endif
 

@@ -1605,7 +1605,7 @@ void MainWindow::loadDemoState() {
     ServerData init;
     init.name = QStringLiteral("Servidor Halla");
     init.address = QStringLiteral("163.176.35.133");
-    init.version = QStringLiteral("3.13.34");
+    init.version = QString::fromUtf8(halla::kAppVersion);
     init.platform = QStringLiteral("Windows");
     init.maxClients = 500;
 

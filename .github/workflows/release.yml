@@ -1,30 +1,23 @@
-name: Build and Release Windows Installer
+name: CI Windows MinGW fallback
 
 on:
   push:
-    tags:
-      - 'v*'
-    branches:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build Windows Client
     runs-on: windows-latest
-    permissions:
-      contents: write
-    env:
-      HALLA_WEBRTC_SDK_VERSION: v0.1.3
-
+    timeout-minutes: 60
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
         with:
           msystem: MINGW64
           path-type: inherit
@@ -37,116 +30,11 @@ jobs:
             mingw-w64-x86_64-qt6-speech
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-opus
-
-      - name: Download Halla WebRTC SDK
-        if: ${{ vars.HALLA_DOWNLOAD_WEBRTC_SDK == 'true' }}
-        shell: pwsh
-        run: |
-          $url = "https://github.com/GroupHalla/Halla-WebRTC-Builds/releases/download/$env:HALLA_WEBRTC_SDK_VERSION/halla-webrtc-windows-x64-$env:HALLA_WEBRTC_SDK_VERSION.zip"
-          New-Item -ItemType Directory -Force third_party/webrtc-sdk | Out-Null
-          if ($env:HALLA_WEBRTC_SDK_TOKEN) {
-            Invoke-WebRequest -Headers @{ Authorization = "Bearer $env:HALLA_WEBRTC_SDK_TOKEN" } -Uri $url -OutFile webrtc-sdk.zip
-          } else {
-            Invoke-WebRequest -Uri $url -OutFile webrtc-sdk.zip
-          }
-          Expand-Archive -Path webrtc-sdk.zip -DestinationPath third_party/webrtc-sdk -Force
-          Get-ChildItem third_party/webrtc-sdk -Recurse | Select-Object -First 20 | ForEach-Object { Write-Host $_.FullName }
-        env:
-          HALLA_WEBRTC_SDK_TOKEN: ${{ secrets.HALLA_WEBRTC_SDK_TOKEN }}
-
-      - name: Configure CMake
+      - name: Validate repository policy
+        run: python tests/repo_sanity.py
+      - name: Configure fallback build
         shell: msys2 {0}
-        run: |
-          WEBRTC_ARGS="-DHALLA_ENABLE_WEBRTC_NATIVE=OFF"
-          if [ -d "$PWD/third_party/webrtc-sdk" ]; then
-            WEBRTC_ARGS="$WEBRTC_ARGS -DHALLA_WEBRTC_SDK_DIR=$PWD/third_party/webrtc-sdk"
-          fi
-          cmake -S . -B build -G "Ninja" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_PREFIX_PATH="/mingw64" -DCMAKE_BUILD_TYPE=Release $WEBRTC_ARGS
-
-      - name: Build Application
+        run: cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=/mingw64 -DCMAKE_BUILD_TYPE=Release -DHALLA_ENABLE_WEBRTC_NATIVE=OFF
+      - name: Build fallback client
         shell: msys2 {0}
-        run: |
-          cmake --build build
-
-      - name: Prepare Distribution
-        shell: msys2 {0}
-        run: |
-          mkdir -p dist/Halla
-          cp build/Halla.exe dist/Halla/
-          
-          # Deploy Qt dependencies using MSYS2's native windeployqt
-          windeployqt --release --no-translations --no-compiler-runtime --dir dist/Halla dist/Halla/Halla.exe
-          
-          # Copy MinGW runtime DLLs
-          cp /mingw64/bin/libgcc_s_seh-1.dll dist/Halla/
-          cp /mingw64/bin/libstdc++-6.dll dist/Halla/
-          cp /mingw64/bin/libwinpthread-1.dll dist/Halla/
-          
-          # Recursively resolve and copy ALL DLL dependencies from /mingw64/bin!
-          # This guarantees libbrotlidec, zlib1, libb2, libicuin, and any other system-provided libraries are included!
-          echo ">> Resolvendo e copiando dependências recursivas de DLLs do sistema..."
-          COPIED=true
-          while [ "$COPIED" = true ]; do
-            COPIED=false
-            for f in $(find dist/Halla -type f \( -name "*.exe" -o -name "*.dll" \)); do
-              for dep in $(ldd "$f" | grep -i "mingw" | awk '{print $3}'); do
-                if [ ! -z "$dep" ]; then
-                  dep_unix=$(cygpath -u "$dep" 2>/dev/null || echo "$dep")
-                  dep_name=$(basename "$dep_unix")
-                  if [ ! -f "dist/Halla/$dep_name" ] && [ -f "$dep_unix" ]; then
-                    echo "Copiando dependência encontrada: $dep_name de $dep_unix"
-                    cp "$dep_unix" dist/Halla/
-                    COPIED=true
-                  fi
-                fi
-              done
-            done
-          done
-          
-          # Copy Readme and License
-          cp packaging/LEIA-ME.txt dist/Halla/
-          cp packaging/LICENSE.txt dist/Halla/
-
-      - name: Install NSIS
-        run: choco install nsis
-
-      - name: Build Installer with NSIS
-        run: |
-          & "C:\Program Files (x86)\NSIS\makensis.exe" packaging/halla-setup.nsi
-
-      - name: Remover releases anteriores
-        if: startsWith(github.ref, 'refs/tags/') && github.ref_name == 'v1.0.0'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $repo = "GroupHalla/Halla"
-          $current = "${{ github.ref_name }}"
-          $tags = gh release list --repo $repo --limit 100 --json tagName --jq '.[].tagName'
-          foreach ($tag in $tags) {
-            if ($tag -and $tag -ne $current) {
-              gh release delete $tag --repo $repo --cleanup-tag --yes
-            }
-          }
-          if (gh release view $current --repo $repo *> $null) {
-            gh release delete $current --repo $repo --yes
-          }
-
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Halla Desktop ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          files: Halla-Setup-1.0.48.exe
-          body: |
-            ## Halla Desktop ${{ github.ref_name }}
-
-            ### WebRTC nativo - smoke implementation
-            * HallaWebRtcSession agora inicializa threads WebRTC e PeerConnectionFactory quando HALLA_ENABLE_WEBRTC_NATIVE=ON.
-            * Build oficial continua com native OFF/stub seguro até validarmos link completo do SDK.
-            * Mantém fallback clássico enquanto a transmissão WebRTC nativa é concluída.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cmake --build build --verbose

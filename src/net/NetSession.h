@@ -35,7 +35,8 @@ public:
     int         screenshareWidth() const { return m_screenshareWidth; }
     int         screenshareHeight() const { return m_screenshareHeight; }
     int         screenshareFps() const    { return m_screenshareFps; }
-    qint64      bytesToWrite() const     { return m_tcp ? m_tcp->bytesToWrite() : 0; }
+    QJsonArray  webRtcIceServers() const  { return m_webRtcIceServers; }
+    qint64      bytesToWrite() const      { return m_tcp ? m_tcp->bytesToWrite() : 0; }
 
     // ---- estrutura pública (aplicada em ServerData e emitindo stateChanged)
     void attachTo(ServerData* target) { m_target = target; }
@@ -168,8 +169,9 @@ private:
     int         m_screenshareWidth = 800;
     int         m_screenshareHeight = 450;
     int         m_screenshareFps = 20;
+    QJsonArray  m_webRtcIceServers;
     quint16 m_udpPort = 0;
-    quint32 m_voiceToken = 0;
+    QByteArray m_voiceToken; // protocolo v4: token CSPRNG de 128 bits
     quint16 m_udpRegistrationSeq = 0;
     quint32 m_cryptoCounter = 0;
     QMap<int, QMap<quint16, QMap<int, QByteArray>>> m_reassembly;

@@ -60,7 +60,8 @@ private:
     void openBookmarksDialog(const QString& prefillLabel = QString(),
                              const QString& prefillAddr = QString());
     void checkUpdates(bool manual = false);
-    void downloadAndInstallUpdate(const QString& url, const QString& version);
+    void downloadAndInstallUpdate(const QString& url, const QString& checksumUrl,
+                                  const QString& version);
     void showNotifications();
     void applyTheme();
     void applyHotkeys();

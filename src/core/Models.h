@@ -38,7 +38,7 @@ struct User {
     int     id = 1;
     QString name;
     QString uniqueId = "HALLAself00000000000000000000=";
-    QString version  = "3.6.2";
+    QString version  = "desconhecida";
     QString platform = "Windows";
     QString description;
     QString serverGroups = "Normal";
@@ -89,7 +89,7 @@ struct Channel {
 struct ServerData {
     QString name;
     QString address;
-    QString version  = "3.13.7";
+    QString version  = "desconhecida";
     QString platform = "Linux";
     QString motd     = "Bem-vindo ao Halla!";
     QDateTime connectedAt = QDateTime::currentDateTime();

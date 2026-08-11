@@ -1,80 +1,42 @@
-name: WebRTC Native Smoke Test
+name: WebRTC native SDK smoke
 
 on:
   workflow_dispatch:
     inputs:
       sdk_version:
-        description: 'Halla-WebRTC-Builds release tag'
+        description: Halla-WebRTC-Builds release tag
         required: true
-        default: 'v0.1.6'
+        default: v0.1.13
 
 permissions:
   contents: read
 
 jobs:
-  windows-msvc-sdk-smoke:
-    name: Windows MSVC WebRTC SDK smoke
+  smoke:
     runs-on: windows-latest
     timeout-minutes: 60
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Download Halla WebRTC SDK
-        shell: pwsh
-        env:
-          SDK_TOKEN: ${{ secrets.HALLA_WEBRTC_SDK_TOKEN }}
-          SDK_VERSION: ${{ github.event.inputs.sdk_version }}
-        run: |
-          if (-not $env:SDK_TOKEN) { throw "Missing secret HALLA_WEBRTC_SDK_TOKEN" }
-          $url = "https://github.com/GroupHalla/Halla-WebRTC-Builds/releases/download/$env:SDK_VERSION/halla-webrtc-windows-x64-$env:SDK_VERSION.zip"
-          New-Item -ItemType Directory -Force third_party/webrtc-sdk | Out-Null
-          Invoke-WebRequest -Headers @{ Authorization = "Bearer $env:SDK_TOKEN" } -Uri $url -OutFile webrtc-sdk.zip
-          Expand-Archive -Path webrtc-sdk.zip -DestinationPath third_party/webrtc-sdk -Force
-          Get-ChildItem third_party/webrtc-sdk -Recurse | Select-Object -First 20 | ForEach-Object { Write-Host $_.FullName }
-
-      - name: Setup MSVC dev shell
-        uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
         with:
           arch: x64
-
-      - name: Compile/link WebRTC factory smoke with MSVC
+      - name: Download and verify SDK
+        shell: pwsh
+        env:
+          SDK_VERSION: ${{ inputs.sdk_version }}
+        run: |
+          $base = "https://github.com/GroupHalla/Halla-WebRTC-Builds/releases/download/$env:SDK_VERSION/halla-webrtc-windows-x64-$env:SDK_VERSION.zip"
+          Invoke-WebRequest -Uri $base -OutFile sdk.zip
+          Invoke-WebRequest -Uri "$base.sha256" -OutFile sdk.zip.sha256
+          $expected = ((Get-Content sdk.zip.sha256 -Raw) -split '\s+')[0].ToLower()
+          $actual = (Get-FileHash sdk.zip -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $expected) { throw "SDK SHA-256 mismatch" }
+          Expand-Archive sdk.zip -DestinationPath sdk -Force
+      - name: Compile and run factory smoke
         shell: pwsh
         run: |
-          @'
-          #include <cstddef>
-          using nullptr_t = std::nullptr_t;
-          #include "api/create_peerconnection_factory.h"
-          #include "api/audio_codecs/builtin_audio_decoder_factory.h"
-          #include "api/audio_codecs/builtin_audio_encoder_factory.h"
-          #include "rtc_base/ssl_adapter.h"
-          #include "rtc_base/thread.h"
-          int main() {
-              if (!webrtc::InitializeSSL()) return 10;
-              auto network = webrtc::Thread::CreateWithSocketServer();
-              auto worker = webrtc::Thread::Create();
-              auto signaling = webrtc::Thread::Create();
-              if (!network || !worker || !signaling) return 11;
-              if (!network->Start() || !worker->Start() || !signaling->Start()) return 12;
-              auto factory = webrtc::CreatePeerConnectionFactory(
-                  network.get(), worker.get(), signaling.get(), nullptr,
-                  webrtc::CreateBuiltinAudioEncoderFactory(),
-                  webrtc::CreateBuiltinAudioDecoderFactory(),
-                  nullptr, nullptr, nullptr, nullptr);
-              if (!factory) return 13;
-              factory = nullptr;
-              signaling.reset(); worker.reset(); network.reset();
-              webrtc::CleanupSSL();
-              return 0;
-          }
-          '@ | Set-Content webrtc_factory_smoke.cpp
-          $inc = "third_party/webrtc-sdk"
-          $lib = "third_party/webrtc-sdk/lib/windows-x64/webrtc.lib"
-          cl /nologo /std:c++20 /EHsc /DWEBRTC_WIN=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN `
-            /I "$inc/include" `
-            /I "$inc/include/third_party/abseil-cpp" `
-            /I "$inc/include/third_party/libyuv/include" `
-            webrtc_factory_smoke.cpp `
-            /link "$lib" ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib /out:webrtc_factory_smoke.exe
+          $libs = Get-ChildItem "sdk\lib\windows-x64" -Filter *.lib | ForEach-Object { $_.FullName }
+          cl /nologo /std:c++20 /MD /EHsc /DWEBRTC_WIN=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN `
+            /I "sdk\include" /I "sdk\include\third_party\abseil-cpp" /I "sdk\include\third_party\libyuv\include" `
+            tests\webrtc_factory_smoke.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib /out:webrtc_factory_smoke.exe
           .\webrtc_factory_smoke.exe

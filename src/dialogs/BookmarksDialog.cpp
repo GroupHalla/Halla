@@ -3,6 +3,7 @@
 #include "TsBanner.h"
 #include "Icons.h"
 #include "Settings.h"
+#include "core/SecureStore.h"
 #include "AppLog.h"
 
 #include <QVBoxLayout>
@@ -15,6 +16,15 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QCryptographicHash>
+#include <QSet>
+
+static QString bookmarkSecretKey(const Bookmark& b) {
+    const QByteArray identity = QStringLiteral("%1|%2|%3|%4")
+        .arg(b.label, b.address).arg(b.port).arg(b.nickname).toUtf8();
+    return QStringLiteral("bookmarks/%1/password")
+        .arg(QString::fromLatin1(QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex()));
+}
 
 QList<Bookmark> BookmarksDialog::loadAll() {
     QList<Bookmark> out;
@@ -27,7 +37,12 @@ QList<Bookmark> BookmarksDialog::loadAll() {
         b.address = o["addr"].toString();
         b.port = static_cast<quint16>(o["port"].toInt(9987));
         b.nickname = o["nick"].toString();
-        b.password = o["pass"].toString();
+        b.password = QString::fromUtf8(SecureStore::read(bookmarkSecretKey(b)));
+        const QString legacyPassword = o["pass"].toString();
+        if (b.password.isEmpty() && !legacyPassword.isEmpty()
+            && SecureStore::write(bookmarkSecretKey(b), legacyPassword.toUtf8())) {
+            b.password = legacyPassword;
+        }
         b.autoconnect = o["auto"].toBool();
         out << b;
     }
@@ -35,17 +50,28 @@ QList<Bookmark> BookmarksDialog::loadAll() {
 }
 
 void BookmarksDialog::saveAll(const QList<Bookmark>& list) {
+    const QList<Bookmark> previous = loadAll();
+    QSet<QString> retainedSecrets;
     QJsonArray arr;
     for (const Bookmark& b : list) {
+        const QString secretKey = bookmarkSecretKey(b);
+        retainedSecrets.insert(secretKey);
+        if (b.password.isEmpty()) SecureStore::remove(secretKey);
+        else SecureStore::write(secretKey, b.password.toUtf8());
+
         QJsonObject o;
         o["label"] = b.label;
         o["addr"] = b.address;
         o["port"] = static_cast<int>(b.port);
         o["nick"] = b.nickname;
-        o["pass"] = b.password;
         o["auto"] = b.autoconnect;
         arr << o;
     }
+    for (const Bookmark& old : previous) {
+        const QString key = bookmarkSecretKey(old);
+        if (!retainedSecrets.contains(key)) SecureStore::remove(key);
+    }
+    // Senhas nunca mais são serializadas em QSettings.
     S::set("bookmarks", QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
 }
 

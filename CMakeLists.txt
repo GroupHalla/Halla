@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(Halla VERSION 3.10.0 LANGUAGES CXX)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" HALLA_VERSION LIMIT_COUNT 1)
+string(STRIP "${HALLA_VERSION}" HALLA_VERSION)
+if (NOT HALLA_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "VERSION inválida: '${HALLA_VERSION}'")
+endif()
+project(Halla VERSION ${HALLA_VERSION} LANGUAGES CXX)
+
+set(HALLA_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+file(MAKE_DIRECTORY "${HALLA_GENERATED_DIR}")
+configure_file(src/version.h.in "${HALLA_GENERATED_DIR}/version.h" @ONLY)
+if (WIN32)
+    configure_file(src/halla.rc.in "${HALLA_GENERATED_DIR}/halla.rc" @ONLY)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,14 +28,28 @@ set(HALLA_WEBRTC_SDK_DIR "" CACHE PATH "Path to prebuilt Halla/libwebrtc SDK")
 find_package(OpenSSL REQUIRED)
 
 # Qt 6
-find_package(Qt6 6.2 QUIET COMPONENTS Widgets Network Multimedia TextToSpeech)
+find_package(Qt6 6.2 QUIET COMPONENTS Widgets Network Multimedia TextToSpeech DBus)
 if (Qt6_FOUND)
-    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech)
+    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech Qt6::DBus)
     message(STATUS "Halla: usando Qt ${Qt6_VERSION}")
 else()
-    find_package(Qt6 REQUIRED COMPONENTS Widgets Network Multimedia TextToSpeech)
-    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets Network Multimedia TextToSpeech DBus)
+    set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech Qt6::DBus)
 endif()
+
+include(FetchContent)
+set(BUILD_WITH_QT6 ON CACHE BOOL "Build QtKeychain with Qt 6" FORCE)
+set(BUILD_TEST_APPLICATION OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "Disable bundled dependency tests" FORCE)
+set(BUILD_QTQUICK_DEMO OFF CACHE BOOL "" FORCE)
+set(BUILD_TRANSLATIONS OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build bundled dependencies statically" FORCE)
+FetchContent_Declare(qtkeychain
+    GIT_REPOSITORY https://github.com/frankosterfeld/qtkeychain.git
+    GIT_TAG ad7344c45a86a4f66cbafc4b081b5f7b876cb0b7
+    GIT_SHALLOW FALSE
+)
+FetchContent_MakeAvailable(qtkeychain)
 
 # Opus vem da toolchain/sistema. Não versionamos mais libopus.a no Git.
 find_path(OPUS_INCLUDE_DIR opus.h PATH_SUFFIXES opus third_party/opus/include REQUIRED)
@@ -37,6 +63,7 @@ set(HALLA_SOURCES
     src/main.cpp
     src/halla.qrc
     src/core/AppLog.cpp
+    src/core/SecureStore.cpp
     src/gui/Icons.cpp
     src/gui/TsBanner.cpp
     src/gui/HotkeyEdit.cpp
@@ -72,6 +99,7 @@ set(HALLA_SOURCES
 add_executable(Halla ${HALLA_SOURCES})
 
 target_include_directories(Halla PRIVATE
+    "${HALLA_GENERATED_DIR}"
     src
     src/core
     src/gui
@@ -81,7 +109,7 @@ target_include_directories(Halla PRIVATE
     src/webrtc
 )
 
-target_link_libraries(Halla PRIVATE ${QT_LIBS})
+target_link_libraries(Halla PRIVATE ${QT_LIBS} qt6keychain)
 target_include_directories(Halla PRIVATE ${OPUS_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
 set(HALLA_WEBRTC_NATIVE_ACTIVE OFF)
 
@@ -156,5 +184,5 @@ install(TARGETS Halla RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 
 # Ícone e informações de versão embutidos no Halla.exe (Windows)
 if (WIN32)
-    target_sources(Halla PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/halla.rc)
+    target_sources(Halla PRIVATE "${HALLA_GENERATED_DIR}/halla.rc")
 endif()
