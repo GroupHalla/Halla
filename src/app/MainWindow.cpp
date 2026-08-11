@@ -131,6 +131,13 @@ public:
         }
     }
 
+    void updateImage(const QImage& image) {
+        if (!image.isNull()) {
+            m_currentPixmap = QPixmap::fromImage(image);
+            scaleFrame();
+        }
+    }
+
 protected:
     void resizeEvent(QResizeEvent* e) override {
         QDialog::resizeEvent(e);
@@ -209,6 +216,8 @@ public:
         Q_UNUSED(userName);
         Q_UNUSED(jpegData);
         setAttribute(Qt::WA_DeleteOnClose);
+        setAttribute(Qt::WA_TranslucentBackground, true);
+        setProperty("streamUserId", userId);
         setFixedSize(374, 44);
         setObjectName(QStringLiteral("watchPill"));
         setStyleSheet(QStringLiteral(
@@ -885,6 +894,17 @@ void MainWindow::wireTab(ServerTab* tab) {
             m_webrtcSession = new HallaWebRtcSession(tab->net(), this);
             connect(m_webrtcSession, &HallaWebRtcSession::unavailable, this,
                     [this](const QString& reason) { statusBar()->showMessage(reason, 7000); });
+            connect(m_webrtcSession, &HallaWebRtcSession::localPreviewFrame, this,
+                    [this](const QImage& image) {
+                        if (ServerTab* tab = currentTab()) {
+                            const int self = tab->data().selfId;
+                            if (m_screenShareWindows.contains(self)) m_screenShareWindows[self]->updateImage(image);
+                        }
+                    });
+            connect(m_webrtcSession, &HallaWebRtcSession::remoteFrameReceived, this,
+                    [this](int userId, const QImage& image) {
+                        if (m_screenShareWindows.contains(userId)) m_screenShareWindows[userId]->updateImage(image);
+                    });
         }
         connect(tab->net(), &NetSession::webRtcSignalReceived,
                 m_webrtcSession, &HallaWebRtcSession::handleSignal);
@@ -1662,6 +1682,14 @@ void MainWindow::toggleScreenShare() {
                 m_webrtcSession->setCaptureSystemAudio(dlg.captureSystemAudio());
                 m_webrtcSession->startBroadcast();
                 m_actScreenShare->setIcon(HIcons::screenShare(true));
+                const int selfId = t->data().selfId;
+                if (!m_screenShareWindows.contains(selfId)) {
+                    QString userName = t->data().users.contains(selfId) ? t->data().users[selfId].name : tr("Minha transmissão");
+                    ScreenShareWindow* win = new ScreenShareWindow(selfId, userName, this);
+                    m_screenShareWindows[selfId] = win;
+                    connect(win, &QDialog::finished, this, [this, selfId]() { m_screenShareWindows.remove(selfId); });
+                    win->show();
+                }
                 t->data().users[t->data().selfId].screensharing = true;
                 emit t->net()->stateChanged();
                 return;
@@ -1842,10 +1870,10 @@ void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoin
         return;
     }
 
-    // Evita abrir múltiplos popups redundantes, mas substitui o antigo para
-    // manter o botão sempre grudado no usuário sob o cursor.
+    // Evita flicker: se já existe botão para o mesmo usuário, não recria.
     for (QWidget* w : QApplication::topLevelWidgets()) {
         if (dynamic_cast<ScreenshareHoverPopup*>(w)) {
+            if (w->property("streamUserId").toInt() == userId) return;
             w->close();
         }
     }
@@ -1905,6 +1933,9 @@ void MainWindow::watchStream(int userId, int channelId) {
     }
 
     handleScreenshareStateChanged(userId, true);
+    if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
+        m_webrtcSession->startWatching(userId);
+    }
 }
 
 // -- restauração de sessão usa a rede (já era) ---------------------------

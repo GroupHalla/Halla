@@ -5,10 +5,14 @@
 #include <string>
 #include <QJsonObject>
 #include <QString>
+#include <QImage>
 #include <QtGlobal>
 class QTimer;
 
 class NetSession;
+#ifdef HALLA_WEBRTC_NATIVE
+namespace webrtc { template <typename T> class scoped_refptr; class VideoTrackInterface; }
+#endif
 
 // Adapter de WebRTC nativo do Halla Desktop.
 //
@@ -27,6 +31,7 @@ public:
     void setCaptureSource(int sourceType, quintptr sourceId);
     void setCaptureQuality(int width, int height, int fps, int bitrateKbps);
     void setCaptureSystemAudio(bool enabled);
+    void startWatching(int userId);
 
 public slots:
     void startBroadcast();
@@ -40,10 +45,15 @@ public:
     PeerContext* ensurePeer(int peerId);
     void createOfferForPeer(int peerId);
     void setRemoteAnswer(int peerId, const QString& sdp);
+    void setRemoteOffer(int peerId, const QString& sdp);
+    void createAnswerForPeer(int peerId);
     void addRemoteIce(int peerId, const QJsonObject& signal);
     void closePeer(int peerId);
     void sendNativeIce(int peerId, const std::string& candidate, const std::string& mid, int mline);
     void sendNativeOffer(int peerId, const std::string& sdp);
+    void sendNativeAnswer(int peerId, const std::string& sdp);
+    void attachRemoteVideoTrack(int peerId, webrtc::scoped_refptr<webrtc::VideoTrackInterface> track);
+    void deliverRemoteFrame(int peerId, const QImage& image);
     void captureFrame();
 #endif
 
@@ -51,6 +61,8 @@ signals:
     void unavailable(const QString& reason);
     void broadcastStarted();
     void broadcastStopped();
+    void localPreviewFrame(const QImage& image);
+    void remoteFrameReceived(int userId, const QImage& image);
 
 private:
     struct NativeState;

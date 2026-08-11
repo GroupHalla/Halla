@@ -40,6 +40,8 @@ using nullptr_t = std::nullptr_t;
 #include "api/jsep.h"
 #include "api/make_ref_counted.h"
 #include "api/media_stream_interface.h"
+#include "api/rtp_receiver_interface.h"
+#include "api/rtp_transceiver_interface.h"
 #include "api/audio/audio_device_defines.h"
 #include "modules/audio_device/include/audio_device_default.h"
 #include "api/video/i420_buffer.h"
@@ -48,6 +50,7 @@ using nullptr_t = std::nullptr_t;
 #include "api/video_codecs/video_encoder_factory.h"
 #include "modules/video_coding/codecs/vp8/include/vp8.h"
 #include "libyuv/convert.h"
+#include "libyuv/convert_from.h"
 #include "rtc_base/ref_counted_object.h"
 #include "rtc_base/ssl_adapter.h"
 #include "rtc_base/thread.h"
@@ -406,6 +409,9 @@ public:
         AppLog::info(QStringLiteral("WebRTC ICE gathering peer #%1: %2").arg(m_peerId).arg(int(state)));
     }
     void OnIceCandidate(const webrtc::IceCandidate* candidate) override;
+    void OnTrack(webrtc::scoped_refptr<webrtc::RtpTransceiverInterface> transceiver) override;
+    void OnAddTrack(webrtc::scoped_refptr<webrtc::RtpReceiverInterface> receiver,
+                    const std::vector<webrtc::scoped_refptr<webrtc::MediaStreamInterface>>& streams) override;
 private:
     HallaWebRtcSession* m_owner = nullptr;
     int m_peerId = 0;
@@ -464,6 +470,53 @@ public:
         if (format.name != "VP8" && format.name != "vp8") return nullptr;
         return webrtc::CreateVp8Decoder(env);
     }
+};
+
+class AnswerObserver : public webrtc::CreateSessionDescriptionObserver {
+public:
+    AnswerObserver(HallaWebRtcSession* owner, int peerId) : m_owner(owner), m_peerId(peerId) {}
+    void OnSuccess(webrtc::SessionDescriptionInterface* desc) override;
+    void OnFailure(webrtc::RTCError error) override {
+        AppLog::warn(QStringLiteral("WebRTC CreateAnswer falhou: %1")
+                         .arg(QString::fromStdString(error.message())));
+    }
+private:
+    HallaWebRtcSession* m_owner = nullptr;
+    int m_peerId = 0;
+};
+
+class RemoteOfferSetObserver : public webrtc::SetSessionDescriptionObserver {
+public:
+    RemoteOfferSetObserver(HallaWebRtcSession* owner, int peerId) : m_owner(owner), m_peerId(peerId) {}
+    void OnSuccess() override;
+    void OnFailure(webrtc::RTCError error) override {
+        AppLog::warn(QStringLiteral("WebRTC SetRemoteOffer falhou: %1")
+                         .arg(QString::fromStdString(error.message())));
+    }
+private:
+    HallaWebRtcSession* m_owner = nullptr;
+    int m_peerId = 0;
+};
+
+class RemoteVideoSink : public webrtc::VideoSinkInterface<webrtc::VideoFrame> {
+public:
+    RemoteVideoSink(HallaWebRtcSession* owner, int peerId) : m_owner(owner), m_peerId(peerId) {}
+    void OnFrame(const webrtc::VideoFrame& frame) override {
+        if (!m_owner) return;
+        auto i420 = frame.video_frame_buffer() ? frame.video_frame_buffer()->ToI420() : nullptr;
+        if (!i420) return;
+        QImage image(i420->width(), i420->height(), QImage::Format_ARGB32);
+        const int ret = libyuv::I420ToARGB(
+            i420->DataY(), i420->StrideY(),
+            i420->DataU(), i420->StrideU(),
+            i420->DataV(), i420->StrideV(),
+            image.bits(), image.bytesPerLine(),
+            i420->width(), i420->height());
+        if (ret == 0) m_owner->deliverRemoteFrame(m_peerId, image.copy());
+    }
+private:
+    HallaWebRtcSession* m_owner = nullptr;
+    int m_peerId = 0;
 };
 
 class QtScreenVideoSource : public webrtc::VideoTrackSourceInterface {
@@ -576,6 +629,11 @@ struct HallaWebRtcSession::PeerContext {
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pc;
     std::unique_ptr<PeerObserver> observer;
     std::vector<webrtc::scoped_refptr<webrtc::CreateSessionDescriptionObserver>> pendingOffers;
+    struct RemoteBinding {
+        webrtc::scoped_refptr<webrtc::VideoTrackInterface> track;
+        std::unique_ptr<RemoteVideoSink> sink;
+    };
+    std::vector<RemoteBinding> remoteVideo;
     bool trackAdded = false;
     bool audioTrackAdded = false;
 };
@@ -735,6 +793,16 @@ void HallaWebRtcSession::sendNativeOffer(int peerId, const std::string& sdp) {
     if (m_net) m_net->sendWebRtcOffer(peerId, QString::fromStdString(sdp));
 }
 
+void HallaWebRtcSession::sendNativeAnswer(int peerId, const std::string& sdp) {
+    if (m_net) m_net->sendWebRtcAnswer(peerId, QString::fromStdString(sdp));
+}
+
+void HallaWebRtcSession::startWatching(int userId) {
+    if (userId <= 0) return;
+    ensurePeer(userId);
+    if (m_net) m_net->sendWebRtcWatchRequest(userId);
+}
+
 void HallaWebRtcSession::createOfferForPeer(int peerId) {
     PeerContext* ctx = ensurePeer(peerId);
     if (!ctx || !ctx->pc) return;
@@ -785,6 +853,37 @@ void HallaWebRtcSession::setRemoteAnswer(int peerId, const QString& sdp) {
     ctx->pc->SetRemoteDescription(new webrtc::RefCountedObject<NoopSetObserver>(), desc.release());
 }
 
+void HallaWebRtcSession::setRemoteOffer(int peerId, const QString& sdp) {
+    PeerContext* ctx = ensurePeer(peerId);
+    if (!ctx || !ctx->pc || sdp.isEmpty()) return;
+    auto desc = webrtc::CreateSessionDescription(webrtc::SdpType::kOffer, sdp.toStdString());
+    if (!desc) return;
+    ctx->pc->SetRemoteDescription(new webrtc::RefCountedObject<RemoteOfferSetObserver>(this, peerId), desc.release());
+}
+
+void HallaWebRtcSession::createAnswerForPeer(int peerId) {
+    PeerContext* ctx = ensurePeer(peerId);
+    if (!ctx || !ctx->pc) return;
+    auto obs = webrtc::make_ref_counted<AnswerObserver>(this, peerId);
+    ctx->pendingOffers.push_back(obs);
+    webrtc::PeerConnectionInterface::RTCOfferAnswerOptions opts;
+    ctx->pc->CreateAnswer(obs.get(), opts);
+}
+
+void HallaWebRtcSession::attachRemoteVideoTrack(int peerId, webrtc::scoped_refptr<webrtc::VideoTrackInterface> track) {
+    if (!track || !m_native) return;
+    auto it = m_native->peers.find(peerId);
+    if (it == m_native->peers.end()) return;
+    auto sink = std::make_unique<RemoteVideoSink>(this, peerId);
+    track->AddOrUpdateSink(sink.get(), webrtc::VideoSinkWants());
+    it->second->remoteVideo.push_back({track, std::move(sink)});
+    AppLog::info(QStringLiteral("WebRTC Desktop viewer: vídeo remoto anexado do peer #%1").arg(peerId));
+}
+
+void HallaWebRtcSession::deliverRemoteFrame(int peerId, const QImage& image) {
+    emit remoteFrameReceived(peerId, image);
+}
+
 void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
     PeerContext* ctx = ensurePeer(peerId);
     if (!ctx || !ctx->pc) return;
@@ -800,6 +899,9 @@ void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
 void HallaWebRtcSession::closePeer(int peerId) {
     auto it = m_native->peers.find(peerId);
     if (it != m_native->peers.end()) {
+        for (auto& binding : it->second->remoteVideo) {
+            if (binding.track && binding.sink) binding.track->RemoveSink(binding.sink.get());
+        }
         if (it->second->pc) it->second->pc->Close();
         m_native->peers.erase(it);
     }
@@ -837,6 +939,7 @@ void HallaWebRtcSession::captureFrame() {
     if (frameImage.isNull() && !pix.isNull()) frameImage = pix.toImage();
     if (frameImage.isNull()) return;
     QImage img = frameImage.scaled(m_captureWidth, m_captureHeight, Qt::KeepAspectRatio, Qt::FastTransformation);
+    emit localPreviewFrame(img);
     m_native->videoSource->PushImage(img);
 }
 #endif
@@ -888,6 +991,7 @@ void HallaWebRtcSession::handleSignal(const QJsonObject& signal) {
     const int from = signal.value(QStringLiteral("from")).toInt();
     if (type == QLatin1String("webrtc_watch_request")) createOfferForPeer(from);
     else if (type == QLatin1String("webrtc_watch_stop")) closePeer(from);
+    else if (type == QLatin1String("webrtc_offer")) setRemoteOffer(from, signal.value(QStringLiteral("sdp")).toString());
     else if (type == QLatin1String("webrtc_answer")) setRemoteAnswer(from, signal.value(QStringLiteral("sdp")).toString());
     else if (type == QLatin1String("webrtc_ice")) addRemoteIce(from, signal);
 #else
@@ -897,6 +1001,27 @@ void HallaWebRtcSession::handleSignal(const QJsonObject& signal) {
 }
 
 #ifdef HALLA_WEBRTC_NATIVE
+void PeerObserver::OnTrack(webrtc::scoped_refptr<webrtc::RtpTransceiverInterface> transceiver) {
+    if (!transceiver || !m_owner) return;
+    auto receiver = transceiver->receiver();
+    if (!receiver) return;
+    auto track = receiver->track();
+    if (track && track->kind() == webrtc::MediaStreamTrackInterface::kVideoKind) {
+        m_owner->attachRemoteVideoTrack(m_peerId,
+            webrtc::scoped_refptr<webrtc::VideoTrackInterface>(static_cast<webrtc::VideoTrackInterface*>(track.get())));
+    }
+}
+
+void PeerObserver::OnAddTrack(webrtc::scoped_refptr<webrtc::RtpReceiverInterface> receiver,
+                              const std::vector<webrtc::scoped_refptr<webrtc::MediaStreamInterface>>&) {
+    if (!receiver || !m_owner) return;
+    auto track = receiver->track();
+    if (track && track->kind() == webrtc::MediaStreamTrackInterface::kVideoKind) {
+        m_owner->attachRemoteVideoTrack(m_peerId,
+            webrtc::scoped_refptr<webrtc::VideoTrackInterface>(static_cast<webrtc::VideoTrackInterface*>(track.get())));
+    }
+}
+
 void PeerObserver::OnIceCandidate(const webrtc::IceCandidate* candidate) {
     if (!candidate || !m_owner) return;
     m_owner->sendNativeIce(m_peerId, candidate->ToString(), candidate->sdp_mid(), candidate->sdp_mline_index());
@@ -911,5 +1036,20 @@ void OfferObserver::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
         delete desc;
     }
     m_owner->sendNativeOffer(m_peerId, sdp);
+}
+
+void AnswerObserver::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
+    if (!desc || !m_owner) return;
+    std::string sdp = desc->ToString();
+    if (auto* ctx = m_owner->ensurePeer(m_peerId)) {
+        ctx->pc->SetLocalDescription(new webrtc::RefCountedObject<NoopSetObserver>(), desc);
+    } else {
+        delete desc;
+    }
+    m_owner->sendNativeAnswer(m_peerId, sdp);
+}
+
+void RemoteOfferSetObserver::OnSuccess() {
+    if (m_owner) m_owner->createAnswerForPeer(m_peerId);
 }
 #endif
