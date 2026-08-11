@@ -929,11 +929,43 @@ void HallaWebRtcSession::captureFrame() {
         }
     } else {
 #ifdef Q_OS_WIN
-        if (m_captureSourceId > 0) pix = grabWindowsAppForWebRtc(m_captureSourceId);
+        if (m_captureSourceId > 0) {
+            HWND hwnd = reinterpret_cast<HWND>(m_captureSourceId);
+            RECT wr = {};
+            if (hwnd && !IsIconic(hwnd) && GetWindowRect(hwnd, &wr)) {
+                const QPoint center((wr.left + wr.right) / 2, (wr.top + wr.bottom) / 2);
+                const QList<QScreen*> screens = QGuiApplication::screens();
+                int screenIndex = 0;
+                QScreen* targetScreen = primary;
+                for (int i = 0; i < screens.size(); ++i) {
+                    if (screens[i] && screens[i]->geometry().contains(center)) {
+                        screenIndex = i;
+                        targetScreen = screens[i];
+                        break;
+                    }
+                }
+                if (!m_native->dxgiCapturer) m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
+                QImage screenImage = m_native->dxgiCapturer->grab(screenIndex);
+                if (!screenImage.isNull() && targetScreen) {
+                    const QRect sg = targetScreen->geometry();
+                    const qreal dprX = sg.width() > 0 ? qreal(screenImage.width()) / qreal(sg.width()) : 1.0;
+                    const qreal dprY = sg.height() > 0 ? qreal(screenImage.height()) / qreal(sg.height()) : 1.0;
+                    QRect crop(qRound((wr.left - sg.left()) * dprX),
+                               qRound((wr.top - sg.top()) * dprY),
+                               qRound((wr.right - wr.left) * dprX),
+                               qRound((wr.bottom - wr.top) * dprY));
+                    crop = crop.intersected(screenImage.rect());
+                    if (crop.width() > 8 && crop.height() > 8) {
+                        frameImage = screenImage.copy(crop);
+                    }
+                }
+            }
+            if (frameImage.isNull()) pix = grabWindowsAppForWebRtc(m_captureSourceId);
+        }
 #else
         if (primary && m_captureSourceId > 0) pix = primary->grabWindow(WId(m_captureSourceId));
 #endif
-        if (pix.isNull() && primary) pix = primary->grabWindow(0);
+        if (frameImage.isNull() && pix.isNull() && primary) pix = primary->grabWindow(0);
     }
 
     if (frameImage.isNull() && !pix.isNull()) frameImage = pix.toImage();
