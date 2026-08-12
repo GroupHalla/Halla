@@ -33,9 +33,9 @@
 
 ## Visão geral
 
-O **Halla** é um cliente de VoIP (voz sobre IP) para comunidades e servidores
-privado. Você entra num servidor, navega por uma árvore de canais, conversa 
-por voz e por texto, e tudo é administrável por um sistema de grupos e permissões 
+O **Halla** é um cliente de VoIP para comunidades e servidores privado. 
+Você entra num servidor, navega por uma árvore de canais, conversa por voz
+e por texto, compartilha sua tela e tudo é administrável por um sistema de grupos e permissões 
 granulares.
 
 Ele se conecta a um servidor da família **Halla Server** (protocolo próprio,
@@ -53,7 +53,7 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
 |---|---|---|
 | ![main](https://i.imgur.com/XAjDMvm.png) | ![capture](https://i.imgur.com/JOIdczm.png) | ![hotkeys](https://i.imgur.com/POsrBRD.png) |
 
-| Conectar | Opções — Sussurro |
+| Conectar | Opções — Sussurro | - |
 |---|---|---|
 | ![connect](https://i.imgur.com/pn5oL8q.png) | ![whisper](https://i.imgur.com/QBUwQCL.png) |
 
@@ -72,6 +72,7 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   lista fixa de usuários — com indicador visual próprio (círculo laranja no
   avatar) distinto do indicador normal de fala (verde).
 - Gravação local (WAV) de chamadas, própria voz + participantes.
+- Compartilhamento de telas.
 
 **Canais e usuários**
 - Árvore de canais com subcanais, canais temporários/semi-permanentes/
