@@ -34,13 +34,12 @@
 ## Visão geral
 
 O **Halla** é um cliente de VoIP (voz sobre IP) para comunidades e servidores
-privados, no mesmo espírito do TeamSpeak 3 clássico: você entra num servidor,
-navega por uma árvore de canais, conversa por voz e por texto, e tudo é
-administrável por um sistema de grupos e permissões granulares.
+privados. Você entra em um servidor, navega por uma árvore de canais, conversa
+por voz e por texto, e administra o ambiente com grupos e permissões
+granulares.
 
-Ele se conecta a um servidor da família **Halla Server** (protocolo próprio,
-não o protocolo proprietário do TeamSpeak) via **TCP** (controle/JSON) e
-**UDP** (voz, codec Opus).
+Ele se conecta a um servidor da família **Halla Server** por meio do protocolo
+aberto do projeto, usando **TCP** (controle/JSON) e **UDP** (voz, codec Opus).
 
 O projeto **não depende de nenhum recurso visual externo** — todos os ícones
 da interface (avatares, símbolos de canal, cadeados, indicadores de fala, etc.)

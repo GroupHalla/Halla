@@ -111,7 +111,7 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
     populateWindows(); // Mostra Aplicativos na aba "Aplicativos" (m_windowList)
     populateScreens(); // Mostra Telas na aba "Telas" (m_screenList)
 
-    // Qualidade da transmissão WebRTC (estilo Discord)
+    // Controles de qualidade da transmissão WebRTC
     QFrame* qualityBox = new QFrame(this);
     qualityBox->setStyleSheet(QStringLiteral("background-color: %1; border-radius: 8px; padding: 4px;").arg(qualityBoxBg));
     QHBoxLayout* qLayout = new QHBoxLayout(qualityBox);

@@ -117,9 +117,9 @@ private:
         Microsoft::WRL::ComPtr<IDXGIAdapter1> selectedAdapter;
         Microsoft::WRL::ComPtr<IDXGIOutput> selectedOutput;
         int current = 0;
-        for (UINT ai = 0; ; ++ai) {
+        for (UINT adapterIndex = 0; ; ++adapterIndex) {
             Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
-            if (factory->EnumAdapters1(ai, &adapter) == DXGI_ERROR_NOT_FOUND) break;
+            if (factory->EnumAdapters1(adapterIndex, &adapter) == DXGI_ERROR_NOT_FOUND) break;
             for (UINT oi = 0; ; ++oi) {
                 Microsoft::WRL::ComPtr<IDXGIOutput> output;
                 if (adapter->EnumOutputs(oi, &output) == DXGI_ERROR_NOT_FOUND) break;

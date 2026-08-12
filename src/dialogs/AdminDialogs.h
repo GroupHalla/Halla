@@ -67,7 +67,7 @@ private:
     QSpinBox* m_talkPower = nullptr;
     QLineEdit* m_sigla = nullptr;
     QSpinBox* m_order = nullptr;
-    QSpinBox* m_position = nullptr;  // Pilar 1: position hierárquica (Discord-style)
+    QSpinBox* m_position = nullptr;  // Pilar 1: posição hierárquica dos cargos
     QLineEdit* m_icon = nullptr;
     QComboBox* m_userCombo = nullptr;
 };

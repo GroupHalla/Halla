@@ -331,7 +331,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     m_order->setRange(0, 100);
     m_order->setToolTip(tr("Ordem de exibição na lista de cargos"));
     
-    // Pilar 1: Position hierárquica (Discord-style)
+    // Pilar 1: posição hierárquica dos cargos
     m_position = new QSpinBox(propBox);
     m_position->setRange(0, 1000);
     m_position->setToolTip(tr("Quanto maior o número, maior a autoridade. Cargo com position maior vence."));
