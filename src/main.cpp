@@ -12,6 +12,7 @@
 #include "app/MainWindow.h"
 #include "gui/Icons.h"
 #include "core/Settings.h"
+#include "core/BadgeRegistry.h"
 #include "dialogs/ConnectDialog.h"
 #include "dialogs/OptionsDialog.h"
 #include "dialogs/ChannelDialog.h"
@@ -1513,6 +1514,7 @@ int main(int argc, char* argv[]) {
     QApplication::setApplicationDisplayName(QStringLiteral("Halla"));
     QApplication::setApplicationVersion(QString::fromUtf8(halla::kAppVersion));
     QApplication::setWindowIcon(QIcon(HIcons::appIcon(256)));
+    BadgeRegistry::instance().initialize();
 
     HallaTranslator translator;
     app.installTranslator(&translator);

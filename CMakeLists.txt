@@ -66,6 +66,8 @@ set(HALLA_SOURCES
     src/main.cpp
     src/halla.qrc
     src/core/AppLog.cpp
+    src/core/BadgeRegistry.cpp
+    src/core/BadgeRegistry.h
     src/core/SecureStore.cpp
     src/gui/Icons.cpp
     src/gui/TsBanner.cpp

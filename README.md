@@ -82,6 +82,8 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   operador de canal, comandante.
 - Avatares, descrições com BBCode/emoji, "cutucar" (poke), reclamações,
   mensagens offline, transferência de arquivos, lista de banidos.
+- Emblemas globais oficiais vinculados à UID, obtidos de um registro Ed25519
+  assinado, verificado e mantido em cache para funcionamento offline.
 
 **Interface**
 - Tema claro/escuro trocável em tempo real, sem precisar reiniciar.

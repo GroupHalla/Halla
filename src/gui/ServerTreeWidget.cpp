@@ -1,6 +1,7 @@
 #include "ServerTreeWidget.h"
 #include "Icons.h"
 #include "Settings.h"
+#include "core/BadgeRegistry.h"
 
 #include <QContextMenuEvent>
 #include <QMouseEvent>
@@ -182,10 +183,12 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
         QString trimmed = ic.trimmed();
         if (!trimmed.isEmpty()) {
             QPixmap pm = createGroupIconPixmap(trimmed, tree);
-            if (!pm.isNull()) {
-                iconPms << pm;
-            }
+            if (!pm.isNull()) iconPms << pm;
         }
+    }
+    // Emblemas globais são assinados pelo registro oficial e vinculados à UID.
+    for (const GlobalBadge& badge : BadgeRegistry::instance().badgesForUid(u.uniqueId)) {
+        if (!badge.icon.isNull()) iconPms << badge.icon;
     }
     const QPixmap liveBadge = u.screensharing ? liveBadgePixmap() : QPixmap();
 
@@ -255,6 +258,9 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
 
     setMouseTracking(true);
     connect(this, &QTreeWidget::itemEntered, this, &ServerTreeWidget::onItemEntered);
+    connect(&BadgeRegistry::instance(), &BadgeRegistry::updated, this, [this] {
+        if (m_data) rebuild();
+    });
 
     // as cores vêm do tema global (HTheme) — stylesheet fixo aqui impedia
     // o tema escuro no Windows
@@ -322,6 +328,10 @@ QString ServerTreeWidget::userTooltip(const User& u) const {
     if (u.recording)   tip += QStringLiteral("Gravando<br>");
     if (u.commander)   tip += QStringLiteral("Comandante do canal<br>");
     tip += QStringLiteral("Grupos: %1").arg(u.serverGroups.toHtmlEscaped());
+    const QStringList globalBadges = BadgeRegistry::instance().badgeNamesForUid(u.uniqueId);
+    if (!globalBadges.isEmpty())
+        tip += QStringLiteral("<br>Emblemas oficiais: %1")
+            .arg(globalBadges.join(QStringLiteral(", ")).toHtmlEscaped());
     return tip;
 }
 
