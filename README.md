@@ -34,12 +34,13 @@
 ## Visão geral
 
 O **Halla** é um cliente de VoIP (voz sobre IP) para comunidades e servidores
-privados. Você entra em um servidor, navega por uma árvore de canais, conversa
-por voz e por texto, e administra o ambiente com grupos e permissões
-granulares.
+privados, no mesmo espírito do TeamSpeak 3 clássico: você entra num servidor,
+navega por uma árvore de canais, conversa por voz e por texto, e tudo é
+administrável por um sistema de grupos e permissões granulares.
 
-Ele se conecta a um servidor da família **Halla Server** por meio do protocolo
-aberto do projeto, usando **TCP** (controle/JSON) e **UDP** (voz, codec Opus).
+Ele se conecta a um servidor da família **Halla Server** (protocolo próprio,
+não o protocolo proprietário do TeamSpeak) via **TCP** (controle/JSON) e
+**UDP** (voz, codec Opus).
 
 O projeto **não depende de nenhum recurso visual externo** — todos os ícones
 da interface (avatares, símbolos de canal, cadeados, indicadores de fala, etc.)
@@ -96,6 +97,30 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   Windows (útil com softwares de mouse gamer que interceptam os botões
   laterais).
 
+**Transmissão de tela**
+- Modo **WebRTC** (recomendado): peça pra assistir a transmissão de alguém do
+  seu canal; a mídia trafega P2P (DTLS-SRTP), o servidor só faz a sinalização
+  (offer/answer/ICE). Exige o SDK nativo do
+  [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds)
+  compilado junto (veja [Compilando](#compilando)).
+- Modo legado (JPEG por UDP), sempre disponível como alternativa, sem
+  depender do SDK do WebRTC.
+
+**Segurança**
+- Canal de controle em **TLS**, com pinagem TOFU (confia no certificado na
+  primeira conexão do servidor; alerta se ele mudar depois — como o modelo do
+  SSH).
+- Identidade de cliente via par de chaves **Ed25519**: login prova posse da
+  chave privada respondendo a um desafio assinado; o UID é derivado da chave
+  pública, não é algo que o cliente possa simplesmente alegar.
+- Chave privada guardada no **cofre nativo do sistema operacional**
+  (Credential Manager/Keychain/Secret Service, via QtKeychain) — não em texto
+  puro nas configurações.
+- Voz e transmissão de tela cifradas com **ChaCha20-Poly1305** (AEAD),
+  chave por canal, rotacionada quando a composição do canal muda.
+- Atualizações verificadas por checksum SHA-256 e domínio de download
+  fixado antes de instalar qualquer coisa automaticamente.
+
 ## Arquitetura do projeto
 
 ```
@@ -136,20 +161,25 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
 
 ## Protocolo de rede
 
-Especificado em `src/net/HallaProtocol.h` (compartilhado, byte a byte igual,
-com o `HallaServer`):
+Especificado por completo em
+[`PROTOCOL.md`](https://github.com/GroupHalla/HallaServer/blob/main/PROTOCOL.md)
+do `HallaServer`, e implementado aqui em `src/net/HallaProtocol.h`:
 
-- **Controle (TCP)**: mensagens JSON compactadas, uma por linha (`\n` como
-  delimitador). Cada mensagem tem um campo `"t"` com o tipo (`"talking"`,
-  `"whisper"`, `"user_state"`, etc.).
-- **Voz (UDP)**: pacotes binários com um "magic" de 4 bytes (`"HALL"`),
-  seguido de um identificador (token do cliente ou ID de quem fala), um
-  número de sequência de 16 bits e o payload Opus.
+- **Controle**: TCP + **TLS 1.2+**, mensagens JSON compactadas, uma por linha
+  (`\n` como delimitador), até 2 MiB por mensagem. Cada mensagem tem um campo
+  `"t"` com o tipo (`"talking"`, `"whisper"`, `"user_state"`, sinalização
+  `"webrtc_*"`, etc.).
+- **Voz (UDP)**: pacotes Opus de 20 ms cifrados com **ChaCha20-Poly1305**
+  (AEAD), com um "magic" de 4 bytes, o ID de quem fala, número de sequência e
+  o payload autenticado — o servidor nunca decifra, só retransmite.
+- **Identidade**: par de chaves Ed25519 por cliente; login exige assinar um
+  desafio (nonce) do servidor — o UID vem do hash da chave pública, não do
+  que o cliente diz que é.
 - Porta padrão: **9987/tcp+udp**.
-- Protocolo versionado (`kProtoVersion` / `kProtoMin`): o servidor aceita
-  clientes de versões antigas, mas recursos novos (permissões granulares,
-  banlist e grupos por UID exigem v3; o protocolo v4 adiciona credencial UDP
-  CSPRNG de 128 bits e distribuição de ICE/TURN pelo servidor.
+- Protocolo versionado (`kProtoVersion` / `kProtoMin`, atualmente **v4**): o
+  servidor mantém compatibilidade com clientes antigos onde possível, mas a
+  camada de segurança (TLS, identidade Ed25519, voz cifrada) é obrigatória
+  independente da versão.
 
 ## Áudio e voz
 
@@ -171,18 +201,22 @@ src/
 ├── app/            MainWindow (janela/menus), Theme (claro/escuro),
 │                   SoundPack (sons), Speech (TTS)
 ├── core/           Models.h (dados de sessão), Settings.h (config
-│                   persistente), AppLog (registro de eventos)
-├── net/            NetSession (TCP/controle), VoiceEngine (UDP/áudio),
-│                   HallaProtocol.h (protocolo compartilhado com o servidor)
+│                   persistente), SecureStore (cofre do SO via QtKeychain),
+│                   AppLog (registro de eventos)
+├── net/            NetSession (TCP/controle, TLS+TOFU), VoiceEngine
+│                   (UDP/áudio, AEAD), HallaProtocol.h (protocolo
+│                   compartilhado com o servidor)
+├── webrtc/         HallaWebRtcSession (transmissão de tela via WebRTC,
+│                   opcional — requer o SDK do Halla WebRTC Builds)
 ├── gui/            ServerTab, ServerTreeWidget, ChatPanel, InfoPanel,
 │                   HotkeyEdit, Icons (ícones desenhados em código),
 │                   WelcomePage, TsBanner, RichTextBrowser
 ├── dialogs/        OptionsDialog, ConnectDialog, ChannelDialog,
-│                   GroupsDialog, IdentityDialog, BookmarksDialog,
-│                   AdminDialogs (banlist/reclamações/grupos/permissões),
-│                   ToolsDialogs (sussurro/contatos/transferência de
-│                   arquivos), MiniDialogs (poke/kick-ban/volume/etc.),
-│                   LogDialog, AboutDialog
+│                   GroupsDialog, IdentityDialog (chaves Ed25519),
+│                   BookmarksDialog, AdminDialogs (banlist/reclamações/
+│                   grupos/permissões), ToolsDialogs (sussurro/contatos/
+│                   transferência de arquivos), MiniDialogs
+│                   (poke/kick-ban/volume/etc.), LogDialog, AboutDialog
 ├── assets/         logo e ícones vetoriais da árvore
 └── main.cpp        ponto de entrada (Qt Application, tema, argumentos)
 ```
@@ -195,8 +229,14 @@ src/
 - Compilador com C++17
 - Qt 6.2+ com os módulos **Widgets**, **Network**, **Multimedia** e
   **TextToSpeech**
+- **OpenSSL** (identidade Ed25519, hash de senha, voz AEAD)
 - **libopus** (no Windows, uma build estática em `third_party/opus/`; no
   Linux/macOS, a versão do sistema via `pkg-config`)
+- **QtKeychain** (armazenamento seguro da identidade no cofre do SO)
+- Opcional: o SDK nativo do
+  [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds),
+  para transmissão de tela via WebRTC (sem ele, o app builda normalmente e
+  cai no modo legado de transmissão de tela)
 
 ### Linux
 
@@ -212,15 +252,30 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
+Para habilitar o WebRTC nativo (transmissão de tela P2P), baixe/compile o SDK
+do [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds) e
+adicione:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+  -DHALLA_ENABLE_WEBRTC_NATIVE=ON \
+  -DHALLA_WEBRTC_SDK_DIR=/caminho/para/halla-webrtc-sdk
+```
+
 No Windows, o CMake também embute o ícone e as informações de versão do
-executável (`src/halla.rc`) e monta o instalador NSIS (`packaging/halla-setup.nsi`).
+executável (`src/halla.rc.in`) e monta o instalador NSIS (`packaging/halla-setup.nsi`).
 
 ## Projetos relacionados
 
 - **[Halla Server](https://github.com/GroupHalla/HallaServer)** — servidor
-  auto-hospedável (C++/Qt) que fala o mesmo protocolo.
-- **[Halla Mobile](https://github.com/GroupHalla/Halla-Mobile)** — cliente móvel (Qt Quick/QML) com conexão dinâmica,
-  lista de canais e chat integrado.
+  auto-hospedável (C++/Qt) que fala o mesmo protocolo; veja
+  [`PROTOCOL.md`](https://github.com/GroupHalla/HallaServer/blob/main/PROTOCOL.md)
+  para a especificação completa.
+- **[Halla Mobile](https://github.com/GroupHalla/Halla-Mobile)** — cliente
+  Android nativo (Kotlin + núcleo C++/JNI), não Qt.
+- **[Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds)**
+  — SDK nativo do WebRTC pré-compilado, usado pela transmissão de tela deste
+  cliente.
 
 ## Licença
 
