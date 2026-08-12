@@ -216,7 +216,7 @@ void BadgeRegistry::loadOrFetchIcons() {
                     && QCryptographicHash::hash(bytes, QCryptographicHash::Sha256) == it->iconSha256) {
                 QPixmap icon;
                 if (icon.loadFromData(bytes, "PNG")) {
-                    it->icon = icon.scaled(16, 16, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    it->icon = icon.scaled(24, 24, Qt::KeepAspectRatio, Qt::SmoothTransformation);
                     continue;
                 }
             }
@@ -236,7 +236,7 @@ void BadgeRegistry::loadOrFetchIcons() {
             QPixmap icon;
             if (!icon.loadFromData(bytes, "PNG") || !m_badges.contains(badgeId)) return;
             saveAtomically(cachePath, bytes);
-            m_badges[badgeId].icon = icon.scaled(16, 16, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            m_badges[badgeId].icon = icon.scaled(24, 24, Qt::KeepAspectRatio, Qt::SmoothTransformation);
             emit updated();
         });
     }

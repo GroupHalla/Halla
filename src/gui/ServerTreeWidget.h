@@ -29,6 +29,8 @@ public:
 protected:
     void paint(QPainter* p, const QStyleOptionViewItem& opt,
                const QModelIndex& index) const override;
+    QSize sizeHint(const QStyleOptionViewItem& option,
+                   const QModelIndex& index) const override;
 
 private:
     const ServerData* m_data = nullptr;

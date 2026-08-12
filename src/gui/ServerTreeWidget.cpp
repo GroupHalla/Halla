@@ -212,16 +212,21 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     }
 
     int totalW = 0;
-    for (const QPixmap& pm : iconPms) totalW += pm.width() + 4;
+    int maxHeight = 0;
+    for (const QPixmap& pm : iconPms) {
+        totalW += pm.width() + 4;
+        maxHeight = qMax(maxHeight, pm.height());
+    }
     if (totalW == 0) return;
+    totalW -= 4;
 
-    QPixmap combined(totalW, 14);
+    QPixmap combined(totalW, maxHeight);
     combined.fill(Qt::transparent);
     QPainter cp(&combined);
 
     int currentX = 0;
     for (const QPixmap& pm : iconPms) {
-        cp.drawPixmap(currentX, 0, pm);
+        cp.drawPixmap(currentX, (maxHeight - pm.height()) / 2, pm);
         currentX += pm.width() + 4;
     }
 
@@ -233,6 +238,13 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     const int maxX = o.rect.right() - 4;
     if (x + w > maxX) w = maxX - x;
     if (w > 0) p->drawPixmap(x, y, combined.copy(0, 0, w, combined.height()));
+}
+
+QSize ServerRowDelegate::sizeHint(const QStyleOptionViewItem& option,
+                                  const QModelIndex& index) const {
+    QSize size = QStyledItemDelegate::sizeHint(option, index);
+    if (index.data(RoleKind).toInt() == NodeUser) size.setHeight(qMax(size.height(), 30));
+    return size;
 }
 
 // ============================================================== Árvore
@@ -250,7 +262,7 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     setDragDropMode(InternalMove);
     // Reserva largura para o avatar e até dois indicadores de áudio antes do
     // nome. Quando o áudio é bloqueado, o avatar deixa de ocupar esse espaço.
-    setIconSize(QSize(48, 18));
+    setIconSize(QSize(48, 24));
     setFrameShape(QFrame::NoFrame);
 
     m_delegate = new ServerRowDelegate(this);
