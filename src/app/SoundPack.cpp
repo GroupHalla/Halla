@@ -90,7 +90,7 @@ void ensure() {
     // Os arquivos fornecidos para o pacote oficial substituem uma única vez
     // os tons sintéticos antigos. Depois disso, arquivos personalizados pelo
     // usuário são preservados; arquivos apagados são restaurados do recurso.
-    static const QString packVersion = QStringLiteral("official-voice-v2");
+    static const QString packVersion = QStringLiteral("official-voice-v3");
     static const QStringList bundled = {
         QStringLiteral("banned"),
         QStringLiteral("connected"),
