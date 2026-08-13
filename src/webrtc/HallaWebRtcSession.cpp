@@ -21,6 +21,11 @@
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>
+#if defined(HALLA_WEBRTC_NATIVE) && __has_include(<audioclientactivationparams.h>)
+#define HALLA_PROCESS_LOOPBACK_EXCLUSION 1
+#include <audioclientactivationparams.h>
+#include <wrl/implements.h>
+#endif
 #endif
 
 #ifdef HALLA_WEBRTC_NATIVE
@@ -195,6 +200,73 @@ private:
     int m_screenIndex = -1;
 };
 
+#ifdef HALLA_PROCESS_LOOPBACK_EXCLUSION
+class ProcessLoopbackActivationHandler final
+    : public Microsoft::WRL::RuntimeClass<
+          Microsoft::WRL::RuntimeClassFlags<Microsoft::WRL::ClassicCom>,
+          Microsoft::WRL::FtmBase,
+          IActivateAudioInterfaceCompletionHandler> {
+public:
+    explicit ProcessLoopbackActivationHandler(HANDLE completed) : m_completed(completed) {}
+
+    STDMETHODIMP ActivateCompleted(IActivateAudioInterfaceAsyncOperation* operation) override {
+        HRESULT activationResult = E_UNEXPECTED;
+        Microsoft::WRL::ComPtr<IUnknown> activated;
+        HRESULT hr = operation->GetActivateResult(&activationResult, activated.GetAddressOf());
+        m_result = FAILED(hr) ? hr : activationResult;
+        if (SUCCEEDED(m_result)) m_result = activated.As(&m_audioClient);
+        SetEvent(m_completed);
+        return S_OK;
+    }
+
+    HRESULT result() const { return m_result; }
+    Microsoft::WRL::ComPtr<IAudioClient> audioClient() const { return m_audioClient; }
+
+private:
+    HANDLE m_completed = nullptr;
+    HRESULT m_result = E_PENDING;
+    Microsoft::WRL::ComPtr<IAudioClient> m_audioClient;
+};
+
+static HRESULT activateSystemLoopbackExcludingHalla(
+        Microsoft::WRL::ComPtr<IAudioClient>& audioClient) {
+    HANDLE completed = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!completed) return HRESULT_FROM_WIN32(GetLastError());
+
+    auto handler = Microsoft::WRL::Make<ProcessLoopbackActivationHandler>(completed);
+    if (!handler) {
+        CloseHandle(completed);
+        return E_OUTOFMEMORY;
+    }
+
+    AUDIOCLIENT_ACTIVATION_PARAMS params = {};
+    params.ActivationType = AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK;
+    params.ProcessLoopbackParams.TargetProcessId = GetCurrentProcessId();
+    params.ProcessLoopbackParams.ProcessLoopbackMode =
+        PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE;
+
+    PROPVARIANT activation = {};
+    activation.vt = VT_BLOB;
+    activation.blob.cbSize = sizeof(params);
+    activation.blob.pBlobData = reinterpret_cast<BYTE*>(&params);
+
+    Microsoft::WRL::ComPtr<IActivateAudioInterfaceAsyncOperation> operation;
+    HRESULT hr = ActivateAudioInterfaceAsync(
+        VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK,
+        __uuidof(IAudioClient),
+        &activation,
+        handler.Get(),
+        operation.GetAddressOf());
+    if (SUCCEEDED(hr)) {
+        const DWORD waitResult = WaitForSingleObject(completed, INFINITE);
+        hr = waitResult == WAIT_OBJECT_0 ? handler->result()
+                                         : HRESULT_FROM_WIN32(GetLastError());
+        if (SUCCEEDED(hr)) audioClient = handler->audioClient();
+    }
+    CloseHandle(completed);
+    return hr;
+}
+#endif
 
 class SystemLoopbackAudioDeviceModule
     : public webrtc::webrtc_impl::AudioDeviceModuleDefault<webrtc::AudioDeviceModuleForTest> {
@@ -229,30 +301,6 @@ public:
     int SetRecordingSampleRate(uint32_t sample_rate) override { m_forcedSampleRate = sample_rate; return 0; }
 
 private:
-    static bool isFloatFormat(const WAVEFORMATEX* fmt) {
-        if (!fmt) return false;
-        if (fmt->wFormatTag == WAVE_FORMAT_IEEE_FLOAT) return true;
-        if (fmt->wFormatTag == WAVE_FORMAT_EXTENSIBLE && fmt->cbSize >= 22) {
-            const auto* ext = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(fmt);
-            return IsEqualGUID(ext->SubFormat, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
-        }
-        return false;
-    }
-    static bool isPcmFormat(const WAVEFORMATEX* fmt) {
-        if (!fmt) return false;
-        if (fmt->wFormatTag == WAVE_FORMAT_PCM) return true;
-        if (fmt->wFormatTag == WAVE_FORMAT_EXTENSIBLE && fmt->cbSize >= 22) {
-            const auto* ext = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(fmt);
-            return IsEqualGUID(ext->SubFormat, KSDATAFORMAT_SUBTYPE_PCM);
-        }
-        return false;
-    }
-    static int16_t clamp16(float v) {
-        if (v > 32767.0f) return 32767;
-        if (v < -32768.0f) return -32768;
-        return static_cast<int16_t>(v);
-    }
-
     void pushSamples(const int16_t* samples, size_t count, uint32_t sampleRate) {
         if (!samples || count == 0) return;
         m_pcm.insert(m_pcm.end(), samples, samples + count);
@@ -269,46 +317,62 @@ private:
     }
 
     void captureLoop() {
-        HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-        const bool comOk = SUCCEEDED(hr) || hr == RPC_E_CHANGED_MODE;
-        Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator;
-        Microsoft::WRL::ComPtr<IMMDevice> device;
+        const HRESULT comResult = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        const bool shouldUninitialize = SUCCEEDED(comResult);
+        if (FAILED(comResult) && comResult != RPC_E_CHANGED_MODE) {
+            AppLog::warn(QStringLiteral("WASAPI process loopback: falha ao inicializar COM"));
+            m_running = false;
+            return;
+        }
+
+#ifndef HALLA_PROCESS_LOOPBACK_EXCLUSION
+        // Nunca volte silenciosamente ao loopback global: ele capturaria as
+        // vozes e notificações do próprio Halla e causaria retorno/eco.
+        AppLog::warn(QStringLiteral(
+            "Áudio da transmissão indisponível: SDK do Windows sem process loopback exclusion"));
+        if (shouldUninitialize) CoUninitialize();
+        m_running = false;
+        return;
+#else
         Microsoft::WRL::ComPtr<IAudioClient> client;
+        HRESULT hr = activateSystemLoopbackExcludingHalla(client);
+        if (FAILED(hr) || !client) {
+            AppLog::warn(QStringLiteral(
+                "Áudio da transmissão indisponível: Windows sem suporte à exclusão do Halla (0x%1)")
+                .arg(quint32(hr), 8, 16, QLatin1Char('0')));
+            if (shouldUninitialize) CoUninitialize();
+            m_running = false;
+            return;
+        }
+
+        const uint32_t sampleRate = m_forcedSampleRate ? m_forcedSampleRate : 48000;
+        WAVEFORMATEX format = {};
+        format.wFormatTag = WAVE_FORMAT_PCM;
+        format.nChannels = 2;
+        format.nSamplesPerSec = sampleRate;
+        format.wBitsPerSample = 16;
+        format.nBlockAlign = format.nChannels * format.wBitsPerSample / 8;
+        format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
+
+        const DWORD streamFlags = AUDCLNT_STREAMFLAGS_LOOPBACK
+                                | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM
+                                | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+        hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED, streamFlags, 0, 0, &format, nullptr);
         Microsoft::WRL::ComPtr<IAudioCaptureClient> capture;
-        WAVEFORMATEX* mix = nullptr;
-
-        if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                    __uuidof(IMMDeviceEnumerator), reinterpret_cast<void**>(enumerator.GetAddressOf()))) ||
-            FAILED(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device)) ||
-            FAILED(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, reinterpret_cast<void**>(client.GetAddressOf()))) ||
-            FAILED(client->GetMixFormat(&mix))) {
-            AppLog::warn(QStringLiteral("WASAPI loopback: falha ao abrir dispositivo padrão de reprodução"));
-            if (mix) CoTaskMemFree(mix);
-            if (comOk && hr != RPC_E_CHANGED_MODE) CoUninitialize();
+        if (FAILED(hr)
+                || FAILED(client->GetService(__uuidof(IAudioCaptureClient),
+                                             reinterpret_cast<void**>(capture.GetAddressOf())))
+                || FAILED(client->Start())) {
+            AppLog::warn(QStringLiteral("WASAPI process loopback: falha ao iniciar captura (0x%1)")
+                             .arg(quint32(hr), 8, 16, QLatin1Char('0')));
+            if (shouldUninitialize) CoUninitialize();
             m_running = false;
             return;
         }
 
-        const REFERENCE_TIME bufferDuration = 10000000; // 1s
-        hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                                AUDCLNT_STREAMFLAGS_LOOPBACK,
-                                bufferDuration, 0, mix, nullptr);
-        if (FAILED(hr) || FAILED(client->GetService(__uuidof(IAudioCaptureClient), reinterpret_cast<void**>(capture.GetAddressOf()))) ||
-            FAILED(client->Start())) {
-            AppLog::warn(QStringLiteral("WASAPI loopback: falha ao iniciar captura"));
-            CoTaskMemFree(mix);
-            if (comOk && hr != RPC_E_CHANGED_MODE) CoUninitialize();
-            m_running = false;
-            return;
-        }
-
-        const uint32_t sampleRate = m_forcedSampleRate ? m_forcedSampleRate : mix->nSamplesPerSec;
-        const int channels = std::max<int>(1, mix->nChannels);
-        const bool isFloat = isFloatFormat(mix);
-        const bool isPcm = isPcmFormat(mix);
-        const int bits = mix->wBitsPerSample;
-        AppLog::info(QStringLiteral("WASAPI loopback ativo: %1 Hz, %2 canais, %3 bits")
-                         .arg(sampleRate).arg(channels).arg(bits));
+        AppLog::info(QStringLiteral(
+            "WASAPI process loopback ativo: todos os sons do PC, Halla.exe e filhos excluídos; %1 Hz")
+            .arg(sampleRate));
 
         while (m_running.load()) {
             UINT32 packetFrames = 0;
@@ -322,19 +386,11 @@ private:
                 std::vector<int16_t> mono(frames);
                 if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
                     std::fill(mono.begin(), mono.end(), 0);
-                } else if (isFloat && bits == 32) {
-                    const float* f = reinterpret_cast<const float*>(data);
+                } else {
+                    const int16_t* input = reinterpret_cast<const int16_t*>(data);
                     for (UINT32 i = 0; i < frames; ++i) {
-                        float acc = 0.0f;
-                        for (int c = 0; c < channels; ++c) acc += f[i * channels + c];
-                        mono[i] = clamp16((acc / float(channels)) * 32767.0f);
-                    }
-                } else if (isPcm && bits == 16) {
-                    const int16_t* in = reinterpret_cast<const int16_t*>(data);
-                    for (UINT32 i = 0; i < frames; ++i) {
-                        int acc = 0;
-                        for (int c = 0; c < channels; ++c) acc += in[i * channels + c];
-                        mono[i] = int16_t(acc / channels);
+                        const int mixed = int(input[i * 2]) + int(input[i * 2 + 1]);
+                        mono[i] = int16_t(mixed / 2);
                     }
                 }
                 if (!mono.empty()) pushSamples(mono.data(), mono.size(), sampleRate);
@@ -343,9 +399,9 @@ private:
             }
         }
         client->Stop();
-        CoTaskMemFree(mix);
-        if (comOk && hr != RPC_E_CHANGED_MODE) CoUninitialize();
+        if (shouldUninitialize) CoUninitialize();
         m_running = false;
+#endif
     }
 
     std::atomic<webrtc::AudioTransport*> m_audioCallback{nullptr};
@@ -710,7 +766,7 @@ void HallaWebRtcSession::setCaptureQuality(int width, int height, int fps, int b
 void HallaWebRtcSession::setCaptureSystemAudio(bool enabled) {
     m_captureSystemAudio = enabled;
     if (enabled) {
-        AppLog::info(QStringLiteral("WebRTC: captura de áudio de todo o PC solicitada (WASAPI loopback pendente)"));
+        AppLog::info(QStringLiteral("WebRTC: captura de áudio do PC solicitada com exclusão do processo Halla"));
     }
 }
 

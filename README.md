@@ -106,6 +106,9 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   (offer/answer/ICE). Exige o SDK nativo do
   [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds)
   compilado junto (veja [Compilando](#compilando)).
+- Áudio opcional do PC via process loopback no Windows: captura os fluxos dos
+  demais aplicativos e exclui `Halla.exe` e seus processos-filhos, evitando
+  retransmitir as vozes e os avisos do próprio cliente (Windows build 20348+).
 - Modo legado (JPEG por UDP), sempre disponível como alternativa, sem
   depender do SDK do WebRTC.
 

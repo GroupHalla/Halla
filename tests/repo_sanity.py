@@ -46,4 +46,8 @@ assert "m_closeDelayPending" in main_window and "QTimer::singleShot(1000" in mai
 assert "m_intentionalDisconnect" in net_session and "waitForBytesWritten" not in net_session
 assert 'HSound::play(QStringLiteral("moved"))' in server_tab
 assert "Silenciar todos os avisos de áudio" in (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
+webrtc = (root / "src/webrtc/HallaWebRtcSession.cpp").read_text(encoding="utf-8")
+assert "PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE" in webrtc
+assert "TargetProcessId = GetCurrentProcessId()" in webrtc
+assert "GetDefaultAudioEndpoint" not in webrtc
 print(f"Halla repository sanity OK: {version}")
