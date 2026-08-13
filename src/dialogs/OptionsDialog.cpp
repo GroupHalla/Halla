@@ -741,6 +741,13 @@ QWidget* OptionsDialog::pageNotifications() {
     info->setWordWrap(true);
     lay->addWidget(info);
 
+    QCheckBox* muteAll = new QCheckBox(tr("Silenciar todos os avisos de áudio"), w);
+    muteAll->setChecked(!S::flag("notify/soundsEnabled", true));
+    connect(muteAll, &QCheckBox::toggled, this,
+            [](bool muted) { S::set("notify/soundsEnabled", !muted); });
+    lay->addWidget(muteAll);
+    lay->addSpacing(8);
+
     const QList<QPair<QString, QString>> events = {
         { "notify/connectSound",    tr("Ao conectar a um servidor") },
         { "notify/disconnectSound", tr("Ao desconectar de um servidor") },

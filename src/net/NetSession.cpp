@@ -209,6 +209,8 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
     m_voiceToken.clear();
     m_udpRegistrationSeq = 0;
     m_buffer.clear();
+    m_intentionalDisconnect = false;
+    m_serverTerminatedSession = false;
 
     ServerData& d = target();
     d.name = host;
@@ -290,10 +292,12 @@ void NetSession::onDisconnected() {
     m_udpPort = 0;
     m_voiceToken.clear();
     m_udpRegistrationSeq = 0;
-    if (!m_ready && !m_fatalError)
-        emit connectionFailed(QStringLiteral("Não foi possível conectar ao servidor"));
-    else if (m_ready)
-        emit disconnectedUnexpected();
+    if (!m_intentionalDisconnect) {
+        if (!m_ready && !m_fatalError)
+            emit connectionFailed(QStringLiteral("Não foi possível conectar ao servidor"));
+        else if (m_ready)
+            emit disconnectedUnexpected();
+    }
     m_ready = false;
 }
 
@@ -524,10 +528,17 @@ void NetSession::usePrivilegeKey(const QString& key) {
 }
 
 void NetSession::quit() {
+    if (m_intentionalDisconnect) return;
+    m_intentionalDisconnect = true;
     send(HProto::msg("quit"));
     m_tcp->flush();
-    m_tcp->waitForBytesWritten(300);
-    m_tcp->disconnectFromHost();
+    // Nunca bloqueie a thread da interface esperando o socket. O pequeno
+    // atraso permite que a mensagem quit saia e evita reentrância/crash no
+    // fechamento da aba.
+    QTimer::singleShot(250, m_tcp, [socket = m_tcp] {
+        if (socket->state() != QAbstractSocket::UnconnectedState)
+            socket->disconnectFromHost();
+    });
 }
 
 // ================================================== ações v3
@@ -1032,6 +1043,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "kicked") {
+        m_serverTerminatedSession = true;
         emit kickedReceived(obj["reason"].toString(), obj["ban"].toBool(),
                             obj["minutes"].toInt(0));
         return;

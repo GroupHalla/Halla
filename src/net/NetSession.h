@@ -27,6 +27,7 @@ public:
     QString hostPort() const { return m_hostPort; }
     int pingMs() const { return m_pingMs; }
     bool isConnected() const { return m_ready; }
+    bool serverTerminatedSession() const { return m_serverTerminatedSession; }
 
     // v3: permissões do meu grupo + grupos do servidor (vindos do welcome)
     QJsonObject myPerms() const { return m_myPerms; }
@@ -177,6 +178,8 @@ private:
     QMap<int, QMap<quint16, QMap<int, QByteArray>>> m_reassembly;
     bool m_ready = false;
     bool m_fatalError = false;
+    bool m_intentionalDisconnect = false;
+    bool m_serverTerminatedSession = false;
     int m_pingMs = 0;
     QElapsedTimer m_pingClock;
 };

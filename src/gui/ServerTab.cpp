@@ -277,7 +277,7 @@ void ServerTab::attachNetwork(NetSession* net) {
         // A própria troca de canal usa um único aviso, sem tocar uma vez para
         // cada pessoa que já estava no destino.
         if (selfChangedChannel && S::flag("notify/channelSwitchSound", true))
-            HSound::play(QStringLiteral("user_joined"));
+            HSound::play(QStringLiteral("moved"));
         m_knownUsers = now;
         m_lastChannels = currentChannels;
         m_myChan = myChan;
@@ -341,6 +341,7 @@ void ServerTab::attachNetwork(NetSession* net) {
 
     connect(net, &NetSession::kickedReceived, this,
             [this](const QString& reason, bool ban, int minutes) {
+                HSound::play(ban ? QStringLiteral("banned") : QStringLiteral("kicked"));
                 if (ban) {
                     QMessageBox::warning(this, tr("Você foi banido"),
                         tr("Você foi banido deste servidor%1%2.")

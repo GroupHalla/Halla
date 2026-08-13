@@ -271,6 +271,9 @@ private:
 };
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
+    // forceQuit é transitório (menu da bandeja/atualizador), nunca uma
+    // preferência persistente entre execuções.
+    S::set("app/forceQuit", false);
     setWindowTitle(QString::fromUtf8(halla::kAppName));
     // Mantém uma fonte grande para que o Windows escolha uma versão nítida
     // na janela, na barra de tarefas e no Alt+Tab.
@@ -293,11 +296,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                                        });
     m_actDisconnect->setShortcut(QKeySequence(QStringLiteral("Ctrl+D")));
     m_actDisconnectAll = mConn->addAction(tr("Desconectar de todos os servidores"), this,
-                                          [this] {
-                                              while (m_tabs->count() > 0)
-                                                  disconnectTab(qobject_cast<ServerTab*>(
-                                                                    m_tabs->widget(0)), false);
-                                          });
+                                          [this] { disconnectAllTabs(true); });
     m_recentMenu = mConn->addMenu(tr("Conexões recentes"));
     mConn->addAction(HIcons::info(), tr("Informações de conexão..."), this, [this] {
         ServerTab* t = currentTab();
@@ -305,8 +304,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         dlg.exec();
     });
     mConn->addSeparator();
-    mConn->addAction(tr("Sair"), this, &MainWindow::close)
-        ->setShortcut(QKeySequence(QStringLiteral("Ctrl+Q")));
+    mConn->addAction(tr("Sair"), this, [this] {
+        S::set("app/forceQuit", true);
+        close();
+    })->setShortcut(QKeySequence(QStringLiteral("Ctrl+Q")));
 
     m_bookmarksMenu = menuBar()->addMenu(tr("&Marcadores"));
     m_actBookmarkAdd = m_bookmarksMenu->addAction(
@@ -854,8 +855,9 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         // ping real -> barra de status
         connect(net, &NetSession::pingUpdated, this,
                 [this, net](int) { updateStatusBar(); });
-        connect(net, &NetSession::disconnectedUnexpected, this, [this, tab] {
-            HSound::play(QStringLiteral("connection_lost"));
+        connect(net, &NetSession::disconnectedUnexpected, this, [this, tab, net] {
+            if (!net->serverTerminatedSession())
+                HSound::play(QStringLiteral("connection_lost"));
             tab->chat()->addServerSystem(tr("Desconectado do servidor."));
             disconnectTab(tab, false);
         });
@@ -929,30 +931,71 @@ void MainWindow::createLocalTab(const ServerData& initial) {
 }
 
 void MainWindow::disconnectTab(ServerTab* tab, bool notify) {
-    if (!tab) return;
-    if (m_screenShareTimer) {
-        m_screenShareTimer->stop();
+    if (!tab || m_tabs->indexOf(tab) < 0 || m_disconnectingTabs.contains(tab)) return;
+    m_disconnectingTabs.insert(tab);
+
+    // O aviso começa primeiro; a conexão só é encerrada após um segundo para
+    // que o áudio não seja cortado junto com a aba/dispositivo de reprodução.
+    if (notify && S::flag("notify/disconnectSound", true))
+        HSound::play(QStringLiteral("disconnected"));
+    if (notify) HSpeech::say(tr("Desconectado do servidor"));
+
+    QPointer<ServerTab> safeTab(tab);
+    const int delayMs = notify ? 1000 : 0;
+    QTimer::singleShot(delayMs, this, [this, safeTab] {
+        if (safeTab) finishDisconnectTab(safeTab.data());
+    });
+}
+
+void MainWindow::disconnectAllTabs(bool notify) {
+    QList<QPointer<ServerTab>> tabs;
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        if (ServerTab* tab = qobject_cast<ServerTab*>(m_tabs->widget(i))) {
+            if (!m_disconnectingTabs.contains(tab)) {
+                m_disconnectingTabs.insert(tab);
+                tabs << QPointer<ServerTab>(tab);
+            }
+        }
     }
+    if (tabs.isEmpty()) return;
+
+    if (notify && S::flag("notify/disconnectSound", true))
+        HSound::play(QStringLiteral("disconnected"));
+    if (notify) HSpeech::say(tr("Desconectado do servidor"));
+
+    QTimer::singleShot(notify ? 1000 : 0, this, [this, tabs] {
+        for (const QPointer<ServerTab>& tab : tabs)
+            if (tab) finishDisconnectTab(tab.data());
+    });
+}
+
+void MainWindow::finishDisconnectTab(ServerTab* tab) {
+    if (!tab) return;
+    const int idx = m_tabs->indexOf(tab);
+    if (idx < 0) {
+        m_disconnectingTabs.remove(tab);
+        return;
+    }
+
+    if (m_screenShareTimer) m_screenShareTimer->stop();
     m_actScreenShare->setChecked(false);
     m_actScreenShare->setIcon(HIcons::screenShare(false));
     qDeleteAll(m_screenShareWindows);
     m_screenShareWindows.clear();
 
-    if (tab->net()) tab->net()->quit();
-    const int idx = m_tabs->indexOf(tab);
+    NetSession* net = tab->net();
+    if (net) {
+        net->quit();
+        QTimer::singleShot(500, net, &QObject::deleteLater);
+    }
     const QString addr = tab->data().address;
     m_tabs->removeTab(idx);
+    m_disconnectingTabs.remove(tab);
     tab->deleteLater();
 
     AppLog::info(tr("Desconectado de %1").arg(addr));
-    if (notify && S::flag("notify/disconnectSound", true))
-        HSound::play(QStringLiteral("disconnected"));
-    if (notify) HSpeech::say(tr("Desconectado do servidor"));
-
     saveSession();
-    if (m_tabs->count() == 0) {
-        m_stack->setCurrentWidget(m_welcome);
-    }
+    if (m_tabs->count() == 0) m_stack->setCurrentWidget(m_welcome);
     updateConnectionUi();
     updateStatusBar();
 }
@@ -1305,8 +1348,13 @@ void MainWindow::applyHotkeys() {
 
 // ======================================================================
 void MainWindow::closeEvent(QCloseEvent* e) {
-    if (S::flag("app/closeToTray", false) && m_tray && m_tray->isVisible() &&
-        !S::flag("app/forceQuit", false)) {
+    if (m_closeDelayPending) {
+        e->ignore();
+        return;
+    }
+
+    if (!m_closingAfterSound && S::flag("app/closeToTray", false)
+            && m_tray && m_tray->isVisible() && !S::flag("app/forceQuit", false)) {
         hide();
         m_tray->showMessage(QStringLiteral("Halla"),
                             tr("O Halla continua em execução na bandeja do sistema."),
@@ -1314,7 +1362,8 @@ void MainWindow::closeEvent(QCloseEvent* e) {
         e->ignore();
         return;
     }
-    if (m_tabs->count() > 0 && S::flag("app/confirmQuit", true) && !S::flag("app/forceQuit", false)) {
+    if (!m_closingAfterSound && m_tabs->count() > 0
+            && S::flag("app/confirmQuit", true) && !S::flag("app/forceQuit", false)) {
         const auto ret = QMessageBox::question(
             this, tr("Sair"),
             tr("Você ainda está conectado a servidores.\nDeseja realmente sair?"),
@@ -1324,6 +1373,26 @@ void MainWindow::closeEvent(QCloseEvent* e) {
             return;
         }
     }
+
+    if (!m_closingAfterSound && m_tabs->count() > 0) {
+        e->ignore();
+        m_closeDelayPending = true;
+        if (S::flag("notify/disconnectSound", true))
+            HSound::play(QStringLiteral("disconnected"));
+        HSpeech::say(tr("Desconectado do servidor"));
+        QTimer::singleShot(1000, this, [this] {
+            while (m_tabs->count() > 0) {
+                ServerTab* tab = qobject_cast<ServerTab*>(m_tabs->widget(0));
+                if (!tab) { m_tabs->removeTab(0); continue; }
+                finishDisconnectTab(tab);
+            }
+            m_closeDelayPending = false;
+            m_closingAfterSound = true;
+            close();
+        });
+        return;
+    }
+
     saveSession();
     if (m_log) m_log->close();
     AppLog::info(tr("Halla encerrado"));

@@ -3,11 +3,16 @@
         <file>assets/halla-logo.png</file>
         <file>assets/tree-arrow-right.svg</file>
         <file>assets/tree-arrow-down.svg</file>
+        <file>assets/sounds/banned.wav</file>
         <file>assets/sounds/connected.wav</file>
         <file>assets/sounds/connection_lost.wav</file>
+        <file>assets/sounds/disconnected.wav</file>
         <file>assets/sounds/error.wav</file>
+        <file>assets/sounds/kicked.wav</file>
         <file>assets/sounds/insufficient_permissions.wav</file>
+        <file>assets/sounds/mic_muted.wav</file>
         <file>assets/sounds/mic_unmuted.wav</file>
+        <file>assets/sounds/moved.wav</file>
         <file>assets/sounds/poke.wav</file>
         <file>assets/sounds/sound_muted.wav</file>
         <file>assets/sounds/sound_resumed.wav</file>

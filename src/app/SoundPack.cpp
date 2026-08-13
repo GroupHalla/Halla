@@ -90,13 +90,18 @@ void ensure() {
     // Os arquivos fornecidos para o pacote oficial substituem uma única vez
     // os tons sintéticos antigos. Depois disso, arquivos personalizados pelo
     // usuário são preservados; arquivos apagados são restaurados do recurso.
-    static const QString packVersion = QStringLiteral("official-voice-v1");
+    static const QString packVersion = QStringLiteral("official-voice-v2");
     static const QStringList bundled = {
+        QStringLiteral("banned"),
         QStringLiteral("connected"),
         QStringLiteral("connection_lost"),
+        QStringLiteral("disconnected"),
         QStringLiteral("error"),
         QStringLiteral("insufficient_permissions"),
+        QStringLiteral("kicked"),
+        QStringLiteral("mic_muted"),
         QStringLiteral("mic_unmuted"),
+        QStringLiteral("moved"),
         QStringLiteral("poke"),
         QStringLiteral("sound_muted"),
         QStringLiteral("sound_resumed"),
@@ -142,6 +147,7 @@ void ensure() {
 }
 
 void play(const QString& name) {
+    if (!S::flag("notify/soundsEnabled", true)) return;
     ensure();
     static QHash<QString, QSoundEffect*> fx;
     QSoundEffect* e = fx.value(name, nullptr);

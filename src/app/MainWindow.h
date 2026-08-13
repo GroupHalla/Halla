@@ -2,6 +2,7 @@
 
 #include <QMainWindow>
 #include <QPointer>
+#include <QSet>
 #include "core/Models.h"
 
 class QTabWidget;
@@ -53,6 +54,8 @@ protected:
 private:
     ServerTab* currentTab() const;
     void disconnectTab(ServerTab* tab, bool notify = true);
+    void disconnectAllTabs(bool notify = true);
+    void finishDisconnectTab(ServerTab* tab);
     void rebuildBookmarksMenu();
     void rebuildRecentMenu();
     void addRecent(const QString& address, quint16 port);
@@ -116,6 +119,10 @@ private:
     QLabel* m_statusIcon = nullptr;
     QLabel* m_statusText = nullptr;
     QLabel* m_pingLabel = nullptr;
+
+    QSet<ServerTab*> m_disconnectingTabs;
+    bool m_closeDelayPending = false;
+    bool m_closingAfterSound = false;
 
     void wireTab(ServerTab* tab);
 

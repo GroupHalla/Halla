@@ -13,8 +13,11 @@ inline QStringList names() {
     return { QStringLiteral("connected"),               // conectou ao servidor
              QStringLiteral("connection_lost"),         // conexão caiu inesperadamente
              QStringLiteral("disconnected"),            // desconexão manual
-             QStringLiteral("user_joined"),             // cliente entrou no seu canal
+             QStringLiteral("moved"),                   // você foi movido/trocou de canal
+             QStringLiteral("user_joined"),             // outro cliente entrou no seu canal
              QStringLiteral("user_left"),               // cliente saiu do seu canal
+             QStringLiteral("kicked"),                  // expulso do servidor
+             QStringLiteral("banned"),                  // banido do servidor
              QStringLiteral("message"),                 // mensagem privada/canal
              QStringLiteral("poke"),                    // cutucada / wake up
              QStringLiteral("error"),                   // erro geral

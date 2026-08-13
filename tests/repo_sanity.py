@@ -21,9 +21,10 @@ installer = (root / "packaging/halla-setup.nsi").read_text(encoding="utf-8")
 assert "APP_VERSION é obrigatório" in installer
 
 sound_names = (
-    "connected", "connection_lost", "error", "insufficient_permissions",
-    "mic_unmuted", "poke", "sound_muted", "sound_resumed",
-    "user_joined", "user_left",
+    "banned", "connected", "connection_lost", "disconnected", "error",
+    "insufficient_permissions", "kicked", "mic_muted", "mic_unmuted",
+    "moved", "poke", "sound_muted", "sound_resumed", "user_joined",
+    "user_left",
 )
 qrc = (root / "src/halla.qrc").read_text(encoding="utf-8")
 sound_pack = (root / "src/app/SoundPack.cpp").read_text(encoding="utf-8")
@@ -37,4 +38,12 @@ for name in sound_names:
         assert wav.getsampwidth() == 2, name
         assert wav.getframerate() == 24000, name
         assert 0 < wav.getnframes() <= 24000 * 3, name
+
+main_window = (root / "src/app/MainWindow.cpp").read_text(encoding="utf-8")
+net_session = (root / "src/net/NetSession.cpp").read_text(encoding="utf-8")
+server_tab = (root / "src/gui/ServerTab.cpp").read_text(encoding="utf-8")
+assert "m_closeDelayPending" in main_window and "QTimer::singleShot(1000" in main_window
+assert "m_intentionalDisconnect" in net_session and "waitForBytesWritten" not in net_session
+assert 'HSound::play(QStringLiteral("moved"))' in server_tab
+assert "Silenciar todos os avisos de áudio" in (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
 print(f"Halla repository sanity OK: {version}")
