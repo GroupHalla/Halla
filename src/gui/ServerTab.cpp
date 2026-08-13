@@ -199,6 +199,7 @@ void ServerTab::attachNetwork(NetSession* net) {
     // usuários já presentes no login (não tocar som para eles)
     for (const User& u : m_data.users) {
         m_knownUsers << u.id;
+        m_lastChannels[u.id] = m_data.channelOfUser(u.id);
         m_lastTalking[u.id] = u.talking;
         m_lastWhispering[u.id] = u.whispering;
     }
@@ -216,10 +217,13 @@ void ServerTab::attachNetwork(NetSession* net) {
 
     // estado vindo do servidor -> redesenha a árvore/informações
     connect(net, &NetSession::stateChanged, this, [this] {
-        // detecção de entrada/saída (sons estilo Halla)
+        // Detecta entradas e saídas especificamente no canal atual do usuário.
+        // Usuários que entram em outros canais não disparam o aviso da call.
         QSet<int> now;
+        QMap<int, int> currentChannels;
         for (const User& u : m_data.users) {
             now << u.id;
+            currentChannels[u.id] = m_data.channelOfUser(u.id);
             m_lastNames[u.id] = u.name;
             if (u.id != m_data.selfId) {
                 const bool wasTalking = m_lastTalking.value(u.id, false);
@@ -233,22 +237,49 @@ void ServerTab::attachNetwork(NetSession* net) {
                 m_lastWhispering[u.id] = u.whispering;
             }
         }
-        for (int id : now)
-            if (!m_knownUsers.contains(id) && id != m_data.selfId) {
-                if (S::flag("notify/userJoinSound", true)) HSound::play(QStringLiteral("user_joined"));
-                HSpeech::say(tr("%1 entrou no servidor").arg(m_lastNames.value(id)));
-            }
-        for (int id : m_knownUsers)
-            if (!now.contains(id) && id != m_data.selfId) {
-                if (S::flag("notify/userLeftSound", true)) HSound::play(QStringLiteral("user_left"));
-                HSpeech::say(tr("%1 saiu do servidor").arg(m_lastNames.value(id)));
-            }
-        m_knownUsers = now;
 
-        // minha própria troca de canal
-        const int myChan = m_data.channelOfUser(m_data.selfId);
-        if (m_myChan >= 0 && myChan != m_myChan && S::flag("notify/channelSwitchSound", true))
+        const int myChan = currentChannels.value(m_data.selfId, m_data.channelOfUser(m_data.selfId));
+        const bool selfChangedChannel = m_myChan >= 0 && myChan != m_myChan;
+        if (!selfChangedChannel && myChan > 0) {
+            for (int id : now) {
+                if (id == m_data.selfId) continue;
+                const int current = currentChannels.value(id, 0);
+                if (!m_knownUsers.contains(id)) {
+                    if (current == myChan) {
+                        if (S::flag("notify/userJoinSound", true))
+                            HSound::play(QStringLiteral("user_joined"));
+                        HSpeech::say(tr("%1 entrou no seu canal").arg(m_lastNames.value(id)));
+                    }
+                    continue;
+                }
+                const int previous = m_lastChannels.value(id, current);
+                if (previous == current) continue;
+                if (current == myChan) {
+                    if (S::flag("notify/userJoinSound", true))
+                        HSound::play(QStringLiteral("user_joined"));
+                    HSpeech::say(tr("%1 entrou no seu canal").arg(m_lastNames.value(id)));
+                } else if (previous == myChan) {
+                    if (S::flag("notify/userLeftSound", true))
+                        HSound::play(QStringLiteral("user_left"));
+                    HSpeech::say(tr("%1 saiu do seu canal").arg(m_lastNames.value(id)));
+                }
+            }
+            for (int id : m_knownUsers) {
+                if (id == m_data.selfId || now.contains(id)) continue;
+                if (m_lastChannels.value(id, 0) == myChan) {
+                    if (S::flag("notify/userLeftSound", true))
+                        HSound::play(QStringLiteral("user_left"));
+                    HSpeech::say(tr("%1 saiu do seu canal").arg(m_lastNames.value(id)));
+                }
+            }
+        }
+
+        // A própria troca de canal usa um único aviso, sem tocar uma vez para
+        // cada pessoa que já estava no destino.
+        if (selfChangedChannel && S::flag("notify/channelSwitchSound", true))
             HSound::play(QStringLiteral("user_joined"));
+        m_knownUsers = now;
+        m_lastChannels = currentChannels;
         m_myChan = myChan;
 
         applyWhisper(); // mantém o alvo do sussurro sincronizado (ids mudam a cada login)
@@ -296,6 +327,13 @@ void ServerTab::attachNetwork(NetSession* net) {
     connect(net, &NetSession::errorOccurred, this,
             [this](const QString& code, const QString& msg) {
                 systemMsgServer(tr("Erro do servidor: %1").arg(msg));
+                static const QSet<QString> permissionErrors = {
+                    QStringLiteral("no_permission"), QStringLiteral("hierarchy"),
+                    QStringLiteral("locked"), QStringLiteral("no_talk_power")
+                };
+                HSound::play(permissionErrors.contains(code)
+                    ? QStringLiteral("insufficient_permissions")
+                    : QStringLiteral("error"));
                 if (code == QStringLiteral("bad_privkey") || code == QStringLiteral("privkey_used")) {
                     QMessageBox::critical(this, tr("Chave de privilégio"), msg);
                 }
@@ -1226,8 +1264,13 @@ void ServerTab::setSpeakersMuted(bool on) {
     User& self = m_data.users[m_data.selfId];
     if (self.outputMuted == on) return;
     self.outputMuted = on;
-    if (m_voice) m_voice->setSpeakersEnabled(!on);
-    setMicMuted(on);
+    self.inputMuted = on; // o modo de alto-falantes mudos também silencia o microfone
+    if (m_voice) {
+        m_voice->setSpeakersEnabled(!on);
+        m_voice->setTransmitEnabled(!on);
+    }
+    if (S::flag("notify/muteSound", true))
+        HSound::play(on ? QStringLiteral("sound_muted") : QStringLiteral("sound_resumed"));
     if (m_net) { m_net->sendStatus(); m_tree->rebuild(); emit statusChanged(); return; }
     systemMsgChannel(on ? tr("Alto-falantes mudos.") : tr("Alto-falantes reativados."));
     m_tree->rebuild();

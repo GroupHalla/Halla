@@ -4,6 +4,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
+#include <QSaveFile>
 #include <QHash>
 #include <QUrl>
 #include <QSoundEffect>
@@ -72,8 +73,56 @@ static bool writeWav(const QString& path, const QList<QPair<int,int>>& seq, int 
     return true;
 }
 
+static bool copyBundledSound(const QString& eventName, const QString& destination) {
+    QFile source(QStringLiteral(":/halla/assets/sounds/") + eventName + QStringLiteral(".wav"));
+    if (!source.open(QIODevice::ReadOnly)) return false;
+    const QByteArray bytes = source.readAll();
+    if (bytes.size() < 44 || !bytes.startsWith("RIFF") || bytes.mid(8, 4) != "WAVE") return false;
+    QSaveFile output(destination);
+    if (!output.open(QIODevice::WriteOnly)) return false;
+    if (output.write(bytes) != bytes.size()) return false;
+    return output.commit();
+}
+
 void ensure() {
     const QString d = dir();
+
+    // Os arquivos fornecidos para o pacote oficial substituem uma única vez
+    // os tons sintéticos antigos. Depois disso, arquivos personalizados pelo
+    // usuário são preservados; arquivos apagados são restaurados do recurso.
+    static const QString packVersion = QStringLiteral("official-voice-v1");
+    static const QStringList bundled = {
+        QStringLiteral("connected"),
+        QStringLiteral("connection_lost"),
+        QStringLiteral("error"),
+        QStringLiteral("insufficient_permissions"),
+        QStringLiteral("mic_unmuted"),
+        QStringLiteral("poke"),
+        QStringLiteral("sound_muted"),
+        QStringLiteral("sound_resumed"),
+        QStringLiteral("user_joined"),
+        QStringLiteral("user_left")
+    };
+    const QString markerPath = d + QStringLiteral("/.pack-version");
+    QFile marker(markerPath);
+    QString installedVersion;
+    if (marker.open(QIODevice::ReadOnly)) installedVersion = QString::fromUtf8(marker.readAll()).trimmed();
+    const bool upgrade = installedVersion != packVersion;
+    bool installed = true;
+    for (const QString& eventName : bundled) {
+        const QString destination = d + QLatin1Char('/') + eventName + QStringLiteral(".wav");
+        if ((upgrade || !QFile::exists(destination)) && !copyBundledSound(eventName, destination))
+            installed = false;
+    }
+    if (installed && upgrade) {
+        QSaveFile versionFile(markerPath);
+        if (versionFile.open(QIODevice::WriteOnly)) {
+            versionFile.write(packVersion.toUtf8());
+            versionFile.write("\n");
+            versionFile.commit();
+        }
+    }
+
     static const QHash<QString, QList<QPair<int,int>>> presets = {
         { QStringLiteral("connected"),    { {520, 70}, {660, 70}, {880, 110} } },
         { QStringLiteral("disconnected"), { {660, 70}, {440, 140} } },

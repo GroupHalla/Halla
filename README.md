@@ -92,9 +92,9 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   e emojis.
 - Marcadores (bookmarks) de servidores, conexões recentes, múltiplas
   identidades locais, perfis de captura/reprodução.
-- Bandeja do sistema, notificações sonoras (pacote de sons próprio gerado na
-  primeira execução) e narração por texto-para-voz (`QTextToSpeech`) dos
-  eventos ("Fulano entrou", "Você foi cutucado").
+- Bandeja do sistema, notificações sonoras com avisos de voz integrados
+  (conexão, entrada/saída do canal, permissões, microfone e reprodução) e
+  narração opcional por texto-para-voz (`QTextToSpeech`).
 - Teclas de atalho totalmente configuráveis — inclusive com botões de mouse,
   capturados em múltiplas camadas para não depender só do evento clássico do
   Windows (útil com softwares de mouse gamer que interceptam os botões

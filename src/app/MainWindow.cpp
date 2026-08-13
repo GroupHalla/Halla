@@ -829,6 +829,7 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
 
     // falha de conexão / login recusado
     connect(net, &NetSession::connectionFailed, this, [this, net, address, port](const QString& reason) {
+        HSound::play(QStringLiteral("error"));
         QMessageBox::warning(this, tr("Erro ao conectar"),
                              tr("<b>Falha ao conectar ao servidor %1:%2</b><br>%3")
                                  .arg(address).arg(port).arg(reason.toHtmlEscaped()));
@@ -854,6 +855,7 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         connect(net, &NetSession::pingUpdated, this,
                 [this, net](int) { updateStatusBar(); });
         connect(net, &NetSession::disconnectedUnexpected, this, [this, tab] {
+            HSound::play(QStringLiteral("connection_lost"));
             tab->chat()->addServerSystem(tr("Desconectado do servidor."));
             disconnectTab(tab, false);
         });

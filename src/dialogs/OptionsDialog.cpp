@@ -744,8 +744,8 @@ QWidget* OptionsDialog::pageNotifications() {
     const QList<QPair<QString, QString>> events = {
         { "notify/connectSound",    tr("Ao conectar a um servidor") },
         { "notify/disconnectSound", tr("Ao desconectar de um servidor") },
-        { "notify/userJoinSound",   tr("Quando um cliente entra no servidor") },
-        { "notify/userLeftSound",   tr("Quando um cliente sai do servidor") },
+        { "notify/userJoinSound",   tr("Quando um cliente entra no seu canal") },
+        { "notify/userLeftSound",   tr("Quando um cliente sai do seu canal") },
         { "notify/pokeSound",       tr("Ao ser cutucado") },
         { "notify/messageSound",    tr("Ao receber mensagem privada") },
         { "notify/channelSwitchSound", tr("Ao trocar de canal") },

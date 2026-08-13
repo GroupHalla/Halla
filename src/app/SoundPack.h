@@ -10,16 +10,21 @@ namespace HSound {
 
 // eventos disponíveis (nomes de arquivo sem extensão)
 inline QStringList names() {
-    return { QStringLiteral("connected"),     // conectou ao servidor
-             QStringLiteral("disconnected"),  // desconectou
-             QStringLiteral("user_joined"),   // cliente entrou no servidor/canal
-             QStringLiteral("user_left"),     // cliente saiu
-             QStringLiteral("message"),       // mensagem privada/canal
-             QStringLiteral("poke"),          // cutucada
-             QStringLiteral("mic_muted"),     // microfone mudo
-             QStringLiteral("mic_unmuted"),   // microfone ativo
-             QStringLiteral("recording"),     // gravação iniciada
-             QStringLiteral("test") };        // som de teste das opções
+    return { QStringLiteral("connected"),               // conectou ao servidor
+             QStringLiteral("connection_lost"),         // conexão caiu inesperadamente
+             QStringLiteral("disconnected"),            // desconexão manual
+             QStringLiteral("user_joined"),             // cliente entrou no seu canal
+             QStringLiteral("user_left"),               // cliente saiu do seu canal
+             QStringLiteral("message"),                 // mensagem privada/canal
+             QStringLiteral("poke"),                    // cutucada / wake up
+             QStringLiteral("error"),                   // erro geral
+             QStringLiteral("insufficient_permissions"), // permissão insuficiente
+             QStringLiteral("mic_muted"),               // microfone mudo
+             QStringLiteral("mic_unmuted"),             // microfone ativo
+             QStringLiteral("sound_muted"),             // reprodução silenciada
+             QStringLiteral("sound_resumed"),           // reprodução reativada
+             QStringLiteral("recording"),               // gravação iniciada
+             QStringLiteral("test") };                  // som de teste das opções
 }
 
 void ensure();                  // gera os WAVs padrão se ainda não existirem
