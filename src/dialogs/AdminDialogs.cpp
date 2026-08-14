@@ -269,6 +269,8 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
             QJsonObject perms = QJsonDocument::fromJson(it->data(0, Qt::UserRole + 1).toString().toUtf8()).object();
             QString sigla = it->data(0, Qt::UserRole + 2).toString();
             QString icon = it->data(0, Qt::UserRole + 4).toString();
+            const bool siglaAfter = it->data(0, Qt::UserRole + 7).toBool();
+            const bool orderEnabled = it->data(0, Qt::UserRole + 8).toBool();
             
             int newOrder = i * 10;
             int newPosition = (count - 1 - i) * 10;
@@ -280,7 +282,8 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
             it->setData(0, Qt::UserRole + 3, newOrder);
             it->setData(0, Qt::UserRole + 6, newPosition);
             
-            m_net->groupSet(id, name, perms, sigla, newOrder, icon, newPosition);
+            m_net->groupSet(id, name, perms, sigla, newOrder, icon, newPosition,
+                            siglaAfter, orderEnabled);
         }
         m_net->requestGroupList();
     };
@@ -327,9 +330,16 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     QFormLayout* pForm = new QFormLayout(propBox);
     m_sigla = new QLineEdit(propBox);
     m_sigla->setPlaceholderText(tr("Ex.: [Admin], [Mod]"));
+    m_siglaPlacement = new QComboBox(propBox);
+    m_siglaPlacement->addItem(tr("Antes do nome"), false);
+    m_siglaPlacement->addItem(tr("Depois do nome"), true);
+    m_siglaPlacement->setToolTip(tr("Define se a sigla deste cargo aparece no início ou no fim do nome do usuário."));
     m_order = new QSpinBox(propBox);
     m_order->setRange(0, 100);
-    m_order->setToolTip(tr("Ordem de exibição na lista de cargos"));
+    m_order->setToolTip(tr("Ordem deste cargo na lista de nomes (menor número aparece primeiro)."));
+    m_orderEnabled = new QCheckBox(tr("Usar a ordem deste cargo na lista de nomes"), propBox);
+    m_orderEnabled->setChecked(true);
+    m_orderEnabled->setToolTip(tr("Desative para este cargo não alterar a posição do usuário. Outro cargo habilitado fornecerá a ordem."));
     
     // Pilar 1: posição hierárquica dos cargos
     m_position = new QSpinBox(propBox);
@@ -344,7 +354,9 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     iconRow->addWidget(upload);
     
     pForm->addRow(tr("Prefixo/Sigla:"), m_sigla);
+    pForm->addRow(tr("Posição da Sigla:"), m_siglaPlacement);
     pForm->addRow(tr("Ordem de Exibição:"), m_order);
+    pForm->addRow(QString(), m_orderEnabled);
     pForm->addRow(tr("Position (Hierarquia):"), m_position);
     pForm->addRow(tr("Ícone do Cargo:"), iconRow);
     el->addWidget(propBox);
@@ -460,11 +472,15 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                 m_cur["order"] = cur->data(0, Qt::UserRole + 3).toInt();
                 m_cur["icon"]  = cur->data(0, Qt::UserRole + 4).toString();
                 m_cur["position"] = cur->data(0, Qt::UserRole + 6).toInt(0);  // Pilar 1
+                m_cur["siglaAfter"] = cur->data(0, Qt::UserRole + 7).toBool();
+                m_cur["orderEnabled"] = cur->data(0, Qt::UserRole + 8).toBool();
                 
                 loadPerms(m_cur["perms"].toObject());
                 
                 m_sigla->setText(m_cur["sigla"].toString());
+                m_siglaPlacement->setCurrentIndex(m_cur["siglaAfter"].toBool() ? 1 : 0);
                 m_order->setValue(m_cur["order"].toInt());
+                m_orderEnabled->setChecked(m_cur["orderEnabled"].toBool(true));
                 m_position->setValue(m_cur["position"].toInt());  // Pilar 1
                 m_icon->setText(m_cur["icon"].toString());
                 this->refreshMembers(QJsonDocument::fromJson(
@@ -521,7 +537,8 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
         if (!ok || name.isEmpty()) return;
         int position = m_position->value();
         m_net->groupSet(id, name, m_cur["perms"].toObject(),
-                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position);
+                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position,
+                        m_siglaPlacement->currentData().toBool(), m_orderEnabled->isChecked());
         m_net->requestGroupList();
     });
 
@@ -529,7 +546,8 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
         if (m_cur.isEmpty()) return;
         int position = m_position->value();
         m_net->groupSet(m_cur["id"].toInt(), m_cur["name"].toString(), collectPerms(),
-                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position);
+                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position,
+                        m_siglaPlacement->currentData().toBool(), m_orderEnabled->isChecked());
         m_net->requestGroupList();
     });
 
@@ -583,6 +601,8 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
             it->setData(0, Qt::UserRole + 3, g["order"].toInt());
             it->setData(0, Qt::UserRole + 4, g["icon"].toString());
             it->setData(0, Qt::UserRole + 6, g["position"].toInt(0));  // Pilar 1: position hierárquica
+            it->setData(0, Qt::UserRole + 7, g["siglaAfter"].toBool(false));
+            it->setData(0, Qt::UserRole + 8, g["orderEnabled"].toBool(true));
             it->setData(0, Qt::UserRole + 5,
                         QString::fromUtf8(QJsonDocument(g["members"].toArray())
                                               .toJson(QJsonDocument::Compact)));
@@ -600,6 +620,12 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
         m_cur["name"] = selected->text(1);
         m_cur["perms"] = QJsonDocument::fromJson(
             selected->data(0, Qt::UserRole + 1).toString().toUtf8()).object();
+        m_cur["sigla"] = selected->data(0, Qt::UserRole + 2).toString();
+        m_cur["order"] = selected->data(0, Qt::UserRole + 3).toInt();
+        m_cur["icon"] = selected->data(0, Qt::UserRole + 4).toString();
+        m_cur["position"] = selected->data(0, Qt::UserRole + 6).toInt();
+        m_cur["siglaAfter"] = selected->data(0, Qt::UserRole + 7).toBool();
+        m_cur["orderEnabled"] = selected->data(0, Qt::UserRole + 8).toBool();
         refreshMembers(QJsonDocument::fromJson(
             selected->data(0, Qt::UserRole + 5).toString().toUtf8()).array());
         refreshUsers();

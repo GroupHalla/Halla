@@ -636,13 +636,16 @@ void NetSession::unban(const QString& uid) {
 void NetSession::requestGroupList() { send(HProto::msg("group_list")); }
 
 void NetSession::groupSet(int id, const QString& name, const QJsonObject& perms,
-                          const QString& sigla, int order, const QString& icon, int position) {
+                          const QString& sigla, int order, const QString& icon, int position,
+                          bool siglaAfter, bool orderEnabled) {
     QJsonObject m = HProto::msg("group_set");
     if (id > 0) m["id"] = id;
     if (!name.isEmpty()) m["name"] = name;
     if (!perms.isEmpty()) m["perms"] = perms;
     m["sigla"] = sigla;
+    m["siglaAfter"] = siglaAfter;
     m["order"] = order;
+    m["orderEnabled"] = orderEnabled;
     m["icon"] = icon;
     if (position >= 0) m["position"] = position;  // Pilar 1: position hierárquica
     send(m);
@@ -690,8 +693,10 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.description = u["desc"].toString();
     usr.serverGroups = u["group"].toString("normal");
     usr.sigla = u["sigla"].toString();
+    usr.siglaSuffix = u["siglaSuffix"].toString();
     usr.groupIcon = u["icon"].toString();
     usr.groupOrder = u["order"].toInt(0);
+    usr.groupOrderEnabled = u["orderEnabled"].toBool(true);
     usr.groupId = u["gid"].toInt(0);
     usr.groupPosition = u["position"].toInt(0);  // Pilar 1: posição hierárquica
     usr.inputMuted = u["mic"].toBool();
@@ -935,8 +940,10 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             if (obj.contains("text")) u.description = obj["text"].toString();
             if (obj.contains("group")) u.serverGroups = obj["group"].toString();
             if (obj.contains("sigla")) u.sigla = obj["sigla"].toString();
+            if (obj.contains("siglaSuffix")) u.siglaSuffix = obj["siglaSuffix"].toString();
             if (obj.contains("icon")) u.groupIcon = obj["icon"].toString();
             if (obj.contains("order")) u.groupOrder = obj["order"].toInt(0);
+            if (obj.contains("orderEnabled")) u.groupOrderEnabled = obj["orderEnabled"].toBool(true);
         }
         emit stateChanged();
         return;

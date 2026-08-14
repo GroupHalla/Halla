@@ -147,6 +147,10 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     m_serverTree->setHeaderHidden(true);
     m_serverTree->setFrameShape(QFrame::StyledPanel);
     m_serverTree->setMinimumWidth(163);
+    m_serverTree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    m_serverTree->setTextElideMode(Qt::ElideNone);
+    m_serverTree->header()->setStretchLastSection(false);
+    m_serverTree->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     colRight->addWidget(m_serverTree, 1);
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setPlaceholderText(tr("Pesquisar..."));
@@ -470,6 +474,7 @@ void WhisperDialog::populateServerTree() {
     }
     
     m_serverTree->expandAll();
+    m_serverTree->resizeColumnToContents(0);
 }
 
 void WhisperDialog::populateTargetsTreeForSelected() {

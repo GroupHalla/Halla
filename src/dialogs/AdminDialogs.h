@@ -66,7 +66,9 @@ private:
     QList<QPair<QString, QCheckBox*>> m_checks; // permissões booleanas
     QSpinBox* m_talkPower = nullptr;
     QLineEdit* m_sigla = nullptr;
+    QComboBox* m_siglaPlacement = nullptr;
     QSpinBox* m_order = nullptr;
+    QCheckBox* m_orderEnabled = nullptr;
     QSpinBox* m_position = nullptr;  // Pilar 1: posição hierárquica dos cargos
     QLineEdit* m_icon = nullptr;
     QComboBox* m_userCombo = nullptr;

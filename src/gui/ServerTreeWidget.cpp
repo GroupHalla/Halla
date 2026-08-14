@@ -477,9 +477,9 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
         }
     }
 
-    // Ordena os usuários do canal baseado na propriedade groupOrder (ordem hierárquica dos cargos)
-    // Menor valor de groupOrder significa maior prioridade/mais alto no topo.
-    // Se empatado, ordena em ordem alfabética de apelido.
+    // Ordena os usuários apenas por cargos cuja ordem visual está habilitada.
+    // A posição hierárquica de permissões é independente desta lista.
+    // Se empatado (ou sem ordem ativa), usa a ordem alfabética de apelido.
     QList<int> sortedUsers;
     for (int uid : c.users) {
         if (m_data->users.contains(uid)) {
@@ -489,9 +489,10 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
     std::sort(sortedUsers.begin(), sortedUsers.end(), [&](int uidA, int uidB) {
         const User& uA = m_data->users[uidA];
         const User& uB = m_data->users[uidB];
-        if (uA.groupOrder != uB.groupOrder) {
+        if (uA.groupOrderEnabled != uB.groupOrderEnabled)
+            return uA.groupOrderEnabled; // quem tem uma ordem ativa vem primeiro
+        if (uA.groupOrderEnabled && uA.groupOrder != uB.groupOrder)
             return uA.groupOrder < uB.groupOrder;
-        }
         return uA.name.localeAwareCompare(uB.name) < 0;
     });
 
@@ -542,11 +543,11 @@ void ServerTreeWidget::expandOwnChannelOnly(int channelId) {
 void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
     QTreeWidgetItem* item = new QTreeWidgetItem(chanItem);
     
-    // ---- Se o usuário possui sigla (prefixo de cargo), exibe antes do nome!
     QString displayName = u.name;
-    if (!u.sigla.isEmpty()) {
-        displayName = u.sigla + " " + displayName;
-    }
+    if (!u.sigla.isEmpty())
+        displayName = u.sigla + QStringLiteral(" ") + displayName;
+    if (!u.siglaSuffix.isEmpty())
+        displayName += QStringLiteral(" ") + u.siglaSuffix;
     item->setText(0, displayName);
     item->setIcon(0, leadingUserIcon(u, m_delegate ? m_delegate->showMinis() : true));
     item->setData(0, RoleKind, NodeUser);

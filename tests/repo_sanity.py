@@ -50,4 +50,17 @@ webrtc = (root / "src/webrtc/HallaWebRtcSession.cpp").read_text(encoding="utf-8"
 assert "PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE" in webrtc
 assert "TargetProcessId = GetCurrentProcessId()" in webrtc
 assert "GetDefaultAudioEndpoint" not in webrtc
+
+models = (root / "src/core/Models.h").read_text(encoding="utf-8")
+group_dialog = (root / "src/dialogs/AdminDialogs.cpp").read_text(encoding="utf-8")
+tools_dialog = (root / "src/dialogs/ToolsDialogs.cpp").read_text(encoding="utf-8")
+tree_widget = (root / "src/gui/ServerTreeWidget.cpp").read_text(encoding="utf-8")
+for required in ("siglaSuffix", "groupOrderEnabled"):
+    assert required in models, required
+for required in ("m_siglaPlacement", "m_orderEnabled", '"siglaAfter"', '"orderEnabled"'):
+    assert required in group_dialog, required
+assert "Qt::ScrollBarAlwaysOn" in tools_dialog
+assert "Qt::ElideNone" in tools_dialog
+assert "u.siglaSuffix" in tree_widget
+assert "uA.groupOrderEnabled" in tree_widget
 print(f"Halla repository sanity OK: {version}")

@@ -79,7 +79,10 @@ public:
     void iconSet(const QString& name, const QByteArray& bytes);
     void unban(const QString& uid);
     void requestGroupList();
-    void groupSet(int id, const QString& name, const QJsonObject& perms, const QString& sigla = QString(), int order = 0, const QString& icon = QString(), int position = -1); // id 0 = criar, position=-1 = não alterar
+    void groupSet(int id, const QString& name, const QJsonObject& perms,
+                  const QString& sigla = QString(), int order = 0,
+                  const QString& icon = QString(), int position = -1,
+                  bool siglaAfter = false, bool orderEnabled = true); // id 0 = criar, position=-1 = não alterar
     void groupDelete(int id);
     void clientSetGroup(int userId, int gid);
     void clientSetGroupUid(const QString& uid, int gid);

@@ -51,10 +51,12 @@ struct User {
     bool    commander = false;
     bool    op = false;              // operador do canal em que está (v3)
     QString avatarHash;              // hash do avatar no servidor (v3)
-    QString sigla;                   // prefixo/sigla do cargo (ex: "[Mod]")
+    QString sigla;                   // siglas de cargos exibidas antes do nome
+    QString siglaSuffix;             // siglas de cargos exibidas depois do nome
     QString groupIcon;               // ícone do cargo (nome ou emoji)
-    int     groupOrder = 0;
-    int     groupId = 0;          // ordem/prioridade do cargo (ex: menor valor = maior prioridade)
+    int     groupOrder = 0;           // menor valor = maior prioridade visual
+    bool    groupOrderEnabled = true; // servidores antigos sempre usavam a ordem
+    int     groupId = 0;
     int     groupPosition = 0;       // Pilar 1: posição hierárquica do cargo (quanto maior, mais autoridade)
     bool    talking = false;
     bool    whispering = false;      // sussurrando (sinal laranja)
