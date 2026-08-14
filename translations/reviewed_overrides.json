@@ -55,7 +55,8 @@
     "Você não tem poder de fala suficiente neste canal.": "You do not have enough talk power in this channel.",
     "Cargo base": "Base role",
     "O cargo Normal é o cargo base e não pode ser removido.": "Normal is the base role and cannot be removed.",
-    "Remover seu próprio Admin": "Remove your own Admin role"
+    "Remover seu próprio Admin": "Remove your own Admin role",
+    "Áudio de todo o PC": "All PC audio"
   },
   "es": {
     "Apelido fonético": "Apodo fonético",
@@ -82,6 +83,7 @@
     "Os dados do cargo são inválidos.": "Los datos del rol no son válidos.",
     "Cargo base": "Rol base",
     "O cargo Normal é o cargo base e não pode ser removido.": "Normal es el rol base y no se puede eliminar.",
-    "Remover seu próprio Admin": "Eliminar tu propio rol de administrador"
+    "Remover seu próprio Admin": "Eliminar tu propio rol de administrador",
+    "Áudio de todo o PC": "Audio de todo el PC"
   }
 }

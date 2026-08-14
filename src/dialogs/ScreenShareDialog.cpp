@@ -152,7 +152,7 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
 
     m_audioCombo = new QComboBox(audioBox);
     m_audioCombo->addItem(tr("Sem áudio do PC"), 0);
-    m_audioCombo->addItem(tr("Áudio de todo o PC — sons do Halla excluídos"), 1);
+    m_audioCombo->addItem(tr("Áudio de todo o PC"), 1);
     m_audioCombo->setToolTip(tr("Captura os outros aplicativos sem retransmitir vozes e avisos do Halla. Requer Windows build 20348 ou mais recente."));
     m_audioCombo->setCurrentIndex(0);
     m_audioCombo->setStyleSheet(m_qualityCombo->styleSheet());

@@ -3358,7 +3358,7 @@ Ping TCP: %11 ms</source>
     </message>
     <message>
         <location filename="../src/dialogs/ScreenShareDialog.cpp" line="155"/>
-        <source>Áudio de todo o PC — sons do Halla excluídos</source>
+        <source>Áudio de todo o PC</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
