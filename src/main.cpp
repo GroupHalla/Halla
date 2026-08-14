@@ -93,6 +93,11 @@ public:
         case 3: m_lang = QLocale::Spanish; break;
         default: break;
         }
+        [[maybe_unused]] bool catalogLoaded = true;
+        if (m_lang == QLocale::English)
+            catalogLoaded = m_catalog.load(QStringLiteral(":/halla/assets/i18n/halla_en.qm"));
+        else if (m_lang == QLocale::Spanish)
+            catalogLoaded = m_catalog.load(QStringLiteral(":/halla/assets/i18n/halla_es.qm"));
         setupTranslations();
         setupWordTranslations();
     }
@@ -101,10 +106,10 @@ public:
 
     QString translate(const char* context, const char* sourceText,
                       const char* disambiguation = nullptr, int n = -1) const override {
-        Q_UNUSED(context);
-        Q_UNUSED(disambiguation);
-        Q_UNUSED(n);
-        
+        const QString catalogTranslation = m_catalog.translate(
+            context, sourceText, disambiguation, n);
+        if (!catalogTranslation.isEmpty()) return catalogTranslation;
+
         QString key = QString::fromUtf8(sourceText);
         
         if (m_lang == QLocale::English) {
@@ -119,6 +124,7 @@ public:
 
 private:
     QLocale::Language m_lang;
+    QTranslator m_catalog;
     QMap<QString, QString> m_en;
     QMap<QString, QString> m_es;
     QMap<QString, QString> m_enWords;

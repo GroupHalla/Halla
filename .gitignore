@@ -11,3 +11,6 @@
 *.user
 .vscode/
 .idea/
+
+# cache local do gerador de catálogos (os .ts/.qm finais são versionados)
+.translation-cache.json

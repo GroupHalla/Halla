@@ -187,9 +187,9 @@ HotkeyEdit::~HotkeyEdit() {
 void HotkeyEdit::setSpec(const QString& spec) {
     m_spec = spec;
     // exibe botões do mouse no estilo Halla ("MOUSE BUTTON 5")
-    if (spec == QLatin1String(kMouse4))            setText(QStringLiteral("MOUSE BUTTON 4"));
-    else if (spec == QLatin1String(kMouse5))       setText(QStringLiteral("MOUSE BUTTON 5"));
-    else if (spec == QLatin1String(kMouseMiddle))  setText(QStringLiteral("MOUSE BUTTON MIDDLE"));
+    if (spec == QLatin1String(kMouse4))            setText(tr("BOTÃO DO MOUSE 4"));
+    else if (spec == QLatin1String(kMouse5))       setText(tr("BOTÃO DO MOUSE 5"));
+    else if (spec == QLatin1String(kMouseMiddle))  setText(tr("BOTÃO CENTRAL DO MOUSE"));
     else                                           setText(spec);
 }
 

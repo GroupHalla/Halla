@@ -98,7 +98,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         connect(m_capTimer, &QTimer::timeout, this, &VoiceEngine::captureTick);
         m_capTimer->start();
     } else {
-        AppLog::warn(QStringLiteral("Nenhum dispositivo de captura de áudio encontrado"));
+        AppLog::warn(tr("Nenhum dispositivo de captura de áudio encontrado"));
     }
 
     if (!outDev.isNull()) {
@@ -112,12 +112,12 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         connect(m_playTimer, &QTimer::timeout, this, &VoiceEngine::playbackTick);
         m_playTimer->start();
     } else {
-        AppLog::warn(QStringLiteral("Nenhum dispositivo de reprodução de áudio encontrado"));
+        AppLog::warn(tr("Nenhum dispositivo de reprodução de áudio encontrado"));
     }
 
     m_active = (m_encoder != nullptr);
     if (m_active)
-        AppLog::info(QStringLiteral("Motor de voz ativo (Opus 48 kHz mono, 20 ms)"));
+        AppLog::info(tr("Motor de voz ativo (Opus 48 kHz mono, 20 ms)"));
 
     connect(m_net, &NetSession::voicePacketReceived, this,
             [this](int fromId, quint16, const QByteArray& payload) {

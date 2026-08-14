@@ -1872,7 +1872,7 @@ void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
 
     if (on) {
         if (!m_screenShareWindows.contains(userId)) {
-            QString userName = QStringLiteral("Usuário #%1").arg(userId);
+            QString userName = tr("Usuário #%1").arg(userId);
             if (t->data().users.contains(userId)) {
                 userName = t->data().users[userId].name;
             }
@@ -1949,7 +1949,7 @@ void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoin
         }
     }
 
-    QString userName = QStringLiteral("Usuário #%1").arg(userId);
+    QString userName = tr("Usuário #%1").arg(userId);
     if (t->data().users.contains(userId)) {
         userName = t->data().users[userId].name;
     }

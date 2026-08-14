@@ -333,7 +333,7 @@ void ServerTreeWidget::selectNode(int kind, int id) {
 
 QString ServerTreeWidget::userTooltip(const User& u) const {
     QString tip = QStringLiteral("<b>%1</b><br>").arg(u.name.toHtmlEscaped());
-    if (u.id == m_data->selfId) tip += QStringLiteral("(você)<br>");
+    if (u.id == m_data->selfId) tip += tr("(você)<br>");
     if (u.away)        tip += QStringLiteral("Ausente<br>");
     if (u.inputMuted)  tip += QStringLiteral("Microfone mudo<br>");
     if (u.outputMuted) tip += QStringLiteral("Alto-falantes mudos<br>");

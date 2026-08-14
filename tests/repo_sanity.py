@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import runpy
 import wave
 
 root = Path(__file__).resolve().parents[1]
@@ -66,4 +67,6 @@ assert "Qt::ScrollBarAlwaysOn" in tools_dialog
 assert "Qt::ElideNone" in tools_dialog
 assert "u.siglaSuffix" in tree_widget
 assert "uA.groupOrderEnabled" in tree_widget
+assert 'm["op"] = remove ? QStringLiteral("remove") : QStringLiteral("add")' in net_session
+runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")
 print(f"Halla repository sanity OK: {version}")

@@ -177,7 +177,7 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
             [this](int kind, int id) { m_info->setSelection(kind, id); });
     connect(this, &ServerTab::statusChanged, this, [this] {
         m_serverHeaderName->setText(m_data.name);
-        if (m_serverIntroTitle) m_serverIntroTitle->setText(QStringLiteral("🎧  Bem-vindo ao Halla"));
+        if (m_serverIntroTitle) m_serverIntroTitle->setText(tr("🎧  Bem-vindo ao Halla"));
         if (m_serverIntroText) m_serverIntroText->setText(m_data.motd);
         m_info->refresh();
     });

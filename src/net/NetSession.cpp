@@ -10,6 +10,8 @@
 #include <QHostInfo>
 #include <QSettings>
 #include <QCryptographicHash>
+#include <QCoreApplication>
+#include <QHash>
 #ifndef HALLA_WEBRTC_NATIVE
 #include <openssl/evp.h>
 #else
@@ -176,6 +178,60 @@ private:
         return output;
     }
 };
+
+static QString localizedServerError(const QString& code, const QString& serverText) {
+    static const QHash<QString, const char*> messages = {
+        { QStringLiteral("rate_limited"), QT_TRANSLATE_NOOP("ServerErrors", "Você está enviando solicitações rápido demais.") },
+        { QStringLiteral("screenshare_disabled"), QT_TRANSLATE_NOOP("ServerErrors", "O compartilhamento de tela está desativado pelo servidor.") },
+        { QStringLiteral("webrtc_target"), QT_TRANSLATE_NOOP("ServerErrors", "O destino da transmissão é inválido.") },
+        { QStringLiteral("webrtc_channel"), QT_TRANSLATE_NOOP("ServerErrors", "A transmissão é permitida apenas entre usuários do mesmo canal.") },
+        { QStringLiteral("webrtc_not_streaming"), QT_TRANSLATE_NOOP("ServerErrors", "O usuário selecionado não está transmitindo.") },
+        { QStringLiteral("webrtc_sdp_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "Os dados da transmissão excedem o limite permitido.") },
+        { QStringLiteral("webrtc_ice_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "Os dados de conexão da transmissão excedem o limite permitido.") },
+        { QStringLiteral("bad_identity"), QT_TRANSLATE_NOOP("ServerErrors", "A identidade criptográfica é inválida ou está ausente.") },
+        { QStringLiteral("bad_uid"), QT_TRANSLATE_NOOP("ServerErrors", "A identidade única está ausente.") },
+        { QStringLiteral("bad_nick"), QT_TRANSLATE_NOOP("ServerErrors", "O apelido informado é inválido.") },
+        { QStringLiteral("name_in_use"), QT_TRANSLATE_NOOP("ServerErrors", "Este apelido já está em uso.") },
+        { QStringLiteral("server_full"), QT_TRANSLATE_NOOP("ServerErrors", "O servidor está cheio.") },
+        { QStringLiteral("bad_password"), QT_TRANSLATE_NOOP("ServerErrors", "A senha do servidor está incorreta.") },
+        { QStringLiteral("bad_channel_pass"), QT_TRANSLATE_NOOP("ServerErrors", "A senha do canal está incorreta.") },
+        { QStringLiteral("no_permission"), QT_TRANSLATE_NOOP("ServerErrors", "Você não tem permissão para realizar esta ação.") },
+        { QStringLiteral("hierarchy"), QT_TRANSLATE_NOOP("ServerErrors", "A hierarquia de cargos não permite esta ação.") },
+        { QStringLiteral("locked"), QT_TRANSLATE_NOOP("ServerErrors", "Este item está protegido e não pode ser alterado.") },
+        { QStringLiteral("no_talk_power"), QT_TRANSLATE_NOOP("ServerErrors", "Você não tem poder de fala suficiente neste canal.") },
+        { QStringLiteral("invalid_channel"), QT_TRANSLATE_NOOP("ServerErrors", "O canal selecionado é inválido.") },
+        { QStringLiteral("invalid_parent"), QT_TRANSLATE_NOOP("ServerErrors", "Um canal não pode ser colocado dentro da própria árvore.") },
+        { QStringLiteral("invalid_channels"), QT_TRANSLATE_NOOP("ServerErrors", "A seleção de canais é inválida.") },
+        { QStringLiteral("has_children"), QT_TRANSLATE_NOOP("ServerErrors", "Exclua primeiro os subcanais.") },
+        { QStringLiteral("bad_scope"), QT_TRANSLATE_NOOP("ServerErrors", "O destino da mensagem é inválido.") },
+        { QStringLiteral("bad_text"), QT_TRANSLATE_NOOP("ServerErrors", "O texto informado é inválido.") },
+        { QStringLiteral("bad_channel_name"), QT_TRANSLATE_NOOP("ServerErrors", "O nome do canal é inválido.") },
+        { QStringLiteral("bad_channel_fields"), QT_TRANSLATE_NOOP("ServerErrors", "Uma ou mais propriedades do canal são inválidas.") },
+        { QStringLiteral("crypto_error"), QT_TRANSLATE_NOOP("ServerErrors", "Não foi possível proteger os dados confidenciais.") },
+        { QStringLiteral("not_found"), QT_TRANSLATE_NOOP("ServerErrors", "O item solicitado não foi encontrado.") },
+        { QStringLiteral("bad_privkey"), QT_TRANSLATE_NOOP("ServerErrors", "A chave de privilégio é inválida.") },
+        { QStringLiteral("privkey_used"), QT_TRANSLATE_NOOP("ServerErrors", "Esta chave de privilégio já foi utilizada.") },
+        { QStringLiteral("group_exists"), QT_TRANSLATE_NOOP("ServerErrors", "Já existe um cargo com este nome.") },
+        { QStringLiteral("bad_group"), QT_TRANSLATE_NOOP("ServerErrors", "Os dados do cargo são inválidos.") },
+        { QStringLiteral("bad_group_operation"), QT_TRANSLATE_NOOP("ServerErrors", "A operação de cargo é inválida.") },
+        { QStringLiteral("invalid_banner"), QT_TRANSLATE_NOOP("ServerErrors", "A imagem do banner é inválida.") },
+        { QStringLiteral("banner_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "A imagem do banner excede o limite permitido.") },
+        { QStringLiteral("avatar_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "O avatar excede o limite permitido.") },
+        { QStringLiteral("icon_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "O ícone excede o limite permitido.") },
+        { QStringLiteral("file_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "O arquivo excede o limite permitido.") },
+        { QStringLiteral("quota"), QT_TRANSLATE_NOOP("ServerErrors", "A cota de arquivos do canal foi excedida.") },
+        { QStringLiteral("inbox_full"), QT_TRANSLATE_NOOP("ServerErrors", "A caixa de entrada do usuário está cheia.") },
+        { QStringLiteral("io_error"), QT_TRANSLATE_NOOP("ServerErrors", "O servidor não conseguiu salvar os dados.") },
+    };
+    if (const char* source = messages.value(code, nullptr))
+        return QCoreApplication::translate("ServerErrors", source);
+    const QString genericSource = QStringLiteral("O servidor recusou a solicitação (%1).");
+    const QString generic = QCoreApplication::translate(
+        "ServerErrors", "O servidor recusou a solicitação (%1).");
+    if (generic == genericSource && !serverText.isEmpty()) return serverText;
+    return generic.arg(code);
+}
+
 NetSession::NetSession(QObject* parent) : QObject(parent) {
     m_tcp = new QSslSocket(this);
     connect(m_tcp, &QTcpSocket::connected, this, &NetSession::onConnected);
@@ -294,7 +350,7 @@ void NetSession::onDisconnected() {
     m_udpRegistrationSeq = 0;
     if (!m_intentionalDisconnect) {
         if (!m_ready && !m_fatalError)
-            emit connectionFailed(QStringLiteral("Não foi possível conectar ao servidor"));
+            emit connectionFailed(tr("Não foi possível conectar ao servidor"));
         else if (m_ready)
             emit disconnectedUnexpected();
     }
@@ -657,17 +713,19 @@ void NetSession::groupDelete(int id) {
     send(m);
 }
 
-void NetSession::clientSetGroup(int userId, int gid) {
+void NetSession::clientSetGroup(int userId, int gid, bool remove) {
     QJsonObject m = HProto::msg("client_set_group");
     m["id"] = userId;
     m["gid"] = gid;
+    m["op"] = remove ? QStringLiteral("remove") : QStringLiteral("add");
     send(m);
 }
 
-void NetSession::clientSetGroupUid(const QString& uid, int gid) {
+void NetSession::clientSetGroupUid(const QString& uid, int gid, bool remove) {
     QJsonObject m = HProto::msg("client_set_group");
     m["uid"] = uid;
     m["gid"] = gid;
+    m["op"] = remove ? QStringLiteral("remove") : QStringLiteral("add");
     send(m);
 }
 
@@ -773,7 +831,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const QByteArray nonce = QByteArray::fromBase64(obj["nonce"].toString().toLatin1());
         const QByteArray sig = IdentityDialog::signNonce(m_identityUid, nonce);
         if (sig.isEmpty()) {
-            emit connectionFailed(QStringLiteral("Não foi possível assinar o desafio da identidade"));
+            emit connectionFailed(tr("Não foi possível assinar o desafio da identidade"));
             m_tcp->abort();
             return;
         }
@@ -785,8 +843,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
 
     if (t == "error") {
         const QString code = obj["code"].toString();
-        const QString msg = obj["msg"].toString();
-        AppLog::warn(QStringLiteral("Erro do servidor: %1 (%2)").arg(msg, code));
+        const QString msg = localizedServerError(code, obj["msg"].toString());
+        AppLog::warn(tr("Erro do servidor: %1 (%2)").arg(msg, code));
         if (!m_ready) {
             m_fatalError = true;
             m_data = ServerData();
@@ -849,7 +907,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             m_udpRegistrationSeq = 3;
         }
 
-        AppLog::info(QStringLiteral("Conectado a %1 como %2")
+        AppLog::info(tr("Conectado a %1 como %2")
                          .arg(m_hostPort, d.users[d.selfId].name));
         emit welcomeReceived();
         emit stateChanged();
@@ -875,7 +933,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "user_joined") {
         applyUserJson(obj["user"].toObject());
-        emit systemEvent(QStringLiteral("%1 entrou no servidor")
+        emit systemEvent(tr("%1 entrou no servidor")
                              .arg(obj["user"].toObject()["name"].toString()));
         emit stateChanged();
         return;
@@ -885,7 +943,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const QString newName = obj["name"].toString().trimmed();
         if (!newName.isEmpty() && newName != d.name) {
             d.name = newName;
-            emit systemEvent(QStringLiteral("O servidor agora se chama \"%1\"").arg(newName));
+            emit systemEvent(tr("O servidor agora se chama \"%1\"").arg(newName));
         }
         if (obj.contains("motd")) d.motd = obj["motd"].toString();
         if (obj.contains("banner"))
@@ -895,7 +953,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "user_left") {
         const int id = obj["id"].toInt();
-        emit systemEvent(QStringLiteral("%1 saiu do servidor")
+        emit systemEvent(tr("%1 saiu do servidor")
                              .arg(d.users.value(id).name));
         for (Channel& c : d.channels) c.users.removeAll(id);
         d.users.remove(id);
@@ -911,9 +969,9 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const QString uname = d.users.value(id).name;
         const QString cname = d.channels.value(chan).name;
         if (id == d.selfId)
-            emit systemEvent(QStringLiteral("Você entrou no canal \"%1\"").arg(cname));
+            emit systemEvent(tr("Você entrou no canal \"%1\"").arg(cname));
         else
-            emit systemEvent(QStringLiteral("%1 entrou no canal \"%2\"").arg(uname, cname));
+            emit systemEvent(tr("%1 entrou no canal \"%2\"").arg(uname, cname));
         emit stateChanged();
         return;
     }
@@ -994,8 +1052,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "complaint_added" || t == "complaint_cleared") {
         emit systemEvent(t == "complaint_added"
-                             ? QStringLiteral("Reclamação registrada")
-                             : QStringLiteral("Reclamações limpas"));
+                             ? tr("Reclamação registrada")
+                             : tr("Reclamações limpas"));
         return;
     }
     if (t == "banlist") {
@@ -1003,7 +1061,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "ban_removed") {
-        emit systemEvent(QStringLiteral("Banimento removido"));
+        emit systemEvent(tr("Banimento removido"));
         return;
     }
     if (t == "group_list") {

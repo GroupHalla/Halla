@@ -201,27 +201,27 @@ void ComplaintsDialog::fill(const QJsonArray& complaints) {
 
 // ============================================================== Grupos
 // chave de permissão -> rótulo
-static const QList<QPair<QString, QString>>& permDefs() {
-    static const QList<QPair<QString, QString>> defs = {
-        { QStringLiteral("*"),                QStringLiteral("Todas as permissões (administrador total)") },
-        { QStringLiteral("join"),             QStringLiteral("Entrar em canais") },
-        { QStringLiteral("talk"),             QStringLiteral("Falar em canais") },
-        { QStringLiteral("kick"),             QStringLiteral("Expulsar clientes") },
-        { QStringLiteral("ban"),              QStringLiteral("Banir clientes") },
-        { QStringLiteral("banList"),          QStringLiteral("Ver lista de banidos e reclamações") },
-        { QStringLiteral("move"),             QStringLiteral("Mover clientes entre canais") },
-        { QStringLiteral("poke"),             QStringLiteral("Cutucar clientes") },
-        { QStringLiteral("privmsg"),          QStringLiteral("Enviar mensagens privadas") },
-        { QStringLiteral("whisper"),          QStringLiteral("Usar sussurros") },
-        { QStringLiteral("chanCreateTemp"),   QStringLiteral("Criar canal temporário") },
-        { QStringLiteral("chanCreateSemi"),   QStringLiteral("Criar canal semi-permanente") },
-        { QStringLiteral("chanCreatePerm"),   QStringLiteral("Criar canal permanente") },
-        { QStringLiteral("chanEdit"),         QStringLiteral("Editar canais") },
-        { QStringLiteral("chanDelete"),       QStringLiteral("Excluir canais") },
-        { QStringLiteral("serverEdit"),       QStringLiteral("Editar servidor virtual") },
-        { QStringLiteral("groupEdit"),        QStringLiteral("Editar grupos e atribuições") },
-        { QStringLiteral("ignoreChanPass"),   QStringLiteral("Ignorar senha de canal") },
-        { QStringLiteral("ignoreTalkPower"),  QStringLiteral("Falar em canais moderados") },
+static const QList<QPair<QString, const char*>>& permDefs() {
+    static const QList<QPair<QString, const char*>> defs = {
+        { QStringLiteral("*"),               QT_TRANSLATE_NOOP("ServerGroupsDialog", "Todas as permissões (administrador total)") },
+        { QStringLiteral("join"),            QT_TRANSLATE_NOOP("ServerGroupsDialog", "Entrar em canais") },
+        { QStringLiteral("talk"),            QT_TRANSLATE_NOOP("ServerGroupsDialog", "Falar em canais") },
+        { QStringLiteral("kick"),            QT_TRANSLATE_NOOP("ServerGroupsDialog", "Expulsar clientes") },
+        { QStringLiteral("ban"),             QT_TRANSLATE_NOOP("ServerGroupsDialog", "Banir clientes") },
+        { QStringLiteral("banList"),         QT_TRANSLATE_NOOP("ServerGroupsDialog", "Ver lista de banidos e reclamações") },
+        { QStringLiteral("move"),            QT_TRANSLATE_NOOP("ServerGroupsDialog", "Mover clientes entre canais") },
+        { QStringLiteral("poke"),            QT_TRANSLATE_NOOP("ServerGroupsDialog", "Cutucar clientes") },
+        { QStringLiteral("privmsg"),         QT_TRANSLATE_NOOP("ServerGroupsDialog", "Enviar mensagens privadas") },
+        { QStringLiteral("whisper"),         QT_TRANSLATE_NOOP("ServerGroupsDialog", "Usar sussurros") },
+        { QStringLiteral("chanCreateTemp"),  QT_TRANSLATE_NOOP("ServerGroupsDialog", "Criar canal temporário") },
+        { QStringLiteral("chanCreateSemi"),  QT_TRANSLATE_NOOP("ServerGroupsDialog", "Criar canal semi-permanente") },
+        { QStringLiteral("chanCreatePerm"),  QT_TRANSLATE_NOOP("ServerGroupsDialog", "Criar canal permanente") },
+        { QStringLiteral("chanEdit"),        QT_TRANSLATE_NOOP("ServerGroupsDialog", "Editar canais") },
+        { QStringLiteral("chanDelete"),      QT_TRANSLATE_NOOP("ServerGroupsDialog", "Excluir canais") },
+        { QStringLiteral("serverEdit"),      QT_TRANSLATE_NOOP("ServerGroupsDialog", "Editar servidor virtual") },
+        { QStringLiteral("groupEdit"),       QT_TRANSLATE_NOOP("ServerGroupsDialog", "Editar grupos e atribuições") },
+        { QStringLiteral("ignoreChanPass"),  QT_TRANSLATE_NOOP("ServerGroupsDialog", "Ignorar senha de canal") },
+        { QStringLiteral("ignoreTalkPower"), QT_TRANSLATE_NOOP("ServerGroupsDialog", "Falar em canais moderados") },
     };
     return defs;
 }
@@ -388,7 +388,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     });
 
     for (const auto& def : permDefs()) {
-        QCheckBox* cb = new QCheckBox(def.second, m_editor);
+        QCheckBox* cb = new QCheckBox(tr(def.second), m_editor);
         el->addWidget(cb);
         m_checks << qMakePair(def.first, cb);
     }
@@ -451,17 +451,36 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
         if (m_cur.isEmpty()) return;
         const QList<QTreeWidgetItem*> selected = m_members->selectedItems();
         if (selected.isEmpty()) return;
+        const int groupId = m_cur["id"].toInt();
+        if (groupId <= 0) return;
+        if (groupId == 2) {
+            QMessageBox::information(this, tr("Cargo base"),
+                tr("O cargo Normal é atribuído automaticamente e não pode ser removido."));
+            return;
+        }
+        bool removingOwnAdmin = false;
+        for (QTreeWidgetItem* item : selected) {
+            if (groupId == 3 && m_data
+                    && item->data(0, Qt::UserRole + 1).toInt() == m_data->selfId) {
+                removingOwnAdmin = true;
+                break;
+            }
+        }
+        if (removingOwnAdmin
+                && QMessageBox::question(this, tr("Remover seu próprio Admin"),
+                    tr("Você perderá o cargo Admin neste servidor. Deseja continuar?"))
+                    != QMessageBox::Yes) return;
         for (QTreeWidgetItem* item : selected) {
             const QString uid = item->data(0, Qt::UserRole).toString();
             const int onlineId = item->data(0, Qt::UserRole + 1).toInt();
-            if (onlineId > 0) m_net->clientSetGroup(onlineId, 2);
-            else if (!uid.isEmpty()) m_net->clientSetGroupUid(uid, 2);
+            if (onlineId > 0) m_net->clientSetGroup(onlineId, groupId, true);
+            else if (!uid.isEmpty()) m_net->clientSetGroupUid(uid, groupId, true);
         }
         m_net->requestGroupList();
     });
 
     connect(m_groups, &QTreeWidget::currentItemChanged, this,
-            [this](QTreeWidgetItem* cur, QTreeWidgetItem*) {
+            [this, removeMember](QTreeWidgetItem* cur, QTreeWidgetItem*) {
                 if (!cur) return;
                 m_cur = QJsonObject();
                 m_cur["id"]   = cur->data(0, Qt::UserRole).toInt();
@@ -474,6 +493,10 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                 m_cur["position"] = cur->data(0, Qt::UserRole + 6).toInt(0);  // Pilar 1
                 m_cur["siglaAfter"] = cur->data(0, Qt::UserRole + 7).toBool();
                 m_cur["orderEnabled"] = cur->data(0, Qt::UserRole + 8).toBool();
+                removeMember->setEnabled(m_cur["id"].toInt() != 2);
+                removeMember->setToolTip(m_cur["id"].toInt() == 2
+                    ? tr("O cargo Normal é o cargo base e não pode ser removido.")
+                    : QString());
                 
                 loadPerms(m_cur["perms"].toObject());
                 
@@ -788,7 +811,7 @@ PermissionsOverviewDialog::PermissionsOverviewDialog(const QJsonObject& myPerms,
     int row = 0;
     for (const auto& def : permDefs()) {
         QTreeWidgetItem* it = new QTreeWidgetItem(tree);
-        it->setText(0, def.second + QStringLiteral("   (") + def.first + QStringLiteral(")"));
+        it->setText(0, tr(def.second) + QStringLiteral("   (") + def.first + QStringLiteral(")"));
         const bool on = myPerms.value(def.first).toBool();
         it->setText(1, on ? tr("concedida") : tr("negada"));
         it->setForeground(1, on ? QColor(QStringLiteral("#2c8a2c"))

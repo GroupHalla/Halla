@@ -84,8 +84,8 @@ public:
                   const QString& icon = QString(), int position = -1,
                   bool siglaAfter = false, bool orderEnabled = true); // id 0 = criar, position=-1 = não alterar
     void groupDelete(int id);
-    void clientSetGroup(int userId, int gid);
-    void clientSetGroupUid(const QString& uid, int gid);
+    void clientSetGroup(int userId, int gid, bool remove = false);
+    void clientSetGroupUid(const QString& uid, int gid, bool remove = false);
     void serverEdit(const QString& name, const QString& motd,
                     const QByteArray& banner = QByteArray(), bool bannerChanged = false);
 

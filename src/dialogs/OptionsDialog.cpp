@@ -505,7 +505,7 @@ QWidget* OptionsDialog::pageApplication() {
     QGroupBox* gbLang = new QGroupBox(tr("Idioma"), w);
     QFormLayout* fl = new QFormLayout(gbLang);
     QComboBox* lang = new QComboBox(gbLang);
-    lang->addItems({ QStringLiteral("Automático (idioma do sistema)"),
+    lang->addItems({ tr("Automático (idioma do sistema)"),
                      QStringLiteral("Português (Brasil)"), QStringLiteral("English"),
                      QStringLiteral("Español") });
     lang->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
@@ -1679,7 +1679,7 @@ QWidget* OptionsDialog::pageSecurity() {
     QPushButton* clear = new QPushButton(tr("Limpar atalhos, logs e cache local..."), w);
     form->addRow(QString(), clear);
     connect(clear, &QPushButton::clicked, this, [] {
-        AppLog::info(QStringLiteral("Cache local limpo pelo usuário"));
+        AppLog::info(tr("Cache local limpo pelo usuário"));
     });
 
     form->addItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
