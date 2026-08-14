@@ -51,6 +51,7 @@ public:
                                 QWidget* parent = nullptr);
 private:
     void fillGroups(const QJsonArray& groups);
+    void applyConfirmedGroup(const QJsonObject& group);
     void loadPerms(const QJsonObject& perms);
     QJsonObject collectPerms() const;
     void refreshUsers();
@@ -63,6 +64,7 @@ private:
     QWidget* m_editor = nullptr;
     QLabel* m_groupLabel = nullptr;
     QJsonObject m_cur;         // grupo em edição (id, name, perms)
+    QJsonObject m_pendingGroup; // valores aguardando confirmação do servidor
     QList<QPair<QString, QCheckBox*>> m_checks; // permissões booleanas
     QSpinBox* m_talkPower = nullptr;
     QLineEdit* m_sigla = nullptr;

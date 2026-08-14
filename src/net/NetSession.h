@@ -131,6 +131,7 @@ signals:
     void complaintListReceived(const QJsonArray& complaints);
     void banListReceived(const QJsonArray& bans);
     void groupListReceived(const QJsonArray& groups);
+    void groupSetConfirmed(const QJsonObject& group);
     void ftListReceived(int channel, const QJsonArray& files);
     void ftDataReceived(int channel, const QString& name, const QByteArray& bytes);
     void ftUploadConfirmed(int channel, const QString& name);

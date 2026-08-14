@@ -535,20 +535,43 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                                                    tr("Nome do grupo:"), QLineEdit::Normal,
                                                    m_cur["name"].toString(), &ok).trimmed();
         if (!ok || name.isEmpty()) return;
-        int position = m_position->value();
-        m_net->groupSet(id, name, m_cur["perms"].toObject(),
-                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position,
-                        m_siglaPlacement->currentData().toBool(), m_orderEnabled->isChecked());
-        m_net->requestGroupList();
+        const int position = m_position->value();
+        const QString sigla = m_sigla->text().trimmed();
+        const int order = m_order->value();
+        const QString icon = m_icon->text().trimmed();
+        const bool siglaAfter = m_siglaPlacement->currentData().toBool();
+        const bool orderEnabled = m_orderEnabled->isChecked();
+        m_pendingGroup = QJsonObject{
+            {"id", id}, {"name", name}, {"perms", m_cur["perms"].toObject()},
+            {"sigla", sigla}, {"siglaAfter", siglaAfter}, {"order", order},
+            {"orderEnabled", orderEnabled}, {"icon", icon}, {"position", position}
+        };
+        m_net->groupSet(id, name, m_cur["perms"].toObject(), sigla, order, icon,
+                        position, siglaAfter, orderEnabled);
+        // O servidor transmite a lista atualizada e envia group_set_ok. Não
+        // dispara uma segunda leitura que possa reconstruir o editor no meio
+        // da confirmação.
     });
 
     connect(apply, &QPushButton::clicked, this, [this] {
         if (m_cur.isEmpty()) return;
-        int position = m_position->value();
-        m_net->groupSet(m_cur["id"].toInt(), m_cur["name"].toString(), collectPerms(),
-                        m_sigla->text().trimmed(), m_order->value(), m_icon->text().trimmed(), position,
-                        m_siglaPlacement->currentData().toBool(), m_orderEnabled->isChecked());
-        m_net->requestGroupList();
+        const int id = m_cur["id"].toInt();
+        const QString name = m_cur["name"].toString();
+        const QJsonObject perms = collectPerms();
+        const QString sigla = m_sigla->text().trimmed();
+        const int order = m_order->value();
+        const QString icon = m_icon->text().trimmed();
+        const int position = m_position->value();
+        const bool siglaAfter = m_siglaPlacement->currentData().toBool();
+        const bool orderEnabled = m_orderEnabled->isChecked();
+        m_pendingGroup = QJsonObject{
+            {"id", id}, {"name", name}, {"perms", perms},
+            {"sigla", sigla}, {"siglaAfter", siglaAfter}, {"order", order},
+            {"orderEnabled", orderEnabled}, {"icon", icon}, {"position", position}
+        };
+        m_net->groupSet(id, name, perms, sigla, order, icon, position,
+                        siglaAfter, orderEnabled);
+        // A confirmação explícita é aplicada por applyConfirmedGroup().
     });
 
     connect(assign, &QPushButton::clicked, this, [this] {
@@ -562,6 +585,14 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     });
 
     connect(m_net, &NetSession::groupListReceived, this, &ServerGroupsDialog::fillGroups);
+    connect(m_net, &NetSession::groupSetConfirmed,
+            this, &ServerGroupsDialog::applyConfirmedGroup);
+    connect(m_net, &NetSession::errorOccurred, this,
+            [this](const QString&, const QString&) {
+                if (m_pendingGroup.isEmpty()) return;
+                m_pendingGroup = QJsonObject();
+                m_net->requestGroupList();
+            });
 
     // pré-carrega com o que veio no welcome e pede a lista atualizada
     fillGroups(m_net->serverGroups());
@@ -587,8 +618,21 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
             return a["order"].toInt(0) < b["order"].toInt(0);
         });
 
-        for (const QJsonObject& g : sortedList) {
+        for (QJsonObject g : sortedList) {
             const int id = g["id"].toInt(0);
+            // Enquanto o clique em Aplicar aguarda confirmação direta, uma
+            // atualização geral da lista não pode recolocar os dois controles
+            // nos padrões. Isso também mantém a interface estável com o
+            // Server 1.1.35, que já persiste os campos mas ainda não envia ACK.
+            if (!m_pendingGroup.isEmpty() && m_pendingGroup["id"].toInt() == id) {
+                static const char* const pendingFields[] = {
+                    "name", "perms", "sigla", "siglaAfter", "order",
+                    "orderEnabled", "icon", "position"
+                };
+                for (const char* field : pendingFields)
+                    if (m_pendingGroup.contains(QLatin1String(field)))
+                        g[QLatin1String(field)] = m_pendingGroup[QLatin1String(field)];
+            }
             QTreeWidgetItem* it = new QTreeWidgetItem(m_groups);
             it->setText(0, QString::number(id));
             it->setText(1, g["name"].toString().trimmed().isEmpty()
@@ -630,6 +674,54 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
             selected->data(0, Qt::UserRole + 5).toString().toUtf8()).array());
         refreshUsers();
     }
+}
+
+void ServerGroupsDialog::applyConfirmedGroup(const QJsonObject& group) {
+    const int id = group["id"].toInt(0);
+    if (id <= 0) return;
+    if (!m_pendingGroup.isEmpty() && m_pendingGroup["id"].toInt() == id)
+        m_pendingGroup = QJsonObject();
+
+    QTreeWidgetItem* item = nullptr;
+    for (int i = 0; i < m_groups->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* candidate = m_groups->topLevelItem(i);
+        if (candidate->data(0, Qt::UserRole).toInt() == id) {
+            item = candidate;
+            break;
+        }
+    }
+    if (!item) return;
+
+    item->setText(1, group["name"].toString(item->text(1)));
+    item->setData(0, Qt::UserRole + 1,
+                  QString::fromUtf8(QJsonDocument(group["perms"].toObject())
+                                        .toJson(QJsonDocument::Compact)));
+    item->setData(0, Qt::UserRole + 2, group["sigla"].toString());
+    item->setData(0, Qt::UserRole + 3, group["order"].toInt());
+    item->setData(0, Qt::UserRole + 4, group["icon"].toString());
+    item->setData(0, Qt::UserRole + 6, group["position"].toInt());
+    item->setData(0, Qt::UserRole + 7, group["siglaAfter"].toBool(false));
+    item->setData(0, Qt::UserRole + 8, group["orderEnabled"].toBool(true));
+
+    if (!m_groups->currentItem()
+            || m_groups->currentItem()->data(0, Qt::UserRole).toInt() != id) return;
+
+    m_cur["name"] = item->text(1);
+    m_cur["perms"] = group["perms"].toObject();
+    m_cur["sigla"] = group["sigla"].toString();
+    m_cur["order"] = group["order"].toInt();
+    m_cur["icon"] = group["icon"].toString();
+    m_cur["position"] = group["position"].toInt();
+    m_cur["siglaAfter"] = group["siglaAfter"].toBool(false);
+    m_cur["orderEnabled"] = group["orderEnabled"].toBool(true);
+
+    loadPerms(m_cur["perms"].toObject());
+    m_sigla->setText(m_cur["sigla"].toString());
+    m_siglaPlacement->setCurrentIndex(m_cur["siglaAfter"].toBool() ? 1 : 0);
+    m_order->setValue(m_cur["order"].toInt());
+    m_orderEnabled->setChecked(m_cur["orderEnabled"].toBool(true));
+    m_position->setValue(m_cur["position"].toInt());
+    m_icon->setText(m_cur["icon"].toString());
 }
 
 void ServerGroupsDialog::refreshMembers(const QJsonArray& members) {

@@ -57,8 +57,11 @@ tools_dialog = (root / "src/dialogs/ToolsDialogs.cpp").read_text(encoding="utf-8
 tree_widget = (root / "src/gui/ServerTreeWidget.cpp").read_text(encoding="utf-8")
 for required in ("siglaSuffix", "groupOrderEnabled"):
     assert required in models, required
-for required in ("m_siglaPlacement", "m_orderEnabled", '"siglaAfter"', '"orderEnabled"'):
+for required in ("m_siglaPlacement", "m_orderEnabled", "m_pendingGroup",
+                 "applyConfirmedGroup", '"siglaAfter"', '"orderEnabled"'):
     assert required in group_dialog, required
+assert 't == "group_set_ok"' in net_session
+assert "groupSetConfirmed" in net_session
 assert "Qt::ScrollBarAlwaysOn" in tools_dialog
 assert "Qt::ElideNone" in tools_dialog
 assert "u.siglaSuffix" in tree_widget

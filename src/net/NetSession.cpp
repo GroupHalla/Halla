@@ -1011,6 +1011,23 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         emit groupListReceived(m_groups);
         return;
     }
+    if (t == "group_set_ok") {
+        const QJsonObject confirmed = obj["group"].toObject();
+        const int confirmedId = confirmed["id"].toInt();
+        bool replaced = false;
+        for (int i = 0; i < m_groups.size(); ++i) {
+            QJsonObject cached = m_groups.at(i).toObject();
+            if (cached["id"].toInt() != confirmedId) continue;
+            for (auto it = confirmed.begin(); it != confirmed.end(); ++it)
+                cached[it.key()] = it.value();
+            m_groups[i] = cached; // preserva membros, ausentes na confirmação
+            replaced = true;
+            break;
+        }
+        if (!replaced && confirmedId > 0) m_groups << confirmed;
+        emit groupSetConfirmed(confirmed);
+        return;
+    }
     if (t == "ft_list") {
         emit ftListReceived(obj["channel"].toInt(), obj["files"].toArray());
         return;
