@@ -227,6 +227,19 @@ src/
 └── main.cpp        ponto de entrada (Qt Application, tema, argumentos)
 ```
 
+## Extensões e pacotes do cliente
+
+A aba **Opções → Complementos** instala pacotes `.halla-addon`, ativa/desativa
+plugins, abre configurações declaradas pelo pacote e consulta o catálogo HTTPS.
+Plugins nativos para Windows usam `QLibrary` e a ABI C pública em
+[`sdk/halla_plugin_api.h`](sdk/halla_plugin_api.h). Um exemplo mínimo está em
+[`examples/plugins/hello_world`](examples/plugins/hello_world).
+
+O Desktop também inclui o **Overlay oficial da call**, configurável e
+click-through, que mostra no jogo os usuários falando. Consulte
+[`docs/PLUGINS.md`](docs/PLUGINS.md) para manifesto, empacotamento, eventos e
+regras de segurança.
+
 ## Compilando
 
 ### Dependências

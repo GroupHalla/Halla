@@ -5,6 +5,7 @@
 #include "SoundPack.h"
 #include "HotkeyEdit.h"
 #include "Models.h"
+#include "plugins/PluginManager.h"
 #include "dialogs/ToolsDialogs.h"
 
 #include <QVBoxLayout>
@@ -96,7 +97,10 @@ static QWidget* separatorLine(bool vertical) {
 #include <QMediaDevices>
 #include <QAudioFormat>
 #include <QTimer>
+#include <algorithm>
 #include <cmath>
+#include <functional>
+#include <memory>
 
 // "+0,0 dB" / "-17,0 dB" (locale do usuário)
 static QString fmtDb(double db) {
@@ -1690,18 +1694,138 @@ QWidget* OptionsDialog::pageSecurity() {
 QWidget* OptionsDialog::pageAddons() {
     QWidget* w = new QWidget;
     QVBoxLayout* lay = new QVBoxLayout(w);
-    QLabel* none = new QLabel(tr("Nenhum complemento instalado."), w);
-    none->setAlignment(Qt::AlignCenter);
-    none->setStyleSheet(QStringLiteral("color:#888888; font-style:italic"));
-    lay->addStretch(1);
-    lay->addWidget(none);
-    QHBoxLayout* row = new QHBoxLayout;
-    row->addStretch(1);
-    QPushButton* search = new QPushButton(tr("Procurar complementos online"), w);
-    search->setEnabled(false);
-    row->addWidget(search);
-    row->addStretch(1);
-    lay->addLayout(row);
-    lay->addStretch(1);
+    lay->setSpacing(9);
+
+    QLabel* intro = new QLabel(
+        tr("Instale extensões e pacotes criados pela comunidade. Complementos nativos "
+           "são DLLs e executam código dentro do Halla; use somente autores confiáveis."), w);
+    intro->setWordWrap(true);
+    intro->setObjectName(QStringLiteral("captionLabel"));
+    lay->addWidget(intro);
+
+    QTableWidget* table = new QTableWidget(0, 5, w);
+    table->setHorizontalHeaderLabels({tr("Ativo"), tr("Complemento"), tr("Versão"),
+                                      tr("Autor"), tr("Estado")});
+    table->verticalHeader()->setVisible(false);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setSelectionMode(QAbstractItemView::SingleSelection);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+    table->setMinimumHeight(260);
+    lay->addWidget(table, 1);
+
+    QHBoxLayout* buttons = new QHBoxLayout;
+    QPushButton* installFile = new QPushButton(tr("Instalar arquivo .halla-addon..."), w);
+    QPushButton* catalog = new QPushButton(tr("Procurar complementos online"), w);
+    QPushButton* configure = new QPushButton(tr("Configurar"), w);
+    QPushButton* remove = new QPushButton(tr("Remover"), w);
+    QPushButton* folder = new QPushButton(tr("Abrir pasta"), w);
+    buttons->addWidget(installFile);
+    buttons->addWidget(catalog);
+    buttons->addStretch(1);
+    buttons->addWidget(configure);
+    buttons->addWidget(remove);
+    buttons->addWidget(folder);
+    lay->addLayout(buttons);
+
+    auto selectedId = [table]() -> QString {
+        const int row = table->currentRow();
+        return row >= 0 && table->item(row, 1)
+            ? table->item(row, 1)->data(Qt::UserRole).toString() : QString();
+    };
+    auto updateButtons = [=] {
+        const QString id = selectedId();
+        const auto list = PluginManager::instance().addons();
+        auto it = std::find_if(list.cbegin(), list.cend(),
+                               [&](const AddonInfo& addon) { return addon.id == id; });
+        configure->setEnabled(it != list.cend() && it->configurable);
+        remove->setEnabled(it != list.cend() && !it->builtIn);
+    };
+    auto refresh = std::make_shared<std::function<void()>>();
+    *refresh = [=] {
+        const QString previous = selectedId();
+        table->blockSignals(true);
+        table->setRowCount(0);
+        const QList<AddonInfo> addons = PluginManager::instance().addons();
+        int selectedRow = -1;
+        for (const AddonInfo& addon : addons) {
+            const int row = table->rowCount();
+            table->insertRow(row);
+            auto* enabled = new QTableWidgetItem;
+            enabled->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsUserCheckable);
+            enabled->setCheckState(addon.enabled ? Qt::Checked : Qt::Unchecked);
+            table->setItem(row, 0, enabled);
+            QString displayName = addon.name;
+            if (addon.official) displayName += tr("  • Oficial");
+            auto* name = new QTableWidgetItem(displayName);
+            name->setData(Qt::UserRole, addon.id);
+            name->setToolTip(addon.description);
+            table->setItem(row, 1, name);
+            table->setItem(row, 2, new QTableWidgetItem(addon.version));
+            table->setItem(row, 3, new QTableWidgetItem(addon.author));
+            QString state = addon.error.isEmpty()
+                ? (addon.loaded ? tr("Ativo") : tr("Desativado"))
+                : tr("Erro: %1").arg(addon.error);
+            auto* stateItem = new QTableWidgetItem(state);
+            stateItem->setToolTip(addon.error);
+            table->setItem(row, 4, stateItem);
+            if (addon.id == previous) selectedRow = row;
+        }
+        table->blockSignals(false);
+        if (selectedRow >= 0) table->selectRow(selectedRow);
+        else if (table->rowCount() > 0) table->selectRow(0);
+        updateButtons();
+    };
+
+    connect(table, &QTableWidget::itemChanged, w, [=](QTableWidgetItem* item) {
+        if (!item || item->column() != 0 || !table->item(item->row(), 1)) return;
+        const QString id = table->item(item->row(), 1)->data(Qt::UserRole).toString();
+        QString error;
+        if (!PluginManager::instance().setEnabled(id, item->checkState() == Qt::Checked, &error)
+                && !error.isEmpty()) {
+            QMessageBox::critical(w, tr("Complementos"), error);
+        }
+    });
+    connect(table, &QTableWidget::itemSelectionChanged, w, updateButtons);
+    connect(&PluginManager::instance(), &PluginManager::addonsChanged, w, [=] {
+        QTimer::singleShot(0, w, [refresh] { (*refresh)(); });
+    });
+
+    connect(installFile, &QPushButton::clicked, w, [=] {
+        const QString file = QFileDialog::getOpenFileName(
+            w, tr("Instalar complemento"), QString(),
+            tr("Pacotes do Halla (*.halla-addon);;Todos os arquivos (*.*)"));
+        if (file.isEmpty()) return;
+        QString installedId, error;
+        if (!PluginManager::instance().installPackage(file, w, &installedId, &error)
+                && !error.isEmpty()) {
+            QMessageBox::critical(w, tr("Falha ao instalar"), error);
+        }
+    });
+    connect(catalog, &QPushButton::clicked, w,
+            [w] { PluginManager::instance().showCatalog(w); });
+    connect(configure, &QPushButton::clicked, w, [=] {
+        QString error;
+        if (!PluginManager::instance().configureAddon(selectedId(), w, &error)
+                && !error.isEmpty()) QMessageBox::information(w, tr("Configurar"), error);
+    });
+    connect(remove, &QPushButton::clicked, w, [=] {
+        const QString id = selectedId();
+        if (id.isEmpty()) return;
+        if (QMessageBox::question(w, tr("Remover complemento"),
+                                  tr("Deseja remover este complemento e seus arquivos?"))
+                != QMessageBox::Yes) return;
+        QString error;
+        if (!PluginManager::instance().removeAddon(id, &error))
+            QMessageBox::critical(w, tr("Remover complemento"), error);
+    });
+    connect(folder, &QPushButton::clicked, w,
+            [] { PluginManager::instance().openAddonsFolder(); });
+
+    (*refresh)();
     return w;
 }

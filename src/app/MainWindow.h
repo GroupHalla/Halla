@@ -71,6 +71,7 @@ private:
     void applyHotkeys();
     void updateConnectionUi();
     void updateStatusBar();
+    void publishPluginState();
     void saveSession();
 
     QStackedWidget* m_stack = nullptr;

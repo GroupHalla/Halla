@@ -69,6 +69,10 @@ set(HALLA_SOURCES
     src/core/BadgeRegistry.cpp
     src/core/BadgeRegistry.h
     src/core/SecureStore.cpp
+    src/plugins/PluginManager.cpp
+    src/plugins/PluginManager.h
+    src/plugins/TalkingOverlay.cpp
+    src/plugins/TalkingOverlay.h
     src/gui/Icons.cpp
     src/gui/TsBanner.cpp
     src/gui/HotkeyEdit.cpp
@@ -112,6 +116,8 @@ target_include_directories(Halla PRIVATE
     src/app
     src/net
     src/webrtc
+    src/plugins
+    sdk
 )
 
 target_link_libraries(Halla PRIVATE ${QT_LIBS} qt6keychain)
@@ -190,4 +196,5 @@ install(TARGETS Halla RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 # Ícone e informações de versão embutidos no Halla.exe (Windows)
 if (WIN32)
     target_sources(Halla PRIVATE "${HALLA_GENERATED_DIR}/halla.rc")
+    target_link_libraries(Halla PRIVATE user32)
 endif()

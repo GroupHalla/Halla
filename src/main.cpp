@@ -4,6 +4,8 @@
 #include <QTimer>
 #include <QPixmap>
 #include <QDir>
+#include <QFileInfo>
+#include <QMessageBox>
 #include <QTranslator>
 #include <QLocale>
 #include <QMap>
@@ -13,6 +15,7 @@
 #include "gui/Icons.h"
 #include "core/Settings.h"
 #include "core/BadgeRegistry.h"
+#include "plugins/PluginManager.h"
 #include "dialogs/ConnectDialog.h"
 #include "dialogs/OptionsDialog.h"
 #include "dialogs/ChannelDialog.h"
@@ -1524,6 +1527,10 @@ int main(int argc, char* argv[]) {
 
     HallaTranslator translator;
     app.installTranslator(&translator);
+    PluginManager::instance().initialize();
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [] {
+        PluginManager::instance().shutdown();
+    });
 
     // fonte padrão estilo Segoe/8.25pt quando disponível
     {
@@ -1546,6 +1553,21 @@ int main(int argc, char* argv[]) {
 
     MainWindow w;
     w.show();
+
+    // Duplo clique em um pacote registrado no Windows abre o instalador de
+    // complementos diretamente no Halla.
+    for (const QString& argument : args.mid(1)) {
+        if (!argument.endsWith(QStringLiteral(".halla-addon"), Qt::CaseInsensitive)) continue;
+        const QString packagePath = QFileInfo(argument).absoluteFilePath();
+        QTimer::singleShot(0, &w, [&w, packagePath] {
+            QString installedId, error;
+            if (!PluginManager::instance().installPackage(
+                    packagePath, &w, &installedId, &error) && !error.isEmpty()) {
+                QMessageBox::critical(&w, QObject::tr("Falha ao instalar"), error);
+            }
+        });
+        break;
+    }
 
     // conexão automática (testes): --auto-connect host:porta,apelido[,senha]
     const int acIdx = args.indexOf(QStringLiteral("--auto-connect"));

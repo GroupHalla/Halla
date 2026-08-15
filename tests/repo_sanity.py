@@ -92,5 +92,6 @@ assert 'o["tempParent"]' in server_tab
 assert 'contains("tempParent")' in net_session
 assert "halla-app-icon.png" in (root / "src/gui/Icons.cpp").read_text(encoding="utf-8")
 runpy.run_path(str(root / "tests/icon_audit.py"), run_name="__main__")
+runpy.run_path(str(root / "tests/plugin_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")
 print(f"Halla repository sanity OK: {version}")

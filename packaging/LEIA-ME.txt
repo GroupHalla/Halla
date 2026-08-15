@@ -1,4 +1,4 @@
-﻿========================================================================
+========================================================================
   HALLA 3.13.0 — Cliente de comunicação por voz
 ========================================================================
 
@@ -74,6 +74,17 @@ E MAIS (desde a 3.9.0)
 * Grupos de servidores com editor de permissões de verdade.
 * Operadores de canal e transferência de arquivos por canal.
 * Tudo isso requer o Halla Server 3.1.0 (grátis, link abaixo).
+
+COMPLEMENTOS E OVERLAY
+----------------------
+* Opções > Complementos instala arquivos .halla-addon e consulta o catálogo.
+* Cada complemento pode ser ativado, desativado, configurado e removido.
+* DLLs comunitárias executam código nativo: instale somente autores confiáveis
+  e confira o SHA-256 mostrado pelo Halla.
+* O "Overlay oficial da call" mostra sobre o jogo os usuários falando. Ele é
+  transparente para cliques e funciona em janela/tela cheia sem bordas.
+* A pasta "Plugin SDK" instalada com o Halla contém halla_plugin_api.h,
+  documentação e um exemplo mínimo para autores da comunidade.
 
 COMO USAR
 ---------

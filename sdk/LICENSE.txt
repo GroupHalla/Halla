@@ -1,0 +1,19 @@
+Halla Plugin SDK License
+
+Copyright (c) 2026 Halla-DEV
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+the Halla Plugin SDK interface header and example plugin source files (the
+"SDK"), to use, copy, modify, compile, publish and distribute the SDK and
+plugins created with it, with or without modification, subject to inclusion of
+this notice in redistributed copies of the SDK.
+
+THE SDK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SDK OR ITS USE.
+
+This permission applies only to the Plugin SDK interface and example source
+files. It does not grant a license to redistribute the Halla Desktop client or
+other Halla components under different terms.

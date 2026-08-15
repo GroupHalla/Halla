@@ -60,6 +60,16 @@ Section "Halla (obrigatório)" SEC_HALLA
     SetRegView 64
     SetOutPath "$INSTDIR"
     File /r "..\dist\Halla\*"
+    ; SDK pequeno para autores de plugins da comunidade.
+    SetOutPath "$INSTDIR\Plugin SDK"
+    File "..\sdk\halla_plugin_api.h"
+    File "..\sdk\LICENSE.txt"
+    File "..\docs\PLUGINS.md"
+    SetOutPath "$INSTDIR\Plugin SDK\hello_world"
+    File "..\examples\plugins\hello_world\hello_world.cpp"
+    File "..\examples\plugins\hello_world\CMakeLists.txt"
+    File "..\examples\plugins\hello_world\manifest.json"
+    SetOutPath "$INSTDIR"
 
     ; Builds MSVC incluem o redistribuível. Builds MinGW simplesmente pulam esta etapa.
     IfFileExists "$INSTDIR\vc_redist.x64.exe" 0 runtime_done
@@ -72,6 +82,11 @@ Section "Halla (obrigatório)" SEC_HALLA
 
     WriteRegStr HKLM "${APP_DIR_REGKEY}" "" "$INSTDIR\${APP_EXE}"
     WriteRegStr HKLM "${APP_DIR_REGKEY}" "Path" "$INSTDIR"
+    ; Pacotes comunitários: duplo clique abre a confirmação segura no Halla.
+    WriteRegStr HKCR ".halla-addon" "" "HallaAddonPackage"
+    WriteRegStr HKCR "HallaAddonPackage" "" "Pacote de complemento do Halla"
+    WriteRegStr HKCR "HallaAddonPackage\DefaultIcon" "" "$INSTDIR\${APP_EXE},0"
+    WriteRegStr HKCR "HallaAddonPackage\shell\open\command" "" '$\"$INSTDIR\${APP_EXE}$\" $\"%1$\"'
     WriteUninstaller "$INSTDIR\Desinstalar.exe"
 
     WriteRegStr HKLM "${UNINSTALL_KEY}" "DisplayName" "${APP_DISPLAY}"
@@ -99,5 +114,7 @@ Section "Uninstall"
     Delete "$DESKTOP\${APP_NAME}.lnk"
     DeleteRegKey HKLM "${UNINSTALL_KEY}"
     DeleteRegKey HKLM "${APP_DIR_REGKEY}"
+    DeleteRegKey HKCR "HallaAddonPackage"
+    DeleteRegKey HKCR ".halla-addon"
     RMDir /r "$INSTDIR"
 SectionEnd

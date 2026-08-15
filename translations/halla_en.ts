@@ -1305,568 +1305,568 @@
   <context>
     <name>MainWindow</name>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="285" />
+      <location filename="../src/app/MainWindow.cpp" line="286" />
       <source>&amp;Conexões</source>
       <translation>&amp;Connections</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="286" />
+      <location filename="../src/app/MainWindow.cpp" line="287" />
       <source>Conectar...</source>
       <translation>Connect...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="289" />
+      <location filename="../src/app/MainWindow.cpp" line="290" />
       <source>Conectar em nova aba...</source>
       <translation>Connect in new tab...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="292" />
-      <location filename="../src/app/MainWindow.cpp" line="720" />
+      <location filename="../src/app/MainWindow.cpp" line="293" />
+      <location filename="../src/app/MainWindow.cpp" line="722" />
       <source>Desconectar</source>
       <translation>Disconnect</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="298" />
+      <location filename="../src/app/MainWindow.cpp" line="299" />
       <source>Desconectar de todos os servidores</source>
       <translation>Disconnect from all servers</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="300" />
+      <location filename="../src/app/MainWindow.cpp" line="301" />
       <source>Conexões recentes</source>
       <translation>Recent connections</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="301" />
+      <location filename="../src/app/MainWindow.cpp" line="302" />
       <source>Informações de conexão...</source>
       <translation>Connection Info...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="307" />
-      <location filename="../src/app/MainWindow.cpp" line="780" />
-      <location filename="../src/app/MainWindow.cpp" line="1385" />
+      <location filename="../src/app/MainWindow.cpp" line="308" />
+      <location filename="../src/app/MainWindow.cpp" line="782" />
+      <location filename="../src/app/MainWindow.cpp" line="1395" />
       <source>Sair</source>
       <translation>Exit</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="312" />
+      <location filename="../src/app/MainWindow.cpp" line="313" />
       <source>&amp;Marcadores</source>
       <translation>&amp;Bookmarks</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="314" />
+      <location filename="../src/app/MainWindow.cpp" line="315" />
       <source>Adicionar aos marcadores...</source>
       <translation>Add to bookmarks...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="320" />
+      <location filename="../src/app/MainWindow.cpp" line="321" />
       <source>Gerenciar marcadores...</source>
       <translation>Manage bookmarks...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="327" />
+      <location filename="../src/app/MainWindow.cpp" line="328" />
       <source>Ausente</source>
       <translation>Away</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="329" />
+      <location filename="../src/app/MainWindow.cpp" line="330" />
       <source>Definir como ausente</source>
       <translation>Set to Away</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="335" />
+      <location filename="../src/app/MainWindow.cpp" line="336" />
       <source>Mudo (microfone)</source>
       <translation>Mute (Microphone)</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="337" />
+      <location filename="../src/app/MainWindow.cpp" line="338" />
       <source>Silenciar o microfone</source>
       <translation>Mute the microphone</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="343" />
+      <location filename="../src/app/MainWindow.cpp" line="344" />
       <source>Mudo (alto-falantes)</source>
       <translation>Mute (Speakers)</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="345" />
+      <location filename="../src/app/MainWindow.cpp" line="346" />
       <source>Silenciar os alto-falantes</source>
       <translation>Mute the speakers</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="351" />
+      <location filename="../src/app/MainWindow.cpp" line="352" />
       <source>Compartilhar tela</source>
       <translation>Share screen</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="353" />
+      <location filename="../src/app/MainWindow.cpp" line="354" />
       <source>Compartilhar a tela do seu PC</source>
       <translation>Share your PC screen</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="356" />
+      <location filename="../src/app/MainWindow.cpp" line="357" />
       <source>Alterar apelido...</source>
       <translation>Change nickname...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="361" />
+      <location filename="../src/app/MainWindow.cpp" line="362" />
       <source>Alternar comandante do canal</source>
       <translation>Toggle channel commander</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="366" />
+      <location filename="../src/app/MainWindow.cpp" line="367" />
       <source>&amp;Si mesmo</source>
       <translation>&amp;Myself</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="374" />
-      <location filename="../src/app/MainWindow.cpp" line="497" />
+      <location filename="../src/app/MainWindow.cpp" line="375" />
+      <location filename="../src/app/MainWindow.cpp" line="498" />
       <source>Definir avatar...</source>
       <translation>Set avatar...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="377" />
-      <location filename="../src/app/MainWindow.cpp" line="500" />
+      <location filename="../src/app/MainWindow.cpp" line="378" />
+      <location filename="../src/app/MainWindow.cpp" line="501" />
       <source>Remover avatar</source>
       <translation>Remove avatar</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="381" />
+      <location filename="../src/app/MainWindow.cpp" line="382" />
       <source>&amp;Permissões</source>
       <translation>&amp;Permissions</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="382" />
+      <location filename="../src/app/MainWindow.cpp" line="383" />
       <source>Usar chave de privilégio...</source>
       <translation>Use privilege key...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="393" />
+      <location filename="../src/app/MainWindow.cpp" line="394" />
       <source>Chave de privilégio usada.</source>
       <translation>Privilege key used.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="394" />
+      <location filename="../src/app/MainWindow.cpp" line="395" />
       <source>Chave de privilégio usada</source>
       <translation>Privilege Key Used</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="398" />
+      <location filename="../src/app/MainWindow.cpp" line="399" />
       <source>Grupos de servidores...</source>
       <translation>Server groups...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="412" />
+      <location filename="../src/app/MainWindow.cpp" line="413" />
       <source>Mostrar permissões do usuário...</source>
       <translation>Show user permissions...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="427" />
+      <location filename="../src/app/MainWindow.cpp" line="428" />
       <source>Lista de banidos...</source>
       <translation>Ban list...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="431" />
+      <location filename="../src/app/MainWindow.cpp" line="432" />
       <source>Lista de banidos</source>
       <translation>Ban list</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="432" />
+      <location filename="../src/app/MainWindow.cpp" line="433" />
       <source>A lista de banidos está disponível apenas conectado a um Halla Server.</source>
       <translation>The ban list is available only while connected to a Halla Server.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="439" />
+      <location filename="../src/app/MainWindow.cpp" line="440" />
       <source>Reclamações...</source>
       <translation>Complaints...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="443" />
+      <location filename="../src/app/MainWindow.cpp" line="444" />
       <source>Reclamações</source>
       <translation>Complaints</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="444" />
+      <location filename="../src/app/MainWindow.cpp" line="445" />
       <source>Reclamações estão disponíveis apenas conectado a um Halla Server.</source>
       <translation>Complaints are available only while connected to a Halla Server.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="452" />
+      <location filename="../src/app/MainWindow.cpp" line="453" />
       <source>Grupos de canais</source>
       <translation>Channel groups</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="453" />
+      <location filename="../src/app/MainWindow.cpp" line="454" />
       <source>Operador de canal: quem cria o canal gerencia</source>
       <translation>Channel operator: the creator manages the channel</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="455" />
+      <location filename="../src/app/MainWindow.cpp" line="456" />
       <source>(membros temporários de canais seguem o grupo global)</source>
       <translation>(temporary channel members follow the global group)</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="458" />
+      <location filename="../src/app/MainWindow.cpp" line="459" />
       <source>Fer&amp;ramentas</source>
       <translation>&amp;Tools</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="459" />
+      <location filename="../src/app/MainWindow.cpp" line="460" />
       <source>Registro do cliente</source>
       <translation>Client log</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="466" />
+      <location filename="../src/app/MainWindow.cpp" line="467" />
       <source>Transferência de arquivos...</source>
       <translation>File transfer...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="470" />
+      <location filename="../src/app/MainWindow.cpp" line="471" />
       <source>Transferência de arquivos</source>
       <translation>File transfer</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="471" />
+      <location filename="../src/app/MainWindow.cpp" line="472" />
       <source>Conecte-se a um Halla Server para compartilhar arquivos por canal.</source>
       <translation>Connect to a Halla Server to share files per channel.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="478" />
+      <location filename="../src/app/MainWindow.cpp" line="479" />
       <source>Mensagens offline...</source>
       <translation>Offline messages...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="485" />
-      <location filename="../src/app/MainWindow.cpp" line="1146" />
+      <location filename="../src/app/MainWindow.cpp" line="486" />
+      <location filename="../src/app/MainWindow.cpp" line="1156" />
       <source>Iniciar gravação</source>
       <translation>Start recording</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="496" />
+      <location filename="../src/app/MainWindow.cpp" line="497" />
       <source>Avatar</source>
       <translation>Avatar</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="504" />
+      <location filename="../src/app/MainWindow.cpp" line="505" />
       <source>Identidades...</source>
       <translation>Identities...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="506" />
+      <location filename="../src/app/MainWindow.cpp" line="507" />
       <source>Contatos...</source>
       <translation>Contacts...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="512" />
+      <location filename="../src/app/MainWindow.cpp" line="513" />
       <source>Listas de sussurro...</source>
       <translation>Whisper lists...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="521" />
+      <location filename="../src/app/MainWindow.cpp" line="522" />
       <source>Diagnóstico de voz...</source>
       <translation>Voice diagnosis...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="525" />
+      <location filename="../src/app/MainWindow.cpp" line="526" />
       <source>Diagnóstico de voz</source>
       <translation>Voice diagnosis</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="528" />
+      <location filename="../src/app/MainWindow.cpp" line="529" />
       <source>Estado em tempo real do áudio, Opus e reprodução.</source>
       <translation>Real-time status of audio, Opus and playback.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="535" />
+      <location filename="../src/app/MainWindow.cpp" line="536" />
       <source>Fechar</source>
       <translation>Close</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="562" />
+      <location filename="../src/app/MainWindow.cpp" line="563" />
       <source>Opções...</source>
       <translation>Options...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="596" />
+      <location filename="../src/app/MainWindow.cpp" line="597" />
       <source>A&amp;juda</source>
       <translation>H&amp;elp</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="597" />
+      <location filename="../src/app/MainWindow.cpp" line="598" />
       <source>Sobre o Halla</source>
       <translation>About Halla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="600" />
+      <location filename="../src/app/MainWindow.cpp" line="601" />
       <location filename="../src/app/MainWindowUpdates.cpp" line="84" />
       <location filename="../src/app/MainWindowUpdates.cpp" line="132" />
       <source>Verificar atualizações</source>
       <translation>Check for updates</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="606" />
+      <location filename="../src/app/MainWindow.cpp" line="607" />
       <source>Principal</source>
       <translation>Main</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="644" />
+      <location filename="../src/app/MainWindow.cpp" line="645" />
       <source>Opções de reprodução...</source>
       <translation>Playback options...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="647" />
+      <location filename="../src/app/MainWindow.cpp" line="648" />
       <source>Reprodução</source>
       <translation>Playback</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="666" />
+      <location filename="../src/app/MainWindow.cpp" line="667" />
       <location filename="../src/app/MainWindowUpdates.cpp" line="254" />
       <source>Notificações</source>
       <translation>Notifications</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="723" />
+      <location filename="../src/app/MainWindow.cpp" line="725" />
       <source>Adicionar aos favoritos</source>
       <translation>Add to favorites</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="743" />
-      <location filename="../src/app/MainWindow.cpp" line="1161" />
+      <location filename="../src/app/MainWindow.cpp" line="745" />
+      <location filename="../src/app/MainWindow.cpp" line="1171" />
       <source>Nenhum servidor</source>
       <translation>No server</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="749" />
+      <location filename="../src/app/MainWindow.cpp" line="751" />
       <source>Bem-vindo ao Halla!  •  Cliente de comunicação de voz  •  github.com/GroupHalla/Halla</source>
       <translation>Welcome to Halla!  •  Voice communication client  •  github.com/GroupHalla/Halla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="759" />
-      <location filename="../src/app/MainWindow.cpp" line="1182" />
+      <location filename="../src/app/MainWindow.cpp" line="761" />
+      <location filename="../src/app/MainWindow.cpp" line="1192" />
       <source>Desconectado</source>
       <translation>Disconnected</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="773" />
+      <location filename="../src/app/MainWindow.cpp" line="775" />
       <source>Mostrar Halla</source>
       <translation>Show Halla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="818" />
+      <location filename="../src/app/MainWindow.cpp" line="820" />
       <source>Halla %1 iniciado</source>
       <translation>Halla %1 started</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="850" />
+      <location filename="../src/app/MainWindow.cpp" line="852" />
       <source>Erro ao conectar</source>
       <translation>Error connecting</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="851" />
+      <location filename="../src/app/MainWindow.cpp" line="853" />
       <source>&lt;b&gt;Falha ao conectar ao servidor %1:%2&lt;/b&gt;&lt;br&gt;%3</source>
       <translation>&lt;b&gt;Failed to connect to server %1:%2&lt;/b&gt;&lt;br&gt;%3</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="866" />
+      <location filename="../src/app/MainWindow.cpp" line="868" />
       <source>Servidor: %1</source>
       <translation>Server: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="869" />
-      <location filename="../src/app/MainWindow.cpp" line="941" />
-      <location filename="../src/app/MainWindow.cpp" line="1742" />
+      <location filename="../src/app/MainWindow.cpp" line="871" />
+      <location filename="../src/app/MainWindow.cpp" line="944" />
+      <location filename="../src/app/MainWindow.cpp" line="1752" />
       <source>Conectado ao servidor: %1</source>
       <translation>Connected to server: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="877" />
+      <location filename="../src/app/MainWindow.cpp" line="879" />
       <source>Desconectado do servidor.</source>
       <translation>Disconnected from server.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="882" />
+      <location filename="../src/app/MainWindow.cpp" line="884" />
       <source>Conectado ao servidor</source>
       <translation>Connected to server</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="942" />
+      <location filename="../src/app/MainWindow.cpp" line="945" />
       <source>Você entrou no canal "%1".</source>
       <translation>You have joined the channel "%1".</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="957" />
-      <location filename="../src/app/MainWindow.cpp" line="980" />
-      <location filename="../src/app/MainWindow.cpp" line="1402" />
+      <location filename="../src/app/MainWindow.cpp" line="960" />
+      <location filename="../src/app/MainWindow.cpp" line="983" />
+      <location filename="../src/app/MainWindow.cpp" line="1412" />
       <source>Desconectado do servidor</source>
       <translation>Disconnected from server</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1012" />
+      <location filename="../src/app/MainWindow.cpp" line="1015" />
       <source>Desconectado de %1</source>
       <translation>Disconnected from %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1054" />
+      <location filename="../src/app/MainWindow.cpp" line="1064" />
       <source>(nenhum favorito)</source>
       <translation>(no favorites)</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1067" />
+      <location filename="../src/app/MainWindow.cpp" line="1077" />
       <source>Conectar a todos os favoritos</source>
       <translation>Connect to all bookmarks</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1111" />
+      <location filename="../src/app/MainWindow.cpp" line="1121" />
       <source>(vazio)</source>
       <translation>(empty)</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1145" />
+      <location filename="../src/app/MainWindow.cpp" line="1155" />
       <source>Parar gravação</source>
       <translation>Stop recording</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1167" />
+      <location filename="../src/app/MainWindow.cpp" line="1177" />
       <source>Conectado como %1</source>
       <translation>Connected as %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1170" />
+      <location filename="../src/app/MainWindow.cpp" line="1180" />
       <source>Ping: %1 ms   Perda de pacotes: %2%</source>
       <translation>Ping: %1 ms Packet loss: %2%</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1173" />
+      <location filename="../src/app/MainWindow.cpp" line="1183" />
       <source>Ping: --</source>
       <translation>Ping: --</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1176" />
+      <location filename="../src/app/MainWindow.cpp" line="1186" />
       <source>%1 servidores</source>
       <translation>%1 servers</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1178" />
+      <location filename="../src/app/MainWindow.cpp" line="1188" />
       <source>%1 conexões abertas</source>
       <translation>%1 open connections</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1214" />
+      <location filename="../src/app/MainWindow.cpp" line="1224" />
       <source>microfone</source>
       <translation>microphone</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1217" />
+      <location filename="../src/app/MainWindow.cpp" line="1227" />
       <source>alto-falantes</source>
       <translation>speakers</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1220" />
+      <location filename="../src/app/MainWindow.cpp" line="1230" />
       <source>ausente</source>
       <translation>away</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1223" />
+      <location filename="../src/app/MainWindow.cpp" line="1233" />
       <source>comandante</source>
       <translation>commander</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1231" />
+      <location filename="../src/app/MainWindow.cpp" line="1241" />
       <source>gravação</source>
       <translation>recording</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1234" />
+      <location filename="../src/app/MainWindow.cpp" line="1244" />
       <source>transmissão contínua</source>
       <translation>continuous transmission</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1237" />
+      <location filename="../src/app/MainWindow.cpp" line="1247" />
       <source>Transmissão contínua desativada</source>
       <translation>Continuous transmission disabled</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1238" />
+      <location filename="../src/app/MainWindow.cpp" line="1248" />
       <source>Transmissão contínua ativada</source>
       <translation>Continuous transmission enabled</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1257" />
-      <location filename="../src/app/MainWindow.cpp" line="1259" />
+      <location filename="../src/app/MainWindow.cpp" line="1267" />
+      <location filename="../src/app/MainWindow.cpp" line="1269" />
       <source>Padrão</source>
       <translation>Default</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1377" />
-      <location filename="../src/app/MainWindow.cpp" line="1433" />
+      <location filename="../src/app/MainWindow.cpp" line="1387" />
+      <location filename="../src/app/MainWindow.cpp" line="1443" />
       <source>O Halla continua em execução na bandeja do sistema.</source>
       <translation>Halla is still running in the system tray.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1386" />
+      <location filename="../src/app/MainWindow.cpp" line="1396" />
       <source>Você ainda está conectado a servidores.
 Deseja realmente sair?</source>
       <translation>You are still connected to servers.
 Do you really want to leave?</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1418" />
+      <location filename="../src/app/MainWindow.cpp" line="1428" />
       <source>Halla encerrado</source>
       <translation>Halla closed</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1651" />
+      <location filename="../src/app/MainWindow.cpp" line="1661" />
       <source>PTT global registrado no mouse: %1</source>
       <translation>Global PTT registered on mouse: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1663" />
+      <location filename="../src/app/MainWindow.cpp" line="1673" />
       <source>Tecla PTT global registrada: %1</source>
       <translation>Registered global PTT key: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1665" />
+      <location filename="../src/app/MainWindow.cpp" line="1675" />
       <source>Não foi possível registrar a tecla PTT: %1</source>
       <translation>Could not register the PTT key: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1716" />
+      <location filename="../src/app/MainWindow.cpp" line="1726" />
       <source>Canal padrão</source>
       <translation>Default channel</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1743" />
+      <location filename="../src/app/MainWindow.cpp" line="1753" />
       <source>Você entrou no canal "Canal padrão".</source>
       <translation>You have entered the "Default Channel" channel.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1757" />
+      <location filename="../src/app/MainWindow.cpp" line="1767" />
       <source>Compartilhamento de Tela</source>
       <translation>Screen Sharing</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1758" />
+      <location filename="../src/app/MainWindow.cpp" line="1768" />
       <source>O compartilhamento de tela está desativado pelas configurações deste servidor.</source>
       <translation>Screen sharing is disabled by this server's settings.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1778" />
-      <location filename="../src/app/MainWindow.cpp" line="2027" />
+      <location filename="../src/app/MainWindow.cpp" line="1788" />
+      <location filename="../src/app/MainWindow.cpp" line="2037" />
       <source>Minha transmissão</source>
       <translation>My broadcast</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1895" />
-      <location filename="../src/app/MainWindow.cpp" line="1972" />
+      <location filename="../src/app/MainWindow.cpp" line="1905" />
+      <location filename="../src/app/MainWindow.cpp" line="1982" />
       <source>Usuário #%1</source>
       <translation>User #%1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="2017" />
+      <location filename="../src/app/MainWindow.cpp" line="2027" />
       <source>Transmissão</source>
       <translation>Transmission</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="2017" />
+      <location filename="../src/app/MainWindow.cpp" line="2027" />
       <source>Você não tem permissão para entrar no canal desta transmissão.</source>
       <translation>You are not allowed to join the channel for this broadcast.</translation>
     </message>
@@ -2154,982 +2154,1067 @@ Offline messages can only be sent to users registered on this server.</translati
   <context>
     <name>OptionsDialog</name>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="334" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="855" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="338" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="859" />
       <source>Opções</source>
       <translation>Options</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="358" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="362" />
       <source>Aplicativo</source>
       <translation>Application</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="358" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="362" />
       <source>Opções gerais do aplicativo</source>
       <translation>General application options</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="359" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="363" />
       <source>Reprodução</source>
       <translation>Playback</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="359" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="363" />
       <source>Configure o sistema de reprodução de áudio</source>
       <translation>Configure the audio playback system</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="360" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1477" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="364" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1481" />
       <source>Capturar</source>
       <translation>Capture</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="360" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="364" />
       <source>Configure o sistema de captura de áudio</source>
       <translation>Configure the audio capture system</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="361" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="365" />
       <source>Aparência</source>
       <translation>Appearance</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="361" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="365" />
       <source>Configure a aparência</source>
       <translation>Configure the appearance</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="362" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="366" />
       <source>Notificações</source>
       <translation>Notifications</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="362" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="366" />
       <source>Sons e avisos de eventos</source>
       <translation>Event sounds and alerts</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="363" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="977" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="367" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="981" />
       <source>Teclas de atalho</source>
       <translation>Hotkeys</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="363" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="367" />
       <source>Configure teclas de atalho</source>
       <translation>Configure hotkeys</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="364" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1212" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="368" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1216" />
       <source>Sussurro</source>
       <translation>Whisper</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="364" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="368" />
       <source>Configure o recurso de sussurros</source>
       <translation>Configure whisper features</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="365" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="369" />
       <source>Segurança</source>
       <translation>Security</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="365" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="369" />
       <source>Identidade e segurança</source>
       <translation>Identity and security</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="366" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="370" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1790" />
       <source>Complementos</source>
       <translation>Add-ons</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="366" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="370" />
       <source>Extensões e pacotes do cliente</source>
       <translation>Client extensions and packages</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="448" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1518" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="452" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1522" />
       <source>OK</source>
       <translation>OK</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="449" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1519" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="453" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1523" />
       <source>Cancelar</source>
       <translation>Cancel</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="450" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="454" />
       <source>Aplicar</source>
       <translation>Apply</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="471" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="475" />
       <source>Configurações aplicadas</source>
       <translation>Applied settings</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="487" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="491" />
       <source>Inicialização</source>
       <translation>Startup</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="489" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="493" />
       <source>Restaurar as conexões da sessão anterior</source>
       <translation>Restore connections from the previous session</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="495" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1148" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="499" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1152" />
       <source>Diversos</source>
       <translation>Miscellaneous</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="497" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="501" />
       <source>Sistema de permissões avançado</source>
       <translation>Advanced permission system</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="505" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="509" />
       <source>Idioma</source>
       <translation>Language</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="508" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="512" />
       <source>Automático (idioma do sistema)</source>
       <translation>Automatic (system language)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="514" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="518" />
       <source>Idioma:</source>
       <translation>Language:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="521" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="525" />
       <source>Atualizações</source>
       <translation>Updates</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="523" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="527" />
       <source>Procurar atualizações automaticamente</source>
       <translation>Check for updates automatically</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="527" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="531" />
       <source>Verificar agora</source>
       <translation>Check now</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="529" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="533" />
       <source>Atualização</source>
       <translation>Update</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="530" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="534" />
       <source>Você já está usando a versão mais recente do Halla.</source>
       <translation>You are already using the latest Halla version.</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="535" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="539" />
       <source>Janela principal</source>
       <translation>Main window</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="537" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="541" />
       <source>Fechar para a bandeja do sistema</source>
       <translation>Close to the system tray</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="541" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="545" />
       <source>Confirmar ao sair estando conectado</source>
       <translation>Confirm when exiting while connected</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="573" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="577" />
       <source>Automático (nativo do sistema)</source>
       <translation>Automatic (system native)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="573" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="577" />
       <source>Fusion</source>
       <translation>Fusion</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="575" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="579" />
       <source>Estilo:</source>
       <translation>Style:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="584" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="588" />
       <source>Claro (padrão)</source>
       <translation>Light (default)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="584" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="588" />
       <source>Escuro</source>
       <translation>Dark</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="586" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="590" />
       <source>Tema:</source>
       <translation>Theme:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="595" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="819" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="926" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1239" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1247" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1269" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="599" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="823" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="930" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1243" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1251" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1273" />
       <source>Padrão</source>
       <translation>Default</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="596" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="600" />
       <source>Pacote de ícones:</source>
       <translation>Icon Pack:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="602" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="606" />
       <source>Obter mais folhas de estilos &amp;&amp; ícones</source>
       <translation>Get more stylesheets &amp;&amp; icons</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="609" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="613" />
       <source>Fonte:</source>
       <translation>Font:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="619" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="623" />
       <source>Tamanho da fonte:</source>
       <translation>Font Size:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="636" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="640" />
       <source>Transparência:</source>
       <translation>Transparency:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="650" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="654" />
       <source>Árvore do canal</source>
       <translation>Channel tree</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="654" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="658" />
       <source>Expandir todos os canais ao fazer login</source>
       <translation>Expand all channels on login</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="655" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="659" />
       <source>Expandir canais até este nível:</source>
       <translation>Expand channels to this level:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="656" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="660" />
       <source>Expandir o próprio canal ao fazer login</source>
       <translation>Expand your own channel on login</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="693" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="697" />
       <source>Classificar clientes abaixo dos canais</source>
       <translation>Sort clients below channels</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="694" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="698" />
       <source>Exibir bandeira de país nos clientes</source>
       <translation>Show country flags on clients</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="695" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="699" />
       <source>Exibir ícones do Overwolf nos clientes</source>
       <translation>Display Overwolf icons on clients</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="696" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="700" />
       <source>Exibir ícones de emblema nos clientes</source>
       <translation>Show badge icons on clients</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="697" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="701" />
       <source>Exibir ícones de grupo nos menus de contexto</source>
       <translation>Show group icons in context menus</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="698" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="702" />
       <source>Ocultar grupos inacessíveis nos menus de contexto</source>
       <translation>Hide inaccessible groups in context menus</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="699" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="703" />
       <source>Mostrar número de clientes ao lado dos canais</source>
       <translation>Show client count next to channels</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="700" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="704" />
       <source>Mostrar mini-ícones de estado dos clientes</source>
       <translation>Show client status mini-icons</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="701" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="705" />
       <source>Mostrar mensagem de ausência ao lado do apelido</source>
       <translation>Show the away message beside the nickname</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="702" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="706" />
       <source>Mostrar dica de ferramenta ao passar o mouse</source>
       <translation>Show tooltips when hovering</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="705" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="709" />
       <source>Ícone da bandeja</source>
       <translation>tray icon</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="707" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="711" />
       <source>Minimizar na bandeja</source>
       <translation>Minimize to Tray</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="711" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="715" />
       <source>Fechar na bandeja</source>
       <translation>Close in tray</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="717" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="721" />
       <source>Suporte a GIF animado</source>
       <translation>Animated GIF support</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="719" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="723" />
       <source>Ativar avatares animados</source>
       <translation>Enable animated avatars</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="723" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="727" />
       <source>Ativar imagens animadas</source>
       <translation>Enable animated images</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="740" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="744" />
       <source>Escolha quais eventos reproduzem um som de notificação no cliente.</source>
       <translation>Choose which events play a notification sound on the client.</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="744" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="748" />
       <source>Silenciar todos os avisos de áudio</source>
       <translation>Mute all audio prompts</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="752" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="756" />
       <source>Ao conectar a um servidor</source>
       <translation>When connecting to a server</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="753" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="757" />
       <source>Ao desconectar de um servidor</source>
       <translation>When disconnecting from a server</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="754" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="758" />
       <source>Quando um cliente entra no seu canal</source>
       <translation>When a client joins your channel</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="755" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="759" />
       <source>Quando um cliente sai do seu canal</source>
       <translation>When a client leaves your channel</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="756" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="760" />
       <source>Ao ser cutucado</source>
       <translation>When being poked</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="757" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="761" />
       <source>Ao receber mensagem privada</source>
       <translation>When receiving private message</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="758" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="762" />
       <source>Ao trocar de canal</source>
       <translation>When changing channels</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="759" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="763" />
       <source>Ao ativar/desativar mudo</source>
       <translation>When muting/unmuting</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="770" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="774" />
       <source>Narrar eventos com voz (texto-para-voz, como o pacote de voz do Halla)</source>
       <translation>Narrate events with voice (text-to-speech, like Halla's voice pack)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="779" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="783" />
       <source>Reproduzir som de teste</source>
       <translation>Play test sound</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="811" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="918" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="815" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="922" />
       <source>Usar o melhor modo automaticamente</source>
       <translation>Use the best mode automatically</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="811" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="918" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="815" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="922" />
       <source>Direct Sound</source>
       <translation>Direct Sound</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="812" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="919" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="816" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="923" />
       <source>Windows Audio Session</source>
       <translation>Windows Audio Session</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="812" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="919" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="816" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="923" />
       <source>PulseAudio</source>
       <translation>PulseAudio</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="812" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="919" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="816" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="923" />
       <source>ALSA</source>
       <translation>ALSA</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="814" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="818" />
       <source>Modo de reprodução:</source>
       <translation>Playback mode:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="836" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="840" />
       <source>Dispositivo de reprodução:</source>
       <translation>Playback device:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="838" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="842" />
       <source>Ajuste de volume de voz:</source>
       <translation>Voice volume adjustment:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="840" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="843" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="844" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="847" />
       <source>Baixo</source>
       <translation>Low</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="840" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="843" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="874" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="844" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="847" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="878" />
       <source>Alto</source>
       <translation>High</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="841" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="845" />
       <source>Volume do pacote de som:</source>
       <translation>Sound pack volume:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="846" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="850" />
       <source>▶ Reproduzir som de teste</source>
       <translation>▶ Play test sound</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="865" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="869" />
       <source>Nivelamento automático de volume de voz</source>
       <translation>Automatic voice volume leveling</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="866" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="870" />
       <source>O próprio cliente reproduz cliques do microfone</source>
       <translation>The client itself reproduces clicks from the microphone</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="867" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="871" />
       <source>Sempre definir posições 3D de clientes quando disponível</source>
       <translation>Always set clients' 3D positions when available</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="868" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="872" />
       <source>Outros clientes reproduzem cliques do microfone</source>
       <translation>Other clients reproduce microphone clicks</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="869" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="873" />
       <source>Ruído de conforto (comfort noise)</source>
       <translation>Comfort noise</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="870" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="874" />
       <source>Ajuste do ruído de conforto:</source>
       <translation>Comfort noise adjustment:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="874" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="878" />
       <source>Quieto</source>
       <translation>Quiet</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="878" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="882" />
       <source>Expansão de som mono</source>
       <translation>Mono sound expansion</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="881" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="885" />
       <source>Mono para estéreo (padrão)</source>
       <translation>Mono to stereo (default)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="882" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="886" />
       <source>Mono para alto-falante central (quando disponível)</source>
       <translation>Mono to center speaker (when available)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="883" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="887" />
       <source>Mono para surround (quando disponível)</source>
       <translation>Mono to surround (when available)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="921" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="925" />
       <source>Modo de captura:</source>
       <translation>Capture Mode:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="943" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="947" />
       <source>Dispositivo de captura:</source>
       <translation>Capture device:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="948" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="952" />
       <source>Ativação de voz</source>
       <translation>Voice activation</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="955" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="959" />
       <source>Pressionar para falar (PTT)</source>
       <translation>Push-to-talk (PTT)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="970" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="974" />
       <source>Definir mais teclas de atalho</source>
       <translation>Set more hotkeys</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="981" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="985" />
       <source>Atraso ao soltar a tecla do Push-to-Talk:</source>
       <translation>Delay when releasing the Push-to-Talk key:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1001" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1005" />
       <source>Adicionar detecção de atividade de voz</source>
       <translation>Add voice activity detection</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1009" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1013" />
       <source>Transmissão contínua</source>
       <translation>Continuous transmission</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1014" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1018" />
       <source>Detecção de ativação por voz</source>
       <translation>Voice activation detection</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1016" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1020" />
       <source>Automático</source>
       <translation>Automatic</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1016" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1020" />
       <source>Sensível</source>
       <translation>Sensitive</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1016" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1020" />
       <source>Moderado</source>
       <translation>Moderated</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1016" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1020" />
       <source>Restrito</source>
       <translation>Restricted</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1045" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1049" />
       <source>Sensibilidade:</source>
       <translation>Sensitivity:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1066" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1076" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1079" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1070" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1080" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1083" />
       <source>Iniciar teste</source>
       <translation>Start testing</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1076" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1080" />
       <source>Parar teste</source>
       <translation>Stop test</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1086" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1090" />
       <source>Processamento digital de sinal</source>
       <translation>Digital signal processing</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1090" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1094" />
       <source>Atenuação de digitação</source>
       <translation>Typing Attenuation</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1097" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1101" />
       <source>Remover ruídos de fundo</source>
       <translation>Remove background noise</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1102" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1106" />
       <source>min</source>
       <translation>min</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1104" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1108" />
       <source>max</source>
       <translation>max</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1120" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1124" />
       <source>Cancelamento do eco</source>
       <translation>Echo cancellation</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1127" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1131" />
       <source>Redução de eco (Ducking):</source>
       <translation>Echo reduction (ducking):</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1152" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1156" />
       <source>Emitir sinal sonoro ao falar</source>
       <translation>Play sound cue when speaking</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1159" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1163" />
       <source>Emitir ao:</source>
       <translation>Play when:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1160" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1164" />
       <source>Pressione para Falar</source>
       <translation>Push-to-Talk</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1161" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1165" />
       <source>Atividade de Voz</source>
       <translation>Voice Activity</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1182" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1186" />
       <source>Nenhum arquivo selecionado</source>
       <translation>No file selected</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1185" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1189" />
       <source>Pesquisar...</source>
       <translation>Search...</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1186" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1190" />
       <source>Pesquisar um arquivo de áudio no computador</source>
       <translation>Search for an audio file on your computer</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1187" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1191" />
       <source>Outros usuários</source>
       <translation>Other users</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1188" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1192" />
       <source>Também emitir este sinal quando outro usuário falar</source>
       <translation>Also emit this signal when another user speaks</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1198" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1202" />
       <source>Selecionar arquivo de áudio</source>
       <translation>Select audio file</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1199" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1203" />
       <source>Arquivos de áudio (*.wav *.mp3 *.ogg *.flac *.m4a);;Todos os arquivos (*.*)</source>
       <translation>Audio files (*.wav *.mp3 *.ogg *.flac *.m4a);;All files (*.*)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1208" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1212" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1707" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1771" />
       <source>Ativo</source>
       <translation>Active</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1210" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1214" />
       <source>Inativo</source>
       <translation>Inactive</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1216" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1220" />
       <source>Os sinais locais acompanham o modo escolhido. Marque "Outros usuários" para ouvir o mesmo sinal quando outra pessoa falar.</source>
       <translation>Local signals follow the chosen mode. Check "Other users" to hear the same signal when someone else speaks.</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1231" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1235" />
       <source>Canal atual</source>
       <translation>Current channel</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1232" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1236" />
       <source>Canal atual e subcanais</source>
       <translation>Current channel and subchannels</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1233" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1237" />
       <source>Lista de usuários</source>
       <translation>User list</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1270" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1274" />
       <source>Sussurrar (segurar para falar)</source>
       <translation>Whisper (hold to speak)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1276" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1405" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1280" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1409" />
       <source>Perfis sincronizados</source>
       <translation>Synced profiles</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1279" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1283" />
       <source>Predefinição</source>
       <translation>Preset</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1283" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1287" />
       <source>Perfis locais</source>
       <translation>Local profiles</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1297" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1301" />
       <source>Adicionar perfil local</source>
       <translation>Add local profile</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1311" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1315" />
       <source>Tecla de atalho</source>
       <translation>Shortcut key</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1311" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1315" />
       <source>Ação</source>
       <translation>Action</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1406" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1410" />
       <source>A sincronização de perfis em nuvem requer uma conta myHalla. Por enquanto, use os perfis locais.</source>
       <translation>Cloud profile sync requires a myHalla account. For now, use local profiles.</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1415" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1419" />
       <source>Novo perfil local</source>
       <translation>New local profile</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1415" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1419" />
       <source>Nome do perfil:</source>
       <translation>Profile name:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1416" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1420" />
       <source>Novo perfil</source>
       <translation>New profile</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1428" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1432" />
       <source>+ Adicionar</source>
       <translation>+ Add</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1429" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1433" />
       <source>X Remover</source>
       <translation>X Remove</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1430" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1434" />
       <source>Editar</source>
       <translation>Edit</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1460" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1464" />
       <source>Alternar mudo do microfone</source>
       <translation>Toggle microphone mute</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1461" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1465" />
       <source>Alternar mudo dos alto-falantes</source>
       <translation>Toggle speaker mute</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1462" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1466" />
       <source>Alternar estado ausente</source>
       <translation>Toggle Away State</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1463" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1467" />
       <source>Alternar comandante do canal</source>
       <translation>Toggle channel commander</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1464" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1468" />
       <source>Alternar gravação</source>
       <translation>Toggle recording</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1465" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1469" />
       <source>Alternar transmissão contínua</source>
       <translation>Toggle streaming</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1475" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1479" />
       <source>Push-to-Talk</source>
       <translation>Push-to-Talk</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1476" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1480" />
       <source>A tecla de PTT é configurada na página "Capturar".</source>
       <translation>The PTT key is configured on the "Capture" page.</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1481" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1485" />
       <source>Adicionar tecla de atalho</source>
       <translation>Add hotkey</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1481" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1485" />
       <source>Editar tecla de atalho</source>
       <translation>Edit hotkey</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1499" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1503" />
       <source>Ação:</source>
       <translation>Action:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1500" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1504" />
       <source>Atalho:</source>
       <translation>Shortcut:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1501" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1505" />
       <source>Sussurrar para:</source>
       <translation>Whisper to:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1511" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1515" />
       <source>Aceita teclas e botões do mouse (laterais, meio).
 O sussurro funciona "segurando" a tecla/botão, como o PTT do Halla.</source>
       <translation>Accepts mouse keys and buttons (side, middle).
 Whisper works by "holding" the key/button, like Halla's PTT.</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1563" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1567" />
       <source>No Windows, as teclas de atalho funcionam GLOBALMENTE (mesmo com o Halla em segundo plano) e aceitam botões do mouse. A ação "Sussurrar" envia sua voz apenas para o alvo escolhido enquanto a tecla estiver pressionada.</source>
       <translation>On Windows, hotkeys work GLOBALLY (even with Halla in the background) and accept mouse buttons. The "Whisper" action sends your voice only to the chosen target while the key is held down.</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1583" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1587" />
       <source>Permissões para recebimento de sussurros</source>
       <translation>Permissions for receiving whispers</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1586" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1590" />
       <source>Usar a configuração do contato; se não houver nenhuma, permitir (padrão)</source>
       <translation>Use contact configuration; if none, allow (default)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1587" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1591" />
       <source>Usar a configuração do contato; se não houver nenhuma, negar</source>
       <translation>Use contact configuration; if there is none, deny</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1588" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1592" />
       <source>Negar a todos</source>
       <translation>Deny everyone</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1600" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1604" />
       <source>Configurações para recebimento de sussurros</source>
       <translation>Settings for receiving whispers</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1603" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1607" />
       <source>Reproduzir áudio de notificação ao receber um sussurro</source>
       <translation>Play notification audio when you receive a whisper</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1609" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1613" />
       <source>Sempre permitir mostrar o histórico de sussurros ao receber um sussurro</source>
       <translation>Always allow to show whisper history when receiving a whisper</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1615" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1619" />
       <source>Remover clientes no histórico de sussurros após</source>
       <translation>Remove clients from whisper history after</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1630" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1634" />
       <source>Lista de sussurros</source>
       <translation>Whisper list</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1650" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1654" />
       <source>Identidade (ID único):</source>
       <translation>Identity (unique ID):</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1660" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1664" />
       <source>Copiar ID único para a área de transferência</source>
       <translation>Copy unique ID to clipboard</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1666" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1670" />
       <source>Lembrar senhas inseridas durante a sessão</source>
       <translation>Remember passwords entered during session</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1673" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1677" />
       <source>Avisar quando um servidor alterar suas permissões</source>
       <translation>Notify when a server changes its permissions</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1679" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1683" />
       <source>Limpar atalhos, logs e cache local...</source>
       <translation>Clear shortcuts, logs and local cache...</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1682" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1686" />
       <source>Cache local limpo pelo usuário</source>
       <translation>Local cache cleared by the user</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1693" />
-      <source>Nenhum complemento instalado.</source>
-      <translation>No add-ons installed.</translation>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1700" />
+      <source>Instale extensões e pacotes criados pela comunidade. Complementos nativos são DLLs e executam código dentro do Halla; use somente autores confiáveis.</source>
+      <translation>Install extensions and packages created by the community. Native add-ons are DLLs and run code inside Halla; only use trusted authors.</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1700" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1707" />
+      <source>Complemento</source>
+      <translation>Add-on</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1707" />
+      <source>Versão</source>
+      <translation>Version</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1708" />
+      <source>Autor</source>
+      <translation>Author</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1708" />
+      <source>Estado</source>
+      <translation>Status</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1722" />
+      <source>Instalar arquivo .halla-addon...</source>
+      <translation>Install .halla-addon file...</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1724" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1814" />
+      <source>Configurar</source>
+      <translation>Configure</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1725" />
+      <source>Remover</source>
+      <translation>Remove</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1726" />
+      <source>Abrir pasta</source>
+      <translation>Open folder</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1763" />
+      <source>  • Oficial</source>
+      <translation>  • Official</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1771" />
+      <source>Desativado</source>
+      <translation>Disabled</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1772" />
+      <source>Erro: %1</source>
+      <translation>Error: %1</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1800" />
+      <source>Instalar complemento</source>
+      <translation>Install add-on</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1801" />
+      <source>Pacotes do Halla (*.halla-addon);;Todos os arquivos (*.*)</source>
+      <translation>Halla packages (*.halla-addon);;All files (*.*)</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1806" />
+      <source>Falha ao instalar</source>
+      <translation>Installation failed</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1819" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1824" />
+      <source>Remover complemento</source>
+      <translation>Remove add-on</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1820" />
+      <source>Deseja remover este complemento e seus arquivos?</source>
+      <translation>Do you want to remove this add-on and its files?</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1723" />
       <source>Procurar complementos online</source>
       <translation>Search for add-ons online</translation>
     </message>
@@ -3176,6 +3261,379 @@ Whisper works by "holding" the key/button, like Halla's PTT.</translation>
       <location filename="../src/dialogs/AdminDialogs.cpp" line="830" />
       <source>Fechar</source>
       <translation>Close</translation>
+    </message>
+  </context>
+  <context>
+    <name>PluginManager</name>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="91" />
+      <source>Mostrar somente usuários falando</source>
+      <translation>Show only users who are talking</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="93" />
+      <source>Mostrar meu próprio usuário</source>
+      <translation>Show my own user</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="95" />
+      <source>Mostrar nome do canal</source>
+      <translation>Show channel name</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="97" />
+      <source>Aparecer automaticamente sobre jogos/tela cheia</source>
+      <translation>Automatically appear over games/fullscreen apps</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="98" />
+      <source>Posição</source>
+      <translation>Position</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="101" />
+      <source>Superior esquerdo</source>
+      <translation>Top left</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="102" />
+      <source>Superior direito</source>
+      <translation>Top right</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="103" />
+      <source>Inferior esquerdo</source>
+      <translation>Bottom left</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="104" />
+      <source>Inferior direito</source>
+      <translation>Bottom right</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="106" />
+      <source>Opacidade (%)</source>
+      <translation>Opacity (%)</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="108" />
+      <source>Escala (%)</source>
+      <translation>Scale (%)</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="110" />
+      <source>Máximo de usuários</source>
+      <translation>Maximum users</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="112" />
+      <source>Margem da tela</source>
+      <translation>Screen margin</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="188" />
+      <source>Overlay oficial da call</source>
+      <translation>Official call overlay</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="191" />
+      <source>Mostra no jogo os usuários da call e destaca quem está falando ou sussurrando.</source>
+      <translation>Shows call users in-game and highlights who is talking or whispering.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="204" />
+      <source>manifest.json não encontrado.</source>
+      <translation>manifest.json not found.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="208" />
+      <source>O manifesto excede o limite de 256 KiB.</source>
+      <translation>The manifest exceeds the 256 KiB limit.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="214" />
+      <source>Manifesto JSON inválido: %1</source>
+      <translation>Invalid JSON manifest: %1</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="225" />
+      <source>O manifesto não contém metadados válidos para a API de plugins do Halla.</source>
+      <translation>The manifest does not contain valid metadata for the Halla plugin API.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="234" />
+      <source>O caminho da biblioteca no manifesto é inválido para esta plataforma.</source>
+      <translation>The library path in the manifest is invalid for this platform.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="238" />
+      <source>A biblioteca declarada para %1 não existe.</source>
+      <translation>The library declared for %1 does not exist.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="267" />
+      <location filename="../src/plugins/PluginManager.cpp" line="642" />
+      <source>Autor desconhecido</source>
+      <translation>Unknown author</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="336" />
+      <source>A DLL não exporta halla_plugin_entry.</source>
+      <translation>The DLL does not export halla_plugin_entry.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="347" />
+      <source>A DLL usa uma ABI incompatível ou não corresponde ao manifesto.</source>
+      <translation>The DLL uses an incompatible ABI or does not match the manifest.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="365" />
+      <source>O plugin recusou a inicialização.</source>
+      <translation>The plugin refused to initialize.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="377" />
+      <source>Complemento carregado: %1 %2</source>
+      <translation>Add-on loaded: %1 %2</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="399" />
+      <source>A DLL de %1 não pôde ser descarregada com segurança.</source>
+      <translation>The %1 DLL could not be safely unloaded.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="408" />
+      <source>Complemento não encontrado.</source>
+      <translation>Add-on not found.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="442" />
+      <source>Este complemento não possui opções configuráveis.</source>
+      <translation>This add-on has no configurable options.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="446" />
+      <source>Configurar %1</source>
+      <translation>Configure %1</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="486" />
+      <source>Salvar</source>
+      <translation>Save</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="487" />
+      <source>Cancelar</source>
+      <translation>Cancel</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="545" />
+      <source>Não foi possível abrir o pacote.</source>
+      <translation>Could not open the package.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="549" />
+      <source>O pacote excede o limite de 100 MiB.</source>
+      <translation>The package exceeds the 100 MiB limit.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="556" />
+      <source>Analisar pacote nativo</source>
+      <translation>Inspect native package</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="557" />
+      <source>Este arquivo pode conter DLLs e outros conteúdos nativos. A extração só deve continuar se você confia na origem.
+
+Arquivo: %1
+SHA-256: %2
+
+Deseja analisar o pacote?</source>
+      <translation>This file may contain DLLs and other native content. Extraction should only continue if you trust the source.
+
+File: %1
+SHA-256: %2
+
+Do you want to inspect the package?</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="566" />
+      <source>Não foi possível criar uma pasta temporária.</source>
+      <translation>Could not create a temporary folder.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="571" />
+      <source>Não foi possível preparar o pacote para extração.</source>
+      <translation>Could not prepare the package for extraction.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="584" />
+      <source>O arquivo não é um pacote .halla-addon ZIP válido.</source>
+      <translation>The file is not a valid ZIP-based .halla-addon package.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="589" />
+      <source>O pacote contém arquivos demais.</source>
+      <translation>The package contains too many files.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="598" />
+      <source>O pacote contém caminhos inseguros.</source>
+      <translation>The package contains unsafe paths.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="612" />
+      <source>Falha ao extrair o pacote.</source>
+      <translation>Failed to extract the package.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="623" />
+      <source>O conteúdo extraído excede os limites de segurança.</source>
+      <translation>The extracted content exceeds the security limits.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="643" />
+      <source>Complementos nativos executam código no mesmo processo do Halla. Instale somente arquivos de autores confiáveis.
+
+Complemento: %1
+Autor: %2
+SHA-256: %3
+
+Deseja instalar?</source>
+      <translation>Native add-ons run code inside the Halla process. Only install files from trusted authors.
+
+Add-on: %1
+Author: %2
+SHA-256: %3
+
+Do you want to install it?</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="647" />
+      <source>Instalar complemento nativo</source>
+      <translation>Install native add-on</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="655" />
+      <source>O ID pertence a um complemento interno do Halla.</source>
+      <translation>The ID belongs to a built-in Halla add-on.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="666" />
+      <source>Não foi possível substituir a versão instalada.</source>
+      <translation>Could not replace the installed version.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="682" />
+      <source>Complemento instalado: %1 (%2)</source>
+      <translation>Add-on installed: %1 (%2)</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="689" />
+      <source>Este complemento não pode ser removido.</source>
+      <translation>This add-on cannot be removed.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="694" />
+      <source>Não foi possível remover os arquivos do complemento.</source>
+      <translation>Could not remove the add-on files.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="712" />
+      <source>Catálogo de complementos do Halla</source>
+      <translation>Halla add-on catalog</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="715" />
+      <source>Carregando catálogo seguro por HTTPS...</source>
+      <translation>Loading secure catalog over HTTPS...</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="719" />
+      <source>Nome</source>
+      <translation>Name</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="719" />
+      <source>Versão</source>
+      <translation>Version</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="719" />
+      <source>Autor</source>
+      <translation>Author</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="719" />
+      <source>Descrição</source>
+      <translation>Description</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="729" />
+      <source>Instalar selecionado</source>
+      <translation>Install selected</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="731" />
+      <source>Fechar</source>
+      <translation>Close</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="752" />
+      <source>Não foi possível carregar o catálogo: %1
+Você ainda pode instalar arquivos .halla-addon.</source>
+      <translation>Could not load the catalog: %1
+You can still install .halla-addon files.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="758" />
+      <source>O catálogo possui um formato incompatível.</source>
+      <translation>The catalog uses an incompatible format.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="778" />
+      <source>O catálogo está disponível, mas ainda não possui pacotes publicados.</source>
+      <translation>The catalog is available, but no packages have been published yet.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="779" />
+      <source>Selecione um pacote. Downloads são validados por SHA-256 antes da instalação.</source>
+      <translation>Select a package. Downloads are validated with SHA-256 before installation.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="789" />
+      <source>Catálogo</source>
+      <translation>Catalog</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="789" />
+      <source>O pacote possui uma URL não segura.</source>
+      <translation>The package has an insecure URL.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="793" />
+      <source>Baixando %1...</source>
+      <translation>Downloading %1...</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="807" />
+      <source>Falha no download: %1</source>
+      <translation>Download failed: %1</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="814" />
+      <source>O SHA-256 do pacote não corresponde ao catálogo. Instalação cancelada.</source>
+      <translation>The package SHA-256 does not match the catalog. Installation cancelled.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="822" />
+      <source>Complemento instalado. Ative-o na aba Complementos.</source>
+      <translation>Add-on installed. Enable it on the Add-ons page.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="868" />
+      <source>O complemento %1 lançou uma exceção ao processar um evento.</source>
+      <translation>The %1 add-on threw an exception while processing an event.</translation>
     </message>
   </context>
   <context>
@@ -3227,29 +3685,29 @@ Whisper works by "holding" the key/button, like Halla's PTT.</translation>
   <context>
     <name>ProfilesPanel</name>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="155" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="159" />
       <source>Perfis</source>
       <translation>Profiles</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="164" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="167" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="168" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="171" />
       <source>Padrão</source>
       <translation>Default</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="175" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="179" />
       <source>Adicionar perfil</source>
       <translation>Add profile</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="186" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="187" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="190" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="191" />
       <source>Novo perfil</source>
       <translation>New profile</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="186" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="190" />
       <source>Nome do perfil:</source>
       <translation>Profile name:</translation>
     </message>
@@ -3257,7 +3715,7 @@ Whisper works by "holding" the key/button, like Halla's PTT.</translation>
   <context>
     <name>QObject</name>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="543" />
+      <location filename="../src/app/MainWindow.cpp" line="544" />
       <source>Motor: %1
 Falando: %2
 PTT: %3
@@ -3278,38 +3736,38 @@ Play queue: %10 frames
 TCP Ping: %11 ms</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="549" />
-      <location filename="../src/app/MainWindow.cpp" line="552" />
+      <location filename="../src/app/MainWindow.cpp" line="550" />
+      <location filename="../src/app/MainWindow.cpp" line="553" />
       <source>ativo</source>
       <translation>active</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="549" />
+      <location filename="../src/app/MainWindow.cpp" line="550" />
       <source>indisponível</source>
       <translation>unavailable</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="550" />
+      <location filename="../src/app/MainWindow.cpp" line="551" />
       <source>sim</source>
       <translation>Yes</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="550" />
+      <location filename="../src/app/MainWindow.cpp" line="551" />
       <source>não</source>
       <translation>no</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="551" />
+      <location filename="../src/app/MainWindow.cpp" line="552" />
       <source>pressionado</source>
       <translation>pressed</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="551" />
+      <location filename="../src/app/MainWindow.cpp" line="552" />
       <source>solto</source>
       <translation>released</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="552" />
+      <location filename="../src/app/MainWindow.cpp" line="553" />
       <source>inativo</source>
       <translation>inactive</translation>
     </message>
@@ -3329,9 +3787,29 @@ TCP Ping: %11 ms</translation>
       <translation>Unable to save identity to system vault: %1</translation>
     </message>
     <message>
-      <location filename="../src/main.cpp" line="68" />
+      <location filename="../src/main.cpp" line="71" />
       <source>Criar canal</source>
       <translation>Create channel</translation>
+    </message>
+    <message>
+      <location filename="../src/main.cpp" line="1566" />
+      <source>Falha ao instalar</source>
+      <translation>Installation failed</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="513" />
+      <source>Não foi possível criar a pasta de destino.</source>
+      <translation>Could not create the destination folder.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="522" />
+      <source>O pacote contém links simbólicos não permitidos.</source>
+      <translation>The package contains disallowed symbolic links.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="533" />
+      <source>Não foi possível copiar %1.</source>
+      <translation>Could not copy %1.</translation>
     </message>
   </context>
   <context>
@@ -3425,12 +3903,12 @@ TCP Ping: %11 ms</translation>
   <context>
     <name>ScreenShareWindow</name>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="111" />
+      <location filename="../src/app/MainWindow.cpp" line="112" />
       <source>Compartilhamento de Tela - %1</source>
       <translation>Screen Sharing - %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="121" />
+      <location filename="../src/app/MainWindow.cpp" line="122" />
       <source>Aguardando transmissão...</source>
       <translation>Waiting for transmission...</translation>
     </message>
@@ -3438,7 +3916,7 @@ TCP Ping: %11 ms</translation>
   <context>
     <name>ScreenshareHoverPopup</name>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="239" />
+      <location filename="../src/app/MainWindow.cpp" line="240" />
       <source>◉   Assistir à transmissão                                      ›</source>
       <translation>◉ Watch the broadcast ›</translation>
     </message>

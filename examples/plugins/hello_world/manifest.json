@@ -1,0 +1,19 @@
+{
+  "id": "com.grouphalla.hello-world",
+  "name": "Hello World",
+  "version": "1.0.0",
+  "author": "Comunidade Halla",
+  "description": "Plugin mínimo de exemplo para a API nativa do Halla.",
+  "type": "native",
+  "apiVersion": 1,
+  "defaultEnabled": false,
+  "platforms": {
+    "windows-x64": {
+      "library": "bin/windows-x64/halla_hello_world.dll"
+    },
+    "linux-x64": {
+      "library": "bin/linux-x64/halla_hello_world.so"
+    }
+  },
+  "settings": []
+}

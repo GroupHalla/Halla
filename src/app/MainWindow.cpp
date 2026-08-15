@@ -9,6 +9,7 @@
 #include "net/NetSession.h"
 #include "core/Settings.h"
 #include "core/AppLog.h"
+#include "plugins/PluginManager.h"
 #include "dialogs/ConnectDialog.h"
 #include "dialogs/IdentityDialog.h"
 #include "dialogs/BookmarksDialog.h"
@@ -706,6 +707,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_tabs, &QTabWidget::currentChanged, this, [this](int) {
         updateConnectionUi();
         updateStatusBar();
+        publishPluginState();
     });
 
     // menu de contexto nas abas (como no Halla)
@@ -905,6 +907,7 @@ void MainWindow::wireTab(ServerTab* tab) {
         if (m_tabs->currentWidget() == tab) {
             updateConnectionUi();
             updateStatusBar();
+            publishPluginState();
         }
     });
     if (tab->net()) {
@@ -1014,6 +1017,13 @@ void MainWindow::finishDisconnectTab(ServerTab* tab) {
     if (m_tabs->count() == 0) m_stack->setCurrentWidget(m_welcome);
     updateConnectionUi();
     updateStatusBar();
+}
+
+void MainWindow::publishPluginState() {
+    if (ServerTab* tab = currentTab())
+        PluginManager::instance().publishClientState(&tab->data());
+    else
+        PluginManager::instance().publishClientState(nullptr);
 }
 
 ServerTab* MainWindow::currentTab() const {
