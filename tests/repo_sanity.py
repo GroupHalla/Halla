@@ -83,6 +83,7 @@ assert "dlg.accept()" in main_window
 assert "tempChannelParent" in models
 channel_dialog = (root / "src/dialogs/ChannelDialog.cpp").read_text(encoding="utf-8")
 assert "Receber canais temporários como subcanais" in channel_dialog
+assert '{ QStringLiteral("view"), tr("Ver canal") }' in channel_dialog
 assert "O servidor continua sendo a autoridade" in channel_dialog
 assert "m_tempChannelParent->setEnabled(!temporary)" in channel_dialog
 assert 't == "privilege_granted"' in net_session

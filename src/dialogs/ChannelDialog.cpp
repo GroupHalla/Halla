@@ -188,6 +188,7 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     m_permTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
 
     const QList<QPair<QString, QString>> permissions = {
+        { QStringLiteral("view"), tr("Ver canal") },
         { QStringLiteral("join"), tr("Entrar no canal") },
         { QStringLiteral("talk"), tr("Falar no canal") },
         { QStringLiteral("whisper"), tr("Sussurrar neste canal") },

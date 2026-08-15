@@ -327,7 +327,7 @@
     </message>
     <message>
       <location filename="../src/dialogs/ChannelDialog.cpp" line="180" />
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="213" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="214" />
       <source>Permissões</source>
       <translation>Permisos</translation>
     </message>
@@ -343,56 +343,61 @@
     </message>
     <message>
       <location filename="../src/dialogs/ChannelDialog.cpp" line="191" />
+      <source>Ver canal</source>
+      <translation>Ver canal</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="192" />
       <source>Entrar no canal</source>
       <translation>Entrar al canal</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="192" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="193" />
       <source>Falar no canal</source>
       <translation>Hablar en el canal</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="193" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="194" />
       <source>Sussurrar neste canal</source>
       <translation>Susurrar en este canal</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="194" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="195" />
       <source>Mensagem de texto</source>
       <translation>Mensaje de texto</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="195" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="196" />
       <source>Enviar arquivos</source>
       <translation>Subir archivos</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="196" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="197" />
       <source>Baixar arquivos</source>
       <translation>Descargar archivos</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="221" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="222" />
       <source>guest</source>
       <translation>invitado</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="222" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="223" />
       <source>normal</source>
       <translation>normal</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="223" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="224" />
       <source>admin</source>
       <translation>administración</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="270" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="271" />
       <source>OK</source>
       <translation>DE ACUERDO</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="271" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="272" />
       <source>Cancelar</source>
       <translation>Cancelar</translation>
     </message>

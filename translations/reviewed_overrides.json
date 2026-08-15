@@ -58,7 +58,8 @@
     "Remover seu próprio Admin": "Remove your own Admin role",
     "Áudio de todo o PC": "All PC audio",
     "Quando qualquer usuário criar um canal temporário, o servidor o colocará automaticamente dentro deste canal.": "Whenever any user creates a temporary channel, the server will automatically place it inside this channel.",
-    "Receber canais temporários como subcanais": "Receive temporary channels as subchannels"
+    "Receber canais temporários como subcanais": "Receive temporary channels as subchannels",
+    "Ver canal": "View channel"
   },
   "es": {
     "Apelido fonético": "Apodo fonético",
@@ -88,6 +89,7 @@
     "Remover seu próprio Admin": "Eliminar tu propio rol de administrador",
     "Áudio de todo o PC": "Audio de todo el PC",
     "Quando qualquer usuário criar um canal temporário, o servidor o colocará automaticamente dentro deste canal.": "Cuando cualquier usuario cree un canal temporal, el servidor lo colocará automáticamente dentro de este canal.",
-    "Receber canais temporários como subcanais": "Recibir canales temporales como subcanales"
+    "Receber canais temporários como subcanais": "Recibir canales temporales como subcanales",
+    "Ver canal": "Ver canal"
   }
 }

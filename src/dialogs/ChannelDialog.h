@@ -47,8 +47,8 @@ private:
     QCheckBox* m_hideSymbol;
     QCheckBox* m_tempChannelParent;
 
-    // Editor visual em duas colunas, mantendo somente as seis permissões
-    // específicas que o servidor Halla já aplica por grupo.
+    // Editor visual em duas colunas para as permissões específicas de canal
+    // que o servidor Halla aplica por grupo, incluindo visibilidade.
     QListWidget* m_lcaList = nullptr;
     QTableWidget* m_permTable = nullptr;
     QComboBox* m_permGroupCombo = nullptr;
