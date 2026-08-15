@@ -117,17 +117,15 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
         tr("Receber canais temporários como subcanais"), this);
     m_tempChannelParent->setToolTip(tr(
         "Quando qualquer usuário criar um canal temporário, o servidor o colocará automaticamente dentro deste canal."));
-    const QJsonObject myPerms = m_net ? m_net->myPerms() : QJsonObject();
-    const bool canConfigureTempParent = !m_net
-        || myPerms.value(QStringLiteral("*")).toBool()
-        || myPerms.value(QStringLiteral("chanEdit")).toBool();
-    m_tempChannelParent->setEnabled(canConfigureTempParent);
-    if (!canConfigureTempParent)
-        m_tempChannelParent->setToolTip(tr("Apenas usuários com permissão para editar canais podem alterar esta opção."));
+    // Não bloqueie esta opção usando o snapshot local de myPerms: chaves de
+    // privilégio concedem poder individual no servidor sem trocar o cargo do
+    // usuário. O servidor continua sendo a autoridade e rejeita alterações de
+    // quem realmente não possui chanEdit.
+    m_tempChannelParent->setEnabled(true);
     connect(m_temp, &QRadioButton::toggled, this,
-            [this, canConfigureTempParent](bool temporary) {
+            [this](bool temporary) {
                 if (temporary) m_tempChannelParent->setChecked(false);
-                m_tempChannelParent->setEnabled(canConfigureTempParent && !temporary);
+                m_tempChannelParent->setEnabled(!temporary);
             });
     form->addRow(QString(), m_tempChannelParent);
 

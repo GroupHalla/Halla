@@ -924,6 +924,17 @@ void NetSession::handleMessage(const QJsonObject& obj) {
 
     if (!m_ready) return;
 
+    if (t == "privilege_granted") {
+        const QJsonObject effective = obj["myPerms"].toObject();
+        if (!effective.isEmpty()) m_myPerms = effective;
+        if (obj["individual"].toBool(false))
+            m_myPerms[QStringLiteral("*")] = true;
+        // Atualiza imediatamente menus e diálogos que dependem das permissões,
+        // sem exigir reconexão depois de usar uma privilege key.
+        emit stateChanged();
+        return;
+    }
+
     if (t == "pong") {
         m_pingMs = int(m_pingClock.elapsed());
         emit pingUpdated(m_pingMs);

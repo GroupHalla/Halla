@@ -286,119 +286,114 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="126"/>
-        <source>Apenas usuários com permissão para editar canais podem alterar esta opção.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="134"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="132"/>
         <source>Canal padrão</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="135"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="133"/>
         <source>Moderado (precisa de poder de fala)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="136"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="134"/>
         <source>Ocultar símbolo do canal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="148"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="146"/>
         <source>Propriedades</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="159"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="157"/>
         <source>Grupos ativos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="166"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="164"/>
         <source>Adicionar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="167"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="165"/>
         <source>Excluir</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="172"/>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="175"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="170"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="173"/>
         <source>Grupo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="182"/>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="215"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="180"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="213"/>
         <source>Permissões</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="184"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="182"/>
         <source>Negar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="184"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="182"/>
         <source>Permitir</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="193"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="191"/>
         <source>Entrar no canal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="194"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="192"/>
         <source>Falar no canal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="195"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="193"/>
         <source>Sussurrar neste canal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="196"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="194"/>
         <source>Mensagem de texto</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="197"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="195"/>
         <source>Enviar arquivos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="198"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="196"/>
         <source>Baixar arquivos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="223"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="221"/>
         <source>guest</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="224"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="222"/>
         <source>normal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="225"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="223"/>
         <source>admin</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="272"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="270"/>
         <source>OK</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/ChannelDialog.cpp" line="273"/>
+        <location filename="../src/dialogs/ChannelDialog.cpp" line="271"/>
         <source>Cancelar</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2024,42 +2019,42 @@ Conexão recusada para sua proteção.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/net/NetSession.cpp" line="939"/>
+        <location filename="../src/net/NetSession.cpp" line="950"/>
         <source>%1 entrou no servidor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/net/NetSession.cpp" line="949"/>
+        <location filename="../src/net/NetSession.cpp" line="960"/>
         <source>O servidor agora se chama &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/net/NetSession.cpp" line="959"/>
+        <location filename="../src/net/NetSession.cpp" line="970"/>
         <source>%1 saiu do servidor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/net/NetSession.cpp" line="975"/>
+        <location filename="../src/net/NetSession.cpp" line="986"/>
         <source>Você entrou no canal &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/net/NetSession.cpp" line="977"/>
+        <location filename="../src/net/NetSession.cpp" line="988"/>
         <source>%1 entrou no canal &quot;%2&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/net/NetSession.cpp" line="1058"/>
+        <location filename="../src/net/NetSession.cpp" line="1069"/>
         <source>Reclamação registrada</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/net/NetSession.cpp" line="1059"/>
+        <location filename="../src/net/NetSession.cpp" line="1070"/>
         <source>Reclamações limpas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/net/NetSession.cpp" line="1067"/>
+        <location filename="../src/net/NetSession.cpp" line="1078"/>
         <source>Banimento removido</source>
         <translation type="unfinished"></translation>
     </message>

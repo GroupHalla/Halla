@@ -83,7 +83,10 @@ assert "dlg.accept()" in main_window
 assert "tempChannelParent" in models
 channel_dialog = (root / "src/dialogs/ChannelDialog.cpp").read_text(encoding="utf-8")
 assert "Receber canais temporários como subcanais" in channel_dialog
-assert 'value(QStringLiteral("chanEdit"))' in channel_dialog
+assert "O servidor continua sendo a autoridade" in channel_dialog
+assert "m_tempChannelParent->setEnabled(!temporary)" in channel_dialog
+assert 't == "privilege_granted"' in net_session
+assert 'm_myPerms[QStringLiteral("*")] = true' in net_session
 assert 'o["tempParent"]' in server_tab
 assert 'contains("tempParent")' in net_session
 assert "halla-app-icon.png" in (root / "src/gui/Icons.cpp").read_text(encoding="utf-8")
