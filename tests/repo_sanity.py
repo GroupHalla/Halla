@@ -68,5 +68,25 @@ assert "Qt::ElideNone" in tools_dialog
 assert "u.siglaSuffix" in tree_widget
 assert "uA.groupOrderEnabled" in tree_widget
 assert 'm["op"] = remove ? QStringLiteral("remove") : QStringLiteral("add")' in net_session
+
+# Correções de ícone, reinício por idioma e destino de canais temporários.
+assert "m_restartAfterClose" in main_window
+assert "MainWindow::~MainWindow()" in main_window
+assert main_window.count("QProcess::startDetached") == 1
+assert main_window.index("MainWindow::~MainWindow()") < main_window.index("QProcess::startDetached")
+assert "if (!m_restartAfterClose && !m_closingAfterSound" in main_window
+assert 'S::flag("app/minimizeToTray", false)' in main_window
+options_dialog = (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
+assert "emit languageChanged" in options_dialog
+assert "restartForLanguage = true" in main_window
+assert "dlg.accept()" in main_window
+assert "tempChannelParent" in models
+channel_dialog = (root / "src/dialogs/ChannelDialog.cpp").read_text(encoding="utf-8")
+assert "Receber canais temporários como subcanais" in channel_dialog
+assert 'value(QStringLiteral("chanEdit"))' in channel_dialog
+assert 'o["tempParent"]' in server_tab
+assert 'contains("tempParent")' in net_session
+assert "halla-app-icon.png" in (root / "src/gui/Icons.cpp").read_text(encoding="utf-8")
+runpy.run_path(str(root / "tests/icon_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")
 print(f"Halla repository sanity OK: {version}")

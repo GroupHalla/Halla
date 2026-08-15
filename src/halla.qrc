@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/halla">
         <file>assets/halla-logo.png</file>
+        <file>assets/halla-app-icon.png</file>
         <file>assets/tree-arrow-right.svg</file>
         <file>assets/tree-arrow-down.svg</file>
         <file>assets/i18n/halla_en.qm</file>

@@ -789,6 +789,9 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     ch.noSymbol = c.contains("noSymbol")
         ? c["noSymbol"].toBool()
         : d.channels.value(ch.id).noSymbol;
+    ch.tempChannelParent = c.contains("tempParent")
+        ? c["tempParent"].toBool()
+        : d.channels.value(ch.id).tempChannelParent;
     ch.type = c["type"].toInt(2);
     ch.moderated = c["moderated"].toBool();
     ch.codec = c["codec"].toInt(4);

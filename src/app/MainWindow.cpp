@@ -575,15 +575,21 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                                   &MainWindow::applyHotkeys);
                           connect(&dlg, &OptionsDialog::whisperListsChanged, this,
                                   &MainWindow::applyHotkeys);
-                          connect(&dlg, &OptionsDialog::languageChanged, this, [this] {
-                              // Os widgets são construídos com tr() durante a
-                              // inicialização. Reiniciar após a escolha aplica
-                              // a tradução inteira, não apenas o diálogo atual.
-                              QProcess::startDetached(QCoreApplication::applicationFilePath(),
-                                                      QCoreApplication::arguments().mid(1));
-                              qApp->quit();
-                          });
+                          bool restartForLanguage = false;
+                          connect(&dlg, &OptionsDialog::languageChanged, &dlg,
+                                  [&dlg, &restartForLanguage] {
+                                      // Fecha primeiro o diálogo. A janela
+                                      // principal executará o fluxo normal de
+                                      // confirmação/desconexão antes de abrir
+                                      // a nova instância no idioma escolhido.
+                                      restartForLanguage = true;
+                                      dlg.accept();
+                                  });
                           dlg.exec();
+                          if (restartForLanguage) {
+                              m_restartAfterClose = true;
+                              close();
+                          }
                       });
     m_actOptions->setShortcut(QKeySequence(QStringLiteral("Alt+P")));
 
@@ -813,6 +819,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
     // Silently check for updates 3 seconds after startup
     QTimer::singleShot(3000, this, [this]{ checkUpdates(false); });
+}
+
+MainWindow::~MainWindow() {
+    // Só cria o novo processo depois que esta janela, suas conexões e o loop
+    // atual já terminaram. Isso impede duas instâncias visíveis durante a
+    // confirmação de saída ou durante o áudio de desconexão.
+    if (m_restartAfterClose) {
+        QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                                QCoreApplication::arguments().mid(1));
+    }
 }
 
 // ======================================================================
@@ -1353,7 +1369,8 @@ void MainWindow::closeEvent(QCloseEvent* e) {
         return;
     }
 
-    if (!m_closingAfterSound && S::flag("app/closeToTray", false)
+    if (!m_restartAfterClose && !m_closingAfterSound
+            && S::flag("app/closeToTray", false)
             && m_tray && m_tray->isVisible() && !S::flag("app/forceQuit", false)) {
         hide();
         m_tray->showMessage(QStringLiteral("Halla"),
@@ -1369,6 +1386,9 @@ void MainWindow::closeEvent(QCloseEvent* e) {
             tr("Você ainda está conectado a servidores.\nDeseja realmente sair?"),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (ret != QMessageBox::Yes) {
+            // A preferência de idioma fica salva para a próxima abertura, mas
+            // não deve surgir outra instância se o usuário cancelou a saída.
+            m_restartAfterClose = false;
             e->ignore();
             return;
         }

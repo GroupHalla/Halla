@@ -113,6 +113,24 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     tw->setLayout(typerow);
     form->addRow(tr("Tipo do canal:"), tw);
 
+    m_tempChannelParent = new QCheckBox(
+        tr("Receber canais temporários como subcanais"), this);
+    m_tempChannelParent->setToolTip(tr(
+        "Quando qualquer usuário criar um canal temporário, o servidor o colocará automaticamente dentro deste canal."));
+    const QJsonObject myPerms = m_net ? m_net->myPerms() : QJsonObject();
+    const bool canConfigureTempParent = !m_net
+        || myPerms.value(QStringLiteral("*")).toBool()
+        || myPerms.value(QStringLiteral("chanEdit")).toBool();
+    m_tempChannelParent->setEnabled(canConfigureTempParent);
+    if (!canConfigureTempParent)
+        m_tempChannelParent->setToolTip(tr("Apenas usuários com permissão para editar canais podem alterar esta opção."));
+    connect(m_temp, &QRadioButton::toggled, this,
+            [this, canConfigureTempParent](bool temporary) {
+                if (temporary) m_tempChannelParent->setChecked(false);
+                m_tempChannelParent->setEnabled(canConfigureTempParent && !temporary);
+            });
+    form->addRow(QString(), m_tempChannelParent);
+
     m_default = new QCheckBox(tr("Canal padrão"), this);
     m_moderated = new QCheckBox(tr("Moderado (precisa de poder de fala)"), this);
     m_hideSymbol = new QCheckBox(tr("Ocultar símbolo do canal"), this);
@@ -284,6 +302,7 @@ void ChannelDialog::setChannel(const Channel& c) {
     m_default->setChecked(c.isDefault);
     m_moderated->setChecked(c.moderated);
     m_hideSymbol->setChecked(c.noSymbol);
+    m_tempChannelParent->setChecked(c.tempChannelParent && c.type != 0);
     const int idx = m_sortAfter->findData(c.id);
     if (idx >= 0) m_sortAfter->removeItem(idx); // não pode classificar abaixo de si mesmo
 
@@ -311,6 +330,7 @@ Channel ChannelDialog::resultChannel() const {
     c.isDefault = m_default->isChecked();
     c.moderated = m_moderated->isChecked();
     c.noSymbol = m_hideSymbol->isChecked();
+    c.tempChannelParent = m_tempChannelParent->isChecked() && c.type != 0;
     
     const_cast<ChannelDialog*>(this)->saveCurrentGroupPerms();
     c.groupPerms = m_localGroupPerms;

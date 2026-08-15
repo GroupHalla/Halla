@@ -26,6 +26,7 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget* parent = nullptr);
+    ~MainWindow() override;
 
     // abre uma conexão REAL com um Halla Server (rede TCP+UDP).
     // Usado pelo diálogo Conectar, favoritos, conexões recentes e --auto-connect.
@@ -123,6 +124,7 @@ private:
     QSet<ServerTab*> m_disconnectingTabs;
     bool m_closeDelayPending = false;
     bool m_closingAfterSound = false;
+    bool m_restartAfterClose = false;
 
     void wireTab(ServerTab* tab);
 

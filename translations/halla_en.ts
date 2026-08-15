@@ -275,114 +275,129 @@
       <translation>Channel type:</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="116" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="117" />
+      <source>Receber canais temporários como subcanais</source>
+      <translation>Receive temporary channels as subchannels</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="118" />
+      <source>Quando qualquer usuário criar um canal temporário, o servidor o colocará automaticamente dentro deste canal.</source>
+      <translation>Whenever any user creates a temporary channel, the server will automatically place it inside this channel.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="126" />
+      <source>Apenas usuários com permissão para editar canais podem alterar esta opção.</source>
+      <translation>Only users with permission to edit channels can change this option.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="134" />
       <source>Canal padrão</source>
       <translation>Default channel</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="117" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="135" />
       <source>Moderado (precisa de poder de fala)</source>
       <translation>Moderated (requires talk power)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="118" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="136" />
       <source>Ocultar símbolo do canal</source>
       <translation>Hide channel symbol</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="130" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="148" />
       <source>Propriedades</source>
       <translation>Properties</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="141" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="159" />
       <source>Grupos ativos</source>
       <translation>Active groups</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="148" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="166" />
       <source>Adicionar</source>
       <translation>Add</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="149" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="167" />
       <source>Excluir</source>
       <translation>Delete</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="154" />
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="157" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="172" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="175" />
       <source>Grupo</source>
       <translation>Group</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="164" />
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="197" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="182" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="215" />
       <source>Permissões</source>
       <translation>Permissions</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="166" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="184" />
       <source>Negar</source>
       <translation>Deny</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="166" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="184" />
       <source>Permitir</source>
       <translation>Allow</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="175" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="193" />
       <source>Entrar no canal</source>
       <translation>Join channel</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="176" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="194" />
       <source>Falar no canal</source>
       <translation>Talk in channel</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="177" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="195" />
       <source>Sussurrar neste canal</source>
       <translation>Whisper in this channel</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="178" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="196" />
       <source>Mensagem de texto</source>
       <translation>Text message</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="179" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="197" />
       <source>Enviar arquivos</source>
       <translation>Upload files</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="180" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="198" />
       <source>Baixar arquivos</source>
       <translation>Download files</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="205" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="223" />
       <source>guest</source>
       <translation>guest</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="206" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="224" />
       <source>normal</source>
       <translation>normal</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="207" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="225" />
       <source>admin</source>
       <translation>admin</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="254" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="272" />
       <source>OK</source>
       <translation>OK</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/ChannelDialog.cpp" line="255" />
+      <location filename="../src/dialogs/ChannelDialog.cpp" line="273" />
       <source>Cancelar</source>
       <translation>Cancel</translation>
     </message>
@@ -1306,7 +1321,7 @@
     </message>
     <message>
       <location filename="../src/app/MainWindow.cpp" line="292" />
-      <location filename="../src/app/MainWindow.cpp" line="714" />
+      <location filename="../src/app/MainWindow.cpp" line="720" />
       <source>Desconectar</source>
       <translation>Disconnect</translation>
     </message>
@@ -1327,8 +1342,8 @@
     </message>
     <message>
       <location filename="../src/app/MainWindow.cpp" line="307" />
-      <location filename="../src/app/MainWindow.cpp" line="774" />
-      <location filename="../src/app/MainWindow.cpp" line="1368" />
+      <location filename="../src/app/MainWindow.cpp" line="780" />
+      <location filename="../src/app/MainWindow.cpp" line="1385" />
       <source>Sair</source>
       <translation>Exit</translation>
     </message>
@@ -1521,7 +1536,7 @@
     </message>
     <message>
       <location filename="../src/app/MainWindow.cpp" line="485" />
-      <location filename="../src/app/MainWindow.cpp" line="1130" />
+      <location filename="../src/app/MainWindow.cpp" line="1146" />
       <source>Iniciar gravação</source>
       <translation>Start recording</translation>
     </message>
@@ -1571,287 +1586,287 @@
       <translation>Options...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="590" />
+      <location filename="../src/app/MainWindow.cpp" line="596" />
       <source>A&amp;juda</source>
       <translation>H&amp;elp</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="591" />
+      <location filename="../src/app/MainWindow.cpp" line="597" />
       <source>Sobre o Halla</source>
       <translation>About Halla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="594" />
+      <location filename="../src/app/MainWindow.cpp" line="600" />
       <location filename="../src/app/MainWindowUpdates.cpp" line="84" />
       <location filename="../src/app/MainWindowUpdates.cpp" line="132" />
       <source>Verificar atualizações</source>
       <translation>Check for updates</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="600" />
+      <location filename="../src/app/MainWindow.cpp" line="606" />
       <source>Principal</source>
       <translation>Main</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="638" />
+      <location filename="../src/app/MainWindow.cpp" line="644" />
       <source>Opções de reprodução...</source>
       <translation>Playback options...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="641" />
+      <location filename="../src/app/MainWindow.cpp" line="647" />
       <source>Reprodução</source>
       <translation>Playback</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="660" />
+      <location filename="../src/app/MainWindow.cpp" line="666" />
       <location filename="../src/app/MainWindowUpdates.cpp" line="254" />
       <source>Notificações</source>
       <translation>Notifications</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="717" />
+      <location filename="../src/app/MainWindow.cpp" line="723" />
       <source>Adicionar aos favoritos</source>
       <translation>Add to favorites</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="737" />
-      <location filename="../src/app/MainWindow.cpp" line="1145" />
+      <location filename="../src/app/MainWindow.cpp" line="743" />
+      <location filename="../src/app/MainWindow.cpp" line="1161" />
       <source>Nenhum servidor</source>
       <translation>No server</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="743" />
+      <location filename="../src/app/MainWindow.cpp" line="749" />
       <source>Bem-vindo ao Halla!  •  Cliente de comunicação de voz  •  github.com/GroupHalla/Halla</source>
       <translation>Welcome to Halla!  •  Voice communication client  •  github.com/GroupHalla/Halla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="753" />
-      <location filename="../src/app/MainWindow.cpp" line="1166" />
+      <location filename="../src/app/MainWindow.cpp" line="759" />
+      <location filename="../src/app/MainWindow.cpp" line="1182" />
       <source>Desconectado</source>
       <translation>Disconnected</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="767" />
+      <location filename="../src/app/MainWindow.cpp" line="773" />
       <source>Mostrar Halla</source>
       <translation>Show Halla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="812" />
+      <location filename="../src/app/MainWindow.cpp" line="818" />
       <source>Halla %1 iniciado</source>
       <translation>Halla %1 started</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="834" />
+      <location filename="../src/app/MainWindow.cpp" line="850" />
       <source>Erro ao conectar</source>
       <translation>Error connecting</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="835" />
+      <location filename="../src/app/MainWindow.cpp" line="851" />
       <source>&lt;b&gt;Falha ao conectar ao servidor %1:%2&lt;/b&gt;&lt;br&gt;%3</source>
       <translation>&lt;b&gt;Failed to connect to server %1:%2&lt;/b&gt;&lt;br&gt;%3</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="850" />
+      <location filename="../src/app/MainWindow.cpp" line="866" />
       <source>Servidor: %1</source>
       <translation>Server: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="853" />
-      <location filename="../src/app/MainWindow.cpp" line="925" />
-      <location filename="../src/app/MainWindow.cpp" line="1722" />
+      <location filename="../src/app/MainWindow.cpp" line="869" />
+      <location filename="../src/app/MainWindow.cpp" line="941" />
+      <location filename="../src/app/MainWindow.cpp" line="1742" />
       <source>Conectado ao servidor: %1</source>
       <translation>Connected to server: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="861" />
+      <location filename="../src/app/MainWindow.cpp" line="877" />
       <source>Desconectado do servidor.</source>
       <translation>Disconnected from server.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="866" />
+      <location filename="../src/app/MainWindow.cpp" line="882" />
       <source>Conectado ao servidor</source>
       <translation>Connected to server</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="926" />
+      <location filename="../src/app/MainWindow.cpp" line="942" />
       <source>Você entrou no canal "%1".</source>
       <translation>You have joined the channel "%1".</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="941" />
-      <location filename="../src/app/MainWindow.cpp" line="964" />
-      <location filename="../src/app/MainWindow.cpp" line="1382" />
+      <location filename="../src/app/MainWindow.cpp" line="957" />
+      <location filename="../src/app/MainWindow.cpp" line="980" />
+      <location filename="../src/app/MainWindow.cpp" line="1402" />
       <source>Desconectado do servidor</source>
       <translation>Disconnected from server</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="996" />
+      <location filename="../src/app/MainWindow.cpp" line="1012" />
       <source>Desconectado de %1</source>
       <translation>Disconnected from %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1038" />
+      <location filename="../src/app/MainWindow.cpp" line="1054" />
       <source>(nenhum favorito)</source>
       <translation>(no favorites)</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1051" />
+      <location filename="../src/app/MainWindow.cpp" line="1067" />
       <source>Conectar a todos os favoritos</source>
       <translation>Connect to all bookmarks</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1095" />
+      <location filename="../src/app/MainWindow.cpp" line="1111" />
       <source>(vazio)</source>
       <translation>(empty)</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1129" />
+      <location filename="../src/app/MainWindow.cpp" line="1145" />
       <source>Parar gravação</source>
       <translation>Stop recording</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1151" />
+      <location filename="../src/app/MainWindow.cpp" line="1167" />
       <source>Conectado como %1</source>
       <translation>Connected as %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1154" />
+      <location filename="../src/app/MainWindow.cpp" line="1170" />
       <source>Ping: %1 ms   Perda de pacotes: %2%</source>
       <translation>Ping: %1 ms Packet loss: %2%</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1157" />
+      <location filename="../src/app/MainWindow.cpp" line="1173" />
       <source>Ping: --</source>
       <translation>Ping: --</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1160" />
+      <location filename="../src/app/MainWindow.cpp" line="1176" />
       <source>%1 servidores</source>
       <translation>%1 servers</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1162" />
+      <location filename="../src/app/MainWindow.cpp" line="1178" />
       <source>%1 conexões abertas</source>
       <translation>%1 open connections</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1198" />
+      <location filename="../src/app/MainWindow.cpp" line="1214" />
       <source>microfone</source>
       <translation>microphone</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1201" />
+      <location filename="../src/app/MainWindow.cpp" line="1217" />
       <source>alto-falantes</source>
       <translation>speakers</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1204" />
+      <location filename="../src/app/MainWindow.cpp" line="1220" />
       <source>ausente</source>
       <translation>away</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1207" />
+      <location filename="../src/app/MainWindow.cpp" line="1223" />
       <source>comandante</source>
       <translation>commander</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1215" />
+      <location filename="../src/app/MainWindow.cpp" line="1231" />
       <source>gravação</source>
       <translation>recording</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1218" />
+      <location filename="../src/app/MainWindow.cpp" line="1234" />
       <source>transmissão contínua</source>
       <translation>continuous transmission</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1221" />
+      <location filename="../src/app/MainWindow.cpp" line="1237" />
       <source>Transmissão contínua desativada</source>
       <translation>Continuous transmission disabled</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1222" />
+      <location filename="../src/app/MainWindow.cpp" line="1238" />
       <source>Transmissão contínua ativada</source>
       <translation>Continuous transmission enabled</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1241" />
-      <location filename="../src/app/MainWindow.cpp" line="1243" />
+      <location filename="../src/app/MainWindow.cpp" line="1257" />
+      <location filename="../src/app/MainWindow.cpp" line="1259" />
       <source>Padrão</source>
       <translation>Default</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1360" />
-      <location filename="../src/app/MainWindow.cpp" line="1413" />
+      <location filename="../src/app/MainWindow.cpp" line="1377" />
+      <location filename="../src/app/MainWindow.cpp" line="1433" />
       <source>O Halla continua em execução na bandeja do sistema.</source>
       <translation>Halla is still running in the system tray.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1369" />
+      <location filename="../src/app/MainWindow.cpp" line="1386" />
       <source>Você ainda está conectado a servidores.
 Deseja realmente sair?</source>
       <translation>You are still connected to servers.
 Do you really want to leave?</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1398" />
+      <location filename="../src/app/MainWindow.cpp" line="1418" />
       <source>Halla encerrado</source>
       <translation>Halla closed</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1631" />
+      <location filename="../src/app/MainWindow.cpp" line="1651" />
       <source>PTT global registrado no mouse: %1</source>
       <translation>Global PTT registered on mouse: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1643" />
+      <location filename="../src/app/MainWindow.cpp" line="1663" />
       <source>Tecla PTT global registrada: %1</source>
       <translation>Registered global PTT key: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1645" />
+      <location filename="../src/app/MainWindow.cpp" line="1665" />
       <source>Não foi possível registrar a tecla PTT: %1</source>
       <translation>Could not register the PTT key: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1696" />
+      <location filename="../src/app/MainWindow.cpp" line="1716" />
       <source>Canal padrão</source>
       <translation>Default channel</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1723" />
+      <location filename="../src/app/MainWindow.cpp" line="1743" />
       <source>Você entrou no canal "Canal padrão".</source>
       <translation>You have entered the "Default Channel" channel.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1737" />
+      <location filename="../src/app/MainWindow.cpp" line="1757" />
       <source>Compartilhamento de Tela</source>
       <translation>Screen Sharing</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1738" />
+      <location filename="../src/app/MainWindow.cpp" line="1758" />
       <source>O compartilhamento de tela está desativado pelas configurações deste servidor.</source>
       <translation>Screen sharing is disabled by this server's settings.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1758" />
-      <location filename="../src/app/MainWindow.cpp" line="2007" />
+      <location filename="../src/app/MainWindow.cpp" line="1778" />
+      <location filename="../src/app/MainWindow.cpp" line="2027" />
       <source>Minha transmissão</source>
       <translation>My broadcast</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1875" />
-      <location filename="../src/app/MainWindow.cpp" line="1952" />
+      <location filename="../src/app/MainWindow.cpp" line="1895" />
+      <location filename="../src/app/MainWindow.cpp" line="1972" />
       <source>Usuário #%1</source>
       <translation>User #%1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1997" />
+      <location filename="../src/app/MainWindow.cpp" line="2017" />
       <source>Transmissão</source>
       <translation>Transmission</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1997" />
+      <location filename="../src/app/MainWindow.cpp" line="2017" />
       <source>Você não tem permissão para entrar no canal desta transmissão.</source>
       <translation>You are not allowed to join the channel for this broadcast.</translation>
     </message>
@@ -2004,57 +2019,57 @@ Connection refused for your protection.</translation>
       <translation>Unable to connect to server</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="834" />
+      <location filename="../src/net/NetSession.cpp" line="837" />
       <source>Não foi possível assinar o desafio da identidade</source>
       <translation>Unable to sign identity challenge</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="847" />
+      <location filename="../src/net/NetSession.cpp" line="850" />
       <source>Erro do servidor: %1 (%2)</source>
       <translation>Server error: %1 (%2)</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="910" />
+      <location filename="../src/net/NetSession.cpp" line="913" />
       <source>Conectado a %1 como %2</source>
       <translation>Connected to %1 as %2</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="936" />
+      <location filename="../src/net/NetSession.cpp" line="939" />
       <source>%1 entrou no servidor</source>
       <translation>%1 joined the server</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="946" />
+      <location filename="../src/net/NetSession.cpp" line="949" />
       <source>O servidor agora se chama "%1"</source>
       <translation>The server is now called "%1"</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="956" />
+      <location filename="../src/net/NetSession.cpp" line="959" />
       <source>%1 saiu do servidor</source>
       <translation>%1 has left the server</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="972" />
+      <location filename="../src/net/NetSession.cpp" line="975" />
       <source>Você entrou no canal "%1"</source>
       <translation>You have joined the channel "%1"</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="974" />
+      <location filename="../src/net/NetSession.cpp" line="977" />
       <source>%1 entrou no canal "%2"</source>
       <translation>%1 joined the channel "%2"</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="1055" />
+      <location filename="../src/net/NetSession.cpp" line="1058" />
       <source>Reclamação registrada</source>
       <translation>Complaint registered</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="1056" />
+      <location filename="../src/net/NetSession.cpp" line="1059" />
       <source>Reclamações limpas</source>
       <translation>Complaints cleared</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="1064" />
+      <location filename="../src/net/NetSession.cpp" line="1067" />
       <source>Banimento removido</source>
       <translation>Ban removed</translation>
     </message>
@@ -4117,580 +4132,580 @@ The assignment is saved on the server (by unique ID).</translation>
   <context>
     <name>ServerTab</name>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="105" />
+      <location filename="../src/gui/ServerTab.cpp" line="106" />
       <source>Mostrar descrição e informações do servidor</source>
       <translation>Show server description and information</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="114" />
+      <location filename="../src/gui/ServerTab.cpp" line="115" />
       <source>Adicionar aos favoritos</source>
       <translation>Add to favorites</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="120" />
+      <location filename="../src/gui/ServerTab.cpp" line="121" />
       <source>Opções do servidor</source>
       <translation>Server Options</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="180" />
+      <location filename="../src/gui/ServerTab.cpp" line="181" />
       <source>🎧  Bem-vindo ao Halla</source>
       <translation>🎧 Welcome to Halla</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="251" />
-      <location filename="../src/gui/ServerTab.cpp" line="260" />
+      <location filename="../src/gui/ServerTab.cpp" line="252" />
+      <location filename="../src/gui/ServerTab.cpp" line="261" />
       <source>%1 entrou no seu canal</source>
       <translation>%1 joined your channel</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="264" />
-      <location filename="../src/gui/ServerTab.cpp" line="272" />
+      <location filename="../src/gui/ServerTab.cpp" line="265" />
+      <location filename="../src/gui/ServerTab.cpp" line="273" />
       <source>%1 saiu do seu canal</source>
       <translation>%1 has left your channel</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="301" />
+      <location filename="../src/gui/ServerTab.cpp" line="302" />
       <source>Mensagem de %1</source>
       <translation>Message from %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="313" />
+      <location filename="../src/gui/ServerTab.cpp" line="314" />
       <source>Você foi cutucado por %1: %2</source>
       <translation>You were poked by %1: %2</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="315" />
+      <location filename="../src/gui/ServerTab.cpp" line="316" />
       <source>Cutucada de %1</source>
       <translation>Poke from %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="322" />
+      <location filename="../src/gui/ServerTab.cpp" line="323" />
       <source>Mensagem offline de %1 — abra Ferramentas &gt; Mensagens offline.</source>
       <translation>Offline message from %1 — open Tools &gt; Offline Messages.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="329" />
+      <location filename="../src/gui/ServerTab.cpp" line="330" />
       <source>Erro do servidor: %1</source>
       <translation>Server error: %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="338" />
+      <location filename="../src/gui/ServerTab.cpp" line="339" />
       <source>Chave de privilégio</source>
       <translation>Privilege key</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="346" />
+      <location filename="../src/gui/ServerTab.cpp" line="347" />
       <source>Você foi banido</source>
       <translation>You have been banned</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="347" />
+      <location filename="../src/gui/ServerTab.cpp" line="348" />
       <source>Você foi banido deste servidor%1%2.</source>
       <translation>You have been banned from this server%1%2.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="348" />
+      <location filename="../src/gui/ServerTab.cpp" line="349" />
       <source>.
 Motivo: %1</source>
       <translation>.
 Reason: %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="349" />
+      <location filename="../src/gui/ServerTab.cpp" line="350" />
       <source>
 Duração: %1 minutos</source>
       <translation>
 Duration: %1 minutes</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="352" />
+      <location filename="../src/gui/ServerTab.cpp" line="353" />
       <source>Você foi expulso%1</source>
       <translation>You've been kicked out%1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="352" />
+      <location filename="../src/gui/ServerTab.cpp" line="353" />
       <source>: %1</source>
       <translation>: %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="438" />
+      <location filename="../src/gui/ServerTab.cpp" line="439" />
       <source>Descrição — %1</source>
       <translation>Description — %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="444" />
+      <location filename="../src/gui/ServerTab.cpp" line="445" />
       <source>&lt;i&gt;Este canal não tem descrição.&lt;/i&gt;</source>
       <translation>&lt;i&gt;This channel has no description.&lt;/i&gt;</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="467" />
+      <location filename="../src/gui/ServerTab.cpp" line="468" />
       <source>Registrar reclamação</source>
       <translation>Register complaint</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="468" />
+      <location filename="../src/gui/ServerTab.cpp" line="469" />
       <source>Descreva a reclamação sobre \"%1\":</source>
       <translation>Describe the complaint about \"%1\":</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="473" />
-      <location filename="../src/gui/ServerTab.cpp" line="475" />
+      <location filename="../src/gui/ServerTab.cpp" line="474" />
+      <location filename="../src/gui/ServerTab.cpp" line="476" />
       <source>Reclamação sobre \"%1\" foi registrada.</source>
       <translation>Complaint about \"%1\" has been registered.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="483" />
+      <location filename="../src/gui/ServerTab.cpp" line="484" />
       <source>Cliente "%1" foi silenciado localmente.</source>
       <translation>Client "%1" has been muted locally.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="484" />
+      <location filename="../src/gui/ServerTab.cpp" line="485" />
       <source>Cliente "%1" deixou de ser silenciado.</source>
       <translation>Client "%1" is no longer muted.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="505" />
+      <location filename="../src/gui/ServerTab.cpp" line="506" />
       <source>Você não tem permissão para definir o comandante do canal.</source>
       <translation>You are not allowed to set the channel commander.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="557" />
+      <location filename="../src/gui/ServerTab.cpp" line="558" />
       <source>Canais vinculados</source>
       <translation>Linked channels</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="558" />
+      <location filename="../src/gui/ServerTab.cpp" line="559" />
       <source>Você não tem permissão para vincular canais.</source>
       <translation>You are not allowed to link channels.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="592" />
+      <location filename="../src/gui/ServerTab.cpp" line="593" />
       <source>Volume de "%1" definido para %2 dB.</source>
       <translation>Volume of "%1" set to %2 dB.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="612" />
+      <location filename="../src/gui/ServerTab.cpp" line="613" />
       <source>Você foi %1 do servidor.</source>
       <translation>You were %1 from the server.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="612" />
+      <location filename="../src/gui/ServerTab.cpp" line="613" />
       <source>banido</source>
       <translation>banned</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="613" />
+      <location filename="../src/gui/ServerTab.cpp" line="614" />
       <source>expulso</source>
       <translation>kicked</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="619" />
+      <location filename="../src/gui/ServerTab.cpp" line="620" />
       <source>Cliente banido do servidor.</source>
       <translation>Client banned from the server.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="620" />
+      <location filename="../src/gui/ServerTab.cpp" line="621" />
       <source>Cliente expulso do servidor.</source>
       <translation>Client kicked from the server.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="636" />
+      <location filename="../src/gui/ServerTab.cpp" line="637" />
       <source>Você cutucou "%1": %2</source>
       <translation>You poked "%1": %2</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="724" />
-      <location filename="../src/gui/ServerTab.cpp" line="742" />
+      <location filename="../src/gui/ServerTab.cpp" line="725" />
+      <location filename="../src/gui/ServerTab.cpp" line="743" />
       <source>Senha do canal</source>
       <translation>Channel password</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="725" />
-      <location filename="../src/gui/ServerTab.cpp" line="743" />
+      <location filename="../src/gui/ServerTab.cpp" line="726" />
+      <location filename="../src/gui/ServerTab.cpp" line="744" />
       <source>O canal "%1" é protegido por senha.
 Digite a senha:</source>
       <translation>The channel "%1" is password protected.
 Enter password:</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="736" />
+      <location filename="../src/gui/ServerTab.cpp" line="737" />
       <source>Canal cheio</source>
       <translation>Full channel</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="737" />
+      <location filename="../src/gui/ServerTab.cpp" line="738" />
       <source>O canal "%1" está cheio.</source>
       <translation>The channel "%1" is full.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="748" />
+      <location filename="../src/gui/ServerTab.cpp" line="749" />
       <source>Senha inválida</source>
       <translation>Invalid password</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="749" />
+      <location filename="../src/gui/ServerTab.cpp" line="750" />
       <source>Senha do canal incorreta.</source>
       <translation>Incorrect channel password.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="758" />
+      <location filename="../src/gui/ServerTab.cpp" line="759" />
       <source>Você entrou no canal "%1".</source>
       <translation>You have joined the channel "%1".</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="759" />
+      <location filename="../src/gui/ServerTab.cpp" line="760" />
       <source>Entrou no canal "%1"</source>
       <translation>Joined the channel "%1"</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="765" />
+      <location filename="../src/gui/ServerTab.cpp" line="766" />
       <source>Criar canal</source>
       <translation>Create channel</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="778" />
+      <location filename="../src/gui/ServerTab.cpp" line="779" />
       <source>Canal "%1" foi criado.</source>
       <translation>Channel "%1" has been created.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="779" />
+      <location filename="../src/gui/ServerTab.cpp" line="780" />
       <source>Canal "%1" criado</source>
       <translation>Channel "%1" created</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="786" />
+      <location filename="../src/gui/ServerTab.cpp" line="787" />
       <source>Editar canal</source>
       <translation>Edit channel</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="804" />
+      <location filename="../src/gui/ServerTab.cpp" line="805" />
       <source>Canal "%1" editado</source>
       <translation>Channel "%1" edited</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="814" />
-      <location filename="../src/gui/ServerTab.cpp" line="821" />
-      <location filename="../src/gui/ServerTab.cpp" line="826" />
+      <location filename="../src/gui/ServerTab.cpp" line="815" />
+      <location filename="../src/gui/ServerTab.cpp" line="822" />
+      <location filename="../src/gui/ServerTab.cpp" line="827" />
       <source>Excluir canal</source>
       <translation>Delete channel</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="815" />
+      <location filename="../src/gui/ServerTab.cpp" line="816" />
       <source>Você não pode excluir o canal em que está.</source>
       <translation>You cannot delete the channel you are on.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="822" />
+      <location filename="../src/gui/ServerTab.cpp" line="823" />
       <source>Exclua primeiro os sub-canais de "%1".</source>
       <translation>Delete the sub-channels of "%1" first.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="827" />
+      <location filename="../src/gui/ServerTab.cpp" line="828" />
       <source>Deseja realmente excluir o canal "%1"?</source>
       <translation>Do you really want to delete the channel "%1"?</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="843" />
+      <location filename="../src/gui/ServerTab.cpp" line="844" />
       <source>Canal "%1" foi excluído.</source>
       <translation>Channel "%1" has been deleted.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="844" />
+      <location filename="../src/gui/ServerTab.cpp" line="845" />
       <source>Canal "%1" excluído</source>
       <translation>Channel "%1" deleted</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="852" />
+      <location filename="../src/gui/ServerTab.cpp" line="853" />
       <source>Alterar apelido</source>
       <translation>Change nickname</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="853" />
+      <location filename="../src/gui/ServerTab.cpp" line="854" />
       <source>Novo apelido:</source>
       <translation>New nickname:</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="861" />
+      <location filename="../src/gui/ServerTab.cpp" line="862" />
       <source>Você alterou o apelido de "%1" para "%2".</source>
       <translation>You changed the nickname from "%1" to "%2".</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="862" />
+      <location filename="../src/gui/ServerTab.cpp" line="863" />
       <source>Apelido alterado para "%1"</source>
       <translation>Nickname changed to "%1"</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="872" />
+      <location filename="../src/gui/ServerTab.cpp" line="873" />
       <source>Descrição do cliente</source>
       <translation>Client description</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="873" />
+      <location filename="../src/gui/ServerTab.cpp" line="874" />
       <source>Descrição:</source>
       <translation>Description:</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="886" />
+      <location filename="../src/gui/ServerTab.cpp" line="887" />
       <source>Editar servidor virtual</source>
       <translation>Edit virtual server</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="890" />
+      <location filename="../src/gui/ServerTab.cpp" line="891" />
       <source>Nome do servidor:</source>
       <translation>Server name:</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="891" />
+      <location filename="../src/gui/ServerTab.cpp" line="892" />
       <source>Mensagem do dia:</source>
       <translation>Message of the day:</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="900" />
-      <location filename="../src/gui/ServerTab.cpp" line="951" />
+      <location filename="../src/gui/ServerTab.cpp" line="901" />
+      <location filename="../src/gui/ServerTab.cpp" line="952" />
       <source>Banner padrão</source>
       <translation>Default banner</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="900" />
-      <location filename="../src/gui/ServerTab.cpp" line="943" />
+      <location filename="../src/gui/ServerTab.cpp" line="901" />
+      <location filename="../src/gui/ServerTab.cpp" line="944" />
       <source>Banner personalizado</source>
       <translation>Custom banner</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="907" />
+      <location filename="../src/gui/ServerTab.cpp" line="908" />
       <source>Escolher imagem...</source>
       <translation>Choose image...</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="908" />
+      <location filename="../src/gui/ServerTab.cpp" line="909" />
       <source>Remover</source>
       <translation>Remove</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="913" />
+      <location filename="../src/gui/ServerTab.cpp" line="914" />
       <source>Imagem do banner:</source>
       <translation>Banner image:</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="917" />
+      <location filename="../src/gui/ServerTab.cpp" line="918" />
       <source>Selecionar imagem do banner</source>
       <translation>Select banner image</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="918" />
+      <location filename="../src/gui/ServerTab.cpp" line="919" />
       <source>Imagens (*.png *.jpg *.jpeg *.gif *.webp)</source>
       <translation>Images (*.png *.jpg *.jpeg *.gif *.webp)</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="922" />
-      <location filename="../src/gui/ServerTab.cpp" line="937" />
+      <location filename="../src/gui/ServerTab.cpp" line="923" />
+      <location filename="../src/gui/ServerTab.cpp" line="938" />
       <source>Banner</source>
       <translation>Banner</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="922" />
+      <location filename="../src/gui/ServerTab.cpp" line="923" />
       <source>Não foi possível abrir essa imagem.</source>
       <translation>Could not open this image.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="938" />
+      <location filename="../src/gui/ServerTab.cpp" line="939" />
       <source>A imagem precisa ter no máximo 512 KiB.</source>
       <translation>The image must be no larger than 512 KiB.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="965" />
+      <location filename="../src/gui/ServerTab.cpp" line="966" />
       <source>Solicitação de edição do servidor virtual enviada.</source>
       <translation>Virtual server edit request sent.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="972" />
+      <location filename="../src/gui/ServerTab.cpp" line="973" />
       <source>Servidor renomeado para "%1".</source>
       <translation>Server renamed to "%1".</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="983" />
-      <location filename="../src/gui/ServerTab.cpp" line="996" />
-      <location filename="../src/gui/ServerTab.cpp" line="1018" />
-      <location filename="../src/gui/ServerTab.cpp" line="1028" />
+      <location filename="../src/gui/ServerTab.cpp" line="984" />
+      <location filename="../src/gui/ServerTab.cpp" line="997" />
+      <location filename="../src/gui/ServerTab.cpp" line="1019" />
+      <location filename="../src/gui/ServerTab.cpp" line="1029" />
       <source>Avatar</source>
       <translation>Avatar</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="984" />
-      <location filename="../src/gui/ServerTab.cpp" line="997" />
+      <location filename="../src/gui/ServerTab.cpp" line="985" />
+      <location filename="../src/gui/ServerTab.cpp" line="998" />
       <source>Nenhum avatar definido para este cliente.</source>
       <translation>No avatar is set for this client.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1001" />
+      <location filename="../src/gui/ServerTab.cpp" line="1002" />
       <source>Avatar de %1</source>
       <translation>%1 Avatar</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1019" />
+      <location filename="../src/gui/ServerTab.cpp" line="1020" />
       <source>Avatares exigem conexão com um Halla Server.</source>
       <translation>Avatars require connection to a Halla Server.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1023" />
+      <location filename="../src/gui/ServerTab.cpp" line="1024" />
       <source>Definir avatar</source>
       <translation>Set avatar</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1024" />
+      <location filename="../src/gui/ServerTab.cpp" line="1025" />
       <source>Imagens (*.png *.jpg *.jpeg *.bmp *.webp)</source>
       <translation>Images (*.png *.jpg *.jpeg *.bmp *.webp)</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1028" />
+      <location filename="../src/gui/ServerTab.cpp" line="1029" />
       <source>Não foi possível ler a imagem.</source>
       <translation>Unable to read the image.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1040" />
+      <location filename="../src/gui/ServerTab.cpp" line="1041" />
       <source>Avatar enviado ao servidor.</source>
       <translation>Avatar sent to the server.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1046" />
+      <location filename="../src/gui/ServerTab.cpp" line="1047" />
       <source>Avatar removido.</source>
       <translation>Avatar removed.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1057" />
+      <location filename="../src/gui/ServerTab.cpp" line="1058" />
       <source>Gravação interrompida.</source>
       <translation>Recording interrupted.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1063" />
+      <location filename="../src/gui/ServerTab.cpp" line="1064" />
       <source>A gravação requer uma conexão ativa com captura de áudio.</source>
       <translation>Recording requires an active connection to audio capture.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1072" />
+      <location filename="../src/gui/ServerTab.cpp" line="1073" />
       <source>Gravação</source>
       <translation>Recording</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1073" />
+      <location filename="../src/gui/ServerTab.cpp" line="1074" />
       <source>Não foi possível criar o arquivo:
 %1</source>
       <translation>Unable to create file:
 %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1079" />
+      <location filename="../src/gui/ServerTab.cpp" line="1080" />
       <source>Gravação iniciada: %1</source>
       <translation>Recording started: %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1080" />
+      <location filename="../src/gui/ServerTab.cpp" line="1081" />
       <source>Gravação iniciada em %1</source>
       <translation>Recording started at %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1088" />
+      <location filename="../src/gui/ServerTab.cpp" line="1089" />
       <source>Mensagens offline</source>
       <translation>Offline messages</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1089" />
+      <location filename="../src/gui/ServerTab.cpp" line="1090" />
       <source>Mensagens offline exigem conexão com um Halla Server.</source>
       <translation>Offline messaging requires connection to a Halla Server.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1107" />
-      <location filename="../src/gui/ServerTab.cpp" line="1212" />
+      <location filename="../src/gui/ServerTab.cpp" line="1108" />
+      <location filename="../src/gui/ServerTab.cpp" line="1213" />
       <source>Sussurro desativado. Sua voz segue para o canal.</source>
       <translation>Whisper disabled. Your voice carries on the channel.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1115" />
+      <location filename="../src/gui/ServerTab.cpp" line="1116" />
       <source>Sussurro ativado (nenhum destinatário está conectado no momento).</source>
       <translation>Whisper enabled (no recipients are currently logged in).</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1116" />
+      <location filename="../src/gui/ServerTab.cpp" line="1117" />
       <source>Sussurro ativado para: %1</source>
       <translation>Whisper activated for: %1</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1199" />
+      <location filename="../src/gui/ServerTab.cpp" line="1200" />
       <source>Sussurro: a lista de usuários está vazia — configure em Ferramentas &gt; Listas de sussurro.</source>
       <translation>Whisper: User list is empty — configure in Tools &gt; Whisper Lists.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1203" />
+      <location filename="../src/gui/ServerTab.cpp" line="1204" />
       <source>canal atual</source>
       <translation>current channel</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1203" />
+      <location filename="../src/gui/ServerTab.cpp" line="1204" />
       <source>canal atual + subcanais</source>
       <translation>current channel + subchannels</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1204" />
+      <location filename="../src/gui/ServerTab.cpp" line="1205" />
       <source>lista de usuários</source>
       <translation>user list</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1205" />
+      <location filename="../src/gui/ServerTab.cpp" line="1206" />
       <source>Sussurro ativo (%1): sua voz vai para %2 usuário(s).</source>
       <translation>Active Whisper (%1): Your voice goes to %2 user(s).</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1226" />
+      <location filename="../src/gui/ServerTab.cpp" line="1227" />
       <source>Você não tem permissão para ser comandante do canal.</source>
       <translation>You are not allowed to be channel commander.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1234" />
+      <location filename="../src/gui/ServerTab.cpp" line="1235" />
       <source>Você agora é o comandante do canal.</source>
       <translation>You are now the channel commander.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1235" />
+      <location filename="../src/gui/ServerTab.cpp" line="1236" />
       <source>Você não é mais o comandante do canal.</source>
       <translation>You are no longer the channel commander.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1245" />
+      <location filename="../src/gui/ServerTab.cpp" line="1246" />
       <source>Você está ausente agora.</source>
       <translation>You are away now.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1245" />
+      <location filename="../src/gui/ServerTab.cpp" line="1246" />
       <source>Você não está mais ausente.</source>
       <translation>You are no longer absent.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1246" />
+      <location filename="../src/gui/ServerTab.cpp" line="1247" />
       <source>Estado: ausente</source>
       <translation>Status: away</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1246" />
+      <location filename="../src/gui/ServerTab.cpp" line="1247" />
       <source>Estado: de volta</source>
       <translation>Status: back</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1259" />
+      <location filename="../src/gui/ServerTab.cpp" line="1260" />
       <source>Microfone mudo ativado.</source>
       <translation>Microphone mute activated.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1259" />
+      <location filename="../src/gui/ServerTab.cpp" line="1260" />
       <source>Microfone mudo desativado.</source>
       <translation>Microphone mute disabled.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1276" />
+      <location filename="../src/gui/ServerTab.cpp" line="1277" />
       <source>Alto-falantes mudos.</source>
       <translation>Speakers muted.</translation>
     </message>
     <message>
-      <location filename="../src/gui/ServerTab.cpp" line="1276" />
+      <location filename="../src/gui/ServerTab.cpp" line="1277" />
       <source>Alto-falantes reativados.</source>
       <translation>Speakers unmuted.</translation>
     </message>

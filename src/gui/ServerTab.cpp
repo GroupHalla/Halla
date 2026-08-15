@@ -50,6 +50,7 @@ static QJsonObject chanToJson(const Channel& c) {
     o["desc"] = c.description;
     o["pass"] = c.passwordHash;
     o["noSymbol"] = c.noSymbol;
+    o["tempParent"] = c.tempChannelParent;
     o["type"] = c.type;
     o["moderated"] = c.moderated;
     o["codec"] = c.codec;

@@ -45,6 +45,7 @@ private:
     QCheckBox* m_default;
     QCheckBox* m_moderated;
     QCheckBox* m_hideSymbol;
+    QCheckBox* m_tempChannelParent;
 
     // Editor visual em duas colunas, mantendo somente as seis permissões
     // específicas que o servidor Halla já aplica por grupo.
