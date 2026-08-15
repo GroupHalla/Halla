@@ -219,6 +219,9 @@ static QString localizedServerError(const QString& code, const QString& serverTe
         { QStringLiteral("avatar_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "O avatar excede o limite permitido.") },
         { QStringLiteral("icon_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "O ícone excede o limite permitido.") },
         { QStringLiteral("file_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "O arquivo excede o limite permitido.") },
+        { QStringLiteral("plugin_data_unsupported"), QT_TRANSLATE_NOOP("ServerErrors", "Este servidor não oferece transporte de dados para complementos.") },
+        { QStringLiteral("bad_plugin_data"), QT_TRANSLATE_NOOP("ServerErrors", "Os dados enviados pelo complemento são inválidos.") },
+        { QStringLiteral("plugin_data_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "Os dados enviados pelo complemento excedem o limite permitido.") },
         { QStringLiteral("quota"), QT_TRANSLATE_NOOP("ServerErrors", "A cota de arquivos do canal foi excedida.") },
         { QStringLiteral("inbox_full"), QT_TRANSLATE_NOOP("ServerErrors", "A caixa de entrada do usuário está cheia.") },
         { QStringLiteral("io_error"), QT_TRANSLATE_NOOP("ServerErrors", "O servidor não conseguiu salvar os dados.") },
@@ -1031,7 +1034,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "poke") {
-        emit pokeReceived(obj["fromName"].toString(""), obj["msg"].toString());
+        emit pokeReceived(obj["from"].toInt(), obj["fromName"].toString(""),
+                          obj["msg"].toString());
         return;
     }
     if (t == "user_avatar") {
@@ -1138,6 +1142,14 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         emit webRtcSignalReceived(obj);
         return;
     }
+    if (t == "plugin_data") {
+        const QString pluginId = obj["plugin"].toString();
+        const QString topic = obj["topic"].toString();
+        const QByteArray data = QByteArray::fromBase64(obj["data"].toString().toLatin1());
+        if (!pluginId.isEmpty() && topic.toUtf8().size() <= 64 && data.size() <= 8192)
+            emit pluginDataReceived(obj["from"].toInt(), pluginId, topic, data);
+        return;
+    }
     if (t == "kicked") {
         m_serverTerminatedSession = true;
         emit kickedReceived(obj["reason"].toString(), obj["ban"].toBool(),
@@ -1199,6 +1211,28 @@ void NetSession::sendWebRtcIce(int toUserId, const QString& candidate,
     if (!sdpMid.isEmpty()) m["sdpMid"] = sdpMid;
     if (sdpMLineIndex >= 0) m["sdpMLineIndex"] = sdpMLineIndex;
     send(m);
+}
+
+bool NetSession::sendPluginData(const QString& pluginId, int target,
+                                const QList<int>& targetUserIds,
+                                const QString& topic, const QByteArray& data) {
+    if (!m_ready || pluginId.isEmpty() || pluginId.size() > 64
+            || topic.toUtf8().size() > 64 || data.size() > 8192
+            || target < 0 || target > 2 || targetUserIds.size() > 64)
+        return false;
+    QJsonObject message = HProto::msg("plugin_data");
+    message["plugin"] = pluginId;
+    message["target"] = target;
+    message["topic"] = topic;
+    message["data"] = QString::fromLatin1(data.toBase64());
+    if (target == 1) {
+        QJsonArray ids;
+        for (int id : targetUserIds) if (id > 0) ids << id;
+        if (ids.isEmpty()) return false;
+        message["ids"] = ids;
+    }
+    send(message);
+    return true;
 }
 
 void NetSession::sendScreenShareStart() {

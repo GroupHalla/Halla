@@ -113,6 +113,11 @@ private:
 
     QMenu* m_bookmarksMenu = nullptr;
     QMenu* m_recentMenu = nullptr;
+    QMenu* m_pluginsMenu = nullptr;
+    QMap<QString, QAction*> m_pluginActions;
+    QMap<QString, int> m_pluginHotkeyIds;
+    QMap<int, QPair<QString, QString>> m_pluginGlobalHotkeys;
+    int m_nextPluginHotkeyId = 10000;
 
     // barra de status em 3 zonas (servidor | notícias | conexão), como no Halla
     QToolButton* m_serverButton = nullptr;

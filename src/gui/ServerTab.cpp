@@ -310,7 +310,7 @@ void ServerTab::attachNetwork(NetSession* net) {
     });
 
     connect(net, &NetSession::pokeReceived, this,
-            [this](const QString& fromName, const QString& msg) {
+            [this](int, const QString& fromName, const QString& msg) {
                 systemMsgServer(tr("Você foi cutucado por %1: %2").arg(fromName, msg));
                 if (S::flag("notify/pokeSound", true)) HSound::play(QStringLiteral("poke"));
                 HSpeech::say(tr("Cutucada de %1").arg(fromName));
@@ -1277,4 +1277,21 @@ void ServerTab::setSpeakersMuted(bool on) {
     systemMsgChannel(on ? tr("Alto-falantes mudos.") : tr("Alto-falantes reativados."));
     m_tree->rebuild();
     emit statusChanged();
+}
+
+bool ServerTab::setUserLocallyMuted(int userId, bool muted) {
+    if (!m_data.users.contains(userId) || userId == m_data.selfId) return false;
+    m_data.users[userId].locallyMuted = muted;
+    m_tree->rebuild();
+    m_info->refresh();
+    emit statusChanged();
+    return true;
+}
+
+bool ServerTab::setUserVolumeDb(int userId, int volumeDb) {
+    if (!m_data.users.contains(userId) || userId == m_data.selfId) return false;
+    m_data.users[userId].volumeDb = qBound(-40, volumeDb, 12);
+    m_info->refresh();
+    emit statusChanged();
+    return true;
 }

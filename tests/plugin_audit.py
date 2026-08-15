@@ -11,6 +11,12 @@ options = (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
 docs = (root / "docs/PLUGINS.md").read_text(encoding="utf-8")
 packager = (root / "tools/package_plugin.py").read_text(encoding="utf-8")
 manifest = json.loads((root / "examples/plugins/hello_world/manifest.json").read_text(encoding="utf-8"))
+advanced_manifest = json.loads((root / "examples/plugins/advanced_sdk/manifest.json").read_text(encoding="utf-8"))
+advanced_example = (root / "examples/plugins/advanced_sdk/advanced_sdk.cpp").read_text(encoding="utf-8")
+voice = (root / "src/net/VoiceEngine.cpp").read_text(encoding="utf-8")
+net = (root / "src/net/NetSession.cpp").read_text(encoding="utf-8")
+main_window = (root / "src/app/MainWindow.cpp").read_text(encoding="utf-8")
+installer = (root / "packaging/halla-setup.nsi").read_text(encoding="utf-8")
 catalog = json.loads((root / "addons/catalog.json").read_text(encoding="utf-8"))
 
 assert "HALLA_PLUGIN_ABI_VERSION 1u" in api
@@ -18,6 +24,16 @@ assert "Permission is hereby granted" in sdk_license
 assert "HallaHostApi" in api and "HallaPluginApi" in api
 assert "halla_plugin_entry" in api
 assert "get_settings_json" in api and "request_client_state" in api
+for interface in ("HALLA_INTERFACE_CORE_V1", "HALLA_INTERFACE_CONNECTION_V1",
+                  "HALLA_INTERFACE_AUDIO_V1", "HALLA_INTERFACE_DATA_V1",
+                  "HALLA_INTERFACE_UI_V1"):
+    assert interface in api, interface
+for required in ("HallaAudioFrame", "register_processor", "set_listener_transform",
+                 "set_user_radio_effect", "play_pcm", "get_connections_json", "send_chat",
+                 "move_user", "create_channel_json", "set_receive_handler",
+                 "register_hotkey", "query_interface"):
+    assert required in api, required
+assert "HALLA_PLUGIN_API_BASE_SIZE" in api and "HALLA_HOST_API_BASE_SIZE" in api
 assert "QLibrary" in manager and "ResolveAllSymbolsHint" in manager
 assert "QCryptographicHash::Sha256" in manager
 assert "NoLessSafeRedirectPolicy" in manager
@@ -32,6 +48,17 @@ assert "Instalar arquivo .halla-addon" in options
 assert "Procurar complementos online" in options
 assert "Ativo" in options and "Configurar" in options and "Remover" in options
 assert "client_state" in docs
+assert "HALLA_AUDIO_REMOTE_BEFORE_SPATIAL" in advanced_example
+assert "get_connections_json" in advanced_example
+assert set(advanced_manifest["capabilities"]) >= {
+    "connection.read", "audio.playback", "audio.spatial", "plugin.data",
+    "ui.notifications", "ui.actions"
+}
+assert "QMap<int, OpusDecoder*>" in (root / "src/net/VoiceEngine.h").read_text(encoding="utf-8")
+assert "HALLA_AUDIO_MIXED_PLAYBACK" in voice and "spatializeFrame" in voice
+assert 't == "plugin_data"' in net and "sendPluginData" in net
+assert "m_pluginGlobalHotkeys" in main_window and "RegisterHotKey" in main_window
+assert "Plugin SDK\\advanced_sdk" in installer
 assert catalog["version"] == 1 and isinstance(catalog["addons"], list)
 assert "zipfile.ZIP_DEFLATED" in packager
 assert "hashlib.sha256" in packager

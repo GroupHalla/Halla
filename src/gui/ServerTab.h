@@ -69,6 +69,10 @@ public:
     bool isMicMuted() const    { return m_data.users[m_data.selfId].inputMuted; }
     bool isSpkMuted() const    { return m_data.users[m_data.selfId].outputMuted; }
 
+    // Controle local exposto de forma segura ao SDK de complementos.
+    bool setUserLocallyMuted(int userId, bool muted);
+    bool setUserVolumeDb(int userId, int volumeDb);
+
     void applyDisplayOptions();
 
 signals:

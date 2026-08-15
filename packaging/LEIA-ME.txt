@@ -84,7 +84,10 @@ COMPLEMENTOS E OVERLAY
 * O "Overlay oficial da call" mostra sobre o jogo os usuários falando. Ele é
   transparente para cliques e funciona em janela/tela cheia sem bordas.
 * A pasta "Plugin SDK" instalada com o Halla contém halla_plugin_api.h,
-  documentação e um exemplo mínimo para autores da comunidade.
+  documentação, um exemplo mínimo e outro exemplo das APIs avançadas de áudio,
+  conexões, comunicação entre plugins, notificações e atalhos.
+* Complementos podem declarar capacidades sensíveis. Leia a lista mostrada pelo
+  instalador antes de permitir acesso ao microfone, vozes ou controle da conexão.
 
 COMO USAR
 ---------
@@ -96,8 +99,8 @@ COMO USAR
 
 PARA HOSPEDAR SEU PRÓPRIO SERVIDOR
 ----------------------------------
-Baixe o Halla Server 3.1.0 (Windows e Linux) em:
-  https://github.com/farleybarbosa320-oss/HallaServer/releases
+Baixe o Halla Server 1.1.42 (Windows e Linux) em:
+  https://github.com/GroupHalla/HallaServer/releases
 
 Execute halla-server.exe (ou o binário Linux) e passe o endereço
 IP da máquina para os seus amigos. O arquivo halla-server.ini

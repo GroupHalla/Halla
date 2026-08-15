@@ -3,6 +3,7 @@
 #include "core/Models.h"
 #include "core/AppLog.h"
 #include "core/Settings.h"
+#include "plugins/PluginManager.h"
 
 #include <QAudioSource>
 #include <QAudioSink>
@@ -11,7 +12,9 @@
 #include <QTimer>
 #include <QFile>
 #include <QtMath>
+#include <cmath>
 #include <cstring>
+#include <limits>
 
 extern "C" {
 #include <opus.h>
@@ -24,7 +27,6 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     // ---- Opus
     int err = 0;
     m_encoder = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &err);
-    m_decoder = opus_decoder_create(48000, 1, &err);
     if (m_encoder) {
         opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(32000));
         opus_encoder_ctl(m_encoder, OPUS_SET_VBR(1));
@@ -55,10 +57,12 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         m_endpointTimer->start();
     }
 
-    QAudioFormat fmt;
-    fmt.setSampleRate(48000);
-    fmt.setChannelCount(1);
-    fmt.setSampleFormat(QAudioFormat::Int16);
+    QAudioFormat inputFmt;
+    inputFmt.setSampleRate(48000);
+    inputFmt.setChannelCount(1);
+    inputFmt.setSampleFormat(QAudioFormat::Int16);
+    QAudioFormat outputFmt = inputFmt;
+    outputFmt.setChannelCount(2);
 
     QAudioDevice inDev = QMediaDevices::defaultAudioInput();
     const QString savedInId = S::str("capture/device");
@@ -85,7 +89,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     }
 
     if (!inDev.isNull()) {
-        m_source = new QAudioSource(inDev, fmt, this);
+        m_source = new QAudioSource(inDev, inputFmt, this);
         // Dá folga para a captura de voz sobreviver a pequenos picos de CPU
         // causados pelo grab/encode de tela sem perder amostras.
         m_source->setBufferSize(960 * 2 * 20); // ~400 ms
@@ -102,8 +106,8 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     }
 
     if (!outDev.isNull()) {
-        m_sink = new QAudioSink(outDev, fmt, this);
-        m_sink->setBufferSize(960 * 2 * 20); // ~400 ms
+        m_sink = new QAudioSink(outDev, outputFmt, this);
+        m_sink->setBufferSize(960 * 2 * 2 * 20); // ~400 ms estéreo
         m_sinkDev = m_sink->start();
 
         m_playTimer = new QTimer(this);
@@ -117,44 +121,41 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
     m_active = (m_encoder != nullptr);
     if (m_active)
-        AppLog::info(tr("Motor de voz ativo (Opus 48 kHz mono, 20 ms)"));
+        AppLog::info(tr("Motor de voz ativo (Opus 48 kHz mono, reprodução estéreo, 20 ms)"));
+
+    connect(m_net, &NetSession::stateChanged, this, [this] {
+        if (!m_data) return;
+        const QList<int> decoderIds = m_decoders.keys();
+        for (int userId : decoderIds) {
+            if (m_data->users.contains(userId)) continue;
+            opus_decoder_destroy(m_decoders.take(userId));
+            m_remoteQueues.remove(userId);
+            m_radioStates.remove(userId);
+        }
+    });
 
     connect(m_net, &NetSession::voicePacketReceived, this,
             [this](int fromId, quint16, const QByteArray& payload) {
-                if (payload.isEmpty() || !m_decoder) return;
-                // decodifica e enfileira PCM do falante
+                if (payload.isEmpty()) return;
+                OpusDecoder* decoder = decoderFor(fromId);
+                if (!decoder) return;
                 int16_t pcm[960];
-                int n = opus_decode(m_decoder,
-                                    reinterpret_cast<const unsigned char*>(payload.constData()),
-                                    payload.size(), pcm, 960, 0);
+                const int n = opus_decode(decoder,
+                    reinterpret_cast<const unsigned char*>(payload.constData()),
+                    payload.size(), pcm, 960, 0);
                 if (n <= 0) return;
                 ++m_opusReceived;
                 m_opusReceivedBytes += quint64(payload.size());
-                // volume por usuário (dB -> fator linear)
-                int vol = 0;
-                bool muted = false;
-                if (m_data && m_data->users.contains(fromId)) {
-                    vol = m_data->users[fromId].volumeDb;
-                    muted = m_data->users[fromId].locallyMuted;
-                }
-                if (muted) return;
-                float gain = vol == 0 ? 1.0f : qPow(10.0f, vol / 20.0f);
-                // volume MESTRE de reprodução (Opções > Reprodução), em dB x10
-                const int masterX10 = S::num("playback/volumeDb", 0);
-                if (masterX10 != 0) gain *= qPow(10.0f, (masterX10 / 10.0f) / 20.0f);
-                // DUCKING (Opções > Capturar > DSP): reduz a reprodução em N dB
-                // enquanto EU estiver transmitindo (evita realimentação de eco)
-                if (m_talking && S::flag("capture/ducking", false))
-                    gain *= qPow(10.0f, -float(S::num("capture/duckingDb", 10)) / 20.0f);
-                if (gain != 1.0f) {
-                    for (int i = 0; i < n; ++i) {
-                        float s = pcm[i] * gain;
-                        s = qBound(-32768.0f, s, 32767.0f);
-                        pcm[i] = int16_t(s);
-                    }
-                }
-                m_playQueue.push_back(QByteArray(reinterpret_cast<char*>(pcm), n * 2));
-                while (m_playQueue.size() > 80) m_playQueue.pop_front(); // ~1.6 s
+                if (m_data && m_data->users.value(fromId).locallyMuted) return;
+
+                PluginManager::instance().processAudio(
+                    m_pluginConnectionId, fromId,
+                    HALLA_AUDIO_REMOTE_BEFORE_SPATIAL, pcm, uint32_t(n), 1, 48000);
+                QByteArray stereo = spatializeFrame(fromId, pcm, n);
+                if (stereo.isEmpty()) return;
+                auto& queue = m_remoteQueues[fromId];
+                queue.push_back(stereo);
+                while (queue.size() > 25) queue.pop_front(); // ~500 ms por usuário
             });
 }
 
@@ -169,7 +170,10 @@ QJsonObject VoiceEngine::diagnostics() const {
     d["opusSentBytes"] = qint64(m_opusSentBytes);
     d["opusReceived"] = qint64(m_opusReceived);
     d["opusReceivedBytes"] = qint64(m_opusReceivedBytes);
-    d["playbackQueue"] = int(m_playQueue.size());
+    int queued = 0;
+    for (const auto& queue : m_remoteQueues) queued += int(queue.size());
+    d["playbackQueue"] = queued;
+    d["remoteDecoders"] = m_decoders.size();
     return d;
 }
 
@@ -178,7 +182,8 @@ VoiceEngine::~VoiceEngine() {
     if (m_source) m_source->stop();
     if (m_sink) m_sink->stop();
     if (m_encoder) opus_encoder_destroy(m_encoder);
-    if (m_decoder) opus_decoder_destroy(m_decoder);
+    for (OpusDecoder* decoder : m_decoders) opus_decoder_destroy(decoder);
+    m_decoders.clear();
 }
 
 void VoiceEngine::setTransmitEnabled(bool on) {
@@ -193,6 +198,96 @@ void VoiceEngine::setTransmitEnabled(bool on) {
 
 void VoiceEngine::setSpeakersEnabled(bool on) {
     m_spkEnabled = on;
+}
+
+bool VoiceEngine::playPluginPcm(const int16_t* samples, uint32_t frames,
+                                uint32_t channels, float gain) {
+    if (!samples || frames == 0 || frames > 480000 || (channels != 1 && channels != 2)
+            || !std::isfinite(gain) || gain < 0.0f || gain > 4.0f)
+        return false;
+    constexpr uint32_t kFrameSize = 960;
+    auto& queue = m_remoteQueues[std::numeric_limits<int>::min()];
+    for (uint32_t offset = 0; offset < frames; offset += kFrameSize) {
+        const uint32_t count = qMin(kFrameSize, frames - offset);
+        QByteArray output(int(kFrameSize * 2 * sizeof(int16_t)), '\0');
+        int16_t* destination = reinterpret_cast<int16_t*>(output.data());
+        for (uint32_t frame = 0; frame < count; ++frame) {
+            const float left = channels == 1 ? samples[offset + frame]
+                : samples[(offset + frame) * 2];
+            const float right = channels == 1 ? samples[offset + frame]
+                : samples[(offset + frame) * 2 + 1];
+            destination[frame * 2] = int16_t(qBound(-32768.0f, left * gain, 32767.0f));
+            destination[frame * 2 + 1] = int16_t(qBound(-32768.0f, right * gain, 32767.0f));
+        }
+        queue.push_back(output);
+    }
+    while (queue.size() > 500) queue.pop_front();
+    return true;
+}
+
+OpusDecoder* VoiceEngine::decoderFor(int userId) {
+    if (m_decoders.contains(userId)) return m_decoders.value(userId);
+    int error = OPUS_OK;
+    OpusDecoder* decoder = opus_decoder_create(48000, 1, &error);
+    if (!decoder || error != OPUS_OK) {
+        if (decoder) opus_decoder_destroy(decoder);
+        return nullptr;
+    }
+    m_decoders.insert(userId, decoder);
+    return decoder;
+}
+
+void VoiceEngine::applyRadioEffect(int userId, int16_t* mono, int frames,
+                                   const PluginAudioControl& control) {
+    if (!control.radio || !mono || frames <= 0) return;
+    RadioState& state = m_radioStates[userId];
+    const float strength = qBound(0.0f, control.radioStrength, 1.0f);
+    const float noiseLevel = qBound(0.0f, control.radioNoise, 1.0f);
+    for (int i = 0; i < frames; ++i) {
+        const float input = float(mono[i]);
+        // Banda estreita aproximada: passa-altas de um polo seguido de
+        // passa-baixas, saturação e ruído determinístico de rádio.
+        state.highPass = 0.94f * (state.highPass + input - state.previousInput);
+        state.previousInput = input;
+        state.lowPass += 0.32f * (state.highPass - state.lowPass);
+        float filtered = qBound(-22000.0f, state.lowPass * 1.65f, 22000.0f);
+        state.noiseState = state.noiseState * 1664525u + 1013904223u;
+        const float noise = (float((state.noiseState >> 16) & 0xffffu) / 32767.5f - 1.0f)
+            * 1800.0f * noiseLevel;
+        const float output = input * (1.0f - strength)
+            + (filtered + noise) * strength;
+        mono[i] = int16_t(qBound(-32768.0f, output, 32767.0f));
+    }
+}
+
+QByteArray VoiceEngine::spatializeFrame(int userId, int16_t* mono, int frames) {
+    if (!mono || frames <= 0) return {};
+    PluginAudioControl control = PluginManager::instance().audioControl(
+        m_pluginConnectionId, userId);
+    applyRadioEffect(userId, mono, frames, control);
+
+    float gain = control.gain;
+    if (m_data && m_data->users.contains(userId)) {
+        const int volumeDb = m_data->users[userId].volumeDb;
+        if (volumeDb != 0) gain *= qPow(10.0f, volumeDb / 20.0f);
+    }
+    const int masterX10 = S::num("playback/volumeDb", 0);
+    if (masterX10 != 0)
+        gain *= qPow(10.0f, (masterX10 / 10.0f) / 20.0f);
+    if (m_talking && S::flag("capture/ducking", false))
+        gain *= qPow(10.0f, -float(S::num("capture/duckingDb", 10)) / 20.0f);
+
+    const float pan = qBound(-1.0f, control.pan, 1.0f);
+    const float angle = (pan + 1.0f) * float(M_PI) * 0.25f;
+    const float leftGain = gain * qCos(angle);
+    const float rightGain = gain * qSin(angle);
+    QByteArray stereo(frames * 2 * int(sizeof(int16_t)), '\0');
+    int16_t* output = reinterpret_cast<int16_t*>(stereo.data());
+    for (int i = 0; i < frames; ++i) {
+        output[i * 2] = int16_t(qBound(-32768.0f, mono[i] * leftGain, 32767.0f));
+        output[i * 2 + 1] = int16_t(qBound(-32768.0f, mono[i] * rightGain, 32767.0f));
+    }
+    return stereo;
 }
 
 // ------------------------------------------------------------------ captura
@@ -253,7 +348,10 @@ void VoiceEngine::captureTick() {
     m_captureBuf.append(m_srcDev->readAll());
 
     while (m_captureBuf.size() >= 960 * 2) {
-        const int16_t* pcm = reinterpret_cast<const int16_t*>(m_captureBuf.constData());
+        int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
+        PluginManager::instance().processAudio(
+            m_pluginConnectionId, m_data ? m_data->selfId : 0,
+            HALLA_AUDIO_CAPTURE, pcm, 960, 1, 48000);
 
         // nível RMS p/ indicador "está falando"
         double sum = 0;
@@ -405,20 +503,46 @@ void VoiceEngine::stopRecording() {
 void VoiceEngine::playbackTick() {
     if (!m_sinkDev) return;
     if (!m_spkEnabled) {
-        m_playQueue.clear();
+        m_remoteQueues.clear();
         return;
     }
-    // Escreve apenas frames completos quando houver espaço suficiente. A lógica
-    // anterior removia o frame da fila e gravava só bytesFree(), descartando o
-    // restante; isso picotava a voz principalmente durante screen share.
+    constexpr int kFrames = 960;
+    constexpr int kChannels = 2;
+    constexpr int kBytes = kFrames * kChannels * int(sizeof(int16_t));
     int free = int(m_sink->bytesFree());
-    while (!m_playQueue.empty()) {
-        const QByteArray& frame = m_playQueue.front();
-        if (free < frame.size()) break;
-        const qint64 written = m_sinkDev->write(frame.constData(), frame.size());
-        if (written <= 0) break;
-        if (m_recFile) recWrite(frame.constData(), int(written));
-        free -= int(written);
-        m_playQueue.pop_front();
+    while (free >= kBytes) {
+        bool hasFrame = false;
+        int32_t mix[kFrames * kChannels] = {};
+        QList<int> emptyUsers;
+        for (auto it = m_remoteQueues.begin(); it != m_remoteQueues.end(); ++it) {
+            if (it.value().empty()) { emptyUsers << it.key(); continue; }
+            const QByteArray frame = it.value().front();
+            it.value().pop_front();
+            if (frame.size() != kBytes) continue;
+            hasFrame = true;
+            const int16_t* samples = reinterpret_cast<const int16_t*>(frame.constData());
+            for (int i = 0; i < kFrames * kChannels; ++i) mix[i] += samples[i];
+            if (it.value().empty()) emptyUsers << it.key();
+        }
+        for (int userId : emptyUsers) m_remoteQueues.remove(userId);
+        if (!hasFrame) break;
+
+        QByteArray output(kBytes, '\0');
+        int16_t* samples = reinterpret_cast<int16_t*>(output.data());
+        for (int i = 0; i < kFrames * kChannels; ++i)
+            samples[i] = int16_t(qBound(-32768, mix[i], 32767));
+        PluginManager::instance().processAudio(
+            m_pluginConnectionId, 0, HALLA_AUDIO_MIXED_PLAYBACK,
+            samples, kFrames, kChannels, 48000);
+
+        const qint64 written = m_sinkDev->write(output.constData(), output.size());
+        if (written != output.size()) break;
+        if (m_recFile) {
+            int16_t mono[kFrames];
+            for (int i = 0; i < kFrames; ++i)
+                mono[i] = int16_t((int(samples[i * 2]) + int(samples[i * 2 + 1])) / 2);
+            recWrite(reinterpret_cast<const char*>(mono), int(sizeof(mono)));
+        }
+        free -= kBytes;
     }
 }

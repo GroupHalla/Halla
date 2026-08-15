@@ -1763,7 +1763,11 @@ QWidget* OptionsDialog::pageAddons() {
             if (addon.official) displayName += tr("  • Oficial");
             auto* name = new QTableWidgetItem(displayName);
             name->setData(Qt::UserRole, addon.id);
-            name->setToolTip(addon.description);
+            QString tooltip = addon.description;
+            if (!addon.capabilities.isEmpty())
+                tooltip += tr("\n\nCapacidades declaradas:\n• %1")
+                    .arg(addon.capabilities.join(QStringLiteral("\n• ")));
+            name->setToolTip(tooltip);
             table->setItem(row, 1, name);
             table->setItem(row, 2, new QTableWidgetItem(addon.version));
             table->setItem(row, 3, new QTableWidgetItem(addon.author));

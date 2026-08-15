@@ -1321,7 +1321,7 @@
     </message>
     <message>
       <location filename="../src/app/MainWindow.cpp" line="293" />
-      <location filename="../src/app/MainWindow.cpp" line="722" />
+      <location filename="../src/app/MainWindow.cpp" line="786" />
       <source>Desconectar</source>
       <translation>Desconectar</translation>
     </message>
@@ -1342,8 +1342,8 @@
     </message>
     <message>
       <location filename="../src/app/MainWindow.cpp" line="308" />
-      <location filename="../src/app/MainWindow.cpp" line="782" />
-      <location filename="../src/app/MainWindow.cpp" line="1395" />
+      <location filename="../src/app/MainWindow.cpp" line="846" />
+      <location filename="../src/app/MainWindow.cpp" line="1465" />
       <source>Sair</source>
       <translation>Salir</translation>
     </message>
@@ -1536,7 +1536,7 @@
     </message>
     <message>
       <location filename="../src/app/MainWindow.cpp" line="486" />
-      <location filename="../src/app/MainWindow.cpp" line="1156" />
+      <location filename="../src/app/MainWindow.cpp" line="1226" />
       <source>Iniciar gravação</source>
       <translation>Iniciar grabación</translation>
     </message>
@@ -1586,287 +1586,297 @@
       <translation>Opciones...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="597" />
+      <location filename="../src/app/MainWindow.cpp" line="599" />
+      <source>Co&amp;mplementos</source>
+      <translation>Comple&amp;mentos</translation>
+    </message>
+    <message>
+      <location filename="../src/app/MainWindow.cpp" line="652" />
+      <source>Complemento do Halla</source>
+      <translation>Complemento de Halla</translation>
+    </message>
+    <message>
+      <location filename="../src/app/MainWindow.cpp" line="661" />
       <source>A&amp;juda</source>
       <translation>A&amp;yuda</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="598" />
+      <location filename="../src/app/MainWindow.cpp" line="662" />
       <source>Sobre o Halla</source>
       <translation>Acerca de Halla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="601" />
+      <location filename="../src/app/MainWindow.cpp" line="665" />
       <location filename="../src/app/MainWindowUpdates.cpp" line="84" />
       <location filename="../src/app/MainWindowUpdates.cpp" line="132" />
       <source>Verificar atualizações</source>
       <translation>Buscar actualizaciones</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="607" />
+      <location filename="../src/app/MainWindow.cpp" line="671" />
       <source>Principal</source>
       <translation>Principal</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="645" />
+      <location filename="../src/app/MainWindow.cpp" line="709" />
       <source>Opções de reprodução...</source>
       <translation>Opciones de reproducción...</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="648" />
+      <location filename="../src/app/MainWindow.cpp" line="712" />
       <source>Reprodução</source>
       <translation>Reproducción</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="667" />
+      <location filename="../src/app/MainWindow.cpp" line="731" />
       <location filename="../src/app/MainWindowUpdates.cpp" line="254" />
       <source>Notificações</source>
       <translation>Notificaciones</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="725" />
+      <location filename="../src/app/MainWindow.cpp" line="789" />
       <source>Adicionar aos favoritos</source>
       <translation>Añadir a favoritos</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="745" />
-      <location filename="../src/app/MainWindow.cpp" line="1171" />
+      <location filename="../src/app/MainWindow.cpp" line="809" />
+      <location filename="../src/app/MainWindow.cpp" line="1241" />
       <source>Nenhum servidor</source>
       <translation>Ningún servidor</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="751" />
+      <location filename="../src/app/MainWindow.cpp" line="815" />
       <source>Bem-vindo ao Halla!  •  Cliente de comunicação de voz  •  github.com/GroupHalla/Halla</source>
       <translation>Bienvenido a Halla!  •  Cliente de comunicación por voz  •  github.com/GroupHalla/Halla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="761" />
-      <location filename="../src/app/MainWindow.cpp" line="1192" />
+      <location filename="../src/app/MainWindow.cpp" line="825" />
+      <location filename="../src/app/MainWindow.cpp" line="1262" />
       <source>Desconectado</source>
       <translation>Desconectado</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="775" />
+      <location filename="../src/app/MainWindow.cpp" line="839" />
       <source>Mostrar Halla</source>
       <translation>Mostrar Halla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="820" />
+      <location filename="../src/app/MainWindow.cpp" line="884" />
       <source>Halla %1 iniciado</source>
       <translation>Halla %1 iniciado</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="852" />
+      <location filename="../src/app/MainWindow.cpp" line="922" />
       <source>Erro ao conectar</source>
       <translation>Error al conectar</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="853" />
+      <location filename="../src/app/MainWindow.cpp" line="923" />
       <source>&lt;b&gt;Falha ao conectar ao servidor %1:%2&lt;/b&gt;&lt;br&gt;%3</source>
       <translation>&lt;b&gt;Error al conectarse al servidor %1:%2&lt;/b&gt;&lt;br&gt;%3</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="868" />
+      <location filename="../src/app/MainWindow.cpp" line="938" />
       <source>Servidor: %1</source>
       <translation>Servidor: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="871" />
-      <location filename="../src/app/MainWindow.cpp" line="944" />
-      <location filename="../src/app/MainWindow.cpp" line="1752" />
+      <location filename="../src/app/MainWindow.cpp" line="941" />
+      <location filename="../src/app/MainWindow.cpp" line="1015" />
+      <location filename="../src/app/MainWindow.cpp" line="1826" />
       <source>Conectado ao servidor: %1</source>
       <translation>Conectado al servidor: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="879" />
+      <location filename="../src/app/MainWindow.cpp" line="949" />
       <source>Desconectado do servidor.</source>
       <translation>Desconectado del servidor.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="884" />
+      <location filename="../src/app/MainWindow.cpp" line="954" />
       <source>Conectado ao servidor</source>
       <translation>Conectado al servidor</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="945" />
+      <location filename="../src/app/MainWindow.cpp" line="1016" />
       <source>Você entrou no canal "%1".</source>
       <translation>Te has unido al canal "%1".</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="960" />
-      <location filename="../src/app/MainWindow.cpp" line="983" />
-      <location filename="../src/app/MainWindow.cpp" line="1412" />
+      <location filename="../src/app/MainWindow.cpp" line="1031" />
+      <location filename="../src/app/MainWindow.cpp" line="1054" />
+      <location filename="../src/app/MainWindow.cpp" line="1482" />
       <source>Desconectado do servidor</source>
       <translation>Desconectado del servidor</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1015" />
+      <location filename="../src/app/MainWindow.cpp" line="1087" />
       <source>Desconectado de %1</source>
       <translation>Desconectado de %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1064" />
+      <location filename="../src/app/MainWindow.cpp" line="1134" />
       <source>(nenhum favorito)</source>
       <translation>(sin favoritos)</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1077" />
+      <location filename="../src/app/MainWindow.cpp" line="1147" />
       <source>Conectar a todos os favoritos</source>
       <translation>Conectar a todos los favoritos</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1121" />
+      <location filename="../src/app/MainWindow.cpp" line="1191" />
       <source>(vazio)</source>
       <translation>(vacío)</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1155" />
+      <location filename="../src/app/MainWindow.cpp" line="1225" />
       <source>Parar gravação</source>
       <translation>Detener grabación</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1177" />
+      <location filename="../src/app/MainWindow.cpp" line="1247" />
       <source>Conectado como %1</source>
       <translation>Conectado como %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1180" />
+      <location filename="../src/app/MainWindow.cpp" line="1250" />
       <source>Ping: %1 ms   Perda de pacotes: %2%</source>
       <translation>Ping: %1 ms Pérdida de paquetes: %2%</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1183" />
+      <location filename="../src/app/MainWindow.cpp" line="1253" />
       <source>Ping: --</source>
       <translation>Hacer silbido: --</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1186" />
+      <location filename="../src/app/MainWindow.cpp" line="1256" />
       <source>%1 servidores</source>
       <translation>Servidores %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1188" />
+      <location filename="../src/app/MainWindow.cpp" line="1258" />
       <source>%1 conexões abertas</source>
       <translation>%1 conexiones abiertas</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1224" />
+      <location filename="../src/app/MainWindow.cpp" line="1294" />
       <source>microfone</source>
       <translation>micrófono</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1227" />
+      <location filename="../src/app/MainWindow.cpp" line="1297" />
       <source>alto-falantes</source>
       <translation>altavoces</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1230" />
+      <location filename="../src/app/MainWindow.cpp" line="1300" />
       <source>ausente</source>
       <translation>ausente</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1233" />
+      <location filename="../src/app/MainWindow.cpp" line="1303" />
       <source>comandante</source>
       <translation>comandante</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1241" />
+      <location filename="../src/app/MainWindow.cpp" line="1311" />
       <source>gravação</source>
       <translation>grabación</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1244" />
+      <location filename="../src/app/MainWindow.cpp" line="1314" />
       <source>transmissão contínua</source>
       <translation>transmisión continua</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1247" />
+      <location filename="../src/app/MainWindow.cpp" line="1317" />
       <source>Transmissão contínua desativada</source>
       <translation>Transmisión continua desactivada</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1248" />
+      <location filename="../src/app/MainWindow.cpp" line="1318" />
       <source>Transmissão contínua ativada</source>
       <translation>Transmisión continua activada</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1267" />
-      <location filename="../src/app/MainWindow.cpp" line="1269" />
+      <location filename="../src/app/MainWindow.cpp" line="1337" />
+      <location filename="../src/app/MainWindow.cpp" line="1339" />
       <source>Padrão</source>
       <translation>Predeterminado</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1387" />
-      <location filename="../src/app/MainWindow.cpp" line="1443" />
+      <location filename="../src/app/MainWindow.cpp" line="1457" />
+      <location filename="../src/app/MainWindow.cpp" line="1513" />
       <source>O Halla continua em execução na bandeja do sistema.</source>
       <translation>Halla continúa ejecutándose en la bandeja del sistema.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1396" />
+      <location filename="../src/app/MainWindow.cpp" line="1466" />
       <source>Você ainda está conectado a servidores.
 Deseja realmente sair?</source>
       <translation>Todavía estás conectado a los servidores.
 ¿De verdad quieres irte?</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1428" />
+      <location filename="../src/app/MainWindow.cpp" line="1498" />
       <source>Halla encerrado</source>
       <translation>Halla cerrado</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1661" />
+      <location filename="../src/app/MainWindow.cpp" line="1735" />
       <source>PTT global registrado no mouse: %1</source>
       <translation>PTT global registrado en el mouse: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1673" />
+      <location filename="../src/app/MainWindow.cpp" line="1747" />
       <source>Tecla PTT global registrada: %1</source>
       <translation>Clave PTT global registrada: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1675" />
+      <location filename="../src/app/MainWindow.cpp" line="1749" />
       <source>Não foi possível registrar a tecla PTT: %1</source>
       <translation>No se puede registrar la clave PTT: %1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1726" />
+      <location filename="../src/app/MainWindow.cpp" line="1800" />
       <source>Canal padrão</source>
       <translation>Canal predeterminado</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1753" />
+      <location filename="../src/app/MainWindow.cpp" line="1827" />
       <source>Você entrou no canal "Canal padrão".</source>
       <translation>Ha ingresado al canal "Canal predeterminado".</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1767" />
+      <location filename="../src/app/MainWindow.cpp" line="1841" />
       <source>Compartilhamento de Tela</source>
       <translation>Compartir pantalla</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1768" />
+      <location filename="../src/app/MainWindow.cpp" line="1842" />
       <source>O compartilhamento de tela está desativado pelas configurações deste servidor.</source>
       <translation>La configuración de este servidor deshabilita el uso compartido de pantalla.</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1788" />
-      <location filename="../src/app/MainWindow.cpp" line="2037" />
+      <location filename="../src/app/MainWindow.cpp" line="1862" />
+      <location filename="../src/app/MainWindow.cpp" line="2111" />
       <source>Minha transmissão</source>
       <translation>mi transmision</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="1905" />
-      <location filename="../src/app/MainWindow.cpp" line="1982" />
+      <location filename="../src/app/MainWindow.cpp" line="1979" />
+      <location filename="../src/app/MainWindow.cpp" line="2056" />
       <source>Usuário #%1</source>
       <translation>Usuario #%1</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="2027" />
+      <location filename="../src/app/MainWindow.cpp" line="2101" />
       <source>Transmissão</source>
       <translation>Transmisión</translation>
     </message>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="2027" />
+      <location filename="../src/app/MainWindow.cpp" line="2101" />
       <source>Você não tem permissão para entrar no canal desta transmissão.</source>
       <translation>No puedes unirte al canal para esta transmisión.</translation>
     </message>
@@ -2005,7 +2015,7 @@ Detalles: %1
   <context>
     <name>NetSession</name>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="318" />
+      <location filename="../src/net/NetSession.cpp" line="321" />
       <source>ALERTA DE SEGURANÇA: A impressão digital SSL deste servidor mudou!
 Isso pode indicar um ataque Man-in-the-Middle (MITM).
 Conexão recusada para sua proteção.</source>
@@ -2014,62 +2024,62 @@ Esto podría indicar un ataque Man-in-the-Middle (MITM).
 Conexión rechazada para su protección.</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="353" />
+      <location filename="../src/net/NetSession.cpp" line="356" />
       <source>Não foi possível conectar ao servidor</source>
       <translation>No se puede conectar al servidor</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="837" />
+      <location filename="../src/net/NetSession.cpp" line="840" />
       <source>Não foi possível assinar o desafio da identidade</source>
       <translation>No se puede firmar el desafío de identidad</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="850" />
+      <location filename="../src/net/NetSession.cpp" line="853" />
       <source>Erro do servidor: %1 (%2)</source>
       <translation>Error del servidor: %1 (%2)</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="913" />
+      <location filename="../src/net/NetSession.cpp" line="916" />
       <source>Conectado a %1 como %2</source>
       <translation>Conectado a %1 como %2</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="950" />
+      <location filename="../src/net/NetSession.cpp" line="953" />
       <source>%1 entrou no servidor</source>
       <translation>%1 se unió al servidor</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="960" />
+      <location filename="../src/net/NetSession.cpp" line="963" />
       <source>O servidor agora se chama "%1"</source>
       <translation>El servidor ahora se llama "%1"</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="970" />
+      <location filename="../src/net/NetSession.cpp" line="973" />
       <source>%1 saiu do servidor</source>
       <translation>%1 ha abandonado el servidor</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="986" />
+      <location filename="../src/net/NetSession.cpp" line="989" />
       <source>Você entrou no canal "%1"</source>
       <translation>Te has unido al canal "%1"</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="988" />
+      <location filename="../src/net/NetSession.cpp" line="991" />
       <source>%1 entrou no canal "%2"</source>
       <translation>%1 se unió al canal "%2"</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="1069" />
+      <location filename="../src/net/NetSession.cpp" line="1073" />
       <source>Reclamação registrada</source>
       <translation>Queja registrada</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="1070" />
+      <location filename="../src/net/NetSession.cpp" line="1074" />
       <source>Reclamações limpas</source>
       <translation>Quejas eliminadas</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="1078" />
+      <location filename="../src/net/NetSession.cpp" line="1082" />
       <source>Banimento removido</source>
       <translation>Prohibición eliminada</translation>
     </message>
@@ -2244,7 +2254,7 @@ Los mensajes sin conexión solo se pueden enviar a usuarios registrados en este 
     </message>
     <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="370" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1790" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1794" />
       <source>Complementos</source>
       <translation>Complementos</translation>
     </message>
@@ -2874,7 +2884,7 @@ Los mensajes sin conexión solo se pueden enviar a usuarios registrados en este 
     <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1212" />
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1707" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1771" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1775" />
       <source>Ativo</source>
       <translation>Activo</translation>
     </message>
@@ -3158,7 +3168,7 @@ Whisper funciona "manteniendo presionada" la tecla/botón, como el PTT de Halla.
     </message>
     <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1724" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1814" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1818" />
       <source>Configurar</source>
       <translation>Configurar</translation>
     </message>
@@ -3178,38 +3188,49 @@ Whisper funciona "manteniendo presionada" la tecla/botón, como el PTT de Halla.
       <translation>  • Oficial</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1771" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1768" />
+      <source>
+
+Capacidades declaradas:
+• %1</source>
+      <translation>
+
+Capacidades declaradas:
+• %1</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1775" />
       <source>Desativado</source>
       <translation>Desactivado</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1772" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1776" />
       <source>Erro: %1</source>
       <translation>Error: %1</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1800" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1804" />
       <source>Instalar complemento</source>
       <translation>Instalar complemento</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1801" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1805" />
       <source>Pacotes do Halla (*.halla-addon);;Todos os arquivos (*.*)</source>
       <translation>Paquetes de Halla (*.halla-addon);;Todos los archivos (*.*)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1806" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1810" />
       <source>Falha ao instalar</source>
       <translation>Error de instalación</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1819" />
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1824" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1823" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1828" />
       <source>Remover complemento</source>
       <translation>Eliminar complemento</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="1820" />
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1824" />
       <source>Deseja remover este complemento e seus arquivos?</source>
       <translation>¿Deseas eliminar este complemento y sus archivos?</translation>
     </message>
@@ -3266,183 +3287,208 @@ Whisper funciona "manteniendo presionada" la tecla/botón, como el PTT de Halla.
   <context>
     <name>PluginManager</name>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="91" />
+      <location filename="../src/plugins/PluginManager.cpp" line="186" />
+      <source>O complemento %1 lançou uma exceção em uma tarefa da interface.</source>
+      <translation>El complemento %1 produjo una excepción en una tarea de la interfaz.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="716" />
       <source>Mostrar somente usuários falando</source>
       <translation>Mostrar solo usuarios que estén hablando</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="93" />
+      <location filename="../src/plugins/PluginManager.cpp" line="718" />
       <source>Mostrar meu próprio usuário</source>
       <translation>Mostrar mi propio usuario</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="95" />
+      <location filename="../src/plugins/PluginManager.cpp" line="720" />
       <source>Mostrar nome do canal</source>
       <translation>Mostrar nombre del canal</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="97" />
+      <location filename="../src/plugins/PluginManager.cpp" line="722" />
       <source>Aparecer automaticamente sobre jogos/tela cheia</source>
       <translation>Aparecer automáticamente sobre juegos/aplicaciones a pantalla completa</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="98" />
+      <location filename="../src/plugins/PluginManager.cpp" line="723" />
       <source>Posição</source>
       <translation>Posición</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="101" />
+      <location filename="../src/plugins/PluginManager.cpp" line="726" />
       <source>Superior esquerdo</source>
       <translation>Superior izquierda</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="102" />
+      <location filename="../src/plugins/PluginManager.cpp" line="727" />
       <source>Superior direito</source>
       <translation>Superior derecha</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="103" />
+      <location filename="../src/plugins/PluginManager.cpp" line="728" />
       <source>Inferior esquerdo</source>
       <translation>Inferior izquierda</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="104" />
+      <location filename="../src/plugins/PluginManager.cpp" line="729" />
       <source>Inferior direito</source>
       <translation>Inferior derecha</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="106" />
+      <location filename="../src/plugins/PluginManager.cpp" line="731" />
       <source>Opacidade (%)</source>
       <translation>Opacidad (%)</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="108" />
+      <location filename="../src/plugins/PluginManager.cpp" line="733" />
       <source>Escala (%)</source>
       <translation>Escala (%)</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="110" />
+      <location filename="../src/plugins/PluginManager.cpp" line="735" />
       <source>Máximo de usuários</source>
       <translation>Máximo de usuarios</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="112" />
+      <location filename="../src/plugins/PluginManager.cpp" line="737" />
       <source>Margem da tela</source>
       <translation>Margen de pantalla</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="188" />
+      <location filename="../src/plugins/PluginManager.cpp" line="813" />
       <source>Overlay oficial da call</source>
       <translation>Overlay oficial de la llamada</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="191" />
+      <location filename="../src/plugins/PluginManager.cpp" line="816" />
       <source>Mostra no jogo os usuários da call e destaca quem está falando ou sussurrando.</source>
       <translation>Muestra en el juego a los usuarios de la llamada y destaca quién está hablando o susurrando.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="204" />
+      <location filename="../src/plugins/PluginManager.cpp" line="829" />
       <source>manifest.json não encontrado.</source>
       <translation>No se encontró manifest.json.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="208" />
+      <location filename="../src/plugins/PluginManager.cpp" line="833" />
       <source>O manifesto excede o limite de 256 KiB.</source>
       <translation>El manifiesto supera el límite de 256 KiB.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="214" />
+      <location filename="../src/plugins/PluginManager.cpp" line="839" />
       <source>Manifesto JSON inválido: %1</source>
       <translation>Manifiesto JSON no válido: %1</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="225" />
+      <location filename="../src/plugins/PluginManager.cpp" line="850" />
       <source>O manifesto não contém metadados válidos para a API de plugins do Halla.</source>
       <translation>El manifiesto no contiene metadatos válidos para la API de plugins de Halla.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="234" />
+      <location filename="../src/plugins/PluginManager.cpp" line="859" />
       <source>O caminho da biblioteca no manifesto é inválido para esta plataforma.</source>
       <translation>La ruta de la biblioteca en el manifiesto no es válida para esta plataforma.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="238" />
+      <location filename="../src/plugins/PluginManager.cpp" line="863" />
       <source>A biblioteca declarada para %1 não existe.</source>
       <translation>La biblioteca declarada para %1 no existe.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="267" />
-      <location filename="../src/plugins/PluginManager.cpp" line="642" />
+      <location filename="../src/plugins/PluginManager.cpp" line="874" />
+      <source>A lista de capacidades do complemento é inválida.</source>
+      <translation>La lista de capacidades del complemento no es válida.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="879" />
+      <source>O complemento solicita uma capacidade desconhecida: %1</source>
+      <translation>El complemento solicita una capacidad desconocida: %1</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="910" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1315" />
       <source>Autor desconhecido</source>
       <translation>Autor desconocido</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="336" />
+      <location filename="../src/plugins/PluginManager.cpp" line="984" />
       <source>A DLL não exporta halla_plugin_entry.</source>
       <translation>La DLL no exporta halla_plugin_entry.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="347" />
+      <location filename="../src/plugins/PluginManager.cpp" line="996" />
       <source>A DLL usa uma ABI incompatível ou não corresponde ao manifesto.</source>
       <translation>La DLL usa una ABI incompatible o no coincide con el manifiesto.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="365" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1016" />
       <source>O plugin recusou a inicialização.</source>
       <translation>El plugin rechazó la inicialización.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="377" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1029" />
+      <source>O complemento %1 lançou uma exceção ao receber o estado inicial.</source>
+      <translation>El complemento %1 produjo una excepción al recibir el estado inicial.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1034" />
       <source>Complemento carregado: %1 %2</source>
       <translation>Complemento cargado: %1 %2</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="399" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1067" />
       <source>A DLL de %1 não pôde ser descarregada com segurança.</source>
       <translation>La DLL de %1 no se pudo descargar de forma segura.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="408" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1076" />
       <source>Complemento não encontrado.</source>
       <translation>Complemento no encontrado.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="442" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1106" />
+      <source>O complemento %1 lançou uma exceção ao atualizar configurações.</source>
+      <translation>El complemento %1 produjo una excepción al actualizar la configuración.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1115" />
       <source>Este complemento não possui opções configuráveis.</source>
       <translation>Este complemento no tiene opciones configurables.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="446" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1119" />
       <source>Configurar %1</source>
       <translation>Configurar %1</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="486" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1159" />
       <source>Salvar</source>
       <translation>Guardar</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="487" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1160" />
       <source>Cancelar</source>
       <translation>Cancelar</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="545" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1218" />
       <source>Não foi possível abrir o pacote.</source>
       <translation>No se pudo abrir el paquete.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="549" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1222" />
       <source>O pacote excede o limite de 100 MiB.</source>
       <translation>El paquete supera el límite de 100 MiB.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="556" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1229" />
       <source>Analisar pacote nativo</source>
       <translation>Analizar paquete nativo</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="557" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1230" />
       <source>Este arquivo pode conter DLLs e outros conteúdos nativos. A extração só deve continuar se você confia na origem.
 
 Arquivo: %1
@@ -3457,181 +3503,247 @@ SHA-256: %2
 ¿Deseas analizar el paquete?</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="566" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1239" />
       <source>Não foi possível criar uma pasta temporária.</source>
       <translation>No se pudo crear una carpeta temporal.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="571" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1244" />
       <source>Não foi possível preparar o pacote para extração.</source>
       <translation>No se pudo preparar el paquete para la extracción.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="584" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1257" />
       <source>O arquivo não é um pacote .halla-addon ZIP válido.</source>
       <translation>El archivo no es un paquete .halla-addon basado en ZIP válido.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="589" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1262" />
       <source>O pacote contém arquivos demais.</source>
       <translation>El paquete contiene demasiados archivos.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="598" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1271" />
       <source>O pacote contém caminhos inseguros.</source>
       <translation>El paquete contiene rutas no seguras.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="612" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1285" />
       <source>Falha ao extrair o pacote.</source>
       <translation>No se pudo extraer el paquete.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="623" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1296" />
       <source>O conteúdo extraído excede os limites de segurança.</source>
       <translation>El contenido extraído supera los límites de seguridad.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="643" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1318" />
+      <source>Ler conexões, usuários e canais</source>
+      <translation>Leer conexiones, usuarios y canales</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1319" />
+      <source>Controlar sua conexão, estado e mensagens</source>
+      <translation>Controlar tu conexión, estado y mensajes</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1320" />
+      <source>Ler e modificar o áudio do microfone</source>
+      <translation>Leer y modificar el audio del micrófono</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1321" />
+      <source>Ler e modificar vozes recebidas</source>
+      <translation>Leer y modificar las voces recibidas</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1322" />
+      <source>Controlar volume, posição 3D e filtros por usuário</source>
+      <translation>Controlar el volumen, la posición 3D y los filtros por usuario</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1323" />
+      <source>Trocar dados do complemento pelo servidor</source>
+      <translation>Intercambiar datos del complemento mediante el servidor</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1324" />
+      <source>Mostrar notificações</source>
+      <translation>Mostrar notificaciones</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1325" />
+      <source>Adicionar ações e atalhos à interface</source>
+      <translation>Añadir acciones y atajos a la interfaz</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1330" />
+      <source>Nenhuma capacidade avançada declarada.</source>
+      <translation>No se declaró ninguna capacidad avanzada.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1331" />
       <source>Complementos nativos executam código no mesmo processo do Halla. Instale somente arquivos de autores confiáveis.
 
 Complemento: %1
 Autor: %2
 SHA-256: %3
 
+Capacidades solicitadas:
+%4
+
 Deseja instalar?</source>
-      <translation>Los complementos nativos ejecutan código dentro del proceso de Halla. Instala solo archivos de autores de confianza.
+      <translation>Los complementos nativos ejecutan código en el proceso de Halla. Instala únicamente archivos de autores de confianza.
 
 Complemento: %1
 Autor: %2
 SHA-256: %3
 
-¿Deseas instalarlo?</translation>
+Capacidades solicitadas:
+%4
+
+¿Quieres instalarlo?</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="647" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1335" />
       <source>Instalar complemento nativo</source>
       <translation>Instalar complemento nativo</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="655" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1343" />
       <source>O ID pertence a um complemento interno do Halla.</source>
       <translation>El ID pertenece a un complemento integrado de Halla.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="666" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1354" />
       <source>Não foi possível substituir a versão instalada.</source>
       <translation>No se pudo reemplazar la versión instalada.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="682" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1370" />
       <source>Complemento instalado: %1 (%2)</source>
       <translation>Complemento instalado: %1 (%2)</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="689" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1377" />
       <source>Este complemento não pode ser removido.</source>
       <translation>Este complemento no se puede eliminar.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="694" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1382" />
       <source>Não foi possível remover os arquivos do complemento.</source>
       <translation>No se pudieron eliminar los archivos del complemento.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="712" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1400" />
       <source>Catálogo de complementos do Halla</source>
       <translation>Catálogo de complementos de Halla</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="715" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1403" />
       <source>Carregando catálogo seguro por HTTPS...</source>
       <translation>Cargando catálogo seguro mediante HTTPS...</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="719" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1407" />
       <source>Nome</source>
       <translation>Nombre</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="719" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1407" />
       <source>Versão</source>
       <translation>Versión</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="719" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1407" />
       <source>Autor</source>
       <translation>Autor</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="719" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1407" />
       <source>Descrição</source>
       <translation>Descripción</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="729" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1417" />
       <source>Instalar selecionado</source>
       <translation>Instalar seleccionado</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="731" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1419" />
       <source>Fechar</source>
       <translation>Cerrar</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="752" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1440" />
       <source>Não foi possível carregar o catálogo: %1
 Você ainda pode instalar arquivos .halla-addon.</source>
       <translation>No se pudo cargar el catálogo: %1
 Aún puedes instalar archivos .halla-addon.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="758" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1446" />
       <source>O catálogo possui um formato incompatível.</source>
       <translation>El catálogo usa un formato incompatible.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="778" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1466" />
       <source>O catálogo está disponível, mas ainda não possui pacotes publicados.</source>
       <translation>El catálogo está disponible, pero aún no hay paquetes publicados.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="779" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1467" />
       <source>Selecione um pacote. Downloads são validados por SHA-256 antes da instalação.</source>
       <translation>Selecciona un paquete. Las descargas se validan con SHA-256 antes de la instalación.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="789" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1477" />
       <source>Catálogo</source>
       <translation>Catálogo</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="789" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1477" />
       <source>O pacote possui uma URL não segura.</source>
       <translation>El paquete tiene una URL no segura.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="793" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1481" />
       <source>Baixando %1...</source>
       <translation>Descargando %1...</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="807" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1495" />
       <source>Falha no download: %1</source>
       <translation>Error de descarga: %1</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="814" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1502" />
       <source>O SHA-256 do pacote não corresponde ao catálogo. Instalação cancelada.</source>
       <translation>El SHA-256 del paquete no coincide con el catálogo. Instalación cancelada.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="822" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1510" />
       <source>Complemento instalado. Ative-o na aba Complementos.</source>
       <translation>Complemento instalado. Actívalo en la página Complementos.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="868" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1722" />
+      <source>O complemento %1 lançou uma exceção no processamento de áudio.</source>
+      <translation>El complemento %1 produjo una excepción al procesar audio.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1793" />
+      <source>O complemento %1 lançou uma exceção ao receber dados.</source>
+      <translation>El complemento %1 produjo una excepción al recibir datos.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1822" />
+      <source>O complemento %1 lançou uma exceção em uma ação da interface.</source>
+      <translation>El complemento %1 produjo una excepción en una acción de la interfaz.</translation>
+    </message>
+    <message>
+      <location filename="../src/plugins/PluginManager.cpp" line="1839" />
       <source>O complemento %1 lançou uma exceção ao processar um evento.</source>
       <translation>El complemento %1 produjo una excepción al procesar un evento.</translation>
     </message>
@@ -3797,17 +3909,17 @@ Ping TCP: %11 ms</translation>
       <translation>Error de instalación</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="513" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1186" />
       <source>Não foi possível criar a pasta de destino.</source>
       <translation>No se pudo crear la carpeta de destino.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="522" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1195" />
       <source>O pacote contém links simbólicos não permitidos.</source>
       <translation>El paquete contiene enlaces simbólicos no permitidos.</translation>
     </message>
     <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="533" />
+      <location filename="../src/plugins/PluginManager.cpp" line="1206" />
       <source>Não foi possível copiar %1.</source>
       <translation>No se pudo copiar %1.</translation>
     </message>
@@ -4183,21 +4295,36 @@ Ping TCP: %11 ms</translation>
     </message>
     <message>
       <location filename="../src/net/NetSession.cpp" line="222" />
+      <source>Este servidor não oferece transporte de dados para complementos.</source>
+      <translation>Este servidor no admite el transporte de datos para complementos.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="223" />
+      <source>Os dados enviados pelo complemento são inválidos.</source>
+      <translation>Los datos enviados por el complemento no son válidos.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="224" />
+      <source>Os dados enviados pelo complemento excedem o limite permitido.</source>
+      <translation>Los datos enviados por el complemento superan el límite permitido.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="225" />
       <source>A cota de arquivos do canal foi excedida.</source>
       <translation>Se ha excedido la cuota de archivos del canal.</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="223" />
+      <location filename="../src/net/NetSession.cpp" line="226" />
       <source>A caixa de entrada do usuário está cheia.</source>
       <translation>La bandeja de entrada del usuario está llena.</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="224" />
+      <location filename="../src/net/NetSession.cpp" line="227" />
       <source>O servidor não conseguiu salvar os dados.</source>
       <translation>El servidor no pudo guardar los datos.</translation>
     </message>
     <message>
-      <location filename="../src/net/NetSession.cpp" line="229" />
+      <location filename="../src/net/NetSession.cpp" line="232" />
       <source>O servidor recusou a solicitação (%1).</source>
       <translation>El servidor rechazó la solicitud (%1).</translation>
     </message>
@@ -5340,19 +5467,19 @@ Introduzca la contraseña:</translation>
   <context>
     <name>VoiceEngine</name>
     <message>
-      <location filename="../src/net/VoiceEngine.cpp" line="101" />
+      <location filename="../src/net/VoiceEngine.cpp" line="105" />
       <source>Nenhum dispositivo de captura de áudio encontrado</source>
       <translation>No se encontraron dispositivos de captura de audio</translation>
     </message>
     <message>
-      <location filename="../src/net/VoiceEngine.cpp" line="115" />
+      <location filename="../src/net/VoiceEngine.cpp" line="119" />
       <source>Nenhum dispositivo de reprodução de áudio encontrado</source>
       <translation>No se encontraron dispositivos de reproducción de audio</translation>
     </message>
     <message>
-      <location filename="../src/net/VoiceEngine.cpp" line="120" />
-      <source>Motor de voz ativo (Opus 48 kHz mono, 20 ms)</source>
-      <translation>Motor de voz activo (Opus 48 kHz mono, 20 ms)</translation>
+      <location filename="../src/net/VoiceEngine.cpp" line="124" />
+      <source>Motor de voz ativo (Opus 48 kHz mono, reprodução estéreo, 20 ms)</source>
+      <translation>Motor de voz activo (Opus a 48 kHz mono, reproducción estéreo, 20 ms)</translation>
     </message>
   </context>
   <context>

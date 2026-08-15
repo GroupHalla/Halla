@@ -182,19 +182,18 @@ do `HallaServer`, e implementado aqui em `src/net/HallaProtocol.h`:
   desafio (nonce) do servidor — o UID vem do hash da chave pública, não do
   que o cliente diz que é.
 - Porta padrão: **9987/tcp+udp**.
-- Protocolo versionado (`kProtoVersion` / `kProtoMin`, atualmente **v4**): o
+- Protocolo versionado (`kProtoVersion` / `kProtoMin`, atualmente **v5**): o
   servidor mantém compatibilidade com clientes antigos onde possível, mas a
   camada de segurança (TLS, identidade Ed25519, voz cifrada) é obrigatória
   independente da versão.
 
 ## Áudio e voz
 
-- Captura/reprodução via `QAudioSource`/`QAudioSink` (Qt Multimedia), a 48 kHz
-  mono, quadros de 20 ms.
-- Codificação/decodificação Opus (biblioteca `libopus` — estática no Windows,
-  do sistema no Linux).
-- Um "jitter buffer" por remetente (fila de quadros) suaviza variações de
-  chegada dos pacotes antes de mixar no alto-falante.
+- Captura via `QAudioSource` a 48 kHz mono e reprodução estéreo via
+  `QAudioSink`, em quadros de 20 ms.
+- Codificação Opus e um decoder independente por remetente (`libopus`).
+- Fila por usuário, callbacks PCM do SDK, espacialização/rádio por participante
+  e mixagem estéreo com saturação antes do alto-falante.
 - PTT e sussurro são "hold keys": o app monitora periodicamente (tecla ou
   botão do mouse) se a tecla configurada está fisicamente pressionada,
   inclusive via captura global no Windows, para funcionar mesmo com o Halla
@@ -232,8 +231,12 @@ src/
 A aba **Opções → Complementos** instala pacotes `.halla-addon`, ativa/desativa
 plugins, abre configurações declaradas pelo pacote e consulta o catálogo HTTPS.
 Plugins nativos para Windows usam `QLibrary` e a ABI C pública em
-[`sdk/halla_plugin_api.h`](sdk/halla_plugin_api.h). Um exemplo mínimo está em
-[`examples/plugins/hello_world`](examples/plugins/hello_world).
+[`sdk/halla_plugin_api.h`](sdk/halla_plugin_api.h). Além da API-base compatível,
+o SDK possui interfaces modulares de conexões, clientes/canais, PCM de captura
+e reprodução, áudio 3D, filtros de rádio, transporte de dados pelo protocolo v5,
+notificações, ações e atalhos. Há um exemplo mínimo em
+[`examples/plugins/hello_world`](examples/plugins/hello_world) e um consumidor
+avançado em [`examples/plugins/advanced_sdk`](examples/plugins/advanced_sdk).
 
 O Desktop também inclui o **Overlay oficial da call**, configurável e
 click-through, que mostra no jogo os usuários falando. Consulte

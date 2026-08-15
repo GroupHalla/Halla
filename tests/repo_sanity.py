@@ -13,7 +13,7 @@ assert "@PROJECT_VERSION_MAJOR@" in resource_template
 cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8")
 assert "file(STRINGS" in cmake and "VERSION" in cmake
 protocol = (root / "src/net/HallaProtocol.h").read_text(encoding="utf-8")
-assert "kProtoVersion = 4" in protocol
+assert "kProtoVersion = 5" in protocol
 assert "kVoiceTokenBytes = 16" in protocol
 updater = (root / "src/app/MainWindowUpdates.cpp").read_text(encoding="utf-8")
 for required in ("QCryptographicHash::Sha256", "verifyAuthenticode", "kMaxInstallerBytes"):

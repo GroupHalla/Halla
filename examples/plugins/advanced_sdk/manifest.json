@@ -1,0 +1,26 @@
+{
+  "id": "community.advanced-sdk-example",
+  "name": "Advanced SDK Example",
+  "version": "1.0.0",
+  "author": "Halla-DEV",
+  "description": "Demonstra interfaces modulares de conexões, áudio, dados e interface.",
+  "type": "native",
+  "apiVersion": 1,
+  "defaultEnabled": false,
+  "capabilities": [
+    "connection.read",
+    "audio.playback",
+    "audio.spatial",
+    "plugin.data",
+    "ui.notifications",
+    "ui.actions"
+  ],
+  "platforms": {
+    "windows-x64": {
+      "library": "bin/windows-x64/halla_advanced_sdk.dll"
+    },
+    "linux-x64": {
+      "library": "bin/linux-x64/halla_advanced_sdk.so"
+    }
+  }
+}

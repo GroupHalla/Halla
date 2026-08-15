@@ -69,6 +69,10 @@ Section "Halla (obrigatório)" SEC_HALLA
     File "..\examples\plugins\hello_world\hello_world.cpp"
     File "..\examples\plugins\hello_world\CMakeLists.txt"
     File "..\examples\plugins\hello_world\manifest.json"
+    SetOutPath "$INSTDIR\Plugin SDK\advanced_sdk"
+    File "..\examples\plugins\advanced_sdk\advanced_sdk.cpp"
+    File "..\examples\plugins\advanced_sdk\CMakeLists.txt"
+    File "..\examples\plugins\advanced_sdk\manifest.json"
     SetOutPath "$INSTDIR"
 
     ; Builds MSVC incluem o redistribuível. Builds MinGW simplesmente pulam esta etapa.

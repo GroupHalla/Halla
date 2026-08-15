@@ -105,13 +105,18 @@ public:
     void sendWebRtcIce(int toUserId, const QString& candidate,
                        const QString& sdpMid = QString(), int sdpMLineIndex = -1);
 
+    // Protocolo v5: transporte confiável e delimitado por complemento.
+    bool sendPluginData(const QString& pluginId, int target,
+                        const QList<int>& targetUserIds, const QString& topic,
+                        const QByteArray& data);
+
 signals:
     void welcomeReceived();                     // estado completo carregado
     void stateChanged();                        // ServerData mudou (rebuild da UI)
     void chatReceived(const QString& scope, int fromId, const QString& fromName,
                       const QString& text);
     void systemEvent(const QString& text);      // "* X entrou no canal Y" etc.
-    void pokeReceived(const QString& fromName, const QString& msg);
+    void pokeReceived(int fromUserId, const QString& fromName, const QString& msg);
     void kickedReceived(const QString& reason, bool ban, int minutes);
     void errorOccurred(const QString& code, const QString& msg); // erro do servidor
     void connectionFailed(const QString& reason);                // TCP falhou/negado
@@ -120,6 +125,8 @@ signals:
     void screenshareStateChanged(int userId, bool on);
     void screenshareFrameReceived(int userId, const QByteArray& jpegData);
     void webRtcSignalReceived(const QJsonObject& signal);
+    void pluginDataReceived(int senderUserId, const QString& pluginId,
+                            const QString& topic, const QByteArray& data);
     void pingUpdated(int ms);
 
     // ---- v3

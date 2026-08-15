@@ -594,6 +594,70 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                       });
     m_actOptions->setShortcut(QKeySequence(QStringLiteral("Alt+P")));
 
+    // Ações declaradas por complementos. A API continua Qt-free: plugins
+    // registram apenas id, texto, atalho e callback C.
+    m_pluginsMenu = menuBar()->addMenu(tr("Co&mplementos"));
+    m_pluginsMenu->setEnabled(false);
+    PluginManager& plugins = PluginManager::instance();
+    connect(&plugins, &PluginManager::pluginActionRegistered, this,
+            [this](const QString& pluginId, const QString& actionId,
+                   const QString& label, const QString& shortcut) {
+        const QString key = pluginId + QLatin1Char('\n') + actionId;
+        if (QAction* previous = m_pluginActions.take(key)) delete previous;
+#ifdef Q_OS_WIN
+        if (const int previousId = m_pluginHotkeyIds.take(key); previousId > 0) {
+            UnregisterHotKey(HWND(winId()), previousId);
+            m_pluginGlobalHotkeys.remove(previousId);
+        }
+#endif
+        QAction* action = m_pluginsMenu->addAction(label);
+        action->setToolTip(pluginId);
+        bool globalRegistered = false;
+#ifdef Q_OS_WIN
+        if (!shortcut.isEmpty()) {
+            UINT vk = 0, mods = 0;
+            if (specToVk(QKeySequence::fromString(shortcut), vk, mods)) {
+                const int hotkeyId = m_nextPluginHotkeyId++;
+                if (RegisterHotKey(HWND(winId()), hotkeyId, mods | MOD_NOREPEAT, vk)) {
+                    m_pluginHotkeyIds.insert(key, hotkeyId);
+                    m_pluginGlobalHotkeys.insert(hotkeyId, qMakePair(pluginId, actionId));
+                    globalRegistered = true;
+                }
+            }
+        }
+#endif
+        if (!shortcut.isEmpty() && !globalRegistered)
+            action->setShortcut(QKeySequence(shortcut));
+        connect(action, &QAction::triggered, this, [pluginId, actionId] {
+            PluginManager::instance().triggerUiAction(pluginId, actionId);
+        });
+        m_pluginActions.insert(key, action);
+        m_pluginsMenu->setEnabled(true);
+    });
+    connect(&plugins, &PluginManager::pluginActionRemoved, this,
+            [this](const QString& pluginId, const QString& actionId) {
+        const QString key = pluginId + QLatin1Char('\n') + actionId;
+        if (QAction* action = m_pluginActions.take(key)) delete action;
+#ifdef Q_OS_WIN
+        if (const int hotkeyId = m_pluginHotkeyIds.take(key); hotkeyId > 0) {
+            UnregisterHotKey(HWND(winId()), hotkeyId);
+            m_pluginGlobalHotkeys.remove(hotkeyId);
+        }
+#endif
+        m_pluginsMenu->setEnabled(!m_pluginActions.isEmpty());
+    });
+    connect(&plugins, &PluginManager::pluginNotification, this,
+            [this](const QString& title, const QString& message, int timeoutMs) {
+        if (m_tray && m_tray->isVisible())
+            m_tray->showMessage(title.isEmpty() ? tr("Complemento do Halla") : title,
+                                message, QSystemTrayIcon::Information, timeoutMs);
+        else
+            statusBar()->showMessage(title.isEmpty() ? message
+                                                     : QStringLiteral("%1 — %2").arg(title, message),
+                                     timeoutMs);
+    });
+    plugins.announceUiActions();
+
     QMenu* mHelp = menuBar()->addMenu(tr("A&juda"));
     mHelp->addAction(tr("Sobre o Halla"), this,
                      [this] { AboutDialog dlg(this); dlg.exec(); });
@@ -824,6 +888,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 }
 
 MainWindow::~MainWindow() {
+#ifdef Q_OS_WIN
+    for (int hotkeyId : m_pluginGlobalHotkeys.keys())
+        UnregisterHotKey(HWND(winId()), hotkeyId);
+    m_pluginGlobalHotkeys.clear();
+    m_pluginHotkeyIds.clear();
+#endif
     // Só cria o novo processo depois que esta janela, suas conexões e o loop
     // atual já terminaram. Isso impede duas instâncias visíveis durante a
     // confirmação de saída ou durante o áudio de desconexão.
@@ -895,6 +965,7 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
 
 // fiações comuns de uma aba (local ou de rede)
 void MainWindow::wireTab(ServerTab* tab) {
+    PluginManager::instance().registerSession(tab);
     connect(tab, &ServerTab::disconnectRequested, this, [this, tab] { disconnectTab(tab); });
     connect(tab, &ServerTab::addBookmarkRequested, this, [this, tab] {
         openBookmarksDialog(tab->data().name, tab->data().address);
@@ -1008,6 +1079,7 @@ void MainWindow::finishDisconnectTab(ServerTab* tab) {
         QTimer::singleShot(500, net, &QObject::deleteLater);
     }
     const QString addr = tab->data().address;
+    PluginManager::instance().unregisterSession(tab);
     m_tabs->removeTab(idx);
     m_disconnectingTabs.remove(tab);
     tab->deleteLater();
@@ -1017,13 +1089,11 @@ void MainWindow::finishDisconnectTab(ServerTab* tab) {
     if (m_tabs->count() == 0) m_stack->setCurrentWidget(m_welcome);
     updateConnectionUi();
     updateStatusBar();
+    publishPluginState();
 }
 
 void MainWindow::publishPluginState() {
-    if (ServerTab* tab = currentTab())
-        PluginManager::instance().publishClientState(&tab->data());
-    else
-        PluginManager::instance().publishClientState(nullptr);
+    PluginManager::instance().setActiveSession(currentTab());
 }
 
 ServerTab* MainWindow::currentTab() const {
@@ -1597,6 +1667,10 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
                 pttSetHeld(true); // soltura detectada por polling (GetAsyncKeyState)
             else if (m_globalHotkeyActions.contains(id))
                 runConfiguredAction(m_globalHotkeyActions.value(id));
+            else if (m_pluginGlobalHotkeys.contains(id)) {
+                const auto action = m_pluginGlobalHotkeys.value(id);
+                PluginManager::instance().triggerUiAction(action.first, action.second);
+            }
         } else if (msg->message == WM_INPUT &&
                    (msg->wParam == RIM_INPUT || msg->wParam == RIM_INPUTSINK)) {
             // botão de mouse (PTT/sussurro/atalhos) pressionado em qualquer janela —
