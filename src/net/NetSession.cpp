@@ -12,6 +12,7 @@
 #include <QCryptographicHash>
 #include <QCoreApplication>
 #include <QHash>
+#include <QMessageBox>
 #ifndef HALLA_WEBRTC_NATIVE
 #include <openssl/evp.h>
 #else
@@ -113,8 +114,9 @@ public:
                 return plain;
             }
         }
-        // Compatibilidade com pacotes antigos gerados pelo build WebRTC inicial.
-        return legacyXor(packet, key, seq);
+        // Protocolo v4+: falha de autenticação AEAD é terminal. Nunca tente
+        // reinterpretar ciphertext adulterado como o XOR legado.
+        return QByteArray();
 #else
         if (key.size() < 32) return packet;
         if (packet.size() < 4 + 16) return QByteArray();
@@ -268,6 +270,9 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
     m_voiceToken.clear();
     m_udpRegistrationSeq = 0;
     m_buffer.clear();
+    m_channelKeys.clear();
+    m_reassembly.clear();
+    m_cryptoCounter = 0;
     m_intentionalDisconnect = false;
     m_serverTerminatedSession = false;
 
@@ -304,25 +309,47 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
 }
 
 void NetSession::onSslErrors(const QList<QSslError>& errors) {
-    Q_UNUSED(errors);
-    QSslCertificate cert = m_tcp->peerCertificate();
-    QByteArray fingerprint = cert.digest(QCryptographicHash::Sha256).toHex();
-    
+    const QSslCertificate cert = m_tcp->peerCertificate();
+    const QByteArray fingerprint = cert.digest(QCryptographicHash::Sha256).toHex();
+    if (cert.isNull() || fingerprint.isEmpty()) {
+        emit connectionFailed(tr("O servidor não apresentou um certificado TLS válido."));
+        m_tcp->abort();
+        return;
+    }
+
     QSettings settings;
-    QString key = QStringLiteral("ssl/fingerprint_%1_%2").arg(m_host).arg(m_port);
-    QString saved = settings.value(key).toString();
-    
-    if (saved.isEmpty()) {
-        settings.setValue(key, fingerprint);
-        m_tcp->ignoreSslErrors();
-    } else if (saved == fingerprint) {
-        m_tcp->ignoreSslErrors();
-    } else {
-        emit connectionFailed(tr("ALERTA DE SEGURANÇA: A impressão digital SSL deste servidor mudou!\n"
+    const QString key = QStringLiteral("ssl/fingerprint_%1_%2").arg(m_host).arg(m_port);
+    const QByteArray saved = settings.value(key).toByteArray();
+    if (!saved.isEmpty()) {
+        if (saved == fingerprint) {
+            m_tcp->ignoreSslErrors(errors);
+            return;
+        }
+        emit connectionFailed(tr("ALERTA DE SEGURANÇA: A impressão digital TLS deste servidor mudou!\n"
                                  "Isso pode indicar um ataque Man-in-the-Middle (MITM).\n"
                                  "Conexão recusada para sua proteção."));
         m_tcp->abort();
+        return;
     }
+
+    QStringList details;
+    for (const QSslError& error : errors) details << error.errorString();
+    const QString formatted = QString::fromLatin1(fingerprint).toUpper();
+    const auto answer = QMessageBox::warning(
+        nullptr, tr("Confirmar certificado do servidor"),
+        tr("Este é o primeiro contato com %1:%2 e o certificado não pôde ser validado pela autoridade do sistema.\n\n"
+           "SHA-256:\n%3\n\nErros: %4\n\n"
+           "Compare esta impressão digital com a publicada pelo administrador. Confiar e fixar este certificado?")
+            .arg(m_host).arg(m_port).arg(formatted, details.join(QStringLiteral("; "))),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (answer != QMessageBox::Yes) {
+        emit connectionFailed(tr("Certificado TLS não confirmado pelo usuário."));
+        m_tcp->abort();
+        return;
+    }
+    settings.setValue(key, fingerprint);
+    settings.sync();
+    m_tcp->ignoreSslErrors(errors);
 }
 
 void NetSession::onConnected() {
@@ -335,9 +362,22 @@ void NetSession::send(const QJsonObject& obj) {
 }
 
 void NetSession::onReadyRead() {
+    static constexpr qsizetype kMaxTcpMessageBytes = 2 * 1024 * 1024;
     m_buffer += m_tcp->readAll();
+    if (m_buffer.size() > kMaxTcpMessageBytes) {
+        m_fatalError = true;
+        emit connectionFailed(tr("O servidor enviou uma mensagem acima do limite de 2 MiB."));
+        m_tcp->abort();
+        return;
+    }
     int idx;
     while ((idx = m_buffer.indexOf('\n')) >= 0) {
+        if (idx > kMaxTcpMessageBytes) {
+            m_fatalError = true;
+            emit connectionFailed(tr("O servidor enviou uma linha acima do limite de 2 MiB."));
+            m_tcp->abort();
+            return;
+        }
         QByteArray line = m_buffer.left(idx).trimmed();
         m_buffer = m_buffer.mid(idx + 1);
         if (line.isEmpty()) continue;
@@ -377,6 +417,10 @@ void NetSession::onPingTimer() {
 void NetSession::onUdpReadyRead() {
     while (m_udp->hasPendingDatagrams()) {
         QNetworkDatagram dg = m_udp->receiveDatagram();
+        // O relay oficial é o único emissor UDP aceito. Sem esta verificação,
+        // qualquer host que descobrisse a porta local poderia injetar HALL/HALF.
+        if (dg.senderPort() != m_udpPort || (!m_udpHostAddress.isNull()
+                && dg.senderAddress() != m_udpHostAddress)) continue;
         QByteArray data = dg.data();
         if (data.size() < 10) continue;
         bool isVoice = memcmp(data.constData(), "HALL", 4) == 0;
@@ -404,8 +448,9 @@ void NetSession::onUdpReadyRead() {
             memcpy(&seq, data.constData() + 8, 2);
 
             if (data.size() < 12) continue;
-            quint8 chunkIdx = quint8(data[10]);
-            quint8 chunkCount = quint8(data[11]);
+            const quint8 chunkIdx = quint8(data[10]);
+            const quint8 chunkCount = quint8(data[11]);
+            if (chunkCount == 0 || chunkCount > 64 || chunkIdx >= chunkCount) continue;
             QByteArray chunkPayload = data.mid(12);
 
             int uid = int(fromId);
@@ -415,14 +460,28 @@ void NetSession::onUdpReadyRead() {
                 if (chunkPayload.isEmpty()) continue;
             }
             
-            m_reassembly[uid][seq][chunkIdx] = chunkPayload;
+            int pendingFrames = 0;
+            for (auto userIt = m_reassembly.cbegin(); userIt != m_reassembly.cend(); ++userIt)
+                pendingFrames += userIt.value().size();
+            if (!m_reassembly[uid].contains(seq) && pendingFrames >= 128) continue;
 
-            if (m_reassembly[uid][seq].size() == chunkCount) {
+            auto& frame = m_reassembly[uid][seq];
+            qsizetype existingBytes = 0;
+            for (const QByteArray& part : frame) existingBytes += part.size();
+            if (existingBytes + chunkPayload.size() > 4 * 1024 * 1024) {
+                m_reassembly[uid].remove(seq);
+                if (m_reassembly[uid].isEmpty()) m_reassembly.remove(uid);
+                continue;
+            }
+            frame[chunkIdx] = chunkPayload;
+
+            if (frame.size() == chunkCount) {
                 QByteArray combined;
                 for (int i = 0; i < chunkCount; ++i) {
-                    combined.append(m_reassembly[uid][seq][i]);
+                    if (!frame.contains(i)) { combined.clear(); break; }
+                    combined.append(frame[i]);
                 }
-                emit screenshareFrameReceived(uid, combined);
+                if (!combined.isEmpty()) emit screenshareFrameReceived(uid, combined);
 
                 QList<quint16> seqs = m_reassembly[uid].keys();
                 for (quint16 s : seqs) {
