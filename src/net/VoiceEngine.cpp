@@ -148,9 +148,12 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
                 m_opusReceivedBytes += quint64(payload.size());
                 if (m_data && m_data->users.value(fromId).locallyMuted) return;
 
+                const uint32_t flags = m_data && m_data->users.value(fromId).whispering
+                    ? uint32_t(HALLA_AUDIO_FLAG_WHISPER) : 0u;
                 PluginManager::instance().processAudio(
                     m_pluginConnectionId, fromId,
-                    HALLA_AUDIO_REMOTE_BEFORE_SPATIAL, pcm, uint32_t(n), 1, 48000);
+                    HALLA_AUDIO_REMOTE_BEFORE_SPATIAL, flags,
+                    pcm, uint32_t(n), 1, 48000);
                 QByteArray stereo = spatializeFrame(fromId, pcm, n);
                 if (stereo.isEmpty()) return;
                 auto& queue = m_remoteQueues[fromId];
@@ -349,9 +352,11 @@ void VoiceEngine::captureTick() {
 
     while (m_captureBuf.size() >= 960 * 2) {
         int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
+        const uint32_t flags = (m_whisperHeld || m_whisperTargetsConfigured)
+            ? uint32_t(HALLA_AUDIO_FLAG_WHISPER) : 0u;
         PluginManager::instance().processAudio(
             m_pluginConnectionId, m_data ? m_data->selfId : 0,
-            HALLA_AUDIO_CAPTURE, pcm, 960, 1, 48000);
+            HALLA_AUDIO_CAPTURE, flags, pcm, 960, 1, 48000);
 
         // nível RMS p/ indicador "está falando"
         double sum = 0;
@@ -382,6 +387,15 @@ void VoiceEngine::captureTick() {
         if (!voiceNow && m_captureBuf.size() < 960 * 2 * 4) {
             m_captureBuf.remove(0, 960 * 2);
             continue;
+        }
+
+        // O filtro oficial de rádio é propositalmente aplicado depois do VAD:
+        // assim o chiado não abre o microfone sozinho, mas a voz já segue
+        // modificada para o encoder e para todos os destinatários.
+        if (voiceNow) {
+            PluginManager::instance().processOfficialRadio(
+                m_pluginConnectionId, m_data ? m_data->selfId : 0,
+                HALLA_AUDIO_CAPTURE, flags, pcm, 960, 1, 48000);
         }
 
         // Um pacote Opus pode chegar a 1275 bytes. O limite anterior de
@@ -532,7 +546,7 @@ void VoiceEngine::playbackTick() {
         for (int i = 0; i < kFrames * kChannels; ++i)
             samples[i] = int16_t(qBound(-32768, mix[i], 32767));
         PluginManager::instance().processAudio(
-            m_pluginConnectionId, 0, HALLA_AUDIO_MIXED_PLAYBACK,
+            m_pluginConnectionId, 0, HALLA_AUDIO_MIXED_PLAYBACK, 0,
             samples, kFrames, kChannels, 48000);
 
         const qint64 written = m_sinkDev->write(output.constData(), output.size());

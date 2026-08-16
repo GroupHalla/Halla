@@ -71,6 +71,8 @@ set(HALLA_SOURCES
     src/core/SecureStore.cpp
     src/plugins/PluginManager.cpp
     src/plugins/PluginManager.h
+    src/plugins/RadioVoiceEffect.cpp
+    src/plugins/RadioVoiceEffect.h
     src/plugins/TalkingOverlay.cpp
     src/plugins/TalkingOverlay.h
     src/gui/Icons.cpp

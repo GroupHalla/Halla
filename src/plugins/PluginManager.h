@@ -14,6 +14,7 @@ struct ServerData;
 class QWidget;
 class QLibrary;
 class TalkingOverlay;
+class RadioVoiceEffect;
 class ServerTab;
 
 struct AddonInfo {
@@ -69,8 +70,11 @@ public:
 
     /* Chamadas internas do motor de voz; nunca atravessam a rede. */
     void processAudio(quint64 connectionId, int userId, uint32_t stage,
-                      int16_t* samples, uint32_t frames, uint32_t channels,
-                      uint32_t sampleRate);
+                      uint32_t flags, int16_t* samples, uint32_t frames,
+                      uint32_t channels, uint32_t sampleRate);
+    void processOfficialRadio(quint64 connectionId, int userId, uint32_t stage,
+                              uint32_t flags, int16_t* samples, uint32_t frames,
+                              uint32_t channels, uint32_t sampleRate);
     PluginAudioControl audioControl(quint64 connectionId, int userId) const;
 
     void triggerUiAction(const QString& pluginId, const QString& actionId);
@@ -95,6 +99,7 @@ private:
     struct Record;
     QHash<QString, Record*> m_records;
     TalkingOverlay* m_overlay = nullptr;
+    RadioVoiceEffect* m_radioVoice = nullptr;
     QJsonObject m_currentState;
     QHash<quint64, QPointer<ServerTab>> m_sessions;
     QHash<ServerTab*, quint64> m_sessionIds;
@@ -104,6 +109,7 @@ private:
     bool m_shuttingDown = false;
 
     void addOfficialOverlay();
+    void addOfficialRadioVoice();
     void scanInstalled();
     bool readManifest(const QString& directory, QJsonObject* manifest,
                       QString* error) const;

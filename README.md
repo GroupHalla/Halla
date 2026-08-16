@@ -238,10 +238,11 @@ notificações, ações e atalhos. Há um exemplo mínimo em
 [`examples/plugins/hello_world`](examples/plugins/hello_world) e um consumidor
 avançado em [`examples/plugins/advanced_sdk`](examples/plugins/advanced_sdk).
 
-O Desktop também inclui o **Overlay oficial da call**, configurável e
-click-through, que mostra no jogo os usuários falando. Consulte
-[`docs/PLUGINS.md`](docs/PLUGINS.md) para manifesto, empacotamento, eventos e
-regras de segurança.
+O Desktop também inclui o **Overlay oficial da call** e o complemento oficial
+**Voz de rádio policial**. O segundo filtra envio e escuta separadamente para
+sussurros, voz normal ou ambos, com intensidade e chiado configuráveis. Consulte
+[`docs/PLUGINS.md`](docs/PLUGINS.md) para manifesto, empacotamento, áudio,
+eventos e regras de segurança.
 
 ## Compilando
 

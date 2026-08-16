@@ -30,6 +30,7 @@ public:
     void setTransmitEnabled(bool on);
     void setSpeakersEnabled(bool on);
     void setPluginConnectionId(quint64 id) { m_pluginConnectionId = id; }
+    void setWhisperTargetsConfigured(bool on) { m_whisperTargetsConfigured = on; }
     bool playPluginPcm(const int16_t* samples, uint32_t frames,
                        uint32_t channels, float gain);
 
@@ -89,6 +90,7 @@ private:
     bool m_talking = false;
     bool m_pttHeld = false;
     bool m_whisperHeld = false;
+    bool m_whisperTargetsConfigured = false;
     quint32 m_pttGen = 0;
     QElapsedTimer m_silenceClock;
     quint64 m_opusSent = 0, m_opusReceived = 0;

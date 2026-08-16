@@ -177,9 +177,10 @@ processadas individualmente, espacializadas e depois mixadas com saturação.
 | `HALLA_AUDIO_REMOTE_BEFORE_SPATIAL` | PCM S16 mono de um participante após Opus |
 | `HALLA_AUDIO_MIXED_PLAYBACK` | PCM S16 estéreo da mixagem final |
 
-`HallaAudioFrame` contém conexão, usuário, amostras mutáveis, frames, canais e
-sample rate. Os buffers pertencem ao Halla e são válidos somente durante a
-callback.
+`HallaAudioFrame` contém conexão, usuário, amostras mutáveis, frames, canais,
+sample rate e flags. `HALLA_AUDIO_FLAG_WHISPER` informa que aquele quadro está
+sendo enviado/recebido como sussurro. Teste `struct_size` antes de ler campos
+aditivos. Os buffers pertencem ao Halla e são válidos somente durante a callback.
 
 ### Regras de tempo real
 
@@ -310,8 +311,28 @@ corresponder.
 - bloqueio de caminhos absolutos, `..` e links simbólicos;
 - catálogo de no máximo 1 MiB e 500 entradas exibidas.
 
-## Overlay oficial
+## Complementos oficiais
 
-`official.talking-overlay` permanece uma extensão interna, desativada por
-padrão. Usa janela transparente, click-through e sempre no topo, sem injeção ou
-hooking. É destinado a jogos em janela e tela cheia sem bordas.
+### Overlay da call
+
+`official.talking-overlay` é uma extensão interna, desativada por padrão. Usa
+janela transparente, click-through e sempre no topo, sem injeção ou hooking. É
+destinada a jogos em janela e tela cheia sem bordas.
+
+### Voz de rádio policial
+
+`official.radio-voice` também é interno e desativado por padrão. Processa PCM
+antes do Opus ao enviar e antes da espacialização ao escutar. O usuário escolhe
+se o efeito será aplicado, separadamente em cada direção, a:
+
+- nenhum áudio;
+- somente sussurros;
+- somente voz normal;
+- sussurros e voz normal.
+
+Intensidade, chiado e volume depois do efeito são configuráveis. O DSP combina
+corte de graves, amortecimento de agudos, compressão/saturação e ruído de
+comunicador. Se o remetente filtrar o microfone, todos os destinatários recebem
+a voz já modificada; o filtro de escuta é local e só afeta quem o ativou. Se os
+dois lados aplicarem o efeito à mesma fala, ela será filtrada duas vezes; nesse
+caso, o destinatário pode deixar aquela direção em **Não aplicar**.

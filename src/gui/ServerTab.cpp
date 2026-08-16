@@ -358,6 +358,7 @@ void ServerTab::attachNetwork(NetSession* net) {
     // A lista ativa configura destinos; ela não transforma o PTT normal em
     // sussurro. Apenas a tecla de sussurro ativa esse roteamento.
     m_voice = new VoiceEngine(net, &m_data, this);
+    m_voice->setWhisperTargetsConfigured(!m_whisperUids.isEmpty());
     if (m_voice->isActive()) {
         connect(m_voice, &VoiceEngine::talkingChanged, this, [this](bool on) {
             m_data.users[m_data.selfId].talking = on;
@@ -1097,6 +1098,7 @@ void ServerTab::openOfflineMessages() {
 // ==================================================================== v3: sussurro
 void ServerTab::setWhisperUids(const QStringList& uids) {
     m_whisperUids = uids;
+    if (m_voice) m_voice->setWhisperTargetsConfigured(!uids.isEmpty());
     if (m_data.users.contains(m_data.selfId)) {
         m_data.users[m_data.selfId].whispering = !uids.isEmpty();
     }

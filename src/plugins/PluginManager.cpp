@@ -1,6 +1,7 @@
 #include "PluginManager.h"
 
 #include "TalkingOverlay.h"
+#include "RadioVoiceEffect.h"
 #include "AppLog.h"
 #include "Models.h"
 #include "Settings.h"
@@ -710,6 +711,35 @@ struct PluginManager::Record {
     }
 };
 
+static QJsonArray officialRadioModeOptions() {
+    return QJsonArray{
+        QJsonObject{{"value","disabled"},{"label",PluginManager::tr("Não aplicar")}},
+        QJsonObject{{"value","whisper"},{"label",PluginManager::tr("Somente sussurros")}},
+        QJsonObject{{"value","normal"},{"label",PluginManager::tr("Somente voz normal")}},
+        QJsonObject{{"value","both"},{"label",PluginManager::tr("Sussurros e voz normal")}}
+    };
+}
+
+static QJsonArray officialRadioVoiceSchema() {
+    return QJsonArray{
+        QJsonObject{{"key","sendMode"},{"type","choice"},
+                    {"label",PluginManager::tr("Aplicar ao enviar minha voz")},
+                    {"default","whisper"},{"options",officialRadioModeOptions()}},
+        QJsonObject{{"key","receiveMode"},{"type","choice"},
+                    {"label",PluginManager::tr("Aplicar às vozes que escuto")},
+                    {"default","whisper"},{"options",officialRadioModeOptions()}},
+        QJsonObject{{"key","intensity"},{"type","int"},
+                    {"label",PluginManager::tr("Intensidade do efeito (%)")},
+                    {"default",90},{"min",0},{"max",100}},
+        QJsonObject{{"key","noise"},{"type","int"},
+                    {"label",PluginManager::tr("Chiado do rádio (%)")},
+                    {"default",10},{"min",0},{"max",100}},
+        QJsonObject{{"key","gain"},{"type","int"},
+                    {"label",PluginManager::tr("Volume após o efeito (%)")},
+                    {"default",105},{"min",50},{"max",150}}
+    };
+}
+
 static QJsonArray officialOverlaySchema() {
     return QJsonArray{
         QJsonObject{{"key","onlyTalking"},{"type","bool"},
@@ -782,6 +812,7 @@ void PluginManager::initialize() {
     m_initialized = true;
     QDir().mkpath(addonsRoot());
     addOfficialOverlay();
+    addOfficialRadioVoice();
     scanInstalled();
     for (Record* item : m_records) {
         if (item->info.enabled) {
@@ -804,6 +835,10 @@ void PluginManager::shutdown() {
         delete m_overlay;
         m_overlay = nullptr;
     }
+    if (m_radioVoice) {
+        delete m_radioVoice;
+        m_radioVoice = nullptr;
+    }
     m_shuttingDown = false;
 }
 
@@ -818,6 +853,23 @@ void PluginManager::addOfficialOverlay() {
     item->info.builtIn = true;
     item->info.configurable = true;
     item->info.settingsSchema = officialOverlaySchema();
+    item->info.enabled = S::flag(QStringLiteral("addons/%1/enabled").arg(item->info.id), false);
+    m_records.insert(item->info.id, item);
+}
+
+void PluginManager::addOfficialRadioVoice() {
+    auto* item = new Record;
+    item->info.id = QStringLiteral("official.radio-voice");
+    item->info.name = tr("Voz de rádio policial");
+    item->info.version = QStringLiteral("1.0.0");
+    item->info.author = QStringLiteral("Halla-DEV");
+    item->info.description = tr(
+        "Simula um comunicador policial no microfone e nas vozes recebidas, "
+        "com regras separadas para fala normal e sussurros.");
+    item->info.official = true;
+    item->info.builtIn = true;
+    item->info.configurable = true;
+    item->info.settingsSchema = officialRadioVoiceSchema();
     item->info.enabled = S::flag(QStringLiteral("addons/%1/enabled").arg(item->info.id), false);
     m_records.insert(item->info.id, item);
 }
@@ -959,9 +1011,17 @@ bool PluginManager::load(Record* item, QString* error) {
 
     const QJsonObject settings = settingsFor(item->info.id, item->info.settingsSchema);
     if (item->info.builtIn) {
-        if (!m_overlay) m_overlay = new TalkingOverlay;
-        m_overlay->applySettings(settings);
-        m_overlay->updateClientState(m_currentState);
+        if (item->info.id == QLatin1String("official.talking-overlay")) {
+            if (!m_overlay) m_overlay = new TalkingOverlay;
+            m_overlay->applySettings(settings);
+            m_overlay->updateClientState(m_currentState);
+        } else if (item->info.id == QLatin1String("official.radio-voice")) {
+            if (!m_radioVoice) m_radioVoice = new RadioVoiceEffect;
+            m_radioVoice->applySettings(settings);
+        } else {
+            if (error) *error = tr("Complemento oficial desconhecido.");
+            return false;
+        }
         item->info.loaded = true;
         return true;
     }
@@ -1038,10 +1098,13 @@ bool PluginManager::load(Record* item, QString* error) {
 void PluginManager::unload(Record* item) {
     if (!item) return;
     if (item->info.builtIn) {
-        if (m_overlay) {
+        if (item->info.id == QLatin1String("official.talking-overlay") && m_overlay) {
             m_overlay->hide();
             delete m_overlay;
             m_overlay = nullptr;
+        } else if (item->info.id == QLatin1String("official.radio-voice") && m_radioVoice) {
+            delete m_radioVoice;
+            m_radioVoice = nullptr;
         }
         item->info.loaded = false;
         return;
@@ -1094,7 +1157,10 @@ void PluginManager::notifySettingsChanged(Record* item) {
     if (!item) return;
     const QJsonObject settings = settingsFor(item->info.id, item->info.settingsSchema);
     if (item->info.builtIn) {
-        if (m_overlay) m_overlay->applySettings(settings);
+        if (item->info.id == QLatin1String("official.talking-overlay") && m_overlay)
+            m_overlay->applySettings(settings);
+        else if (item->info.id == QLatin1String("official.radio-voice") && m_radioVoice)
+            m_radioVoice->applySettings(settings);
         return;
     }
     item->settingsCache = QJsonDocument(settings).toJson(QJsonDocument::Compact);
@@ -1613,6 +1679,7 @@ void PluginManager::unregisterSession(ServerTab* tab) {
     if (!id) return;
     m_sessions.remove(id);
     for (Record* item : m_records) item->audioConnections.remove(id);
+    if (m_radioVoice) m_radioVoice->resetConnection(id);
     dispatchEvent(QJsonObject{{"event", "connection_closed"},
                               {"payload", QJsonObject{{"connectionId", qint64(id)}}}});
     if (m_activeSessionId == id) {
@@ -1708,15 +1775,18 @@ void PluginManager::publishSessionEvent(quint64 connectionIdValue) {
 }
 
 void PluginManager::processAudio(quint64 connectionIdValue, int userId, uint32_t stage,
-                                 int16_t* samples, uint32_t frames, uint32_t channels,
-                                 uint32_t sampleRate) {
+                                 uint32_t flags, int16_t* samples, uint32_t frames,
+                                 uint32_t channels, uint32_t sampleRate) {
     if (!samples || !frames || !channels) return;
+    if (stage != HALLA_AUDIO_CAPTURE)
+        processOfficialRadio(connectionIdValue, userId, stage, flags,
+                             samples, frames, channels, sampleRate);
     for (Record* item : m_records) {
         if (!item || !item->info.loaded || !item->info.enabled
                 || !item->audioProcessor || !(item->audioStages & stage)) continue;
         HallaAudioFrame frame{uint32_t(sizeof(HallaAudioFrame)), stage,
                               connectionIdValue, userId, samples, frames, channels,
-                              sampleRate};
+                              sampleRate, flags};
         try { item->audioProcessor(item->audioProcessorContext, &frame); }
         catch (...) {
             AppLog::error(tr("O complemento %1 lançou uma exceção no processamento de áudio.")
@@ -1725,6 +1795,16 @@ void PluginManager::processAudio(quint64 connectionIdValue, int userId, uint32_t
             item->audioStages = 0;
         }
     }
+}
+
+void PluginManager::processOfficialRadio(quint64 connectionIdValue, int userId,
+                                         uint32_t stage, uint32_t flags,
+                                         int16_t* samples, uint32_t frames,
+                                         uint32_t channels, uint32_t sampleRate) {
+    if (!m_radioVoice || !samples || !frames || !channels) return;
+    m_radioVoice->process(connectionIdValue, userId, stage,
+                          (flags & HALLA_AUDIO_FLAG_WHISPER) != 0,
+                          samples, frames, channels, sampleRate);
 }
 
 PluginAudioControl PluginManager::audioControl(quint64 connectionIdValue,

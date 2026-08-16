@@ -142,6 +142,10 @@ typedef enum HallaAudioStage {
     HALLA_AUDIO_MIXED_PLAYBACK = 1u << 2
 } HallaAudioStage;
 
+typedef enum HallaAudioFrameFlag {
+    HALLA_AUDIO_FLAG_WHISPER = 1u << 0
+} HallaAudioFrameFlag;
+
 typedef struct HallaAudioFrame {
     uint32_t struct_size;
     uint32_t stage;
@@ -151,6 +155,8 @@ typedef struct HallaAudioFrame {
     uint32_t frame_count;
     uint32_t channels;
     uint32_t sample_rate;
+    /* Campo aditivo: teste struct_size antes de ler. */
+    uint32_t flags;
 } HallaAudioFrame;
 
 typedef void (*HallaAudioProcessorFn)(void* plugin_context,

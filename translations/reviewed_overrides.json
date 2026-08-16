@@ -166,7 +166,19 @@
     "Os dados enviados pelo complemento excedem o limite permitido.": "The data sent by the add-on exceeds the allowed limit.",
     "O complemento %1 lançou uma exceção em uma tarefa da interface.": "Add-on %1 threw an exception in a user-interface task.",
     "O complemento %1 lançou uma exceção ao receber o estado inicial.": "Add-on %1 threw an exception while receiving the initial state.",
-    "O complemento %1 lançou uma exceção ao atualizar configurações.": "Add-on %1 threw an exception while updating settings."
+    "O complemento %1 lançou uma exceção ao atualizar configurações.": "Add-on %1 threw an exception while updating settings.",
+    "Não aplicar": "Do not apply",
+    "Somente sussurros": "Whispers only",
+    "Somente voz normal": "Normal voice only",
+    "Sussurros e voz normal": "Whispers and normal voice",
+    "Aplicar ao enviar minha voz": "Apply when sending my voice",
+    "Aplicar às vozes que escuto": "Apply to voices I hear",
+    "Intensidade do efeito (%)": "Effect intensity (%)",
+    "Chiado do rádio (%)": "Radio static (%)",
+    "Volume após o efeito (%)": "Post-effect volume (%)",
+    "Voz de rádio policial": "Police radio voice",
+    "Simula um comunicador policial no microfone e nas vozes recebidas, com regras separadas para fala normal e sussurros.": "Simulates a police radio on the microphone and received voices, with separate rules for normal voice and whispers.",
+    "Complemento oficial desconhecido.": "Unknown official add-on."
   },
   "es": {
     "Apelido fonético": "Apodo fonético",
@@ -304,6 +316,18 @@
     "Os dados enviados pelo complemento excedem o limite permitido.": "Los datos enviados por el complemento superan el límite permitido.",
     "O complemento %1 lançou uma exceção em uma tarefa da interface.": "El complemento %1 produjo una excepción en una tarea de la interfaz.",
     "O complemento %1 lançou uma exceção ao receber o estado inicial.": "El complemento %1 produjo una excepción al recibir el estado inicial.",
-    "O complemento %1 lançou uma exceção ao atualizar configurações.": "El complemento %1 produjo una excepción al actualizar la configuración."
+    "O complemento %1 lançou uma exceção ao atualizar configurações.": "El complemento %1 produjo una excepción al actualizar la configuración.",
+    "Não aplicar": "No aplicar",
+    "Somente sussurros": "Solo susurros",
+    "Somente voz normal": "Solo voz normal",
+    "Sussurros e voz normal": "Susurros y voz normal",
+    "Aplicar ao enviar minha voz": "Aplicar al enviar mi voz",
+    "Aplicar às vozes que escuto": "Aplicar a las voces que escucho",
+    "Intensidade do efeito (%)": "Intensidad del efecto (%)",
+    "Chiado do rádio (%)": "Ruido de radio (%)",
+    "Volume após o efeito (%)": "Volumen después del efecto (%)",
+    "Voz de rádio policial": "Voz de radio policial",
+    "Simula um comunicador policial no microfone e nas vozes recebidas, com regras separadas para fala normal e sussurros.": "Simula un comunicador policial en el micrófono y en las voces recibidas, con reglas separadas para la voz normal y los susurros.",
+    "Complemento oficial desconhecido.": "Complemento oficial desconocido."
   }
 }

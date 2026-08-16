@@ -7,6 +7,8 @@ api = (root / "sdk/halla_plugin_api.h").read_text(encoding="utf-8")
 sdk_license = (root / "sdk/LICENSE.txt").read_text(encoding="utf-8")
 manager = (root / "src/plugins/PluginManager.cpp").read_text(encoding="utf-8")
 overlay = (root / "src/plugins/TalkingOverlay.cpp").read_text(encoding="utf-8")
+radio = (root / "src/plugins/RadioVoiceEffect.cpp").read_text(encoding="utf-8")
+radio_test = (root / "tests/radio_voice_smoke.cpp").read_text(encoding="utf-8")
 options = (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
 docs = (root / "docs/PLUGINS.md").read_text(encoding="utf-8")
 packager = (root / "tools/package_plugin.py").read_text(encoding="utf-8")
@@ -42,6 +44,13 @@ assert "100ll * 1024 * 1024" in manager
 assert "250ll * 1024 * 1024" in manager
 assert "https://raw.githubusercontent.com/GroupHalla/Halla/main/addons/catalog.json" in manager
 assert "official.talking-overlay" in manager
+assert "official.radio-voice" in manager
+assert "HALLA_AUDIO_FLAG_WHISPER" in api
+assert "sendMode" in manager and "receiveMode" in manager
+assert "std::tanh" in radio and "m_noise" in radio
+assert "src/plugins/RadioVoiceEffect.cpp" in (root / "CMakeLists.txt").read_text(encoding="utf-8")
+assert "Official radio voice DSP smoke OK" in radio_test
+assert "HALLA_AUDIO_REMOTE_BEFORE_SPATIAL" in radio_test
 assert "WindowTransparentForInput" in overlay
 assert "WS_EX_NOACTIVATE" in overlay
 assert "Instalar arquivo .halla-addon" in options

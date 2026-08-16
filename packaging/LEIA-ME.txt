@@ -83,6 +83,8 @@ COMPLEMENTOS E OVERLAY
   e confira o SHA-256 mostrado pelo Halla.
 * O "Overlay oficial da call" mostra sobre o jogo os usuários falando. Ele é
   transparente para cliques e funciona em janela/tela cheia sem bordas.
+* O complemento oficial "Voz de rádio policial" simula um comunicador no envio
+  e na escuta, configurável para sussurros, voz normal ou ambos.
 * A pasta "Plugin SDK" instalada com o Halla contém halla_plugin_api.h,
   documentação, um exemplo mínimo e outro exemplo das APIs avançadas de áudio,
   conexões, comunicação entre plugins, notificações e atalhos.
