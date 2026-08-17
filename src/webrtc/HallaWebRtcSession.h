@@ -32,6 +32,7 @@ public:
     void setCaptureQuality(int width, int height, int fps, int bitrateKbps);
     void setCaptureSystemAudio(bool enabled);
     void startWatching(int userId);
+    void stopWatching(int userId);
 
 public slots:
     void startBroadcast();
@@ -48,6 +49,7 @@ public:
     void setRemoteOffer(int peerId, const QString& sdp);
     void createAnswerForPeer(int peerId);
     void addRemoteIce(int peerId, const QJsonObject& signal);
+    void remoteDescriptionReady(int peerId);
     void closePeer(int peerId);
     void sendNativeIce(int peerId, const std::string& candidate, const std::string& mid, int mline);
     void sendNativeOffer(int peerId, const std::string& sdp);

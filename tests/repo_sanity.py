@@ -51,6 +51,13 @@ webrtc = (root / "src/webrtc/HallaWebRtcSession.cpp").read_text(encoding="utf-8"
 assert "PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE" in webrtc
 assert "TargetProcessId = GetCurrentProcessId()" in webrtc
 assert "GetDefaultAudioEndpoint" not in webrtc
+# Regressões Desktop↔Mobile: ICE precoce deve ser enfileirado, a live remota só
+# abre por clique explícito e o UDP usa o peer realmente escolhido pelo TLS.
+assert "pendingRemoteIce" in webrtc and "remoteDescriptionReady" in webrtc
+assert "if (userId != tab->data().selfId) return" in main_window
+assert "openScreenShareWindow(userId)" in main_window
+assert "normalizedPeerAddress(m_tcp->peerAddress())" in net_session
+assert "for (const QByteArray& key : m_channelKeys)" in net_session
 
 models = (root / "src/core/Models.h").read_text(encoding="utf-8")
 group_dialog = (root / "src/dialogs/AdminDialogs.cpp").read_text(encoding="utf-8")

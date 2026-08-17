@@ -42,6 +42,7 @@ public:
     void toggleScreenShare();
     void captureAndSendScreen();
     void handleScreenshareStateChanged(int userId, bool on);
+    void openScreenShareWindow(int userId);
     void handleScreenshareFrameReceived(int userId, const QByteArray& jpegData);
     void handleScreenshareHovered(int userId, int channelId, const QPoint& pos);
     void watchStream(int userId, int channelId);

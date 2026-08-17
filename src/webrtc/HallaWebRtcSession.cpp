@@ -556,6 +556,19 @@ private:
     int m_peerId = 0;
 };
 
+class RemoteAnswerSetObserver : public webrtc::SetSessionDescriptionObserver {
+public:
+    RemoteAnswerSetObserver(HallaWebRtcSession* owner, int peerId) : m_owner(owner), m_peerId(peerId) {}
+    void OnSuccess() override;
+    void OnFailure(webrtc::RTCError error) override {
+        AppLog::warn(QStringLiteral("WebRTC SetRemoteAnswer falhou: %1")
+                         .arg(QString::fromStdString(error.message())));
+    }
+private:
+    HallaWebRtcSession* m_owner = nullptr;
+    int m_peerId = 0;
+};
+
 class RemoteVideoSink : public webrtc::VideoSinkInterface<webrtc::VideoFrame> {
 public:
     RemoteVideoSink(HallaWebRtcSession* owner, int peerId) : m_owner(owner), m_peerId(peerId) {}
@@ -692,6 +705,8 @@ struct HallaWebRtcSession::PeerContext {
         std::unique_ptr<RemoteVideoSink> sink;
     };
     std::vector<RemoteBinding> remoteVideo;
+    std::vector<QJsonObject> pendingRemoteIce;
+    bool remoteDescriptionSet = false;
     bool trackAdded = false;
     bool audioTrackAdded = false;
 };
@@ -925,7 +940,8 @@ void HallaWebRtcSession::setRemoteAnswer(int peerId, const QString& sdp) {
     if (!ctx || !ctx->pc || sdp.isEmpty()) return;
     auto desc = webrtc::CreateSessionDescription(webrtc::SdpType::kAnswer, sdp.toStdString());
     if (!desc) return;
-    ctx->pc->SetRemoteDescription(new webrtc::RefCountedObject<NoopSetObserver>(), desc.release());
+    ctx->pc->SetRemoteDescription(
+        new webrtc::RefCountedObject<RemoteAnswerSetObserver>(this, peerId), desc.release());
 }
 
 void HallaWebRtcSession::setRemoteOffer(int peerId, const QString& sdp) {
@@ -964,11 +980,30 @@ void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
     if (!ctx || !ctx->pc) return;
     const QString candidate = signal.value(QStringLiteral("candidate")).toString();
     if (candidate.isEmpty()) return;
+    // Android costuma enviar ICE imediatamente após a oferta. libwebrtc rejeita
+    // candidatos antes de SetRemoteDescription concluir; preserve-os e aplique
+    // em ordem quando a descrição remota ficar pronta.
+    if (!ctx->remoteDescriptionSet) {
+        if (ctx->pendingRemoteIce.size() < 128) ctx->pendingRemoteIce.push_back(signal);
+        return;
+    }
     std::unique_ptr<webrtc::IceCandidate> ice(webrtc::CreateIceCandidate(
         signal.value(QStringLiteral("sdpMid")).toString(QStringLiteral("0")).toStdString(),
         signal.value(QStringLiteral("sdpMLineIndex")).toInt(0),
         candidate.toStdString(), nullptr));
-    if (ice) ctx->pc->AddIceCandidate(std::move(ice), [](webrtc::RTCError) {});
+    if (ice) ctx->pc->AddIceCandidate(std::move(ice), [](webrtc::RTCError error) {
+        if (!error.ok()) AppLog::warn(QStringLiteral("WebRTC AddIceCandidate falhou: %1")
+                                         .arg(QString::fromStdString(error.message())));
+    });
+}
+
+void HallaWebRtcSession::remoteDescriptionReady(int peerId) {
+    PeerContext* ctx = ensurePeer(peerId);
+    if (!ctx) return;
+    ctx->remoteDescriptionSet = true;
+    const std::vector<QJsonObject> pending = std::move(ctx->pendingRemoteIce);
+    ctx->pendingRemoteIce.clear();
+    for (const QJsonObject& signal : pending) addRemoteIce(peerId, signal);
 }
 
 void HallaWebRtcSession::closePeer(int peerId) {
@@ -1062,6 +1097,14 @@ void HallaWebRtcSession::startWatching(int userId) {
     emit unavailable(tr("Este build não contém o WebRTC nativo necessário para assistir transmissões."));
 }
 #endif
+
+void HallaWebRtcSession::stopWatching(int userId) {
+    if (userId <= 0) return;
+    if (m_net) m_net->sendWebRtcWatchStop(userId);
+#ifdef HALLA_WEBRTC_NATIVE
+    closePeer(userId);
+#endif
+}
 
 void HallaWebRtcSession::startBroadcast() {
 #ifdef HALLA_WEBRTC_NATIVE
@@ -1169,6 +1212,12 @@ void AnswerObserver::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
 }
 
 void RemoteOfferSetObserver::OnSuccess() {
-    if (m_owner) m_owner->createAnswerForPeer(m_peerId);
+    if (!m_owner) return;
+    m_owner->remoteDescriptionReady(m_peerId);
+    m_owner->createAnswerForPeer(m_peerId);
+}
+
+void RemoteAnswerSetObserver::OnSuccess() {
+    if (m_owner) m_owner->remoteDescriptionReady(m_peerId);
 }
 #endif

@@ -181,6 +181,15 @@ private:
     }
 };
 
+static QHostAddress normalizedPeerAddress(QHostAddress address) {
+    if (address.protocol() == QAbstractSocket::IPv6Protocol) {
+        bool ok = false;
+        const quint32 ipv4 = address.toIPv4Address(&ok);
+        if (ok) return QHostAddress(ipv4);
+    }
+    return address;
+}
+
 static QString localizedServerError(const QString& code, const QString& serverText) {
     static const QHash<QString, const char*> messages = {
         { QStringLiteral("rate_limited"), QT_TRANSLATE_NOOP("ServerErrors", "Você está enviando solicitações rápido demais.") },
@@ -353,6 +362,12 @@ void NetSession::onSslErrors(const QList<QSslError>& errors) {
 }
 
 void NetSession::onConnected() {
+    // Use o endpoint realmente escolhido pelo TCP/TLS também para UDP. Uma
+    // resolução DNS independente podia selecionar IPv6 enquanto a conexão real
+    // usava IPv4 (ou endereço IPv4-mapeado), fazendo o cliente descartar toda a
+    // voz recebida — observado principalmente com remetentes Mobile.
+    const QHostAddress peer = normalizedPeerAddress(m_tcp->peerAddress());
+    if (!peer.isNull()) m_udpHostAddress = peer;
     send(m_pendingHello);
 }
 
@@ -420,7 +435,8 @@ void NetSession::onUdpReadyRead() {
         // O relay oficial é o único emissor UDP aceito. Sem esta verificação,
         // qualquer host que descobrisse a porta local poderia injetar HALL/HALF.
         if (dg.senderPort() != m_udpPort || (!m_udpHostAddress.isNull()
-                && dg.senderAddress() != m_udpHostAddress)) continue;
+                && normalizedPeerAddress(dg.senderAddress())
+                    != normalizedPeerAddress(m_udpHostAddress))) continue;
         QByteArray data = dg.data();
         if (data.size() < 10) continue;
         bool isVoice = memcmp(data.constData(), "HALL", 4) == 0;
@@ -433,13 +449,23 @@ void NetSession::onUdpReadyRead() {
             memcpy(&fromId, data.constData() + 4, 4);
             memcpy(&seq, data.constData() + 8, 2);
             
-            QByteArray payload = data.mid(10);
-            int chanId = m_target ? m_target->channelOfUser(int(fromId)) : 0;
-            if (chanId > 0 && m_channelKeys.contains(chanId)) {
-                payload = AeadVoiceCipher::decrypt(payload, m_channelKeys[chanId], fromId, seq);
+            const QByteArray encryptedPayload = data.mid(10);
+            QByteArray payload = encryptedPayload;
+            const int chanId = m_target ? m_target->channelOfUser(int(fromId)) : 0;
+            if (!m_channelKeys.isEmpty()) {
+                payload.clear();
+                QList<QByteArray> candidates;
+                if (chanId > 0 && m_channelKeys.contains(chanId))
+                    candidates << m_channelKeys.value(chanId);
+                for (const QByteArray& key : m_channelKeys)
+                    if (!key.isEmpty() && !candidates.contains(key)) candidates << key;
+                for (const QByteArray& key : candidates) {
+                    payload = AeadVoiceCipher::decrypt(encryptedPayload, key, fromId, seq);
+                    if (!payload.isEmpty()) break;
+                }
                 if (payload.isEmpty()) continue;
             }
-            
+
             emit voicePacketReceived(int(fromId), seq, payload);
         } else {
             quint32 fromId;
@@ -451,15 +477,25 @@ void NetSession::onUdpReadyRead() {
             const quint8 chunkIdx = quint8(data[10]);
             const quint8 chunkCount = quint8(data[11]);
             if (chunkCount == 0 || chunkCount > 64 || chunkIdx >= chunkCount) continue;
-            QByteArray chunkPayload = data.mid(12);
+            const QByteArray encryptedChunk = data.mid(12);
+            QByteArray chunkPayload = encryptedChunk;
 
-            int uid = int(fromId);
-            int chanId = m_target ? m_target->channelOfUser(uid) : 0;
-            if (chanId > 0 && m_channelKeys.contains(chanId)) {
-                chunkPayload = AeadVoiceCipher::decrypt(chunkPayload, m_channelKeys[chanId], fromId, seq);
+            const int uid = int(fromId);
+            const int chanId = m_target ? m_target->channelOfUser(uid) : 0;
+            if (!m_channelKeys.isEmpty()) {
+                chunkPayload.clear();
+                QList<QByteArray> candidates;
+                if (chanId > 0 && m_channelKeys.contains(chanId))
+                    candidates << m_channelKeys.value(chanId);
+                for (const QByteArray& key : m_channelKeys)
+                    if (!key.isEmpty() && !candidates.contains(key)) candidates << key;
+                for (const QByteArray& key : candidates) {
+                    chunkPayload = AeadVoiceCipher::decrypt(encryptedChunk, key, fromId, seq);
+                    if (!chunkPayload.isEmpty()) break;
+                }
                 if (chunkPayload.isEmpty()) continue;
             }
-            
+
             int pendingFrames = 0;
             for (auto userIt = m_reassembly.cbegin(); userIt != m_reassembly.cend(); ++userIt)
                 pendingFrames += userIt.value().size();

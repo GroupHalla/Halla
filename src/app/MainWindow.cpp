@@ -1972,38 +1972,38 @@ void MainWindow::captureAndSendScreen() {
     }
 }
 
-void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
-    ServerTab* t = currentTab();
-    if (!t) return;
+void MainWindow::openScreenShareWindow(int userId) {
+    ServerTab* tab = currentTab();
+    if (!tab || userId <= 0 || m_screenShareWindows.contains(userId)) return;
+    QString userName = tr("Usuário #%1").arg(userId);
+    if (tab->data().users.contains(userId)) userName = tab->data().users[userId].name;
+    ScreenShareWindow* window = new ScreenShareWindow(userId, userName, this);
+    m_screenShareWindows[userId] = window;
+    connect(window, &QDialog::finished, this, [this, userId] {
+        m_screenShareWindows.remove(userId);
+        if (m_webrtcSession) m_webrtcSession->stopWatching(userId);
+    });
+    window->show();
+}
 
-    // No WebRTC nativo, a transmissão local não deve abrir a janela legada
-    // de preview JPEG (ela ficaria em "Aguardando transmissão...").
-    if (on && m_webrtcSession && m_webrtcSession->isBroadcasting() &&
-        userId == t->data().selfId) {
+void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
+    ServerTab* tab = currentTab();
+    if (!tab) return;
+
+    if (on) {
+        // Estado "ao vivo" atualiza apenas a árvore/ícone. Uma transmissão
+        // remota só abre depois do clique explícito em Assistir.
+        if (userId != tab->data().selfId) return;
+        // Preview local do WebRTC já é criado pelo fluxo de transmissão.
+        if (m_webrtcSession && m_webrtcSession->isBroadcasting()) return;
+        openScreenShareWindow(userId); // preview do modo JPEG legado
         return;
     }
 
-    if (on) {
-        if (!m_screenShareWindows.contains(userId)) {
-            QString userName = tr("Usuário #%1").arg(userId);
-            if (t->data().users.contains(userId)) {
-                userName = t->data().users[userId].name;
-            }
-            ScreenShareWindow* win = new ScreenShareWindow(userId, userName, this);
-            m_screenShareWindows[userId] = win;
-
-            connect(win, &QDialog::finished, this, [this, userId]() {
-                m_screenShareWindows.remove(userId);
-            });
-            win->show();
-        }
-    } else {
-        if (m_screenShareWindows.contains(userId)) {
-            ScreenShareWindow* win = m_screenShareWindows[userId];
-            win->close();
-            win->deleteLater();
-            m_screenShareWindows.remove(userId);
-        }
+    if (m_screenShareWindows.contains(userId)) {
+        ScreenShareWindow* window = m_screenShareWindows.take(userId);
+        window->close();
+        window->deleteLater();
     }
 }
 
@@ -2135,7 +2135,7 @@ void MainWindow::watchStream(int userId, int channelId) {
         t->net()->moveToChannel(channelId);
     }
 
-    handleScreenshareStateChanged(userId, true);
+    openScreenShareWindow(userId);
     if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
         m_webrtcSession->startWatching(userId);
     }
