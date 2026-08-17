@@ -67,6 +67,9 @@ assert "QMap<int, OpusDecoder*>" in (root / "src/net/VoiceEngine.h").read_text(e
 assert "HALLA_AUDIO_MIXED_PLAYBACK" in voice and "spatializeFrame" in voice
 assert 't == "plugin_data"' in net and "sendPluginData" in net
 assert "m_pluginGlobalHotkeys" in main_window and "RegisterHotKey" in main_window
+assert "Gerenciar complementos..." in main_window
+assert 'dlg.selectPage(tr("Complementos"))' in main_window
+assert "m_pluginsMenu->setEnabled(false)" not in main_window
 assert "Plugin SDK\\advanced_sdk" in installer
 assert catalog["version"] == 1 and isinstance(catalog["addons"], list)
 assert "zipfile.ZIP_DEFLATED" in packager

@@ -597,7 +597,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     // Ações declaradas por complementos. A API continua Qt-free: plugins
     // registram apenas id, texto, atalho e callback C.
     m_pluginsMenu = menuBar()->addMenu(tr("Co&mplementos"));
-    m_pluginsMenu->setEnabled(false);
+    // O menu é também a porta de entrada para o gerenciador. Antes ele ficava
+    // desabilitado quando nenhum plugin registrava ações, parecendo decorativo.
+    m_pluginsMenu->addAction(HIcons::addons(), tr("Gerenciar complementos..."), this, [this] {
+        OptionsDialog dlg(this, currentTab() ? &currentTab()->data() : nullptr);
+        dlg.selectPage(tr("Complementos"));
+        dlg.exec();
+    });
+    m_pluginsMenu->addSeparator();
     PluginManager& plugins = PluginManager::instance();
     connect(&plugins, &PluginManager::pluginActionRegistered, this,
             [this](const QString& pluginId, const QString& actionId,
@@ -644,7 +651,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             m_pluginGlobalHotkeys.remove(hotkeyId);
         }
 #endif
-        m_pluginsMenu->setEnabled(!m_pluginActions.isEmpty());
+        // "Gerenciar complementos..." permanece disponível mesmo quando o
+        // último plugin remove sua ação dinâmica.
+        m_pluginsMenu->setEnabled(true);
     });
     connect(&plugins, &PluginManager::pluginNotification, this,
             [this](const QString& title, const QString& message, int timeoutMs) {
