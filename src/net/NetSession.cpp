@@ -439,9 +439,10 @@ void NetSession::onUdpReadyRead() {
                     != normalizedPeerAddress(m_udpHostAddress))) continue;
         QByteArray data = dg.data();
         if (data.size() < 10) continue;
-        bool isVoice = memcmp(data.constData(), "HALL", 4) == 0;
-        bool isScreenShare = memcmp(data.constData(), "HALF", 4) == 0;
-        if (!isVoice && !isScreenShare) continue;
+        const bool isVoice = memcmp(data.constData(), "HALL", 4) == 0;
+        const bool isScreenShare = memcmp(data.constData(), "HALF", 4) == 0;
+        const bool isScreenAudio = memcmp(data.constData(), "HAGA", 4) == 0;
+        if (!isVoice && !isScreenShare && !isScreenAudio) continue;
         
         if (isVoice) {
             quint32 fromId;
@@ -467,6 +468,27 @@ void NetSession::onUdpReadyRead() {
             }
 
             emit voicePacketReceived(int(fromId), seq, payload);
+        } else if (isScreenAudio) {
+            quint32 fromId = 0;
+            quint16 seq = 0;
+            memcpy(&fromId, data.constData() + 4, 4);
+            memcpy(&seq, data.constData() + 8, 2);
+            const QByteArray encryptedPayload = data.mid(10);
+            QByteArray payload;
+            QList<QByteArray> candidates;
+            const int channelId = m_target ? m_target->channelOfUser(int(fromId)) : 0;
+            if (channelId > 0 && m_channelKeys.contains(channelId))
+                candidates << m_channelKeys.value(channelId);
+            for (const QByteArray& key : m_channelKeys)
+                if (!key.isEmpty() && !candidates.contains(key)) candidates << key;
+            for (const QByteArray& key : candidates) {
+                payload = AeadVoiceCipher::decrypt(encryptedPayload, key, fromId, seq);
+                if (!payload.isEmpty()) break;
+            }
+            if (!payload.isEmpty()) {
+                const quint32 logicalId = fromId | 0x80000000u;
+                emit voicePacketReceived(int(logicalId), seq, payload);
+            }
         } else {
             quint32 fromId;
             quint16 seq;

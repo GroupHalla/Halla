@@ -58,6 +58,8 @@ assert "if (userId != tab->data().selfId) return" in main_window
 assert "openScreenShareWindow(userId)" in main_window
 assert "normalizedPeerAddress(m_tcp->peerAddress())" in net_session
 assert "for (const QByteArray& key : m_channelKeys)" in net_session
+assert 'memcmp(data.constData(), "HAGA", 4)' in net_session
+assert "logicalId = fromId | 0x80000000u" in net_session
 
 models = (root / "src/core/Models.h").read_text(encoding="utf-8")
 group_dialog = (root / "src/dialogs/AdminDialogs.cpp").read_text(encoding="utf-8")
