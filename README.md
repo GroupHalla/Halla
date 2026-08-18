@@ -109,9 +109,9 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
 - Áudio opcional do PC via process loopback no Windows: captura os fluxos dos
   demais aplicativos e exclui `Halla.exe` e seus processos-filhos, evitando
   retransmitir as vozes e os avisos do próprio cliente (Windows build 20348+).
-  O mesmo PCM alimenta a track WebRTC para viewers Mobile e o fluxo autenticado
-  HAG4/HAGA para viewers Desktop; no PC, HAGA é preferido para não depender do
-  playout interno do módulo WebRTC de captura.
+  O mesmo PCM alimenta exclusivamente a track de áudio WebRTC para todos os
+  viewers. No Desktop, um playout interno de 10 ms mantém a decodificação ativa
+  e o PCM recebido é reproduzido pelo mixer/QAudioSink do Halla.
 - Modo legado (JPEG por UDP), sempre disponível como alternativa, sem
   depender do SDK do WebRTC.
 

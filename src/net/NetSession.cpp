@@ -441,8 +441,7 @@ void NetSession::onUdpReadyRead() {
         if (data.size() < 10) continue;
         const bool isVoice = memcmp(data.constData(), "HALL", 4) == 0;
         const bool isScreenShare = memcmp(data.constData(), "HALF", 4) == 0;
-        const bool isScreenAudio = memcmp(data.constData(), "HAGA", 4) == 0;
-        if (!isVoice && !isScreenShare && !isScreenAudio) continue;
+        if (!isVoice && !isScreenShare) continue;
         
         if (isVoice) {
             quint32 fromId;
@@ -468,28 +467,6 @@ void NetSession::onUdpReadyRead() {
             }
 
             emit voicePacketReceived(int(fromId), seq, payload);
-        } else if (isScreenAudio) {
-            quint32 fromId = 0;
-            quint16 seq = 0;
-            memcpy(&fromId, data.constData() + 4, 4);
-            memcpy(&seq, data.constData() + 8, 2);
-            const QByteArray encryptedPayload = data.mid(10);
-            QByteArray payload;
-            QList<QByteArray> candidates;
-            const int channelId = m_target ? m_target->channelOfUser(int(fromId)) : 0;
-            if (channelId > 0 && m_channelKeys.contains(channelId))
-                candidates << m_channelKeys.value(channelId);
-            for (const QByteArray& key : m_channelKeys)
-                if (!key.isEmpty() && !candidates.contains(key)) candidates << key;
-            for (const QByteArray& key : candidates) {
-                payload = AeadVoiceCipher::decrypt(encryptedPayload, key, fromId, seq);
-                if (!payload.isEmpty()) break;
-            }
-            if (!payload.isEmpty()) {
-                emit screenAudioPacketReceived(int(fromId));
-                const quint32 logicalId = fromId | 0x80000000u;
-                emit voicePacketReceived(int(logicalId), seq, payload);
-            }
         } else {
             quint32 fromId;
             quint16 seq;
@@ -571,27 +548,6 @@ void NetSession::sendVoiceFrame(const QByteArray& opus, quint16 seq) {
     
     m_udp->writeDatagram(HProto::encodeVoiceClient(m_voiceToken, seq, encryptedOpus),
                          destination, m_udpPort);
-}
-
-void NetSession::sendScreenAudioFrame(const QByteArray& opus, quint16 seq) {
-    if (!m_ready || m_voiceToken.isEmpty() || m_udpPort == 0 || opus.isEmpty()) return;
-    const QHostAddress destination = m_udpHostAddress.isNull()
-        ? QHostAddress(m_host) : m_udpHostAddress;
-    if (destination.isNull()) return;
-
-    QByteArray encrypted = opus;
-    if (m_target) {
-        const int channelId = m_target->channelOfUser(m_target->selfId);
-        if (channelId <= 0 || !m_channelKeys.contains(channelId)) return;
-        encrypted = AeadVoiceCipher::encrypt(
-            opus, m_channelKeys[channelId], quint32(m_target->selfId),
-            seq, ++m_cryptoCounter);
-        if (encrypted.isEmpty()) return;
-    }
-
-    const QByteArray packet = HProto::encodeClientMediaV4(
-        "HAG4", m_voiceToken, seq, encrypted);
-    if (!packet.isEmpty()) m_udp->writeDatagram(packet, destination, m_udpPort);
 }
 
 // ==================================================================== ações

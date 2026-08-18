@@ -35,16 +35,13 @@
 #include <cstdint>
 #include <cstring>
 #include <atomic>
-#include <functional>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
-extern "C" {
-#include <opus.h>
-}
 using nullptr_t = std::nullptr_t;
 #include "api/create_peerconnection_factory.h"
 #include "api/audio_codecs/builtin_audio_decoder_factory.h"
@@ -276,11 +273,10 @@ static HRESULT activateSystemLoopbackExcludingHalla(
 class SystemLoopbackAudioDeviceModule
     : public webrtc::webrtc_impl::AudioDeviceModuleDefault<webrtc::AudioDeviceModuleForTest> {
 public:
-    using CapturedPcmCallback = std::function<void(const int16_t*, size_t, uint32_t)>;
-
-    explicit SystemLoopbackAudioDeviceModule(CapturedPcmCallback callback)
-        : m_capturedPcm(std::move(callback)) {}
-    ~SystemLoopbackAudioDeviceModule() override { StopRecording(); }
+    ~SystemLoopbackAudioDeviceModule() override {
+        StopPlayout();
+        StopRecording();
+    }
 
     int32_t RegisterAudioCallback(webrtc::AudioTransport* audioCallback) override {
         m_audioCallback.store(audioCallback, std::memory_order_release);
@@ -293,18 +289,36 @@ public:
     int32_t RecordingIsAvailable(bool* available) override { if (available) *available = true; return 0; }
     bool RecordingIsInitialized() const override { return true; }
     int32_t InitRecording() override { return 0; }
+    int32_t PlayoutIsAvailable(bool* available) override { if (available) *available = true; return 0; }
+    bool PlayoutIsInitialized() const override { return true; }
+    int32_t InitPlayout() override { return 0; }
+    int32_t StartPlayout() override {
+        if (m_playoutRunning.exchange(true)) return 0;
+        if (m_playoutThread.joinable()) m_playoutThread.join();
+        m_playoutThread = std::thread([this] { playoutLoop(); });
+        return 0;
+    }
+    int32_t StopPlayout() override {
+        m_playoutRunning.store(false);
+        if (m_playoutThread.joinable()) m_playoutThread.join();
+        return 0;
+    }
+    bool Playing() const override { return m_playoutRunning.load(); }
     int32_t StartRecording() override {
         if (m_running.exchange(true)) return 0;
+        // Uma tentativa anterior pode ter falhado e encerrado a thread depois
+        // de limpar m_running; faça join antes de reutilizar std::thread.
+        if (m_thread.joinable()) m_thread.join();
         m_thread = std::thread([this] { captureLoop(); });
         return 0;
     }
     int32_t StopRecording() override {
-        if (!m_running.exchange(false)) return 0;
+        m_running.store(false);
         if (m_thread.joinable()) m_thread.join();
         return 0;
     }
     bool Recording() const override { return m_running.load(); }
-    int RestartPlayoutInternally() override { return 0; }
+    int RestartPlayoutInternally() override { StopPlayout(); return StartPlayout(); }
     int RestartRecordingInternally() override { StopRecording(); return StartRecording(); }
     int SetPlayoutSampleRate(uint32_t) override { return 0; }
     int SetRecordingSampleRate(uint32_t sample_rate) override { m_forcedSampleRate = sample_rate; return 0; }
@@ -312,10 +326,6 @@ public:
 private:
     void pushSamples(const int16_t* samples, size_t count, uint32_t sampleRate) {
         if (!samples || count == 0) return;
-        // Além da track WebRTC usada por viewers Mobile, publica o mesmo PCM
-        // no transporte HAG4. Viewers Desktop preferem HAGA, evitando depender
-        // do playout interno do ADM de captura-only do libwebrtc.
-        if (m_capturedPcm) m_capturedPcm(samples, count, sampleRate);
         m_pcm.insert(m_pcm.end(), samples, samples + count);
         const size_t frameSamples = std::max<size_t>(1, sampleRate / 100); // 10 ms mono
         webrtc::AudioTransport* cb = m_audioCallback.load(std::memory_order_acquire);
@@ -327,6 +337,29 @@ private:
             cb = m_audioCallback.load(std::memory_order_acquire);
         }
         if (m_pcm.size() > sampleRate) m_pcm.clear();
+    }
+
+    void playoutLoop() {
+        constexpr uint32_t kSampleRate = 48000;
+        constexpr size_t kChannels = 1;
+        constexpr size_t kFrames = kSampleRate / 100; // 10 ms
+        std::vector<int16_t> discarded(kFrames * kChannels);
+        auto deadline = std::chrono::steady_clock::now();
+        while (m_playoutRunning.load()) {
+            if (webrtc::AudioTransport* cb =
+                    m_audioCallback.load(std::memory_order_acquire)) {
+                size_t framesOut = 0;
+                int64_t elapsedTimeMs = 0;
+                int64_t ntpTimeMs = 0;
+                cb->NeedMorePlayData(kFrames, sizeof(int16_t), kChannels,
+                                     kSampleRate, discarded.data(), framesOut,
+                                     &elapsedTimeMs, &ntpTimeMs);
+            }
+            deadline += std::chrono::milliseconds(10);
+            std::this_thread::sleep_until(deadline);
+            const auto now = std::chrono::steady_clock::now();
+            if (deadline < now - std::chrono::milliseconds(100)) deadline = now;
+        }
     }
 
     void captureLoop() {
@@ -419,8 +452,9 @@ private:
 
     std::atomic<webrtc::AudioTransport*> m_audioCallback{nullptr};
     std::atomic<bool> m_running{false};
-    CapturedPcmCallback m_capturedPcm;
+    std::atomic<bool> m_playoutRunning{false};
     std::thread m_thread;
+    std::thread m_playoutThread;
     std::vector<int16_t> m_pcm;
     uint32_t m_forcedSampleRate = 48000;
 };
@@ -613,6 +647,11 @@ public:
                 size_t channels, size_t frames) override {
         if (!m_owner || !audioData || bitsPerSample != 16 || sampleRate != 48000
                 || (channels != 1 && channels != 2) || frames == 0) return;
+        if (!m_loggedFirstFrame) {
+            m_loggedFirstFrame = true;
+            AppLog::info(QStringLiteral(
+                "WebRTC Desktop viewer: primeiro PCM recebido do peer #%1").arg(m_peerId));
+        }
         const int channelCount = int(channels);
         if (m_channels != channelCount || m_sampleRate != sampleRate) {
             m_pending.clear();
@@ -637,6 +676,7 @@ private:
     int m_peerId = 0;
     int m_channels = 0;
     int m_sampleRate = 0;
+    bool m_loggedFirstFrame = false;
     std::vector<int16_t> m_pending;
 };
 
@@ -776,12 +816,6 @@ struct HallaWebRtcSession::NativeState {
     webrtc::scoped_refptr<webrtc::AudioDeviceModule> loopbackAdm;
     webrtc::scoped_refptr<webrtc::AudioSourceInterface> systemAudioSource;
     webrtc::scoped_refptr<webrtc::AudioTrackInterface> systemAudioTrack;
-    std::mutex screenAudioMutex;
-    std::vector<int16_t> capturedSystemPcm;
-    std::vector<int16_t> screenAudioEncodePcm;
-    std::atomic<bool> screenAudioDrainPosted{false};
-    OpusEncoder* screenAudioEncoder = nullptr;
-    quint16 screenAudioSeq = 0;
     webrtc::scoped_refptr<QtScreenVideoSource> videoSource;
     webrtc::scoped_refptr<webrtc::VideoTrackInterface> videoTrack;
 #ifdef Q_OS_WIN
@@ -790,9 +824,7 @@ struct HallaWebRtcSession::NativeState {
     std::map<int, std::unique_ptr<PeerContext>> peers;
     bool sslInitialized = false;
 
-    ~NativeState() {
-        if (screenAudioEncoder) opus_encoder_destroy(screenAudioEncoder);
-    }
+    ~NativeState() = default;
 #endif
 };
 
@@ -803,7 +835,11 @@ HallaWebRtcSession::~HallaWebRtcSession() {
     stopBroadcast();
 #ifdef HALLA_WEBRTC_NATIVE
     if (m_native) {
-        m_native->peers.clear();
+        while (!m_native->peers.empty()) closePeer(m_native->peers.begin()->first);
+        if (m_native->loopbackAdm) {
+            m_native->loopbackAdm->StopPlayout();
+            m_native->loopbackAdm->StopRecording();
+        }
         m_native->systemAudioTrack = nullptr;
         m_native->systemAudioSource = nullptr;
         m_native->videoTrack = nullptr;
@@ -866,10 +902,7 @@ bool HallaWebRtcSession::ensureNativeFactory() {
         return false;
 #ifdef Q_OS_WIN
     if (!m_native->loopbackAdm) {
-        m_native->loopbackAdm = webrtc::make_ref_counted<SystemLoopbackAudioDeviceModule>(
-            [this](const int16_t* samples, size_t count, uint32_t sampleRate) {
-                queueCapturedSystemAudio(samples, count, sampleRate);
-            });
+        m_native->loopbackAdm = webrtc::make_ref_counted<SystemLoopbackAudioDeviceModule>();
     }
 #endif
     m_native->factory = webrtc::CreatePeerConnectionFactory(
@@ -1049,6 +1082,16 @@ void HallaWebRtcSession::attachRemoteAudioTrack(
     auto sink = std::make_unique<RemoteAudioSink>(this, peerId);
     track->AddSink(sink.get());
     it->second->remoteAudio.push_back({track, std::move(sink)});
+    // O ADM customizado captura o loopback do sistema, mas a saída final é o
+    // mixer/QAudioSink do Halla. Ainda assim o libwebrtc precisa ser puxado a
+    // cada 10 ms para decodificar a track e chamar RemoteAudioSink::OnData.
+    if (m_native->loopbackAdm && !m_native->loopbackAdm->Playing()) {
+        bool available = false;
+        if (m_native->loopbackAdm->PlayoutIsAvailable(&available) == 0 && available
+                && m_native->loopbackAdm->InitPlayout() == 0) {
+            m_native->loopbackAdm->StartPlayout();
+        }
+    }
     AppLog::info(QStringLiteral("WebRTC Desktop viewer: áudio remoto anexado do peer #%1").arg(peerId));
 }
 
@@ -1059,76 +1102,6 @@ void HallaWebRtcSession::deliverRemoteFrame(int peerId, const QImage& image) {
 void HallaWebRtcSession::deliverRemoteAudio(int peerId, const QByteArray& pcm,
                                             int sampleRate, int channels, int frames) {
     emit remoteAudioReceived(peerId, pcm, sampleRate, channels, frames);
-}
-
-void HallaWebRtcSession::queueCapturedSystemAudio(const int16_t* samples,
-                                                  size_t count,
-                                                  uint32_t sampleRate) {
-    if (!m_native || !samples || count == 0 || sampleRate != 48000) return;
-    bool postDrain = false;
-    {
-        std::lock_guard<std::mutex> lock(m_native->screenAudioMutex);
-        m_native->capturedSystemPcm.insert(
-            m_native->capturedSystemPcm.end(), samples, samples + count);
-        // Limite de dois segundos: em caso de UI bloqueada, descarte o áudio
-        // mais antigo em vez de acumular latência sem limite.
-        constexpr size_t kMaxQueuedSamples = 48000 * 2;
-        if (m_native->capturedSystemPcm.size() > kMaxQueuedSamples) {
-            const size_t excess = m_native->capturedSystemPcm.size() - kMaxQueuedSamples;
-            m_native->capturedSystemPcm.erase(
-                m_native->capturedSystemPcm.begin(),
-                m_native->capturedSystemPcm.begin() + ptrdiff_t(excess));
-        }
-        if (!m_native->screenAudioDrainPosted.exchange(true)) postDrain = true;
-    }
-    if (postDrain) {
-        QMetaObject::invokeMethod(this, [this] { drainCapturedSystemAudio(); },
-                                  Qt::QueuedConnection);
-    }
-}
-
-void HallaWebRtcSession::drainCapturedSystemAudio() {
-    if (!m_native) return;
-    std::vector<int16_t> captured;
-    {
-        std::lock_guard<std::mutex> lock(m_native->screenAudioMutex);
-        captured.swap(m_native->capturedSystemPcm);
-        m_native->screenAudioDrainPosted.store(false);
-    }
-    if (captured.empty() || !m_broadcasting || !m_captureSystemAudio || !m_net) return;
-
-    if (!m_native->screenAudioEncoder) {
-        int error = OPUS_OK;
-        m_native->screenAudioEncoder = opus_encoder_create(
-            48000, 1, OPUS_APPLICATION_AUDIO, &error);
-        if (!m_native->screenAudioEncoder || error != OPUS_OK) {
-            if (m_native->screenAudioEncoder) {
-                opus_encoder_destroy(m_native->screenAudioEncoder);
-                m_native->screenAudioEncoder = nullptr;
-            }
-            AppLog::warn(QStringLiteral("HAG4: falha ao criar encoder Opus do áudio da tela"));
-            return;
-        }
-        opus_encoder_ctl(m_native->screenAudioEncoder, OPUS_SET_BITRATE(96000));
-        opus_encoder_ctl(m_native->screenAudioEncoder, OPUS_SET_VBR(1));
-        opus_encoder_ctl(m_native->screenAudioEncoder, OPUS_SET_DTX(1));
-        AppLog::info(QStringLiteral("HAG4: áudio da tela Desktop ativo para viewers PC"));
-    }
-
-    auto& pending = m_native->screenAudioEncodePcm;
-    pending.insert(pending.end(), captured.begin(), captured.end());
-    while (pending.size() >= 960) {
-        unsigned char encoded[1276];
-        const int bytes = opus_encode(m_native->screenAudioEncoder,
-                                      pending.data(), 960,
-                                      encoded, int(sizeof(encoded)));
-        pending.erase(pending.begin(), pending.begin() + 960);
-        if (bytes > 0) {
-            m_net->sendScreenAudioFrame(
-                QByteArray(reinterpret_cast<const char*>(encoded), bytes),
-                ++m_native->screenAudioSeq);
-        }
-    }
 }
 
 void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
@@ -1173,6 +1146,10 @@ void HallaWebRtcSession::closePeer(int peerId) {
         }
         if (it->second->pc) it->second->pc->Close();
         m_native->peers.erase(it);
+    }
+    if (m_native->peers.empty() && m_native->loopbackAdm
+            && m_native->loopbackAdm->Playing()) {
+        m_native->loopbackAdm->StopPlayout();
     }
 }
 
@@ -1299,17 +1276,7 @@ void HallaWebRtcSession::stopBroadcast() {
     m_broadcasting = false;
     if (m_captureTimer) m_captureTimer->stop();
 #ifdef HALLA_WEBRTC_NATIVE
-    {
-        std::lock_guard<std::mutex> lock(m_native->screenAudioMutex);
-        m_native->capturedSystemPcm.clear();
-        m_native->screenAudioDrainPosted.store(false);
-    }
-    m_native->screenAudioEncodePcm.clear();
-    m_native->screenAudioSeq = 0;
-    if (m_native->screenAudioEncoder)
-        opus_encoder_ctl(m_native->screenAudioEncoder, OPUS_RESET_STATE);
-    for (auto& kv : m_native->peers) if (kv.second->pc) kv.second->pc->Close();
-    m_native->peers.clear();
+    while (!m_native->peers.empty()) closePeer(m_native->peers.begin()->first);
 #endif
     if (m_net) m_net->sendWebRtcStreamStop();
     emit broadcastStopped();

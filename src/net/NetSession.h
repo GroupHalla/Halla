@@ -91,9 +91,6 @@ public:
 
     // ---- voz
     void sendVoiceFrame(const QByteArray& opus, quint16 seq);
-    // Áudio interno da transmissão de tela: HAG4 para o Server, que o
-    // retransmite como HAGA somente aos viewers Desktop explícitos.
-    void sendScreenAudioFrame(const QByteArray& opus, quint16 seq);
     void sendScreenShareStart();
     void sendScreenShareStop();
     void sendScreenShareFrame(const QByteArray& jpeg, quint16 seq);
@@ -125,9 +122,6 @@ signals:
     void connectionFailed(const QString& reason);                // TCP falhou/negado
     void disconnectedUnexpected();
     void voicePacketReceived(int fromId, quint16 seq, const QByteArray& payload);
-    // Emitido antes de entregar o Opus HAGA ao VoiceEngine; permite ao mixer
-    // preferir este transporte e usar a track WebRTC apenas como fallback.
-    void screenAudioPacketReceived(int fromId);
     void screenshareStateChanged(int userId, bool on);
     void screenshareFrameReceived(int userId, const QByteArray& jpegData);
     void webRtcSignalReceived(const QJsonObject& signal);

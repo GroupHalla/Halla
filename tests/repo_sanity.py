@@ -57,19 +57,15 @@ assert "pendingRemoteIce" in webrtc and "remoteDescriptionReady" in webrtc
 assert "AudioTrackSinkInterface" in webrtc
 assert "attachRemoteAudioTrack" in webrtc
 assert "remoteAudioReceived" in webrtc
-# Todo broadcaster Desktop publica a track WebRTC para Mobile e HAG4 para PC.
-# No receiver Desktop, HAGA prevalece e a track fica como fallback temporizado.
-assert "queueCapturedSystemAudio" in webrtc and "drainCapturedSystemAudio" in webrtc
-assert "sendScreenAudioFrame" in net_session and '"HAG4"' in net_session
-assert "screenAudioPacketReceived" in net_session
-assert "m_lastHagaAudioMs" in main_window
-assert "HAGA é a fonte autoritativa para viewers Desktop" in main_window
+# Áudio da transmissão usa exclusivamente a track WebRTC. O ADM customizado
+# precisa puxar o playout para que o libwebrtc decodifique e entregue OnData.
+assert "NeedMorePlayData" in webrtc and "playoutLoop" in webrtc
+assert "PlayoutIsAvailable" in webrtc and "StartPlayout" in webrtc
+assert "RemoteAudioSink" in webrtc and "playPluginPcm" in main_window
 assert "if (userId != tab->data().selfId) return" in main_window
 assert "openScreenShareWindow(userId)" in main_window
 assert "normalizedPeerAddress(m_tcp->peerAddress())" in net_session
 assert "for (const QByteArray& key : m_channelKeys)" in net_session
-assert 'memcmp(data.constData(), "HAGA", 4)' in net_session
-assert "logicalId = fromId | 0x80000000u" in net_session
 
 models = (root / "src/core/Models.h").read_text(encoding="utf-8")
 group_dialog = (root / "src/dialogs/AdminDialogs.cpp").read_text(encoding="utf-8")
