@@ -43,6 +43,7 @@ for name in sound_names:
 main_window = (root / "src/app/MainWindow.cpp").read_text(encoding="utf-8")
 net_session = (root / "src/net/NetSession.cpp").read_text(encoding="utf-8")
 server_tab = (root / "src/gui/ServerTab.cpp").read_text(encoding="utf-8")
+voice_engine = (root / "src/net/VoiceEngine.cpp").read_text(encoding="utf-8")
 assert "m_closeDelayPending" in main_window and "QTimer::singleShot(1000" in main_window
 assert "m_intentionalDisconnect" in net_session and "waitForBytesWritten" not in net_session
 assert 'HSound::play(QStringLiteral("moved"))' in server_tab
@@ -61,7 +62,15 @@ assert "remoteAudioReceived" in webrtc
 # precisa puxar o playout para que o libwebrtc decodifique e entregue OnData.
 assert "NeedMorePlayData" in webrtc and "playoutLoop" in webrtc
 assert "PlayoutIsAvailable" in webrtc and "StartPlayout" in webrtc
-assert "RemoteAudioSink" in webrtc and "playPluginPcm" in main_window
+assert "RemoteAudioSink" in webrtc and "m_pendingRemoteFrames" in webrtc
+assert "playStreamPcm" in main_window and "playStreamPcm" in voice_engine
+assert "kStreamPrebufferFrames = 5" in voice_engine
+assert "m_streamQueues" in voice_engine and "clearStreamPcm" in voice_engine
+# Controles da live aparecem por hover, sobem pela parte inferior e permitem
+# mudo individual/parar de assistir sem afetar a chamada.
+for required in ("liveControls", "m_audioButton", "stopWatching",
+                 "QPropertyAnimation", "isAudioMuted", "FastTransformation"):
+    assert required in main_window, required
 assert "if (userId != tab->data().selfId) return" in main_window
 assert "openScreenShareWindow(userId)" in main_window
 assert "normalizedPeerAddress(m_tcp->peerAddress())" in net_session

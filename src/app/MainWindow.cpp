@@ -39,7 +39,12 @@
 #include <QPainterPath>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
+#include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
+#include <QPropertyAnimation>
+#include <QEasingCurve>
+#include <QMouseEvent>
+#include <QEnterEvent>
 #include <QTabBar>
 #include <QStackedWidget>
 #include <QSplitter>
@@ -59,6 +64,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QRandomGenerator>
+#include <functional>
 #include <utility>
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -106,13 +112,21 @@ bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods);
 
 class ScreenShareWindow : public QDialog {
 public:
-    explicit ScreenShareWindow(int userId, const QString& userName, QWidget* parent = nullptr)
-        : QDialog(parent), m_userId(userId) {
+    using AudioMuteCallback = std::function<void(bool)>;
+
+    explicit ScreenShareWindow(int userId, const QString& userName,
+                               bool viewerControls = false,
+                               AudioMuteCallback audioMuteChanged = {},
+                               QWidget* parent = nullptr)
+        : QDialog(parent), m_userId(userId), m_viewerControls(viewerControls),
+          m_audioMuteChanged(std::move(audioMuteChanged)) {
         setWindowTitle(tr("Compartilhamento de Tela - %1").arg(userName));
         resize(800, 480);
         setMinimumSize(400, 240);
         setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
         setStyleSheet(QStringLiteral("background-color: #0D0E15; color: #FFFFFF;"));
+        setMouseTracking(true);
+        setAttribute(Qt::WA_Hover, true);
 
         QVBoxLayout* l = new QVBoxLayout(this);
         l->setContentsMargins(0, 0, 0, 0);
@@ -120,39 +134,230 @@ public:
         m_label->setAlignment(Qt::AlignCenter);
         m_label->setText(tr("Aguardando transmissão..."));
         m_label->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: bold; color: #8A939B;"));
+        m_label->setMouseTracking(true);
+        m_label->setAttribute(Qt::WA_Hover, true);
+        m_label->installEventFilter(this);
         l->addWidget(m_label);
+
+        if (m_viewerControls) createViewerControls();
     }
 
     int userId() const { return m_userId; }
+    bool isAudioMuted() const { return m_audioMuted; }
 
     void updateFrame(const QByteArray& jpegData) {
-        if (m_currentPixmap.loadFromData(jpegData)) {
-            scaleFrame();
-        }
+        if (m_currentPixmap.loadFromData(jpegData)) scaleFrame();
     }
 
     void updateImage(const QImage& image) {
-        if (!image.isNull()) {
-            m_currentPixmap = QPixmap::fromImage(image);
-            scaleFrame();
-        }
-    }
-
-protected:
-    void resizeEvent(QResizeEvent* e) override {
-        QDialog::resizeEvent(e);
+        if (image.isNull()) return;
+        m_currentPixmap = QPixmap::fromImage(image);
         scaleFrame();
     }
 
+protected:
+    void resizeEvent(QResizeEvent* event) override {
+        QDialog::resizeEvent(event);
+        scaleFrame();
+        layoutViewerControls();
+    }
+
+    void enterEvent(QEnterEvent* event) override {
+        QDialog::enterEvent(event);
+        noteMouseActivity();
+    }
+
+    void leaveEvent(QEvent* event) override {
+        QDialog::leaveEvent(event);
+        hideViewerControls(false);
+    }
+
+    void mouseMoveEvent(QMouseEvent* event) override {
+        QDialog::mouseMoveEvent(event);
+        noteMouseActivity();
+    }
+
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        Q_UNUSED(watched);
+        if (!m_viewerControls) return false;
+        switch (event->type()) {
+        case QEvent::Enter:
+        case QEvent::MouseMove:
+        case QEvent::HoverMove:
+            noteMouseActivity();
+            break;
+        case QEvent::Leave:
+            QTimer::singleShot(0, this, [this] {
+                if (!underMouse()) hideViewerControls(false);
+            });
+            break;
+        default:
+            break;
+        }
+        return false;
+    }
+
 private:
-    void scaleFrame() {
-        if (!m_currentPixmap.isNull()) {
-            m_label->setPixmap(m_currentPixmap.scaled(m_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    QRect controlsGeometry(bool visible) const {
+        constexpr int kHeight = 66;
+        const int panelWidth = qMin(520, qMax(300, width() - 32));
+        const int x = (width() - panelWidth) / 2;
+        const int y = visible ? height() - kHeight - 18 : height() + 6;
+        return QRect(x, y, panelWidth, kHeight);
+    }
+
+    void createViewerControls() {
+        m_controls = new QFrame(this);
+        m_controls->setObjectName(QStringLiteral("liveControls"));
+        m_controls->setMouseTracking(true);
+        m_controls->setAttribute(Qt::WA_Hover, true);
+        m_controls->setStyleSheet(QStringLiteral(
+            "QFrame#liveControls { background: rgba(18, 20, 31, 238); border: 1px solid rgba(255,255,255,35); border-radius: 17px; }"
+            "QPushButton { min-height: 42px; padding: 0 18px; border: none; border-radius: 12px; color: #FFFFFF; font-size: 13px; font-weight: 800; background: rgba(255,255,255,20); }"
+            "QPushButton:hover { background: rgba(255,255,255,36); }"
+            "QPushButton:pressed { background: rgba(255,255,255,48); }"
+            "QPushButton#stopWatching { background: #D83B4D; }"
+            "QPushButton#stopWatching:hover { background: #ED4A5D; }"));
+
+        auto* row = new QHBoxLayout(m_controls);
+        row->setContentsMargins(12, 11, 12, 11);
+        row->setSpacing(10);
+
+        m_audioButton = new QPushButton(m_controls);
+        m_audioButton->setIconSize(QSize(20, 20));
+        row->addWidget(m_audioButton, 1);
+
+        m_stopButton = new QPushButton(HIcons::disconnectPlug(), tr("Parar de assistir"), m_controls);
+        m_stopButton->setObjectName(QStringLiteral("stopWatching"));
+        m_stopButton->setIconSize(QSize(20, 20));
+        row->addWidget(m_stopButton, 1);
+
+        updateAudioButton();
+        for (QWidget* widget : {static_cast<QWidget*>(m_controls),
+                                static_cast<QWidget*>(m_audioButton),
+                                static_cast<QWidget*>(m_stopButton)}) {
+            widget->setMouseTracking(true);
+            widget->setAttribute(Qt::WA_Hover, true);
+            widget->installEventFilter(this);
+        }
+
+        connect(m_audioButton, &QPushButton::clicked, this, [this] {
+            m_audioMuted = !m_audioMuted;
+            updateAudioButton();
+            if (m_audioMuteChanged) m_audioMuteChanged(m_audioMuted);
+            noteMouseActivity();
+        });
+        connect(m_stopButton, &QPushButton::clicked, this, [this] { close(); });
+
+        auto* opacity = new QGraphicsOpacityEffect(m_controls);
+        opacity->setOpacity(0.0);
+        m_controls->setGraphicsEffect(opacity);
+        m_slideAnimation = new QPropertyAnimation(m_controls, "geometry", this);
+        m_opacityAnimation = new QPropertyAnimation(opacity, "opacity", this);
+        for (QPropertyAnimation* animation : {m_slideAnimation, m_opacityAnimation}) {
+            animation->setDuration(190);
+            animation->setEasingCurve(QEasingCurve::OutCubic);
+        }
+        connect(m_opacityAnimation, &QPropertyAnimation::finished, this, [this] {
+            if (!m_controlsShown && m_controls) m_controls->hide();
+        });
+
+        m_hideControlsTimer = new QTimer(this);
+        m_hideControlsTimer->setSingleShot(true);
+        m_hideControlsTimer->setInterval(1800);
+        connect(m_hideControlsTimer, &QTimer::timeout, this, [this] {
+            hideViewerControls(true);
+        });
+
+        m_controls->setGeometry(controlsGeometry(false));
+        m_controls->hide();
+    }
+
+    void updateAudioButton() {
+        if (!m_audioButton) return;
+        m_audioButton->setIcon(HIcons::muteSpeaker(m_audioMuted));
+        m_audioButton->setText(m_audioMuted ? tr("Ativar áudio") : tr("Mutar áudio"));
+    }
+
+    void setBlankCursor(bool blank) {
+        if (m_cursorHidden == blank) return;
+        m_cursorHidden = blank;
+        const Qt::CursorShape shape = blank ? Qt::BlankCursor : Qt::ArrowCursor;
+        for (QWidget* widget : {static_cast<QWidget*>(this),
+                                static_cast<QWidget*>(m_label),
+                                static_cast<QWidget*>(m_controls),
+                                static_cast<QWidget*>(m_audioButton),
+                                static_cast<QWidget*>(m_stopButton)}) {
+            if (!widget) continue;
+            if (blank) widget->setCursor(shape);
+            else widget->unsetCursor();
         }
     }
 
-    int m_userId;
-    QLabel* m_label;
+    void noteMouseActivity() {
+        if (!m_viewerControls || !m_controls) return;
+        setBlankCursor(false);
+        m_hideControlsTimer->start();
+        if (m_controlsShown) return;
+        m_controlsShown = true;
+        m_controls->show();
+        m_controls->raise();
+        m_slideAnimation->stop();
+        m_opacityAnimation->stop();
+        m_slideAnimation->setStartValue(m_controls->geometry());
+        m_slideAnimation->setEndValue(controlsGeometry(true));
+        auto* opacity = qobject_cast<QGraphicsOpacityEffect*>(m_controls->graphicsEffect());
+        m_opacityAnimation->setStartValue(opacity ? opacity->opacity() : 0.0);
+        m_opacityAnimation->setEndValue(1.0);
+        m_slideAnimation->start();
+        m_opacityAnimation->start();
+    }
+
+    void hideViewerControls(bool hideCursor) {
+        if (!m_viewerControls || !m_controls) return;
+        if (hideCursor) setBlankCursor(true);
+        if (!m_controlsShown) return;
+        m_controlsShown = false;
+        m_hideControlsTimer->stop();
+        m_slideAnimation->stop();
+        m_opacityAnimation->stop();
+        m_slideAnimation->setStartValue(m_controls->geometry());
+        m_slideAnimation->setEndValue(controlsGeometry(false));
+        auto* opacity = qobject_cast<QGraphicsOpacityEffect*>(m_controls->graphicsEffect());
+        m_opacityAnimation->setStartValue(opacity ? opacity->opacity() : 1.0);
+        m_opacityAnimation->setEndValue(0.0);
+        m_slideAnimation->start();
+        m_opacityAnimation->start();
+    }
+
+    void layoutViewerControls() {
+        if (!m_controls) return;
+        m_slideAnimation->stop();
+        m_controls->setGeometry(controlsGeometry(m_controlsShown));
+    }
+
+    void scaleFrame() {
+        if (m_currentPixmap.isNull()) return;
+        // SmoothTransformation em todos os frames 30 FPS bloqueava a thread da
+        // UI. O vídeo já chega escalado pelo WebRTC; FastTransformation evita
+        // backlog e mantém o frame mais recente na tela.
+        m_label->setPixmap(m_currentPixmap.scaled(
+            m_label->size(), Qt::KeepAspectRatio, Qt::FastTransformation));
+    }
+
+    int m_userId = 0;
+    bool m_viewerControls = false;
+    bool m_audioMuted = false;
+    bool m_controlsShown = false;
+    bool m_cursorHidden = false;
+    AudioMuteCallback m_audioMuteChanged;
+    QLabel* m_label = nullptr;
+    QFrame* m_controls = nullptr;
+    QPushButton* m_audioButton = nullptr;
+    QPushButton* m_stopButton = nullptr;
+    QTimer* m_hideControlsTimer = nullptr;
+    QPropertyAnimation* m_slideAnimation = nullptr;
+    QPropertyAnimation* m_opacityAnimation = nullptr;
     QPixmap m_currentPixmap;
 };
 
@@ -1015,10 +1220,12 @@ void MainWindow::wireTab(ServerTab* tab) {
                                 || (channels != 1 && channels != 2)
                                 || frames <= 0 || pcm.size() != frames * channels * int(sizeof(int16_t)))
                             return;
-                        // O áudio da transmissão usa exclusivamente a track
-                        // WebRTC; o mixer do Halla é a única saída no Desktop.
-                        active->voice()->playPluginPcm(
-                            reinterpret_cast<const int16_t*>(pcm.constData()),
+                        ScreenShareWindow* window = m_screenShareWindows.value(userId, nullptr);
+                        if (!window || window->isAudioMuted()) return;
+                        // Cada live mantém fila própria: isso permite mutar uma
+                        // transmissão sem afetar vozes, plugins ou outras lives.
+                        active->voice()->playStreamPcm(
+                            userId, reinterpret_cast<const int16_t*>(pcm.constData()),
                             uint32_t(frames), uint32_t(channels), 1.0f);
                     });
         }
@@ -1882,7 +2089,8 @@ void MainWindow::toggleScreenShare() {
                 const int selfId = t->data().selfId;
                 if (!m_screenShareWindows.contains(selfId)) {
                     QString userName = t->data().users.contains(selfId) ? t->data().users[selfId].name : tr("Minha transmissão");
-                    ScreenShareWindow* win = new ScreenShareWindow(selfId, userName, this);
+                    ScreenShareWindow* win = new ScreenShareWindow(
+                        selfId, userName, false, ScreenShareWindow::AudioMuteCallback(), this);
                     m_screenShareWindows[selfId] = win;
                     connect(win, &QDialog::finished, this, [this, selfId]() { m_screenShareWindows.remove(selfId); });
                     win->show();
@@ -1990,9 +2198,17 @@ void MainWindow::openScreenShareWindow(int userId) {
     if (!tab || userId <= 0 || m_screenShareWindows.contains(userId)) return;
     QString userName = tr("Usuário #%1").arg(userId);
     if (tab->data().users.contains(userId)) userName = tab->data().users[userId].name;
-    ScreenShareWindow* window = new ScreenShareWindow(userId, userName, this);
+    const bool isViewer = userId != tab->data().selfId;
+    const QPointer<ServerTab> screenTab(tab);
+    ScreenShareWindow* window = new ScreenShareWindow(
+        userId, userName, isViewer,
+        [screenTab, userId](bool muted) {
+            if (muted && screenTab && screenTab->voice())
+                screenTab->voice()->clearStreamPcm(userId);
+        }, this);
     m_screenShareWindows[userId] = window;
-    connect(window, &QDialog::finished, this, [this, userId] {
+    connect(window, &QDialog::finished, this, [this, screenTab, userId] {
+        if (screenTab && screenTab->voice()) screenTab->voice()->clearStreamPcm(userId);
         m_screenShareWindows.remove(userId);
         if (m_webrtcSession) m_webrtcSession->stopWatching(userId);
     });
@@ -2131,7 +2347,8 @@ void MainWindow::watchStream(int userId, int channelId) {
         // pelo botão principal de transmitir.
         if (!m_screenShareWindows.contains(selfId)) {
             QString userName = t->data().users.contains(selfId) ? t->data().users[selfId].name : tr("Minha transmissão");
-            ScreenShareWindow* win = new ScreenShareWindow(selfId, userName, this);
+            ScreenShareWindow* win = new ScreenShareWindow(
+                selfId, userName, false, ScreenShareWindow::AudioMuteCallback(), this);
             m_screenShareWindows[selfId] = win;
             connect(win, &QDialog::finished, this, [this, selfId]() { m_screenShareWindows.remove(selfId); });
             win->show();

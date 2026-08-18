@@ -8,6 +8,7 @@
 #include <QGuiApplication>
 #include <QImage>
 #include <QMetaObject>
+#include <QMutexLocker>
 #include <QPixmap>
 #include <QScreen>
 #include <QTimer>
@@ -1096,7 +1097,26 @@ void HallaWebRtcSession::attachRemoteAudioTrack(
 }
 
 void HallaWebRtcSession::deliverRemoteFrame(int peerId, const QImage& image) {
-    emit remoteFrameReceived(peerId, image);
+    if (peerId <= 0 || image.isNull()) return;
+    bool postDispatch = false;
+    {
+        QMutexLocker lock(&m_remoteFrameMutex);
+        m_pendingRemoteFrames[peerId] = image;
+        if (!m_remoteFrameDispatchPosted.contains(peerId)) {
+            m_remoteFrameDispatchPosted.insert(peerId);
+            postDispatch = true;
+        }
+    }
+    if (!postDispatch) return;
+    QMetaObject::invokeMethod(this, [this, peerId] {
+        QImage latest;
+        {
+            QMutexLocker lock(&m_remoteFrameMutex);
+            latest = m_pendingRemoteFrames.take(peerId);
+            m_remoteFrameDispatchPosted.remove(peerId);
+        }
+        if (!latest.isNull()) emit remoteFrameReceived(peerId, latest);
+    }, Qt::QueuedConnection);
 }
 
 void HallaWebRtcSession::deliverRemoteAudio(int peerId, const QByteArray& pcm,
@@ -1146,6 +1166,12 @@ void HallaWebRtcSession::closePeer(int peerId) {
         }
         if (it->second->pc) it->second->pc->Close();
         m_native->peers.erase(it);
+    }
+    {
+        QMutexLocker lock(&m_remoteFrameMutex);
+        m_pendingRemoteFrames.remove(peerId);
+        // Um dispatch já postado pode executar e encontrar imagem vazia.
+        m_remoteFrameDispatchPosted.remove(peerId);
     }
     if (m_native->peers.empty() && m_native->loopbackAdm
             && m_native->loopbackAdm->Playing()) {

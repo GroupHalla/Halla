@@ -4,6 +4,7 @@
 #include <QElapsedTimer>
 #include <QIODevice>
 #include <QMap>
+#include <QSet>
 #include <QObject>
 #include <cstdint>
 #include <deque>
@@ -33,6 +34,9 @@ public:
     void setWhisperTargetsConfigured(bool on) { m_whisperTargetsConfigured = on; }
     bool playPluginPcm(const int16_t* samples, uint32_t frames,
                        uint32_t channels, float gain);
+    bool playStreamPcm(int streamUserId, const int16_t* samples, uint32_t frames,
+                       uint32_t channels, float gain = 1.0f);
+    void clearStreamPcm(int streamUserId);
 
     void setPttHeld(bool held);
     bool pttHeld() const { return m_pttHeld; }
@@ -84,6 +88,11 @@ private:
     class QTimer* m_playTimer = nullptr;
     class QTimer* m_endpointTimer = nullptr;
     QMap<int, std::deque<QByteArray>> m_remoteQueues; // PCM S16 estéreo por usuário
+    // Áudio WebRTC das lives fica separado da voz/plugins: permite mudo por
+    // transmissão e um pequeno prebuffer contra jitter sem atrasar a chamada.
+    QMap<int, std::deque<QByteArray>> m_streamQueues;
+    QSet<int> m_primedStreams;
+    QMap<int, qint64> m_streamLastPacketMs;
     QMap<int, RadioState> m_radioStates;
     QByteArray m_captureBuf;
     quint16 m_seq = 0;

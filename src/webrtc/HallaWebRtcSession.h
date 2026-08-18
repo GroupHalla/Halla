@@ -9,6 +9,9 @@
 #include <QByteArray>
 #include <QString>
 #include <QImage>
+#include <QMap>
+#include <QMutex>
+#include <QSet>
 #include <QtGlobal>
 class QTimer;
 
@@ -91,4 +94,9 @@ private:
     int m_captureBitrateKbps = 8000;
     bool m_captureSystemAudio = false;
     bool m_broadcasting = false;
+    // Coalesce vídeo remoto: se a UI estiver ocupada, substitua o frame
+    // pendente pelo mais recente em vez de enfileirar segundos de atraso.
+    QMutex m_remoteFrameMutex;
+    QMap<int, QImage> m_pendingRemoteFrames;
+    QSet<int> m_remoteFrameDispatchPosted;
 };

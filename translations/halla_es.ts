@@ -4084,6 +4084,18 @@ Ping TCP: %11 ms</translation>
       <source>Aguardando transmissão...</source>
       <translation>Esperando transmisión...</translation>
     </message>
+    <message>
+      <source>Mutar áudio</source>
+      <translation>Silenciar audio</translation>
+    </message>
+    <message>
+      <source>Ativar áudio</source>
+      <translation>Activar audio</translation>
+    </message>
+    <message>
+      <source>Parar de assistir</source>
+      <translation>Dejar de ver</translation>
+    </message>
   </context>
   <context>
     <name>ScreenshareHoverPopup</name>

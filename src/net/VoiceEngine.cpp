@@ -5,12 +5,14 @@
 #include "core/Settings.h"
 #include "plugins/PluginManager.h"
 
+#include <QAudio>
 #include <QAudioSource>
 #include <QAudioSink>
 #include <QAudioFormat>
 #include <QMediaDevices>
 #include <QTimer>
 #include <QFile>
+#include <QDateTime>
 #include <QtMath>
 #include <cmath>
 #include <cstring>
@@ -175,7 +177,11 @@ QJsonObject VoiceEngine::diagnostics() const {
     d["opusReceivedBytes"] = qint64(m_opusReceivedBytes);
     int queued = 0;
     for (const auto& queue : m_remoteQueues) queued += int(queue.size());
+    int streamQueued = 0;
+    for (const auto& queue : m_streamQueues) streamQueued += int(queue.size());
     d["playbackQueue"] = queued;
+    d["streamPlaybackQueue"] = streamQueued;
+    d["primedStreams"] = m_primedStreams.size();
     d["remoteDecoders"] = m_decoders.size();
     return d;
 }
@@ -203,13 +209,13 @@ void VoiceEngine::setSpeakersEnabled(bool on) {
     m_spkEnabled = on;
 }
 
-bool VoiceEngine::playPluginPcm(const int16_t* samples, uint32_t frames,
-                                uint32_t channels, float gain) {
+static bool enqueueStereoPcm(std::deque<QByteArray>& queue,
+                             const int16_t* samples, uint32_t frames,
+                             uint32_t channels, float gain) {
     if (!samples || frames == 0 || frames > 480000 || (channels != 1 && channels != 2)
             || !std::isfinite(gain) || gain < 0.0f || gain > 4.0f)
         return false;
     constexpr uint32_t kFrameSize = 960;
-    auto& queue = m_remoteQueues[std::numeric_limits<int>::min()];
     for (uint32_t offset = 0; offset < frames; offset += kFrameSize) {
         const uint32_t count = qMin(kFrameSize, frames - offset);
         QByteArray output(int(kFrameSize * 2 * sizeof(int16_t)), '\0');
@@ -224,8 +230,45 @@ bool VoiceEngine::playPluginPcm(const int16_t* samples, uint32_t frames,
         }
         queue.push_back(output);
     }
+    return true;
+}
+
+bool VoiceEngine::playPluginPcm(const int16_t* samples, uint32_t frames,
+                                uint32_t channels, float gain) {
+    auto& queue = m_remoteQueues[std::numeric_limits<int>::min()];
+    if (!enqueueStereoPcm(queue, samples, frames, channels, gain)) return false;
     while (queue.size() > 500) queue.pop_front();
     return true;
+}
+
+bool VoiceEngine::playStreamPcm(int streamUserId, const int16_t* samples,
+                                uint32_t frames, uint32_t channels, float gain) {
+    if (streamUserId <= 0) return false;
+    auto& queue = m_streamQueues[streamUserId];
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const qint64 previous = m_streamLastPacketMs.value(streamUserId, 0);
+    // Depois de uma interrupção real, reconstrua o prebuffer em vez de tocar
+    // cada pacote atrasado imediatamente e produzir cortes sucessivos.
+    if (previous > 0 && now - previous > 120) {
+        queue.clear();
+        m_primedStreams.remove(streamUserId);
+    }
+    m_streamLastPacketMs[streamUserId] = now;
+    if (!enqueueStereoPcm(queue, samples, frames, channels, gain)) return false;
+
+    // Evita acumular segundos de latência se a UI/dispositivo de áudio pausar.
+    // Ao ultrapassar 400 ms, mantenha apenas 120 ms dos quadros mais recentes.
+    if (queue.size() > 20) {
+        while (queue.size() > 6) queue.pop_front();
+        m_primedStreams.insert(streamUserId);
+    }
+    return true;
+}
+
+void VoiceEngine::clearStreamPcm(int streamUserId) {
+    m_streamQueues.remove(streamUserId);
+    m_primedStreams.remove(streamUserId);
+    m_streamLastPacketMs.remove(streamUserId);
 }
 
 OpusDecoder* VoiceEngine::decoderFor(int userId) {
@@ -518,8 +561,15 @@ void VoiceEngine::playbackTick() {
     if (!m_sinkDev) return;
     if (!m_spkEnabled) {
         m_remoteQueues.clear();
+        m_streamQueues.clear();
+        m_primedStreams.clear();
+        m_streamLastPacketMs.clear();
         return;
     }
+    // Se o dispositivo realmente ficou sem dados, volte a pré-carregar cada
+    // live. A chamada de voz continua sem esse atraso adicional.
+    if (m_sink && m_sink->state() == QAudio::IdleState)
+        m_primedStreams.clear();
     constexpr int kFrames = 960;
     constexpr int kChannels = 2;
     constexpr int kBytes = kFrames * kChannels * int(sizeof(int16_t));
@@ -539,6 +589,21 @@ void VoiceEngine::playbackTick() {
             if (it.value().empty()) emptyUsers << it.key();
         }
         for (int userId : emptyUsers) m_remoteQueues.remove(userId);
+
+        constexpr int kStreamPrebufferFrames = 5; // 100 ms
+        for (auto it = m_streamQueues.begin(); it != m_streamQueues.end(); ++it) {
+            if (!m_primedStreams.contains(it.key())) {
+                if (int(it.value().size()) < kStreamPrebufferFrames) continue;
+                m_primedStreams.insert(it.key());
+            }
+            if (it.value().empty()) continue;
+            const QByteArray frame = it.value().front();
+            it.value().pop_front();
+            if (frame.size() != kBytes) continue;
+            hasFrame = true;
+            const int16_t* samples = reinterpret_cast<const int16_t*>(frame.constData());
+            for (int i = 0; i < kFrames * kChannels; ++i) mix[i] += samples[i];
+        }
         if (!hasFrame) break;
 
         QByteArray output(kBytes, '\0');

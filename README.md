@@ -110,8 +110,11 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   demais aplicativos e exclui `Halla.exe` e seus processos-filhos, evitando
   retransmitir as vozes e os avisos do próprio cliente (Windows build 20348+).
   O mesmo PCM alimenta exclusivamente a track de áudio WebRTC para todos os
-  viewers. No Desktop, um playout interno de 10 ms mantém a decodificação ativa
-  e o PCM recebido é reproduzido pelo mixer/QAudioSink do Halla.
+  viewers. No Desktop, um playout interno de 10 ms mantém a decodificação ativa;
+  um prebuffer adaptativo absorve jitter e o PCM é reproduzido pelo mixer/QAudioSink.
+- O viewer Desktop mantém somente o frame WebRTC mais recente para não acumular
+  atraso. Ao mover o mouse sobre a live, uma barra animada permite mutar apenas
+  aquela transmissão ou parar de assistir; ela some ao sair ou ficar inativo.
 - Modo legado (JPEG por UDP), sempre disponível como alternativa, sem
   depender do SDK do WebRTC.
 

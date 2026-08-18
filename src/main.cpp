@@ -1292,6 +1292,9 @@ private:
         m_en["Ausente"] = "Away";
         m_en["Mudo (microfone)"] = "Mute (Microphone)";
         m_en["Mudo (alto-falantes)"] = "Mute (Speakers)";
+        m_en["Mutar áudio"] = "Mute audio";
+        m_en["Ativar áudio"] = "Unmute audio";
+        m_en["Parar de assistir"] = "Stop watching";
         m_en["Alterar apelido..."] = "Change nickname...";
         m_en["Alternar comandante do canal"] = "Toggle channel commander";
         m_en["Iniciar gravação"] = "Start recording";
@@ -1400,6 +1403,9 @@ private:
         m_es["Ausente"] = "Ausente";
         m_es["Mudo (microfone)"] = "Silenciar (Micrófono)";
         m_es["Mudo (alto-falantes)"] = "Silenciar (Altavoces)";
+        m_es["Mutar áudio"] = "Silenciar audio";
+        m_es["Ativar áudio"] = "Activar audio";
+        m_es["Parar de assistir"] = "Dejar de ver";
         m_es["Alterar apelido..."] = "Cambiar apodo...";
         m_es["Alternar comandante do canal"] = "Alternar comandante del canal";
         m_es["Iniciar gravação"] = "Iniciar grabación";
