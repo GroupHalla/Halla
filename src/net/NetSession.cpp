@@ -486,6 +486,7 @@ void NetSession::onUdpReadyRead() {
                 if (!payload.isEmpty()) break;
             }
             if (!payload.isEmpty()) {
+                emit screenAudioPacketReceived(int(fromId));
                 const quint32 logicalId = fromId | 0x80000000u;
                 emit voicePacketReceived(int(logicalId), seq, payload);
             }
@@ -570,6 +571,27 @@ void NetSession::sendVoiceFrame(const QByteArray& opus, quint16 seq) {
     
     m_udp->writeDatagram(HProto::encodeVoiceClient(m_voiceToken, seq, encryptedOpus),
                          destination, m_udpPort);
+}
+
+void NetSession::sendScreenAudioFrame(const QByteArray& opus, quint16 seq) {
+    if (!m_ready || m_voiceToken.isEmpty() || m_udpPort == 0 || opus.isEmpty()) return;
+    const QHostAddress destination = m_udpHostAddress.isNull()
+        ? QHostAddress(m_host) : m_udpHostAddress;
+    if (destination.isNull()) return;
+
+    QByteArray encrypted = opus;
+    if (m_target) {
+        const int channelId = m_target->channelOfUser(m_target->selfId);
+        if (channelId <= 0 || !m_channelKeys.contains(channelId)) return;
+        encrypted = AeadVoiceCipher::encrypt(
+            opus, m_channelKeys[channelId], quint32(m_target->selfId),
+            seq, ++m_cryptoCounter);
+        if (encrypted.isEmpty()) return;
+    }
+
+    const QByteArray packet = HProto::encodeClientMediaV4(
+        "HAG4", m_voiceToken, seq, encrypted);
+    if (!packet.isEmpty()) m_udp->writeDatagram(packet, destination, m_udpPort);
 }
 
 // ==================================================================== ações

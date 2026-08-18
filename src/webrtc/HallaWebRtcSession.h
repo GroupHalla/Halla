@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QObject>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <QJsonObject>
@@ -64,6 +66,9 @@ public:
     void deliverRemoteFrame(int peerId, const QImage& image);
     void deliverRemoteAudio(int peerId, const QByteArray& pcm, int sampleRate,
                             int channels, int frames);
+    void queueCapturedSystemAudio(const int16_t* samples, size_t count,
+                                  uint32_t sampleRate);
+    void drainCapturedSystemAudio();
     void captureFrame();
 #endif
 

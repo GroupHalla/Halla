@@ -99,6 +99,9 @@ private:
     int      m_keepAliveTicks = 0;
     QMap<int, class ScreenShareWindow*> m_screenShareWindows;
     QMap<int, QByteArray> m_lastScreenshareFrames;
+    // Último HAGA válido por streamer. Enquanto estiver recente, o áudio
+    // WebRTC equivalente é descartado para não tocar duas vezes.
+    QMap<int, qint64> m_lastHagaAudioMs;
     HallaWebRtcSession* m_webrtcSession = nullptr;
     QAction* m_actRecord = nullptr;
     QAction* m_actWhisper = nullptr;

@@ -102,13 +102,16 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
 
 **Transmissão de tela**
 - Modo **WebRTC** (recomendado): peça pra assistir a transmissão de alguém do
-  seu canal; a mídia trafega P2P (DTLS-SRTP), o servidor só faz a sinalização
-  (offer/answer/ICE). Exige o SDK nativo do
+  seu canal; o vídeo trafega P2P (DTLS-SRTP) e offer/answer/ICE passam pelo
+  servidor. Exige o SDK nativo do
   [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds)
   compilado junto (veja [Compilando](#compilando)).
 - Áudio opcional do PC via process loopback no Windows: captura os fluxos dos
   demais aplicativos e exclui `Halla.exe` e seus processos-filhos, evitando
   retransmitir as vozes e os avisos do próprio cliente (Windows build 20348+).
+  O mesmo PCM alimenta a track WebRTC para viewers Mobile e o fluxo autenticado
+  HAG4/HAGA para viewers Desktop; no PC, HAGA é preferido para não depender do
+  playout interno do módulo WebRTC de captura.
 - Modo legado (JPEG por UDP), sempre disponível como alternativa, sem
   depender do SDK do WebRTC.
 

@@ -993,6 +993,12 @@ void MainWindow::wireTab(ServerTab* tab) {
     if (tab->net()) {
         connect(tab->net(), &NetSession::screenshareStateChanged, this, &MainWindow::handleScreenshareStateChanged);
         connect(tab->net(), &NetSession::screenshareFrameReceived, this, &MainWindow::handleScreenshareFrameReceived);
+        connect(tab->net(), &NetSession::screenAudioPacketReceived, this,
+                [this](int userId) {
+            if (!m_lastHagaAudioMs.contains(userId))
+                AppLog::info(tr("HAGA: recebendo áudio da transmissão de #%1").arg(userId));
+            m_lastHagaAudioMs[userId] = QDateTime::currentMSecsSinceEpoch();
+        });
         if (!m_webrtcSession) {
             m_webrtcSession = new HallaWebRtcSession(tab->net(), this);
             connect(m_webrtcSession, &HallaWebRtcSession::unavailable, this,
@@ -1016,13 +1022,12 @@ void MainWindow::wireTab(ServerTab* tab) {
                                 || (channels != 1 && channels != 2)
                                 || frames <= 0 || pcm.size() != frames * channels * int(sizeof(int16_t)))
                             return;
-                        // O áudio de tela do Android chega pelo fluxo HAGA,
-                        // decodificado no VoiceEngine. Ignorar a track WebRTC
-                        // equivalente evita duplicação quando o Mobile publica
-                        // ambos os transportes para compatibilidade.
-                        if (active->data().users.contains(userId)
-                                && active->data().users[userId].platform.compare(
-                                       QStringLiteral("Android"), Qt::CaseInsensitive) == 0)
+                        // HAGA é a fonte autoritativa para viewers Desktop.
+                        // A track WebRTC permanece como fallback para clientes
+                        // antigos que ainda não publicam HAG4. A janela curta
+                        // evita áudio duplicado quando ambos estão presentes.
+                        const qint64 lastHaga = m_lastHagaAudioMs.value(userId, 0);
+                        if (lastHaga > 0 && QDateTime::currentMSecsSinceEpoch() - lastHaga < 1500)
                             return;
                         active->voice()->playPluginPcm(
                             reinterpret_cast<const int16_t*>(pcm.constData()),
@@ -1101,6 +1106,7 @@ void MainWindow::finishDisconnectTab(ServerTab* tab) {
     m_actScreenShare->setIcon(HIcons::screenShare(false));
     qDeleteAll(m_screenShareWindows);
     m_screenShareWindows.clear();
+    m_lastHagaAudioMs.clear();
 
     NetSession* net = tab->net();
     if (net) {
@@ -2020,6 +2026,7 @@ void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
         return;
     }
 
+    m_lastHagaAudioMs.remove(userId);
     if (m_screenShareWindows.contains(userId)) {
         ScreenShareWindow* window = m_screenShareWindows.take(userId);
         window->close();
