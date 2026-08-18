@@ -412,6 +412,100 @@ static QPixmap makePurpleLiveWavePixmap(const QSize& size) {
     return pm;
 }
 
+class WatchLiveButton final : public QPushButton {
+public:
+    explicit WatchLiveButton(QWidget* parent = nullptr) : QPushButton(parent) {
+        setFixedSize(232, 46);
+        setText(tr("Assistir Live"));
+        setCursor(Qt::PointingHandCursor);
+        setFlat(true);
+        setFocusPolicy(Qt::NoFocus);
+        setAttribute(Qt::WA_TranslucentBackground, true);
+    }
+
+protected:
+    void enterEvent(QEnterEvent* event) override {
+        m_hovered = true;
+        update();
+        QPushButton::enterEvent(event);
+    }
+
+    void leaveEvent(QEvent* event) override {
+        m_hovered = false;
+        update();
+        QPushButton::leaveEvent(event);
+    }
+
+    void paintEvent(QPaintEvent* event) override {
+        Q_UNUSED(event);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+
+        const QRectF pill(2.5, 3.0, width() - 5.0, height() - 6.0);
+        painter.setPen(QPen(QColor(49, 134, 255, m_hovered ? 210 : 155), 3.0));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(pill.adjusted(-0.2, -0.2, 0.2, 0.2), 21, 21);
+
+        QLinearGradient background(pill.topLeft(), pill.topRight());
+        background.setColorAt(0.0, m_hovered ? QColor("#712DFF") : QColor("#5B21E8"));
+        background.setColorAt(0.48, m_hovered ? QColor("#263DFF") : QColor("#1732E8"));
+        background.setColorAt(1.0, m_hovered ? QColor("#087BFF") : QColor("#075FEF"));
+        painter.setPen(QPen(QColor(151, 120, 255, 210), 1.0));
+        painter.setBrush(background);
+        painter.drawRoundedRect(pill, 20, 20);
+
+        const QRectF liveOrb(7.0, 6.0, 34.0, 34.0);
+        QRadialGradient orb(liveOrb.center(), liveOrb.width() / 2.0);
+        orb.setColorAt(0.0, QColor("#6B56FF"));
+        orb.setColorAt(0.72, QColor("#6841F1"));
+        orb.setColorAt(1.0, QColor("#A66CFF"));
+        painter.setPen(QPen(QColor(225, 222, 255, 220), 1.1));
+        painter.setBrush(orb);
+        painter.drawEllipse(liveOrb);
+
+        const QPointF center = liveOrb.center();
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(Qt::white);
+        painter.drawEllipse(center, 3.5, 3.5);
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(Qt::white, 2.0, Qt::SolidLine, Qt::RoundCap));
+        auto wave = [&](qreal side, qreal distance, qreal height) {
+            QPainterPath path;
+            path.moveTo(center.x() + side * distance, center.y() - height);
+            path.cubicTo(center.x() + side * (distance + 3.0), center.y() - height * 0.45,
+                         center.x() + side * (distance + 3.0), center.y() + height * 0.45,
+                         center.x() + side * distance, center.y() + height);
+            painter.drawPath(path);
+        };
+        wave(-1.0, 7.0, 6.0);
+        wave(1.0, 7.0, 6.0);
+        wave(-1.0, 11.5, 10.0);
+        wave(1.0, 11.5, 10.0);
+
+        const QRectF playCapsule(width() - 50.0, 8.0, 42.0, 30.0);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QColor(255, 255, 255, 246));
+        painter.drawRoundedRect(playCapsule, 15, 15);
+        QPolygonF triangle;
+        triangle << QPointF(playCapsule.center().x() - 4.0, playCapsule.center().y() - 7.0)
+                 << QPointF(playCapsule.center().x() - 4.0, playCapsule.center().y() + 7.0)
+                 << QPointF(playCapsule.center().x() + 7.0, playCapsule.center().y());
+        painter.setBrush(QColor("#2D30E9"));
+        painter.drawPolygon(triangle);
+
+        QFont labelFont = font();
+        labelFont.setPointSize(12);
+        labelFont.setWeight(QFont::Black);
+        painter.setFont(labelFont);
+        painter.setPen(Qt::white);
+        painter.drawText(QRectF(47.0, 0.0, width() - 102.0, height()),
+                         Qt::AlignCenter, text());
+    }
+
+private:
+    bool m_hovered = false;
+};
+
 class ScreenshareHoverPopup : public QFrame {
 public:
     explicit ScreenshareHoverPopup(int userId, const QString& userName, int channelId, const QByteArray& jpegData,
@@ -423,27 +517,21 @@ public:
         setAttribute(Qt::WA_DeleteOnClose);
         setAttribute(Qt::WA_TranslucentBackground, true);
         setProperty("streamUserId", userId);
-        setFixedSize(374, 44);
+        setFixedSize(244, 58);
         setObjectName(QStringLiteral("watchPill"));
-        setStyleSheet(QStringLiteral(
-            "QFrame#watchPill { background: transparent; border: none; }"
-            "QPushButton#watchButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #9B2CFF, stop:0.48 #6D2CFF, stop:1 #1E63FF); border: none; border-radius: 11px; color: #FFFFFF; font-weight: 900; font-size: 14px; padding: 0px; }"
-            "QPushButton#watchButton:hover { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #A43DFF, stop:0.48 #7A3DFF, stop:1 #3478FF); }"
-        ));
+        setStyleSheet(QStringLiteral("QFrame#watchPill { background: transparent; border: none; }"));
+
         auto* shadow = new QGraphicsDropShadowEffect(this);
-        shadow->setBlurRadius(22);
-        shadow->setColor(QColor(0, 0, 0, 165));
-        shadow->setOffset(0, 8);
+        shadow->setBlurRadius(18);
+        shadow->setColor(QColor(32, 91, 255, 150));
+        shadow->setOffset(0, 4);
         setGraphicsEffect(shadow);
 
         QHBoxLayout* layout = new QHBoxLayout(this);
-        layout->setContentsMargins(0, 0, 0, 0);
-        QPushButton* btn = new QPushButton(this);
-        btn->setObjectName(QStringLiteral("watchButton"));
-        btn->setFixedSize(374, 44);
-        btn->setText(tr("◉   Assistir à transmissão                                      ›"));
-        connect(btn, &QPushButton::clicked, this, &ScreenshareHoverPopup::onWatchClicked);
-        layout->addWidget(btn);
+        layout->setContentsMargins(6, 6, 6, 6);
+        WatchLiveButton* button = new WatchLiveButton(this);
+        connect(button, &QPushButton::clicked, this, &ScreenshareHoverPopup::onWatchClicked);
+        layout->addWidget(button);
 
         m_timer = new QTimer(this);
         connect(m_timer, &QTimer::timeout, this, &ScreenshareHoverPopup::checkMousePosition);

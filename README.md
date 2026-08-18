@@ -111,8 +111,10 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   retransmitir as vozes e os avisos do próprio cliente (Windows build 20348+).
   O mesmo PCM alimenta exclusivamente a track de áudio WebRTC para todos os
   viewers. No Desktop, um playout interno de 10 ms mantém a decodificação ativa;
-  um prebuffer adaptativo absorve jitter e o PCM é reproduzido pelo mixer/QAudioSink.
-- O viewer Desktop mantém somente o frame WebRTC mais recente para não acumular
+  um prebuffer curto de 40 ms absorve jitter sem atrasar perceptivelmente o áudio
+  em relação ao vídeo, e o PCM é reproduzido pelo mixer/QAudioSink.
+- O botão compacto **Assistir Live** usa pill azul/roxa, indicador de live e play,
+  seguindo o visual do produto. O viewer mantém somente o frame WebRTC mais recente para não acumular
   atraso. Ao mover o mouse sobre a live, uma barra animada permite mutar apenas
   aquela transmissão ou parar de assistir; ela some ao sair ou ficar inativo.
 - Modo legado (JPEG por UDP), sempre disponível como alternativa, sem

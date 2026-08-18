@@ -64,12 +64,17 @@ assert "NeedMorePlayData" in webrtc and "playoutLoop" in webrtc
 assert "PlayoutIsAvailable" in webrtc and "StartPlayout" in webrtc
 assert "RemoteAudioSink" in webrtc and "m_pendingRemoteFrames" in webrtc
 assert "playStreamPcm" in main_window and "playStreamPcm" in voice_engine
-assert "kStreamPrebufferFrames = 5" in voice_engine
+assert "kStreamPrebufferFrames = 2" in voice_engine
 assert "m_streamQueues" in voice_engine and "clearStreamPcm" in voice_engine
 # Controles da live aparecem por hover, sobem pela parte inferior e permitem
 # mudo individual/parar de assistir sem afetar a chamada.
 for required in ("liveControls", "m_audioButton", "stopWatching",
                  "QPropertyAnimation", "isAudioMuted", "FastTransformation"):
+    assert required in main_window, required
+# Botão compacto inspirado no mockup: pill em gradiente, ícone live desenhado
+# por QPainter e cápsula branca com play à direita.
+for required in ("class WatchLiveButton", "Assistir Live", "setFixedSize(232, 46)",
+                 "QLinearGradient background", "liveOrb", "playCapsule"):
     assert required in main_window, required
 assert "if (userId != tab->data().selfId) return" in main_window
 assert "openScreenShareWindow(userId)" in main_window

@@ -590,7 +590,9 @@ void VoiceEngine::playbackTick() {
         }
         for (int userId : emptyUsers) m_remoteQueues.remove(userId);
 
-        constexpr int kStreamPrebufferFrames = 5; // 100 ms
+        // 40 ms absorvem variações curtas sem deixar o áudio perceptivelmente
+        // atrás do vídeo, que já é sincronizado pelo jitter buffer WebRTC.
+        constexpr int kStreamPrebufferFrames = 2;
         for (auto it = m_streamQueues.begin(); it != m_streamQueues.end(); ++it) {
             if (!m_primedStreams.contains(it.key())) {
                 if (int(it.value().size()) < kStreamPrebufferFrames) continue;

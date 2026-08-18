@@ -4098,11 +4098,10 @@ TCP Ping: %11 ms</translation>
     </message>
   </context>
   <context>
-    <name>ScreenshareHoverPopup</name>
+    <name>WatchLiveButton</name>
     <message>
-      <location filename="../src/app/MainWindow.cpp" line="240" />
-      <source>◉   Assistir à transmissão                                      ›</source>
-      <translation>◉ Watch the broadcast ›</translation>
+      <source>Assistir Live</source>
+      <translation>Watch Live</translation>
     </message>
   </context>
   <context>
