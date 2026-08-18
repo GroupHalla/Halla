@@ -1011,11 +1011,18 @@ void MainWindow::wireTab(ServerTab* tab) {
             connect(m_webrtcSession, &HallaWebRtcSession::remoteAudioReceived, this,
                     [this](int userId, const QByteArray& pcm, int sampleRate,
                            int channels, int frames) {
-                        Q_UNUSED(userId);
                         ServerTab* active = currentTab();
                         if (!active || !active->voice() || sampleRate != 48000
                                 || (channels != 1 && channels != 2)
                                 || frames <= 0 || pcm.size() != frames * channels * int(sizeof(int16_t)))
+                            return;
+                        // O áudio de tela do Android chega pelo fluxo HAGA,
+                        // decodificado no VoiceEngine. Ignorar a track WebRTC
+                        // equivalente evita duplicação quando o Mobile publica
+                        // ambos os transportes para compatibilidade.
+                        if (active->data().users.contains(userId)
+                                && active->data().users[userId].platform.compare(
+                                       QStringLiteral("Android"), Qt::CaseInsensitive) == 0)
                             return;
                         active->voice()->playPluginPcm(
                             reinterpret_cast<const int16_t*>(pcm.constData()),

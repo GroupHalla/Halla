@@ -57,6 +57,10 @@ assert "pendingRemoteIce" in webrtc and "remoteDescriptionReady" in webrtc
 assert "AudioTrackSinkInterface" in webrtc
 assert "attachRemoteAudioTrack" in webrtc
 assert "remoteAudioReceived" in webrtc
+# Mobile publica WebRTC+HAG4: no Desktop, HAGA é a fonte autoritativa para
+# Android e a track WebRTC equivalente precisa ser ignorada para não duplicar.
+assert 'QStringLiteral("Android"), Qt::CaseInsensitive' in main_window
+assert "O áudio de tela do Android chega pelo fluxo HAGA" in main_window
 assert "if (userId != tab->data().selfId) return" in main_window
 assert "openScreenShareWindow(userId)" in main_window
 assert "normalizedPeerAddress(m_tcp->peerAddress())" in net_session
