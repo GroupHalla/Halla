@@ -590,6 +590,42 @@ private:
     int m_peerId = 0;
 };
 
+class RemoteAudioSink : public webrtc::AudioTrackSinkInterface {
+public:
+    RemoteAudioSink(HallaWebRtcSession* owner, int peerId)
+        : m_owner(owner), m_peerId(peerId) {}
+
+    void OnData(const void* audioData, int bitsPerSample, int sampleRate,
+                size_t channels, size_t frames) override {
+        if (!m_owner || !audioData || bitsPerSample != 16 || sampleRate != 48000
+                || (channels != 1 && channels != 2) || frames == 0) return;
+        const int channelCount = int(channels);
+        if (m_channels != channelCount || m_sampleRate != sampleRate) {
+            m_pending.clear();
+            m_channels = channelCount;
+            m_sampleRate = sampleRate;
+        }
+        const int16_t* samples = static_cast<const int16_t*>(audioData);
+        m_pending.insert(m_pending.end(), samples, samples + frames * channels);
+        const size_t packetSamples = size_t(960 * channelCount); // mixer Qt usa 20 ms
+        while (m_pending.size() >= packetSamples) {
+            QByteArray pcm(int(packetSamples * sizeof(int16_t)), Qt::Uninitialized);
+            std::memcpy(pcm.data(), m_pending.data(), size_t(pcm.size()));
+            m_pending.erase(m_pending.begin(), m_pending.begin() + ptrdiff_t(packetSamples));
+            m_owner->deliverRemoteAudio(m_peerId, pcm, sampleRate, channelCount, 960);
+        }
+    }
+
+    int NumPreferredChannels() const override { return 1; }
+
+private:
+    HallaWebRtcSession* m_owner = nullptr;
+    int m_peerId = 0;
+    int m_channels = 0;
+    int m_sampleRate = 0;
+    std::vector<int16_t> m_pending;
+};
+
 class QtScreenVideoSource : public webrtc::VideoTrackSourceInterface {
 public:
     bool is_screencast() const override { return true; }
@@ -705,6 +741,11 @@ struct HallaWebRtcSession::PeerContext {
         std::unique_ptr<RemoteVideoSink> sink;
     };
     std::vector<RemoteBinding> remoteVideo;
+    struct RemoteAudioBinding {
+        webrtc::scoped_refptr<webrtc::AudioTrackInterface> track;
+        std::unique_ptr<RemoteAudioSink> sink;
+    };
+    std::vector<RemoteAudioBinding> remoteAudio;
     std::vector<QJsonObject> pendingRemoteIce;
     bool remoteDescriptionSet = false;
     bool trackAdded = false;
@@ -971,8 +1012,26 @@ void HallaWebRtcSession::attachRemoteVideoTrack(int peerId, webrtc::scoped_refpt
     AppLog::info(QStringLiteral("WebRTC Desktop viewer: vídeo remoto anexado do peer #%1").arg(peerId));
 }
 
+void HallaWebRtcSession::attachRemoteAudioTrack(
+        int peerId, webrtc::scoped_refptr<webrtc::AudioTrackInterface> track) {
+    if (!track || !m_native) return;
+    auto it = m_native->peers.find(peerId);
+    if (it == m_native->peers.end()) return;
+    for (const auto& binding : it->second->remoteAudio)
+        if (binding.track.get() == track.get()) return;
+    auto sink = std::make_unique<RemoteAudioSink>(this, peerId);
+    track->AddSink(sink.get());
+    it->second->remoteAudio.push_back({track, std::move(sink)});
+    AppLog::info(QStringLiteral("WebRTC Desktop viewer: áudio remoto anexado do peer #%1").arg(peerId));
+}
+
 void HallaWebRtcSession::deliverRemoteFrame(int peerId, const QImage& image) {
     emit remoteFrameReceived(peerId, image);
+}
+
+void HallaWebRtcSession::deliverRemoteAudio(int peerId, const QByteArray& pcm,
+                                            int sampleRate, int channels, int frames) {
+    emit remoteAudioReceived(peerId, pcm, sampleRate, channels, frames);
 }
 
 void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
@@ -1010,6 +1069,9 @@ void HallaWebRtcSession::closePeer(int peerId) {
     auto it = m_native->peers.find(peerId);
     if (it != m_native->peers.end()) {
         for (auto& binding : it->second->remoteVideo) {
+            if (binding.track && binding.sink) binding.track->RemoveSink(binding.sink.get());
+        }
+        for (auto& binding : it->second->remoteAudio) {
             if (binding.track && binding.sink) binding.track->RemoveSink(binding.sink.get());
         }
         if (it->second->pc) it->second->pc->Close();
@@ -1171,6 +1233,9 @@ void PeerObserver::OnTrack(webrtc::scoped_refptr<webrtc::RtpTransceiverInterface
     if (track && track->kind() == webrtc::MediaStreamTrackInterface::kVideoKind) {
         m_owner->attachRemoteVideoTrack(m_peerId,
             webrtc::scoped_refptr<webrtc::VideoTrackInterface>(static_cast<webrtc::VideoTrackInterface*>(track.get())));
+    } else if (track && track->kind() == webrtc::MediaStreamTrackInterface::kAudioKind) {
+        m_owner->attachRemoteAudioTrack(m_peerId,
+            webrtc::scoped_refptr<webrtc::AudioTrackInterface>(static_cast<webrtc::AudioTrackInterface*>(track.get())));
     }
 }
 
@@ -1181,6 +1246,9 @@ void PeerObserver::OnAddTrack(webrtc::scoped_refptr<webrtc::RtpReceiverInterface
     if (track && track->kind() == webrtc::MediaStreamTrackInterface::kVideoKind) {
         m_owner->attachRemoteVideoTrack(m_peerId,
             webrtc::scoped_refptr<webrtc::VideoTrackInterface>(static_cast<webrtc::VideoTrackInterface*>(track.get())));
+    } else if (track && track->kind() == webrtc::MediaStreamTrackInterface::kAudioKind) {
+        m_owner->attachRemoteAudioTrack(m_peerId,
+            webrtc::scoped_refptr<webrtc::AudioTrackInterface>(static_cast<webrtc::AudioTrackInterface*>(track.get())));
     }
 }
 

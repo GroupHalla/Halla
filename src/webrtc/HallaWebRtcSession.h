@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <QJsonObject>
+#include <QByteArray>
 #include <QString>
 #include <QImage>
 #include <QtGlobal>
@@ -11,7 +12,11 @@ class QTimer;
 
 class NetSession;
 #ifdef HALLA_WEBRTC_NATIVE
-namespace webrtc { template <typename T> class scoped_refptr; class VideoTrackInterface; }
+namespace webrtc {
+template <typename T> class scoped_refptr;
+class VideoTrackInterface;
+class AudioTrackInterface;
+}
 #endif
 
 // Adapter de WebRTC nativo do Halla Desktop.
@@ -55,7 +60,10 @@ public:
     void sendNativeOffer(int peerId, const std::string& sdp);
     void sendNativeAnswer(int peerId, const std::string& sdp);
     void attachRemoteVideoTrack(int peerId, webrtc::scoped_refptr<webrtc::VideoTrackInterface> track);
+    void attachRemoteAudioTrack(int peerId, webrtc::scoped_refptr<webrtc::AudioTrackInterface> track);
     void deliverRemoteFrame(int peerId, const QImage& image);
+    void deliverRemoteAudio(int peerId, const QByteArray& pcm, int sampleRate,
+                            int channels, int frames);
     void captureFrame();
 #endif
 
@@ -65,6 +73,8 @@ signals:
     void broadcastStopped();
     void localPreviewFrame(const QImage& image);
     void remoteFrameReceived(int userId, const QImage& image);
+    void remoteAudioReceived(int userId, const QByteArray& pcm,
+                             int sampleRate, int channels, int frames);
 
 private:
     struct NativeState;

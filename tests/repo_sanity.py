@@ -54,6 +54,9 @@ assert "GetDefaultAudioEndpoint" not in webrtc
 # Regressões Desktop↔Mobile: ICE precoce deve ser enfileirado, a live remota só
 # abre por clique explícito e o UDP usa o peer realmente escolhido pelo TLS.
 assert "pendingRemoteIce" in webrtc and "remoteDescriptionReady" in webrtc
+assert "AudioTrackSinkInterface" in webrtc
+assert "attachRemoteAudioTrack" in webrtc
+assert "remoteAudioReceived" in webrtc
 assert "if (userId != tab->data().selfId) return" in main_window
 assert "openScreenShareWindow(userId)" in main_window
 assert "normalizedPeerAddress(m_tcp->peerAddress())" in net_session

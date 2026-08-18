@@ -1008,6 +1008,19 @@ void MainWindow::wireTab(ServerTab* tab) {
                     [this](int userId, const QImage& image) {
                         if (m_screenShareWindows.contains(userId)) m_screenShareWindows[userId]->updateImage(image);
                     });
+            connect(m_webrtcSession, &HallaWebRtcSession::remoteAudioReceived, this,
+                    [this](int userId, const QByteArray& pcm, int sampleRate,
+                           int channels, int frames) {
+                        Q_UNUSED(userId);
+                        ServerTab* active = currentTab();
+                        if (!active || !active->voice() || sampleRate != 48000
+                                || (channels != 1 && channels != 2)
+                                || frames <= 0 || pcm.size() != frames * channels * int(sizeof(int16_t)))
+                            return;
+                        active->voice()->playPluginPcm(
+                            reinterpret_cast<const int16_t*>(pcm.constData()),
+                            uint32_t(frames), uint32_t(channels), 1.0f);
+                    });
         }
         connect(tab->net(), &NetSession::webRtcSignalReceived,
                 m_webrtcSession, &HallaWebRtcSession::handleSignal);
