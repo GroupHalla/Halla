@@ -1306,6 +1306,8 @@ private:
         m_en["O dono do canal temporário só pode alterar senha, bitrate e máximo de clientes."] = "The temporary channel owner can only change the password, bitrate, and maximum clients.";
         m_en["Máximo do servidor — %1x%2 — %3 FPS — %4 kbps"] = "Server maximum — %1x%2 — %3 FPS — %4 kbps";
         m_en["A qualidade escolhida excede o limite do servidor."] = "The selected quality exceeds the server limit.";
+        m_en["Limite do servidor: %1x%2, %3 FPS, %4 kbps"] = "Server limit: %1x%2, %3 FPS, %4 kbps";
+        m_en["%1x%2 — %3 FPS — %4 Mbps"] = "%1x%2 — %3 FPS — %4 Mbps";
         m_en["Alterar apelido..."] = "Change nickname...";
         m_en["Alternar comandante do canal"] = "Toggle channel commander";
         m_en["Iniciar gravação"] = "Start recording";
@@ -1428,6 +1430,8 @@ private:
         m_es["O dono do canal temporário só pode alterar senha, bitrate e máximo de clientes."] = "El propietario del canal temporal solo puede cambiar la contraseña, el bitrate y el máximo de clientes.";
         m_es["Máximo do servidor — %1x%2 — %3 FPS — %4 kbps"] = "Máximo del servidor — %1x%2 — %3 FPS — %4 kbps";
         m_es["A qualidade escolhida excede o limite do servidor."] = "La calidad elegida supera el límite del servidor.";
+        m_es["Limite do servidor: %1x%2, %3 FPS, %4 kbps"] = "Límite del servidor: %1x%2, %3 FPS, %4 kbps";
+        m_es["%1x%2 — %3 FPS — %4 Mbps"] = "%1x%2 — %3 FPS — %4 Mbps";
         m_es["Alterar apelido..."] = "Cambiar apodo...";
         m_es["Alternar comandante do canal"] = "Alternar comandante del canal";
         m_es["Iniciar gravação"] = "Iniciar grabación";

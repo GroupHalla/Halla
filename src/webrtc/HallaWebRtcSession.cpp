@@ -1270,6 +1270,7 @@ void HallaWebRtcSession::stopWatching(int userId) {
 
 void HallaWebRtcSession::startBroadcast() {
 #ifdef HALLA_WEBRTC_NATIVE
+    if (m_broadcasting) return;
     if (!ensureNativeFactory()) {
         const QString reason = tr("Falha ao inicializar WebRTC nativo");
         AppLog::error(reason);

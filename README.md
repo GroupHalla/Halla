@@ -123,7 +123,8 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   seu canal; o vídeo trafega P2P (DTLS-SRTP) e offer/answer/ICE passam pelo
   servidor. O seletor de qualidade oferece 720p/1080p/1440p/2160p e 30/60 FPS
   somente quando resolução, FPS e bitrate cabem nos máximos do HallaServer.
-  Exige o SDK nativo do
+  Limites não padronizados, como 1440×1080, aparecem como preset próprio em vez
+  de reduzir silenciosamente a lista para 720p. Exige o SDK nativo do
   [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds)
   compilado junto (veja [Compilando](#compilando)).
 - Áudio opcional do PC via process loopback no Windows: captura os fluxos dos

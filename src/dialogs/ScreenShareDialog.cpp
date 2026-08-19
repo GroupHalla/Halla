@@ -133,7 +133,9 @@ ScreenShareDialog::ScreenShareDialog(int maxWidth, int maxHeight, int maxFps,
     ).arg(tabPaneBg, itemTextColor, tabBorder, tabBgSelected));
     qLayout->addWidget(m_qualityCombo, 1);
 
-    QLabel* hintLabel = new QLabel(tr("Maior qualidade usa mais CPU/rede."), qualityBox);
+    QLabel* hintLabel = new QLabel(
+        tr("Limite do servidor: %1x%2, %3 FPS, %4 kbps")
+            .arg(maxWidth).arg(maxHeight).arg(maxFps).arg(maxBitrateKbps), qualityBox);
     hintLabel->setStyleSheet(QStringLiteral("color: %1; font-size: 10px; font-weight: normal;").arg(qualityBoxText));
     qLayout->addWidget(hintLabel);
 
@@ -227,7 +229,34 @@ void ScreenShareDialog::populateQualityProfiles(int maxWidth, int maxHeight,
         }
     }
 
-    // Configurações não padronizadas ou bitrate muito baixo ainda recebem uma
+    bool exactStandard = false;
+    for (const BaseProfile& base : standards) {
+        if (base.width == maxWidth && base.height == maxHeight) {
+            exactStandard = true;
+            break;
+        }
+    }
+    if (!exactStandard) {
+        for (int fps : frameRates) {
+            // Estima bitrate pela quantidade de pixels em relação a 1080p.
+            // Ex.: 1440x1080@60 requer ~6 Mbps e vira opção própria em vez de
+            // ocultar toda a classe 1080 por não ter largura 1920.
+            const qint64 reference = fps <= 30 ? 4500 : 4500 + (8000 - 4500)
+                * (fps - 30) / 30;
+            int bitrate = int(reference * qint64(maxWidth) * qint64(maxHeight)
+                / (1920ll * 1080ll));
+            bitrate = qMax(500, ((bitrate + 50) / 100) * 100);
+            if (bitrate > maxBitrateKbps) continue;
+            m_qualityProfiles.push_back({maxWidth, maxHeight, fps, bitrate});
+            m_qualityCombo->addItem(
+                tr("%1x%2 — %3 FPS — %4 Mbps")
+                    .arg(maxWidth).arg(maxHeight).arg(fps)
+                    .arg(bitrate / 1000.0, 0, 'f', bitrate % 1000 == 0 ? 0 : 1),
+                m_qualityProfiles.size() - 1);
+        }
+    }
+
+    // Configurações com bitrate muito baixo ainda recebem uma
     // opção segura, sempre dentro dos quatro limites anunciados pelo servidor.
     if (m_qualityProfiles.isEmpty()) {
         m_qualityProfiles.push_back({maxWidth, maxHeight, maxFps, maxBitrateKbps});

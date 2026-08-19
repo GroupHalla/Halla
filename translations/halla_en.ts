@@ -4052,6 +4052,14 @@ TCP Ping: %11 ms</translation>
       <translation>Server maximum — %1x%2 — %3 FPS — %4 kbps</translation>
     </message>
     <message>
+      <source>Limite do servidor: %1x%2, %3 FPS, %4 kbps</source>
+      <translation>Server limit: %1x%2, %3 FPS, %4 kbps</translation>
+    </message>
+    <message>
+      <source>%1x%2 — %3 FPS — %4 Mbps</source>
+      <translation>%1x%2 — %3 FPS — %4 Mbps</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/ScreenShareDialog.cpp" line="149" />
       <source>ÁUDIO DA TRANSMISSÃO:</source>
       <translation>TRANSMISSION AUDIO:</translation>

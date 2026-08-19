@@ -58,6 +58,9 @@ assert "pendingRemoteIce" in webrtc and "remoteDescriptionReady" in webrtc
 screen_dialog = (root / "src/dialogs/ScreenShareDialog.cpp").read_text(encoding="utf-8")
 assert "populateQualityProfiles" in screen_dialog
 assert "{3840, 2160, 18000, 32000}" in screen_dialog
+assert "exactStandard" in screen_dialog
+assert "qint64(maxWidth) * qint64(maxHeight)" in screen_dialog
+assert 'tr("%1x%2 — %3 FPS — %4 Mbps")' in screen_dialog
 assert "screenshareBitrateKbps" in net_session
 assert 'message["bitrate"] = bitrateKbps' in net_session
 assert "AudioTrackSinkInterface" in webrtc
