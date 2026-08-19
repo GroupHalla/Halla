@@ -159,6 +159,7 @@ private:
     void applyChanJson(const QJsonObject& c);
     void applyUserJson(const QJsonObject& u);
     void refreshOperators();
+    void scheduleChannelStateChanged();
     ServerData& target() { return m_target ? *m_target : m_data; }
 
     QSslSocket* m_tcp = nullptr;
@@ -191,6 +192,7 @@ private:
     bool m_fatalError = false;
     bool m_intentionalDisconnect = false;
     bool m_serverTerminatedSession = false;
+    bool m_channelStateEmitPending = false;
     int m_pingMs = 0;
     QElapsedTimer m_pingClock;
 };

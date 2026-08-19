@@ -260,6 +260,7 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     // com seleção estendida.
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setDragDropMode(InternalMove);
+    setDefaultDropAction(Qt::MoveAction);
     // Reserva largura para o avatar e até dois indicadores de áudio antes do
     // nome. Quando o áudio é bloqueado, o avatar deixa de ocupar esse espaço.
     setIconSize(QSize(48, 24));
@@ -381,8 +382,26 @@ void ServerTreeWidget::rebuild() {
     // invisível do QTreeWidget para que o servidor não seja repetido como um
     // terceiro item visual antes dos canais.
     QTreeWidgetItem* root = invisibleRootItem();
-    for (int cid : m_data->childChannels(0))
-        buildChannelItem(m_data->channels[cid], root);
+    QSet<int> path;
+    QSet<int> built;
+    for (int cid : m_data->childChannels(0)) {
+        if (m_data->channels.contains(cid))
+            buildChannelItem(m_data->channels[cid], root, path, built);
+    }
+    // Dados antigos/corrompidos podem conter pai inexistente ou até ciclo. Não
+    // recurse indefinidamente: mostre cada canal ainda não alcançado uma única
+    // vez na raiz, quebrando visualmente o ciclo sem derrubar o cliente.
+    QList<int> remaining = m_data->channels.keys();
+    std::sort(remaining.begin(), remaining.end(), [this](int a, int b) {
+        const Channel& ca = m_data->channels[a];
+        const Channel& cb = m_data->channels[b];
+        if (ca.order != cb.order) return ca.order < cb.order;
+        return ca.name.localeAwareCompare(cb.name) < 0;
+    });
+    for (int cid : remaining) {
+        if (!built.contains(cid))
+            buildChannelItem(m_data->channels[cid], root, path, built);
+    }
 
     blockSignals(false);
 
@@ -413,7 +432,14 @@ void ServerTreeWidget::rebuild() {
     for (int i = 0; i < topLevelItemCount(); ++i) expand(topLevelItem(i));
 }
 
-QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidgetItem* parentItem) {
+QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
+                                                     QTreeWidgetItem* parentItem,
+                                                     QSet<int>& path,
+                                                     QSet<int>& built) {
+    if (!parentItem || c.id <= 0 || path.contains(c.id) || built.contains(c.id))
+        return nullptr;
+    path.insert(c.id);
+    built.insert(c.id);
     QTreeWidgetItem* item = new QTreeWidgetItem(parentItem);
 
     bool full = (c.maxClients >= 0 && c.users.size() >= c.maxClients);
@@ -502,10 +528,12 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
         for (int uid : sortedUsers)
             addUserItem(item, m_data->users[uid]);
         for (int cid : m_data->childChannels(c.id))
-            buildChannelItem(m_data->channels[cid], item);
+            if (m_data->channels.contains(cid))
+                buildChannelItem(m_data->channels[cid], item, path, built);
     } else {
         for (int cid : m_data->childChannels(c.id))
-            buildChannelItem(m_data->channels[cid], item);
+            if (m_data->channels.contains(cid))
+                buildChannelItem(m_data->channels[cid], item, path, built);
         for (int uid : sortedUsers)
             addUserItem(item, m_data->users[uid]);
     }
@@ -515,6 +543,7 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c, QTreeWidge
             ? QTreeWidgetItem::ShowIndicator
             : QTreeWidgetItem::DontShowIndicatorWhenChildless);
     }
+    path.remove(c.id);
     return item;
 }
 
@@ -719,6 +748,33 @@ QMimeData* ServerTreeWidget::mimeData(const QList<QTreeWidgetItem*>& items) cons
     return md;
 }
 
+bool ServerTreeWidget::wouldCreateChannelCycle(int channelId, int parentId) const {
+    if (!m_data || channelId <= 0) return true;
+    QSet<int> visited;
+    for (int current = parentId; current != 0; ) {
+        if (current == channelId || visited.contains(current)) return true;
+        visited.insert(current);
+        if (!m_data->channels.contains(current)) return true;
+        current = m_data->channels.value(current).parentId;
+    }
+    return false;
+}
+
+bool ServerTreeWidget::isDuplicateChannelMove(int channelId, int parentId, int order) {
+    const bool duplicate = m_lastChannelMoveClock.isValid()
+        && m_lastChannelMoveClock.elapsed() < 750
+        && m_lastMovedChannel == channelId
+        && m_lastMoveParent == parentId
+        && m_lastMoveOrder == order;
+    if (!duplicate) {
+        m_lastMovedChannel = channelId;
+        m_lastMoveParent = parentId;
+        m_lastMoveOrder = order;
+        m_lastChannelMoveClock.restart();
+    }
+    return duplicate;
+}
+
 void ServerTreeWidget::dropEvent(QDropEvent* event) {
     if (!m_data || !event || !event->mimeData()) {
         if (event) event->ignore();
@@ -736,37 +792,69 @@ void ServerTreeWidget::dropEvent(QDropEvent* event) {
             return;
         }
 
+        const Channel source = m_data->channels.value(channelId);
         int parentId = 0;
         int order = m_data->childChannels(0).size();
 
         if (target && target->data(0, RoleKind).toInt() == NodeChannel) {
             const int targetId = target->data(0, RoleId).toInt();
+            if (!m_data->channels.contains(targetId)) {
+                event->ignore();
+                return;
+            }
             if (indicator == QAbstractItemView::OnItem) {
-                // Soltar sobre o corpo do canal cria um subcanal de verdade.
                 parentId = targetId;
-                order = m_data->childChannels(parentId).size();
+                QList<int> children = m_data->childChannels(parentId);
+                children.removeAll(channelId);
+                order = children.size();
             } else {
-                // Acima/abaixo mantém o canal no mesmo nível do alvo.
-                QTreeWidgetItem* container = target->parent();
-                parentId = container &&
-                           container->data(0, RoleKind).toInt() == NodeChannel
-                    ? container->data(0, RoleId).toInt() : 0;
-                order = container ? container->indexOfChild(target)
-                                  : indexOfTopLevelItem(target);
+                parentId = m_data->channels.value(targetId).parentId;
+                QList<int> siblings = m_data->childChannels(parentId);
+                siblings.removeAll(channelId);
+                order = siblings.indexOf(targetId);
+                if (order < 0) {
+                    event->ignore();
+                    return;
+                }
                 if (indicator == QAbstractItemView::BelowItem) ++order;
             }
         } else if (target && target->data(0, RoleKind).toInt() == NodeServer) {
             parentId = 0;
-            order = m_data->childChannels(0).size();
+            QList<int> roots = m_data->childChannels(0);
+            roots.removeAll(channelId);
+            order = roots.size();
         } else if (target) {
             // Não transforma um arraste sobre um usuário em movimento
             // estrutural acidental.
             event->ignore();
             return;
+        } else {
+            QList<int> roots = m_data->childChannels(0);
+            roots.removeAll(channelId);
+            order = roots.size();
         }
 
-        emit channelMoveRequested(channelId, parentId, qMax(0, order));
-        event->acceptProposedAction();
+        if (wouldCreateChannelCycle(channelId, parentId)) {
+            event->ignore();
+            return;
+        }
+        QList<int> desired = m_data->childChannels(parentId);
+        desired.removeAll(channelId);
+        order = qBound(0, order, desired.size());
+        desired.insert(order, channelId);
+        if (source.parentId == parentId
+                && desired == m_data->childChannels(source.parentId)) {
+            event->ignore(); // soltou na posição atual
+            return;
+        }
+        if (isDuplicateChannelMove(channelId, parentId, order)) {
+            event->ignore();
+            return;
+        }
+
+        emit channelMoveRequested(channelId, parentId, order);
+        event->setDropAction(Qt::MoveAction);
+        event->accept();
         return;
     }
 
@@ -801,45 +889,6 @@ void ServerTreeWidget::dropEvent(QDropEvent* event) {
 
     event->ignore();
 }
-
-bool ServerTreeWidget::dropMimeData(QTreeWidgetItem* parent, int index, const QMimeData* data,
-                                    Qt::DropAction) {
-    if (!m_data || !parent) return false;
-    const int parentKind = parent->data(0, RoleKind).toInt();
-    if (parentKind != NodeChannel && parentKind != NodeServer) return false;
-
-    if (data->hasFormat(QStringLiteral("application/x-halla-channelid"))) {
-        const int channelId = data->data(QStringLiteral("application/x-halla-channelid")).toInt();
-        if (!m_data->channels.contains(channelId)) return false;
-        const Channel& source = m_data->channels[channelId];
-        int targetParent = 0;
-        int targetIndex = index;
-        if (parentKind == NodeChannel) {
-            QTreeWidgetItem* siblingParent = parent->parent();
-            targetParent = siblingParent ? siblingParent->data(0, RoleId).toInt() : 0;
-            targetIndex = siblingParent ? siblingParent->indexOfChild(parent)
-                                        : indexOfTopLevelItem(parent);
-            const int targetChannelId = parent->data(0, RoleId).toInt();
-            if (source.parentId == targetParent && m_data->channels.contains(targetChannelId)
-                    && source.order < m_data->channels[targetChannelId].order)
-                targetIndex = qMax(0, targetIndex - 1);
-        } else if (targetIndex < 0) {
-            targetIndex = topLevelItemCount();
-        }
-        emit channelMoveRequested(channelId, targetParent, qMax(0, targetIndex));
-        return true;
-    }
-
-    if (!data->hasFormat(QStringLiteral("application/x-halla-userid"))) return false;
-    const int uid = data->data(QStringLiteral("application/x-halla-userid")).toInt();
-    if (uid != m_data->selfId && !m_canMoveOthers) return false;
-    const int target = parentKind == NodeServer
-                         ? m_data->channels.begin().key()
-                         : parent->data(0, RoleId).toInt();
-    emit moveUserRequested(uid, target);
-    return true;
-}
-
 
 void ServerTreeWidget::mouseMoveEvent(QMouseEvent* e) {
     QTreeWidget::mouseMoveEvent(e);

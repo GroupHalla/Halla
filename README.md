@@ -119,6 +119,9 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   aquela transmissão ou parar de assistir; ela some ao sair ou ficar inativo.
 - Modo legado (JPEG por UDP), sempre disponível como alternativa, sem
   depender do SDK do WebRTC.
+- A árvore de canais agrupa rajadas de atualização em um único redesenho,
+  rejeita movimentos cíclicos/duplicados e tolera dados antigos com pai inválido,
+  evitando travamentos ao reorganizar canais.
 
 **Segurança**
 - Canal de controle em **TLS**, com pinagem TOFU (confia no certificado na

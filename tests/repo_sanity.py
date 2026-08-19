@@ -80,11 +80,19 @@ assert "if (userId != tab->data().selfId) return" in main_window
 assert "openScreenShareWindow(userId)" in main_window
 assert "normalizedPeerAddress(m_tcp->peerAddress())" in net_session
 assert "for (const QByteArray& key : m_channelKeys)" in net_session
+tree_widget = (root / "src/gui/ServerTreeWidget.cpp").read_text(encoding="utf-8")
+# Reordenação de canais pode gerar uma rajada de updates. O modelo recebe todos,
+# mas a árvore só redesenha uma vez; ciclos/orfãos não entram em recursão infinita.
+assert "scheduleChannelStateChanged" in net_session
+assert 'if (t == "chan_update")' in net_session
+assert "QSet<int> path" in tree_widget
+assert "wouldCreateChannelCycle" in tree_widget
+assert "isDuplicateChannelMove" in tree_widget
+assert "dropMimeData" not in tree_widget
 
 models = (root / "src/core/Models.h").read_text(encoding="utf-8")
 group_dialog = (root / "src/dialogs/AdminDialogs.cpp").read_text(encoding="utf-8")
 tools_dialog = (root / "src/dialogs/ToolsDialogs.cpp").read_text(encoding="utf-8")
-tree_widget = (root / "src/gui/ServerTreeWidget.cpp").read_text(encoding="utf-8")
 for required in ("siglaSuffix", "groupOrderEnabled"):
     assert required in models, required
 for required in ("m_siglaPlacement", "m_orderEnabled", "m_pendingGroup",

@@ -925,6 +925,18 @@ void NetSession::refreshOperators() {
                 d.users[uid].op = true;
 }
 
+void NetSession::scheduleChannelStateChanged() {
+    if (m_channelStateEmitPending) return;
+    m_channelStateEmitPending = true;
+    // readyRead pode trazer dezenas de chan_update da mesma operação. Aplique
+    // todos ao modelo, mas redesenhe a árvore somente uma vez ao voltar ao loop
+    // de eventos. O contexto QObject cancela o callback se a sessão morrer.
+    QTimer::singleShot(0, this, [this] {
+        m_channelStateEmitPending = false;
+        emit stateChanged();
+    });
+}
+
 void NetSession::handleMessage(const QJsonObject& obj) {
     const QString t = obj["t"].toString();
     ServerData& d = target();
@@ -1121,12 +1133,12 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "chan_update") {
         applyChanJson(obj["chan"].toObject());
-        emit stateChanged();
+        scheduleChannelStateChanged();
         return;
     }
     if (t == "chan_removed") {
         d.channels.remove(obj["id"].toInt());
-        emit stateChanged();
+        scheduleChannelStateChanged();
         return;
     }
     if (t == "poke") {

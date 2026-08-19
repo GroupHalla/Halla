@@ -2,6 +2,8 @@
 
 #include <QTreeWidget>
 #include <QStyledItemDelegate>
+#include <QElapsedTimer>
+#include <QSet>
 #include "core/Models.h"
 
 class QDropEvent;
@@ -103,14 +105,15 @@ protected:
     QStringList mimeTypes() const override;
     QMimeData* mimeData(const QList<QTreeWidgetItem*>& items) const override;
     void dropEvent(QDropEvent* event) override;
-    bool dropMimeData(QTreeWidgetItem* parent, int index, const QMimeData* data,
-                      Qt::DropAction action) override;
 
 private slots:
     void onItemEntered(QTreeWidgetItem* item, int column);
 
 private:
-    QTreeWidgetItem* buildChannelItem(const Channel& c, QTreeWidgetItem* parentItem);
+    QTreeWidgetItem* buildChannelItem(const Channel& c, QTreeWidgetItem* parentItem,
+                                      QSet<int>& path, QSet<int>& built);
+    bool wouldCreateChannelCycle(int channelId, int parentId) const;
+    bool isDuplicateChannelMove(int channelId, int parentId, int order);
     void addUserItem(QTreeWidgetItem* chanItem, const User& u);
     QString userTooltip(const User& u) const;
     QString channelTooltip(const Channel& c) const;
@@ -122,4 +125,8 @@ private:
     bool m_canMoveOthers = false;
     bool m_canSetSelfCommander = false;
     bool m_canSetOtherCommander = false;
+    QElapsedTimer m_lastChannelMoveClock;
+    int m_lastMovedChannel = 0;
+    int m_lastMoveParent = 0;
+    int m_lastMoveOrder = -1;
 };
