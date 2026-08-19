@@ -503,6 +503,25 @@ QWidget* OptionsDialog::pageApplication() {
     connect(advanced, &QCheckBox::toggled, this, [](bool v) { S::set("app/advancedPerms", v); });
     v2->addWidget(advanced);
     left->addWidget(gbMisc);
+
+    QGroupBox* streamEncoder = new QGroupBox(tr("Encoder da transmissão de tela"), w);
+    QVBoxLayout* encoderLayout = new QVBoxLayout(streamEncoder);
+    QCheckBox* hardwareEncoder = new QCheckBox(
+        tr("Usar encoder H.264 por hardware quando disponível"), streamEncoder);
+    hardwareEncoder->setChecked(S::flag("screenshare/hardwareEncoder", false));
+    hardwareEncoder->setToolTip(tr(
+        "Mantém captura, escala, conversão de cor e encode na GPU pelo Direct3D 11 e "
+        "Windows Media Foundation. Se não houver GPU compatível, o Halla usa VP8 por software."));
+    connect(hardwareEncoder, &QCheckBox::toggled, this,
+            [](bool enabled) { S::set("screenshare/hardwareEncoder", enabled); });
+    encoderLayout->addWidget(hardwareEncoder);
+    QLabel* encoderHint = new QLabel(tr(
+        "Entra em vigor na próxima transmissão. Recomendado para 1440p/4K e 60 FPS. "
+        "A aceleração completa funciona ao compartilhar um monitor inteiro."), streamEncoder);
+    encoderHint->setWordWrap(true);
+    encoderHint->setObjectName(QStringLiteral("captionLabel"));
+    encoderLayout->addWidget(encoderHint);
+    left->addWidget(streamEncoder);
     left->addStretch(1);
 
     // ===== coluna direita =====
@@ -1224,24 +1243,6 @@ QWidget* OptionsDialog::pageCapture() {
     cueLayout->addWidget(cueHint);
     right->addWidget(gbSpeechCue);
 
-    QGroupBox* streamEncoder = new QGroupBox(tr("Encoder da transmissão de tela"), w);
-    QVBoxLayout* encoderLayout = new QVBoxLayout(streamEncoder);
-    QCheckBox* hardwareEncoder = new QCheckBox(
-        tr("Usar encoder H.264 por hardware quando disponível"), streamEncoder);
-    hardwareEncoder->setChecked(S::flag("screenshare/hardwareEncoder", false));
-    hardwareEncoder->setToolTip(tr(
-        "Usa o encoder de vídeo da GPU pelo Windows Media Foundation. "
-        "Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software."));
-    connect(hardwareEncoder, &QCheckBox::toggled, this,
-            [](bool enabled) { S::set("screenshare/hardwareEncoder", enabled); });
-    encoderLayout->addWidget(hardwareEncoder);
-    QLabel* encoderHint = new QLabel(tr(
-        "Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS."),
-        streamEncoder);
-    encoderHint->setWordWrap(true);
-    encoderHint->setObjectName(QStringLiteral("captionLabel"));
-    encoderLayout->addWidget(encoderHint);
-    right->addWidget(streamEncoder);
     right->addStretch(1);
 
     main->addLayout(right, 1);

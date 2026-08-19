@@ -2919,12 +2919,12 @@ Offline messages can only be sent to users registered on this server.</translati
       <translation>Use hardware H.264 encoder when available</translation>
     </message>
     <message>
-      <source>Usa o encoder de vídeo da GPU pelo Windows Media Foundation. Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software.</source>
-      <translation>Uses the GPU video encoder through Windows Media Foundation. If no compatible encoder is available, Halla automatically falls back to software VP8.</translation>
+      <source>Mantém captura, escala, conversão de cor e encode na GPU pelo Direct3D 11 e Windows Media Foundation. Se não houver GPU compatível, o Halla usa VP8 por software.</source>
+      <translation>Keeps capture, scaling, color conversion, and encoding on the GPU through Direct3D 11 and Windows Media Foundation. If no compatible GPU is available, Halla uses software VP8.</translation>
     </message>
     <message>
-      <source>Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS.</source>
-      <translation>Reconnect to the server to recreate WebRTC. Recommended for 1440p/4K and 60 FPS.</translation>
+      <source>Entra em vigor na próxima transmissão. Recomendado para 1440p/4K e 60 FPS. A aceleração completa funciona ao compartilhar um monitor inteiro.</source>
+      <translation>Takes effect on the next broadcast. Recommended for 1440p/4K and 60 FPS. Full acceleration is available when sharing an entire monitor.</translation>
     </message>
     <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1235" />

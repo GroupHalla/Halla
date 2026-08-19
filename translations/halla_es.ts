@@ -2919,12 +2919,12 @@ Los mensajes sin conexión solo se pueden enviar a usuarios registrados en este 
       <translation>Usar codificador H.264 por hardware cuando esté disponible</translation>
     </message>
     <message>
-      <source>Usa o encoder de vídeo da GPU pelo Windows Media Foundation. Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software.</source>
-      <translation>Usa el codificador de vídeo de la GPU mediante Windows Media Foundation. Si no hay uno compatible, Halla vuelve automáticamente a VP8 por software.</translation>
+      <source>Mantém captura, escala, conversão de cor e encode na GPU pelo Direct3D 11 e Windows Media Foundation. Se não houver GPU compatível, o Halla usa VP8 por software.</source>
+      <translation>Mantiene la captura, el escalado, la conversión de color y la codificación en la GPU mediante Direct3D 11 y Windows Media Foundation. Si no hay una GPU compatible, Halla usa VP8 por software.</translation>
     </message>
     <message>
-      <source>Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS.</source>
-      <translation>Requiere reconectarse al servidor para recrear WebRTC. Recomendado para 1440p/4K y 60 FPS.</translation>
+      <source>Entra em vigor na próxima transmissão. Recomendado para 1440p/4K e 60 FPS. A aceleração completa funciona ao compartilhar um monitor inteiro.</source>
+      <translation>Entra en vigor en la próxima transmisión. Recomendado para 1440p/4K y 60 FPS. La aceleración completa funciona al compartir un monitor entero.</translation>
     </message>
     <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1235" />

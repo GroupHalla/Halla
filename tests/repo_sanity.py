@@ -54,9 +54,21 @@ mf_h264 = (root / "src/webrtc/MediaFoundationH264.cpp").read_text(encoding="utf-
 assert "MFT_ENUM_FLAG_HARDWARE" in mf_h264
 assert "MFVideoFormat_H264" in mf_h264
 assert "I420ToNV12" in mf_h264
+assert "MFCreateDXGISurfaceBuffer" in mf_h264
+assert "MFT_MESSAGE_SET_D3D_MANAGER" in mf_h264
+assert "supports_native_handle = true" in mf_h264
 assert "is_hardware_accelerated = true" in mf_h264
+assert "CreateVideoProcessor" in webrtc and "DXGI_FORMAT_NV12" in webrtc
+assert "PushBuffer(native)" in webrtc
+assert "resetNativeFactoryForEncoderSetting" in webrtc
 assert 'S::flag("screenshare/hardwareEncoder", false)' in webrtc
-assert "screenshare/hardwareEncoder" in (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
+options_source = (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
+assert "screenshare/hardwareEncoder" in options_source
+application_page = options_source[
+    options_source.index("QWidget* OptionsDialog::pageApplication()"):
+    options_source.index("QWidget* OptionsDialog::pageDesign()")
+]
+assert "screenshare/hardwareEncoder" in application_page
 assert "TargetProcessId = GetCurrentProcessId()" in webrtc
 assert "GetDefaultAudioEndpoint" not in webrtc
 # Regressões Desktop↔Mobile: ICE precoce deve ser enfileirado, a live remota só

@@ -53,6 +53,7 @@ public slots:
 public:
     struct PeerContext;
     bool ensureNativeFactory();
+    void resetNativeFactoryForEncoderSetting();
     PeerContext* ensurePeer(int peerId);
     void createOfferForPeer(int peerId);
     void setRemoteAnswer(int peerId, const QString& sdp);

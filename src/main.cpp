@@ -1308,8 +1308,8 @@ private:
         m_en["A qualidade escolhida excede o limite do servidor."] = "The selected quality exceeds the server limit.";
         m_en["Encoder da transmissão de tela"] = "Screen-share encoder";
         m_en["Usar encoder H.264 por hardware quando disponível"] = "Use hardware H.264 encoder when available";
-        m_en["Usa o encoder de vídeo da GPU pelo Windows Media Foundation. Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software."] = "Uses the GPU video encoder through Windows Media Foundation. If no compatible encoder is available, Halla automatically falls back to software VP8.";
-        m_en["Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS."] = "Reconnect to the server to recreate WebRTC. Recommended for 1440p/4K and 60 FPS.";
+        m_en["Mantém captura, escala, conversão de cor e encode na GPU pelo Direct3D 11 e Windows Media Foundation. Se não houver GPU compatível, o Halla usa VP8 por software."] = "Keeps capture, scaling, color conversion, and encoding on the GPU through Direct3D 11 and Windows Media Foundation. If no compatible GPU is available, Halla uses software VP8.";
+        m_en["Entra em vigor na próxima transmissão. Recomendado para 1440p/4K e 60 FPS. A aceleração completa funciona ao compartilhar um monitor inteiro."] = "Takes effect on the next broadcast. Recommended for 1440p/4K and 60 FPS. Full acceleration is available when sharing an entire monitor.";
         m_en["Limite do servidor: %1x%2, %3 FPS, %4 kbps"] = "Server limit: %1x%2, %3 FPS, %4 kbps";
         m_en["%1x%2 — %3 FPS — %4 Mbps"] = "%1x%2 — %3 FPS — %4 Mbps";
         m_en["RESOLUÇÃO:"] = "RESOLUTION:";
@@ -1440,8 +1440,8 @@ private:
         m_es["A qualidade escolhida excede o limite do servidor."] = "La calidad elegida supera el límite del servidor.";
         m_es["Encoder da transmissão de tela"] = "Codificador de pantalla compartida";
         m_es["Usar encoder H.264 por hardware quando disponível"] = "Usar codificador H.264 por hardware cuando esté disponible";
-        m_es["Usa o encoder de vídeo da GPU pelo Windows Media Foundation. Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software."] = "Usa el codificador de vídeo de la GPU mediante Windows Media Foundation. Si no hay uno compatible, Halla vuelve automáticamente a VP8 por software.";
-        m_es["Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS."] = "Requiere reconectarse al servidor para recrear WebRTC. Recomendado para 1440p/4K y 60 FPS.";
+        m_es["Mantém captura, escala, conversão de cor e encode na GPU pelo Direct3D 11 e Windows Media Foundation. Se não houver GPU compatível, o Halla usa VP8 por software."] = "Mantiene la captura, el escalado, la conversión de color y la codificación en la GPU mediante Direct3D 11 y Windows Media Foundation. Si no hay una GPU compatible, Halla usa VP8 por software.";
+        m_es["Entra em vigor na próxima transmissão. Recomendado para 1440p/4K e 60 FPS. A aceleração completa funciona ao compartilhar um monitor inteiro."] = "Entra en vigor en la próxima transmisión. Recomendado para 1440p/4K y 60 FPS. La aceleración completa funciona al compartir un monitor entero.";
         m_es["Limite do servidor: %1x%2, %3 FPS, %4 kbps"] = "Límite del servidor: %1x%2, %3 FPS, %4 kbps";
         m_es["%1x%2 — %3 FPS — %4 Mbps"] = "%1x%2 — %3 FPS — %4 Mbps";
         m_es["RESOLUÇÃO:"] = "RESOLUCIÓN:";

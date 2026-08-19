@@ -22,6 +22,7 @@
 #include <functiondiscoverykeys_devpkey.h>
 #include <mmreg.h>
 #include <ksmedia.h>
+#include <d3d10.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>
@@ -74,54 +75,176 @@ namespace {
 class DxgiScreenCapturer {
 public:
     QImage grab(int screenIndex) {
-        if (screenIndex < 0) screenIndex = 0;
-        if (!m_duplication || m_screenIndex != screenIndex) {
-            reset();
-            if (!init(screenIndex)) return QImage();
-        }
-
-        DXGI_OUTDUPL_FRAME_INFO frameInfo = {};
+        if (!ensureInitialized(screenIndex)) return {};
+        DXGI_OUTDUPL_FRAME_INFO frameInfo{};
         Microsoft::WRL::ComPtr<IDXGIResource> resource;
-        HRESULT hr = m_duplication->AcquireNextFrame(0, &frameInfo, &resource);
-        if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
-            return m_lastFrame;
-        }
-        if (hr == DXGI_ERROR_ACCESS_LOST || hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
-            reset();
-            return QImage();
-        }
-        if (FAILED(hr)) return QImage();
+        const HRESULT hr = m_duplication->AcquireNextFrame(0, &frameInfo, &resource);
+        if (hr == DXGI_ERROR_WAIT_TIMEOUT) return m_lastFrame;
+        if (isDeviceLost(hr)) { reset(); return {}; }
+        if (FAILED(hr)) return {};
 
         QImage out;
         Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
-        if (SUCCEEDED(resource.As(&texture)) && texture) {
-            D3D11_TEXTURE2D_DESC desc = {};
-            texture->GetDesc(&desc);
-            ensureStaging(desc);
-            if (m_staging) {
-                m_context->CopyResource(m_staging.Get(), texture.Get());
-                D3D11_MAPPED_SUBRESOURCE mapped = {};
-                if (SUCCEEDED(m_context->Map(m_staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
-                    out = QImage(int(desc.Width), int(desc.Height), QImage::Format_ARGB32);
-                    const int rowBytes = int(desc.Width) * 4;
-                    for (int y = 0; y < out.height(); ++y) {
-                        memcpy(out.scanLine(y),
-                               static_cast<const char*>(mapped.pData) + y * mapped.RowPitch,
-                               rowBytes);
-                    }
-                    m_context->Unmap(m_staging.Get(), 0);
-                }
-            }
-        }
+        if (SUCCEEDED(resource.As(&texture)) && texture) out = textureToImage(texture.Get());
         m_duplication->ReleaseFrame();
         if (!out.isNull()) m_lastFrame = out;
         return out;
     }
 
+    webrtc::scoped_refptr<webrtc::VideoFrameBuffer> grabGpu(
+            int screenIndex, int maxWidth, int maxHeight, int fps,
+            QImage* preview, bool makePreview) {
+        if (preview) *preview = {};
+        if (!ensureInitialized(screenIndex)) return nullptr;
+
+        DXGI_OUTDUPL_FRAME_INFO frameInfo{};
+        Microsoft::WRL::ComPtr<IDXGIResource> resource;
+        const HRESULT acquireHr = m_duplication->AcquireNextFrame(0, &frameInfo, &resource);
+        if (acquireHr == DXGI_ERROR_WAIT_TIMEOUT) {
+            if (preview && makePreview) *preview = m_lastFrame;
+            return m_lastNative;
+        }
+        if (isDeviceLost(acquireHr)) { reset(); return nullptr; }
+        if (FAILED(acquireHr)) return nullptr;
+
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> source;
+        HRESULT hr = resource.As(&source);
+        D3D11_TEXTURE2D_DESC sourceDesc{};
+        if (SUCCEEDED(hr) && source) source->GetDesc(&sourceDesc);
+        if (SUCCEEDED(hr) && source && makePreview) {
+            QImage image = textureToImage(source.Get());
+            if (!image.isNull()) {
+                m_lastFrame = image;
+                if (preview) *preview = image;
+            }
+        }
+
+        int outputWidth = 0;
+        int outputHeight = 0;
+        fitWithinEven(int(sourceDesc.Width), int(sourceDesc.Height),
+                      maxWidth, maxHeight, outputWidth, outputHeight);
+        if (SUCCEEDED(hr))
+            hr = ensureVideoProcessor(sourceDesc, outputWidth, outputHeight, fps);
+
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> output;
+        std::shared_ptr<TexturePool> pool;
+        size_t slot = 0;
+        if (SUCCEEDED(hr)) hr = acquireOutputTexture(outputWidth, outputHeight, output, pool, slot);
+
+        Microsoft::WRL::ComPtr<ID3D11VideoProcessorInputView> inputView;
+        Microsoft::WRL::ComPtr<ID3D11VideoProcessorOutputView> outputView;
+        if (SUCCEEDED(hr)) {
+            D3D11_VIDEO_PROCESSOR_INPUT_VIEW_DESC inputDesc{};
+            inputDesc.ViewDimension = D3D11_VPIV_DIMENSION_TEXTURE2D;
+            inputDesc.Texture2D.MipSlice = 0;
+            inputDesc.Texture2D.ArraySlice = 0;
+            hr = m_videoDevice->CreateVideoProcessorInputView(
+                source.Get(), m_processorEnumerator.Get(), &inputDesc, &inputView);
+        }
+        if (SUCCEEDED(hr)) {
+            D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC outputDesc{};
+            outputDesc.ViewDimension = D3D11_VPOV_DIMENSION_TEXTURE2D;
+            outputDesc.Texture2D.MipSlice = 0;
+            hr = m_videoDevice->CreateVideoProcessorOutputView(
+                output.Get(), m_processorEnumerator.Get(), &outputDesc, &outputView);
+        }
+        if (SUCCEEDED(hr)) {
+            const RECT sourceRect{0, 0, LONG(sourceDesc.Width), LONG(sourceDesc.Height)};
+            const RECT outputRect{0, 0, LONG(outputWidth), LONG(outputHeight)};
+            m_videoContext->VideoProcessorSetOutputTargetRect(
+                m_videoProcessor.Get(), TRUE, &outputRect);
+            m_videoContext->VideoProcessorSetStreamFrameFormat(
+                m_videoProcessor.Get(), 0, D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE);
+            m_videoContext->VideoProcessorSetStreamSourceRect(
+                m_videoProcessor.Get(), 0, TRUE, &sourceRect);
+            m_videoContext->VideoProcessorSetStreamDestRect(
+                m_videoProcessor.Get(), 0, TRUE, &outputRect);
+            m_videoContext->VideoProcessorSetStreamAutoProcessingMode(
+                m_videoProcessor.Get(), 0, FALSE);
+            D3D11_VIDEO_PROCESSOR_STREAM stream{};
+            stream.Enable = TRUE;
+            stream.pInputSurface = inputView.Get();
+            hr = m_videoContext->VideoProcessorBlt(
+                m_videoProcessor.Get(), outputView.Get(), m_frameNumber++, 1, &stream);
+        }
+        m_duplication->ReleaseFrame();
+
+        if (FAILED(hr) || !output || !pool) {
+            releasePoolSlot(pool, slot);
+            if (!m_gpuFailureLogged) {
+                m_gpuFailureLogged = true;
+                AppLog::warn(QStringLiteral(
+                    "WebRTC DXGI: conversão GPU BGRA->NV12 indisponível (0x%1); usando caminho pela CPU")
+                    .arg(quint32(hr), 8, 16, QLatin1Char('0')));
+            }
+            return nullptr;
+        }
+
+        auto native = HallaMfH264::createD3D11FrameBuffer(
+            output.Get(), outputWidth, outputHeight, [pool, slot] {
+                releasePoolSlot(pool, slot);
+            });
+        if (!native) {
+            releasePoolSlot(pool, slot);
+            return nullptr;
+        }
+        m_lastNative = native;
+        if (!m_gpuPathLogged) {
+            m_gpuPathLogged = true;
+            AppLog::info(QStringLiteral(
+                "WebRTC DXGI: captura, escala e conversão BGRA->NV12 na GPU ativas (%1x%2 @ %3 FPS)")
+                .arg(outputWidth).arg(outputHeight).arg(fps));
+        }
+        return native;
+    }
+
 private:
+    struct TexturePool {
+        struct Slot {
+            Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+            bool busy = false;
+        };
+        std::mutex mutex;
+        std::vector<Slot> slots;
+        int width = 0;
+        int height = 0;
+    };
+
+    static void releasePoolSlot(const std::shared_ptr<TexturePool>& pool, size_t slot) {
+        if (!pool) return;
+        std::lock_guard<std::mutex> lock(pool->mutex);
+        if (slot < pool->slots.size()) pool->slots[slot].busy = false;
+    }
+
+    static bool isDeviceLost(HRESULT hr) {
+        return hr == DXGI_ERROR_ACCESS_LOST || hr == DXGI_ERROR_DEVICE_REMOVED
+            || hr == DXGI_ERROR_DEVICE_RESET;
+    }
+
+    static void fitWithinEven(int sourceWidth, int sourceHeight,
+                              int maxWidth, int maxHeight,
+                              int& outputWidth, int& outputHeight) {
+        sourceWidth = std::max(2, sourceWidth);
+        sourceHeight = std::max(2, sourceHeight);
+        maxWidth = std::max(2, maxWidth);
+        maxHeight = std::max(2, maxHeight);
+        const double scale = std::min({1.0, double(maxWidth) / sourceWidth,
+                                      double(maxHeight) / sourceHeight});
+        outputWidth = std::max(2, int(sourceWidth * scale)) & ~1;
+        outputHeight = std::max(2, int(sourceHeight * scale)) & ~1;
+    }
+
+    bool ensureInitialized(int screenIndex) {
+        if (screenIndex < 0) screenIndex = 0;
+        if (m_duplication && m_screenIndex == screenIndex) return true;
+        reset();
+        return init(screenIndex);
+    }
+
     bool init(int screenIndex) {
         Microsoft::WRL::ComPtr<IDXGIFactory1> factory;
-        if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(factory.GetAddressOf()))))
+        if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1),
+                                     reinterpret_cast<void**>(factory.GetAddressOf()))))
             return false;
 
         Microsoft::WRL::ComPtr<IDXGIAdapter1> selectedAdapter;
@@ -149,11 +272,23 @@ private:
             D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0
         };
         D3D_FEATURE_LEVEL level = D3D_FEATURE_LEVEL_11_0;
+        UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_VIDEO_SUPPORT;
         HRESULT hr = D3D11CreateDevice(selectedAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr,
-                                       D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-                                       levels, UINT(sizeof(levels) / sizeof(levels[0])), D3D11_SDK_VERSION,
+                                       flags, levels, UINT(sizeof(levels) / sizeof(levels[0])), D3D11_SDK_VERSION,
                                        &m_device, &level, &m_context);
+        if (FAILED(hr)) {
+            flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+            hr = D3D11CreateDevice(selectedAdapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr,
+                                   flags, levels, UINT(sizeof(levels) / sizeof(levels[0])), D3D11_SDK_VERSION,
+                                   &m_device, &level, &m_context);
+        }
         if (FAILED(hr)) return false;
+
+        Microsoft::WRL::ComPtr<ID3D10Multithread> multithread;
+        if (m_context && SUCCEEDED(m_context.As(&multithread)) && multithread)
+            multithread->SetMultithreadProtected(TRUE);
+        m_device.As(&m_videoDevice);
+        m_context.As(&m_videoContext);
 
         Microsoft::WRL::ComPtr<IDXGIOutput1> output1;
         if (FAILED(selectedOutput.As(&output1))) return false;
@@ -161,15 +296,143 @@ private:
             reset();
             return false;
         }
+        DXGI_ADAPTER_DESC1 adapterDesc{};
+        selectedAdapter->GetDesc1(&adapterDesc);
         m_screenIndex = screenIndex;
-        AppLog::info(QStringLiteral("WebRTC DXGI Desktop Duplication ativo na tela #%1").arg(screenIndex));
+        AppLog::info(QStringLiteral(
+            "WebRTC DXGI Desktop Duplication ativo na tela #%1 — GPU: %2 (VEN_%3)")
+            .arg(screenIndex)
+            .arg(QString::fromWCharArray(adapterDesc.Description))
+            .arg(adapterDesc.VendorId, 4, 16, QLatin1Char('0')));
         return true;
     }
 
-    void ensureStaging(const D3D11_TEXTURE2D_DESC& srcDesc) {
-        if (m_staging && m_width == srcDesc.Width && m_height == srcDesc.Height) return;
+    HRESULT ensureVideoProcessor(const D3D11_TEXTURE2D_DESC& sourceDesc,
+                                 int outputWidth, int outputHeight, int fps) {
+        if (!m_videoDevice || !m_videoContext || outputWidth < 2 || outputHeight < 2)
+            return E_NOINTERFACE;
+        if (m_processorEnumerator && m_videoProcessor
+                && m_processorSourceWidth == sourceDesc.Width
+                && m_processorSourceHeight == sourceDesc.Height
+                && m_processorSourceFormat == sourceDesc.Format
+                && m_processorOutputWidth == UINT(outputWidth)
+                && m_processorOutputHeight == UINT(outputHeight)
+                && m_processorFps == fps) return S_OK;
+
+        m_videoProcessor.Reset();
+        m_processorEnumerator.Reset();
+        m_lastNative = nullptr;
+        m_texturePool.reset();
+        D3D11_VIDEO_PROCESSOR_CONTENT_DESC content{};
+        content.InputFrameFormat = D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE;
+        content.InputFrameRate = {UINT(std::max(1, fps)), 1};
+        content.InputWidth = sourceDesc.Width;
+        content.InputHeight = sourceDesc.Height;
+        content.OutputFrameRate = {UINT(std::max(1, fps)), 1};
+        content.OutputWidth = UINT(outputWidth);
+        content.OutputHeight = UINT(outputHeight);
+        content.Usage = D3D11_VIDEO_USAGE_OPTIMAL_SPEED;
+        HRESULT hr = m_videoDevice->CreateVideoProcessorEnumerator(
+            &content, &m_processorEnumerator);
+        UINT sourceSupport = 0;
+        UINT outputSupport = 0;
+        if (SUCCEEDED(hr))
+            hr = m_processorEnumerator->CheckVideoProcessorFormat(sourceDesc.Format, &sourceSupport);
+        if (SUCCEEDED(hr) && !(sourceSupport & D3D11_VIDEO_PROCESSOR_FORMAT_SUPPORT_INPUT))
+            hr = DXGI_ERROR_UNSUPPORTED;
+        if (SUCCEEDED(hr))
+            hr = m_processorEnumerator->CheckVideoProcessorFormat(DXGI_FORMAT_NV12, &outputSupport);
+        if (SUCCEEDED(hr) && !(outputSupport & D3D11_VIDEO_PROCESSOR_FORMAT_SUPPORT_OUTPUT))
+            hr = DXGI_ERROR_UNSUPPORTED;
+        if (SUCCEEDED(hr))
+            hr = m_videoDevice->CreateVideoProcessor(
+                m_processorEnumerator.Get(), 0, &m_videoProcessor);
+        if (FAILED(hr)) {
+            m_videoProcessor.Reset();
+            m_processorEnumerator.Reset();
+            return hr;
+        }
+        m_processorSourceWidth = sourceDesc.Width;
+        m_processorSourceHeight = sourceDesc.Height;
+        m_processorSourceFormat = sourceDesc.Format;
+        m_processorOutputWidth = UINT(outputWidth);
+        m_processorOutputHeight = UINT(outputHeight);
+        m_processorFps = fps;
+        return S_OK;
+    }
+
+    HRESULT acquireOutputTexture(int width, int height,
+                                 Microsoft::WRL::ComPtr<ID3D11Texture2D>& texture,
+                                 std::shared_ptr<TexturePool>& selectedPool,
+                                 size_t& selectedSlot) {
+        if (!m_texturePool || m_texturePool->width != width || m_texturePool->height != height) {
+            m_texturePool = std::make_shared<TexturePool>();
+            m_texturePool->width = width;
+            m_texturePool->height = height;
+        }
+        selectedPool = m_texturePool;
+        std::lock_guard<std::mutex> lock(selectedPool->mutex);
+        for (size_t i = 0; i < selectedPool->slots.size(); ++i) {
+            if (!selectedPool->slots[i].busy) {
+                selectedPool->slots[i].busy = true;
+                selectedSlot = i;
+                texture = selectedPool->slots[i].texture;
+                return S_OK;
+            }
+        }
+        constexpr size_t kMaxGpuFramesInFlight = 8;
+        if (selectedPool->slots.size() >= kMaxGpuFramesInFlight)
+            return HRESULT_FROM_WIN32(ERROR_BUSY);
+
+        D3D11_TEXTURE2D_DESC desc{};
+        desc.Width = UINT(width);
+        desc.Height = UINT(height);
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+        desc.Format = DXGI_FORMAT_NV12;
+        desc.SampleDesc.Count = 1;
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+        TexturePool::Slot slot;
+        const HRESULT hr = m_device->CreateTexture2D(&desc, nullptr, &slot.texture);
+        if (FAILED(hr)) return hr;
+        slot.busy = true;
+        selectedPool->slots.push_back(slot);
+        selectedSlot = selectedPool->slots.size() - 1;
+        texture = slot.texture;
+        return S_OK;
+    }
+
+    QImage textureToImage(ID3D11Texture2D* texture) {
+        if (!texture) return {};
+        D3D11_TEXTURE2D_DESC desc{};
+        texture->GetDesc(&desc);
+        if (desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM
+                && desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM_SRGB)
+            return {};
+        ensureStaging(desc);
+        if (!m_staging) return {};
+        m_context->CopyResource(m_staging.Get(), texture);
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        if (FAILED(m_context->Map(m_staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)))
+            return {};
+        QImage out(int(desc.Width), int(desc.Height), QImage::Format_ARGB32);
+        const int rowBytes = int(desc.Width) * 4;
+        for (int y = 0; y < out.height(); ++y) {
+            memcpy(out.scanLine(y),
+                   static_cast<const char*>(mapped.pData) + size_t(y) * mapped.RowPitch,
+                   size_t(rowBytes));
+        }
+        m_context->Unmap(m_staging.Get(), 0);
+        return out;
+    }
+
+    void ensureStaging(const D3D11_TEXTURE2D_DESC& sourceDesc) {
+        if (m_staging && m_stagingWidth == sourceDesc.Width
+                && m_stagingHeight == sourceDesc.Height
+                && m_stagingFormat == sourceDesc.Format) return;
         m_staging.Reset();
-        D3D11_TEXTURE2D_DESC desc = srcDesc;
+        D3D11_TEXTURE2D_DESC desc = sourceDesc;
         desc.BindFlags = 0;
         desc.MiscFlags = 0;
         desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
@@ -179,30 +442,63 @@ private:
         desc.SampleDesc.Count = 1;
         desc.SampleDesc.Quality = 0;
         if (SUCCEEDED(m_device->CreateTexture2D(&desc, nullptr, &m_staging))) {
-            m_width = srcDesc.Width;
-            m_height = srcDesc.Height;
+            m_stagingWidth = sourceDesc.Width;
+            m_stagingHeight = sourceDesc.Height;
+            m_stagingFormat = sourceDesc.Format;
         }
     }
 
     void reset() {
+        m_lastNative = nullptr;
+        m_texturePool.reset();
+        m_videoProcessor.Reset();
+        m_processorEnumerator.Reset();
+        m_videoContext.Reset();
+        m_videoDevice.Reset();
         m_duplication.Reset();
         m_staging.Reset();
         m_context.Reset();
         m_device.Reset();
-        m_lastFrame = QImage();
-        m_width = 0;
-        m_height = 0;
+        m_lastFrame = {};
+        m_stagingWidth = 0;
+        m_stagingHeight = 0;
+        m_stagingFormat = DXGI_FORMAT_UNKNOWN;
+        m_processorSourceWidth = 0;
+        m_processorSourceHeight = 0;
+        m_processorSourceFormat = DXGI_FORMAT_UNKNOWN;
+        m_processorOutputWidth = 0;
+        m_processorOutputHeight = 0;
+        m_processorFps = 0;
+        m_frameNumber = 0;
         m_screenIndex = -1;
+        m_gpuPathLogged = false;
+        m_gpuFailureLogged = false;
     }
 
     Microsoft::WRL::ComPtr<ID3D11Device> m_device;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_context;
+    Microsoft::WRL::ComPtr<ID3D11VideoDevice> m_videoDevice;
+    Microsoft::WRL::ComPtr<ID3D11VideoContext> m_videoContext;
     Microsoft::WRL::ComPtr<IDXGIOutputDuplication> m_duplication;
     Microsoft::WRL::ComPtr<ID3D11Texture2D> m_staging;
+    Microsoft::WRL::ComPtr<ID3D11VideoProcessorEnumerator> m_processorEnumerator;
+    Microsoft::WRL::ComPtr<ID3D11VideoProcessor> m_videoProcessor;
+    std::shared_ptr<TexturePool> m_texturePool;
+    webrtc::scoped_refptr<webrtc::VideoFrameBuffer> m_lastNative;
     QImage m_lastFrame;
-    UINT m_width = 0;
-    UINT m_height = 0;
+    UINT m_stagingWidth = 0;
+    UINT m_stagingHeight = 0;
+    DXGI_FORMAT m_stagingFormat = DXGI_FORMAT_UNKNOWN;
+    UINT m_processorSourceWidth = 0;
+    UINT m_processorSourceHeight = 0;
+    DXGI_FORMAT m_processorSourceFormat = DXGI_FORMAT_UNKNOWN;
+    UINT m_processorOutputWidth = 0;
+    UINT m_processorOutputHeight = 0;
+    int m_processorFps = 0;
+    UINT m_frameNumber = 0;
     int m_screenIndex = -1;
+    bool m_gpuPathLogged = false;
+    bool m_gpuFailureLogged = false;
 };
 
 #ifdef HALLA_PROCESS_LOOPBACK_EXCLUSION
@@ -780,6 +1076,11 @@ public:
             buffer->MutableDataV(), buffer->StrideV(),
             w, h);
         if (converted != 0) return;
+        PushBuffer(buffer);
+    }
+
+    void PushBuffer(const webrtc::scoped_refptr<webrtc::VideoFrameBuffer>& buffer) {
+        if (!buffer || buffer->width() < 2 || buffer->height() < 2) return;
         webrtc::VideoFrame frame = webrtc::VideoFrame::Builder()
             .set_video_frame_buffer(buffer)
             .set_timestamp_ms(QDateTime::currentMSecsSinceEpoch())
@@ -789,8 +1090,8 @@ public:
         std::vector<webrtc::VideoSinkInterface<webrtc::VideoFrame>*> sinks;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            m_lastWidth = w;
-            m_lastHeight = h;
+            m_lastWidth = buffer->width();
+            m_lastHeight = buffer->height();
             sinks.reserve(m_sinks.size());
             for (const auto& item : m_sinks) sinks.push_back(item.sink);
         }
@@ -852,6 +1153,10 @@ struct HallaWebRtcSession::NativeState {
     std::unique_ptr<DxgiScreenCapturer> dxgiCapturer;
 #endif
     std::map<int, std::unique_ptr<PeerContext>> peers;
+    uint64_t captureFrameNumber = 0;
+    bool gpuCaptureFrames = false;
+    bool factoryHardwareConfigured = false;
+    bool factoryConfigurationKnown = false;
     bool sslInitialized = false;
 
     ~NativeState() = default;
@@ -917,6 +1222,32 @@ void HallaWebRtcSession::setCaptureSystemAudio(bool enabled) {
 }
 
 #ifdef HALLA_WEBRTC_NATIVE
+void HallaWebRtcSession::resetNativeFactoryForEncoderSetting() {
+    if (!m_native || !m_native->factory || !m_native->factoryConfigurationKnown)
+        return;
+    const bool requested = S::flag("screenshare/hardwareEncoder", false);
+    if (requested == m_native->factoryHardwareConfigured) return;
+
+    AppLog::info(QStringLiteral(
+        "WebRTC: configuração do encoder mudou; recriando factory para a próxima transmissão"));
+    while (!m_native->peers.empty()) closePeer(m_native->peers.begin()->first);
+    if (m_native->loopbackAdm) {
+        m_native->loopbackAdm->StopPlayout();
+        m_native->loopbackAdm->StopRecording();
+        m_native->loopbackAdm->RegisterAudioCallback(nullptr);
+    }
+    m_native->systemAudioTrack = nullptr;
+    m_native->systemAudioSource = nullptr;
+    m_native->videoTrack = nullptr;
+    m_native->videoSource = nullptr;
+    m_native->factory = nullptr;
+    m_native->signalingThread.reset();
+    m_native->workerThread.reset();
+    m_native->networkThread.reset();
+    m_native->gpuCaptureFrames = false;
+    m_native->factoryConfigurationKnown = false;
+}
+
 bool HallaWebRtcSession::ensureNativeFactory() {
     if (!m_native->sslInitialized) {
         if (!webrtc::InitializeSSL()) return false;
@@ -935,6 +1266,8 @@ bool HallaWebRtcSession::ensureNativeFactory() {
         m_native->loopbackAdm = webrtc::make_ref_counted<SystemLoopbackAudioDeviceModule>();
     }
 #endif
+    const bool hardwareEncoderRequested = S::flag("screenshare/hardwareEncoder", false);
+    m_native->gpuCaptureFrames = hardwareEncoderRequested && HallaMfH264::encoderAvailable();
     m_native->factory = webrtc::CreatePeerConnectionFactory(
         m_native->networkThread.get(), m_native->workerThread.get(), m_native->signalingThread.get(),
 #ifdef Q_OS_WIN
@@ -944,11 +1277,12 @@ bool HallaWebRtcSession::ensureNativeFactory() {
 #endif
         webrtc::CreateBuiltinAudioEncoderFactory(),
         webrtc::CreateBuiltinAudioDecoderFactory(),
-        std::make_unique<HallaVideoEncoderFactory>(
-            S::flag("screenshare/hardwareEncoder", false)),
+        std::make_unique<HallaVideoEncoderFactory>(hardwareEncoderRequested),
         std::make_unique<HallaVideoDecoderFactory>(),
         nullptr, nullptr);
     if (m_native->factory) {
+        m_native->factoryHardwareConfigured = hardwareEncoderRequested;
+        m_native->factoryConfigurationKnown = true;
         m_native->videoSource = webrtc::make_ref_counted<QtScreenVideoSource>();
         m_native->videoTrack = m_native->factory->CreateVideoTrack(m_native->videoSource, "halla-screen");
         if (m_native->videoTrack) {
@@ -1215,6 +1549,32 @@ void HallaWebRtcSession::captureFrame() {
     QImage frameImage;
     QPixmap pix;
     QScreen* primary = QGuiApplication::primaryScreen();
+#ifdef Q_OS_WIN
+    // Caminho de alto desempenho para monitor inteiro: o frame permanece em
+    // D3D11 desde Desktop Duplication até o MFT/NVENC. A prévia local é copiada
+    // para a CPU em apenas ~10 FPS e não limita a transmissão de 60 FPS.
+    if (m_captureSourceType == 0 && m_native->gpuCaptureFrames) {
+        const int screenIndex = int(m_captureSourceId);
+        if (!m_native->dxgiCapturer)
+            m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
+        const uint64_t previewInterval = uint64_t(std::max(1, m_captureFps / 10));
+        const bool makePreview = (m_native->captureFrameNumber++ % previewInterval) == 0;
+        QImage preview;
+        auto native = m_native->dxgiCapturer->grabGpu(
+            screenIndex, m_captureWidth, m_captureHeight, m_captureFps,
+            &preview, makePreview);
+        if (native) {
+            if (!preview.isNull()) {
+                if (preview.width() != native->width() || preview.height() != native->height())
+                    preview = preview.scaled(native->width(), native->height(),
+                                             Qt::IgnoreAspectRatio, Qt::FastTransformation);
+                emit localPreviewFrame(preview);
+            }
+            m_native->videoSource->PushBuffer(native);
+            return;
+        }
+    }
+#endif
     if (m_captureSourceType == 0) {
         const int screenIndex = int(m_captureSourceId);
 #ifdef Q_OS_WIN
@@ -1301,6 +1661,7 @@ void HallaWebRtcSession::stopWatching(int userId) {
 void HallaWebRtcSession::startBroadcast() {
 #ifdef HALLA_WEBRTC_NATIVE
     if (m_broadcasting) return;
+    resetNativeFactoryForEncoderSetting();
     if (!ensureNativeFactory()) {
         const QString reason = tr("Falha ao inicializar WebRTC nativo");
         AppLog::error(reason);
@@ -1317,6 +1678,9 @@ void HallaWebRtcSession::startBroadcast() {
 #endif
         });
     }
+    // Prepare a first frame (and the D3D11 adapter) before advertising the
+    // live. This guarantees that the H.264 MFT is bound to the capture GPU.
+    captureFrame();
     m_captureTimer->start(qMax(1, 1000 / m_captureFps));
     if (m_net) m_net->sendWebRtcStreamStart(
         m_captureWidth, m_captureHeight, m_captureFps, m_captureBitrateKbps);

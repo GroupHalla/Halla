@@ -2908,11 +2908,11 @@ Mensagens offline podem ser enviadas apenas a usuários registrados neste servid
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Usa o encoder de vídeo da GPU pelo Windows Media Foundation. Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software.</source>
+        <source>Mantém captura, escala, conversão de cor e encode na GPU pelo Direct3D 11 e Windows Media Foundation. Se não houver GPU compatível, o Halla usa VP8 por software.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS.</source>
+        <source>Entra em vigor na próxima transmissão. Recomendado para 1440p/4K e 60 FPS. A aceleração completa funciona ao compartilhar um monitor inteiro.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
