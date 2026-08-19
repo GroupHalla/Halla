@@ -36,6 +36,7 @@ public:
     int         screenshareWidth() const { return m_screenshareWidth; }
     int         screenshareHeight() const { return m_screenshareHeight; }
     int         screenshareFps() const    { return m_screenshareFps; }
+    int         screenshareBitrateKbps() const { return m_screenshareBitrateKbps; }
     QJsonArray  webRtcIceServers() const  { return m_webRtcIceServers; }
     qint64      bytesToWrite() const      { return m_tcp ? m_tcp->bytesToWrite() : 0; }
 
@@ -96,7 +97,7 @@ public:
     void sendScreenShareFrame(const QByteArray& jpeg, quint16 seq);
 
     // WebRTC signaling v1 (TCP/TLS signaling; media is negotiated by clients)
-    void sendWebRtcStreamStart();
+    void sendWebRtcStreamStart(int width, int height, int fps, int bitrateKbps);
     void sendWebRtcStreamStop();
     void sendWebRtcWatchRequest(int userId);
     void sendWebRtcWatchStop(int userId);
@@ -179,9 +180,10 @@ private:
     QJsonObject m_myPerms;        // v3 (welcome.myPerms)
     QJsonArray  m_groups;         // v3 (welcome.groups)
     bool        m_allowScreenShare = true;
-    int         m_screenshareWidth = 800;
-    int         m_screenshareHeight = 450;
-    int         m_screenshareFps = 20;
+    int         m_screenshareWidth = 1920;
+    int         m_screenshareHeight = 1080;
+    int         m_screenshareFps = 60;
+    int         m_screenshareBitrateKbps = 8000;
     QJsonArray  m_webRtcIceServers;
     quint16 m_udpPort = 0;
     QByteArray m_voiceToken; // protocolo v4: token CSPRNG de 128 bits

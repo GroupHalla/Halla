@@ -55,6 +55,11 @@ assert "GetDefaultAudioEndpoint" not in webrtc
 # Regressões Desktop↔Mobile: ICE precoce deve ser enfileirado, a live remota só
 # abre por clique explícito e o UDP usa o peer realmente escolhido pelo TLS.
 assert "pendingRemoteIce" in webrtc and "remoteDescriptionReady" in webrtc
+screen_dialog = (root / "src/dialogs/ScreenShareDialog.cpp").read_text(encoding="utf-8")
+assert "populateQualityProfiles" in screen_dialog
+assert "{3840, 2160, 18000, 32000}" in screen_dialog
+assert "screenshareBitrateKbps" in net_session
+assert 'message["bitrate"] = bitrateKbps' in net_session
 assert "AudioTrackSinkInterface" in webrtc
 assert "attachRemoteAudioTrack" in webrtc
 assert "remoteAudioReceived" in webrtc

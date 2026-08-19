@@ -4044,6 +4044,14 @@ Ping TCP: %11 ms</translation>
       <translation>Una mayor calidad utiliza más CPU/red.</translation>
     </message>
     <message>
+      <source>%1p — %2 FPS — %3 Mbps</source>
+      <translation>%1p — %2 FPS — %3 Mbps</translation>
+    </message>
+    <message>
+      <source>Máximo do servidor — %1x%2 — %3 FPS — %4 kbps</source>
+      <translation>Máximo del servidor — %1x%2 — %3 FPS — %4 kbps</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/ScreenShareDialog.cpp" line="149" />
       <source>ÁUDIO DA TRANSMISSÃO:</source>
       <translation>AUDIO DE TRANSMISIÓN:</translation>
@@ -4195,6 +4203,10 @@ Ping TCP: %11 ms</translation>
       <location filename="../src/net/NetSession.cpp" line="185" />
       <source>O compartilhamento de tela está desativado pelo servidor.</source>
       <translation>El servidor deshabilita el uso compartido de pantalla.</translation>
+    </message>
+    <message>
+      <source>A qualidade escolhida excede o limite do servidor.</source>
+      <translation>La calidad elegida supera el límite del servidor.</translation>
     </message>
     <message>
       <location filename="../src/net/NetSession.cpp" line="186" />

@@ -874,7 +874,7 @@ void HallaWebRtcSession::setCaptureQuality(int width, int height, int fps, int b
     m_captureWidth = qBound(640, width, 3840);
     m_captureHeight = qBound(360, height, 2160);
     m_captureFps = qBound(15, fps, 60);
-    m_captureBitrateKbps = qBound(800, bitrateKbps, 20000);
+    m_captureBitrateKbps = qBound(500, bitrateKbps, 50000);
     if (m_captureTimer && m_captureTimer->isActive()) {
         m_captureTimer->start(qMax(1, 1000 / m_captureFps));
     }
@@ -1287,7 +1287,8 @@ void HallaWebRtcSession::startBroadcast() {
         });
     }
     m_captureTimer->start(qMax(1, 1000 / m_captureFps));
-    if (m_net) m_net->sendWebRtcStreamStart();
+    if (m_net) m_net->sendWebRtcStreamStart(
+        m_captureWidth, m_captureHeight, m_captureFps, m_captureBitrateKbps);
     emit broadcastStarted();
 #else
     const QString reason = tr("WebRTC nativo ainda não está disponível neste build. "

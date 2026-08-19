@@ -32,7 +32,9 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 }
 #endif
 
-ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
+ScreenShareDialog::ScreenShareDialog(int maxWidth, int maxHeight, int maxFps,
+                                     int maxBitrateKbps, QWidget* parent)
+    : QDialog(parent) {
     setWindowTitle(tr("Compartilhar Tela"));
     setFixedSize(600, 520);
     
@@ -123,10 +125,7 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
     qLayout->addWidget(qualityLabel);
 
     m_qualityCombo = new QComboBox(qualityBox);
-    m_qualityCombo->addItem(tr("Desempenho — 720p 30 FPS"), 0);
-    m_qualityCombo->addItem(tr("Equilibrado — 1080p 30 FPS"), 1);
-    m_qualityCombo->addItem(tr("Qualidade — 1080p 60 FPS"), 2);
-    m_qualityCombo->setCurrentIndex(2);
+    populateQualityProfiles(maxWidth, maxHeight, maxFps, maxBitrateKbps);
     m_qualityCombo->setStyleSheet(QStringLiteral(
         "QComboBox { background-color: %1; color: %2; border: 1px solid %3; border-radius: 6px; padding: 6px 10px; font-weight: bold; }"
         "QComboBox::drop-down { border: none; width: 24px; }"
@@ -190,41 +189,71 @@ ScreenShareDialog::ScreenShareDialog(QWidget* parent) : QDialog(parent) {
 }
 
 
+void ScreenShareDialog::populateQualityProfiles(int maxWidth, int maxHeight,
+                                                   int maxFps, int maxBitrateKbps) {
+    maxWidth = qBound(640, maxWidth, 3840);
+    maxHeight = qBound(360, maxHeight, 2160);
+    maxFps = qBound(1, maxFps, 60);
+    maxBitrateKbps = qBound(500, maxBitrateKbps, 50000);
+
+    struct BaseProfile { int width, height, bitrate30, bitrate60; };
+    const BaseProfile standards[] = {
+        {1280, 720, 2500, 4500},
+        {1920, 1080, 4500, 8000},
+        {2560, 1440, 9000, 16000},
+        {3840, 2160, 18000, 32000},
+    };
+    QList<int> frameRates;
+    if (maxFps < 30) frameRates << maxFps;
+    else {
+        frameRates << 30;
+        if (maxFps > 30) frameRates << maxFps;
+    }
+
+    for (const BaseProfile& base : standards) {
+        if (base.width > maxWidth || base.height > maxHeight) continue;
+        for (int fps : frameRates) {
+            const int bitrate = fps <= 30 ? base.bitrate30
+                : base.bitrate30 + (base.bitrate60 - base.bitrate30)
+                    * (fps - 30) / 30;
+            if (bitrate > maxBitrateKbps) continue;
+            m_qualityProfiles.push_back({base.width, base.height, fps, bitrate});
+            const double mbps = bitrate / 1000.0;
+            m_qualityCombo->addItem(
+                tr("%1p — %2 FPS — %3 Mbps")
+                    .arg(base.height).arg(fps)
+                    .arg(mbps, 0, 'f', bitrate % 1000 == 0 ? 0 : 1),
+                m_qualityProfiles.size() - 1);
+        }
+    }
+
+    // Configurações não padronizadas ou bitrate muito baixo ainda recebem uma
+    // opção segura, sempre dentro dos quatro limites anunciados pelo servidor.
+    if (m_qualityProfiles.isEmpty()) {
+        m_qualityProfiles.push_back({maxWidth, maxHeight, maxFps, maxBitrateKbps});
+        m_qualityCombo->addItem(
+            tr("Máximo do servidor — %1x%2 — %3 FPS — %4 kbps")
+                .arg(maxWidth).arg(maxHeight).arg(maxFps).arg(maxBitrateKbps), 0);
+    }
+    m_qualityCombo->setCurrentIndex(m_qualityCombo->count() - 1);
+}
+
+const ScreenShareDialog::QualityProfile& ScreenShareDialog::selectedProfile() const {
+    static const QualityProfile fallback;
+    if (!m_qualityCombo || m_qualityProfiles.isEmpty()) return fallback;
+    const int index = m_qualityCombo->currentData().toInt();
+    return index >= 0 && index < m_qualityProfiles.size()
+        ? m_qualityProfiles[index] : m_qualityProfiles.last();
+}
+
 int ScreenShareDialog::selectedQualityProfile() const {
-    return m_qualityCombo ? m_qualityCombo->currentData().toInt() : 2;
+    return m_qualityCombo ? m_qualityCombo->currentData().toInt() : 0;
 }
 
-int ScreenShareDialog::selectedWidth() const {
-    switch (selectedQualityProfile()) {
-    case 0: return 1280;
-    case 1: return 1920;
-    default: return 1920;
-    }
-}
-
-int ScreenShareDialog::selectedHeight() const {
-    switch (selectedQualityProfile()) {
-    case 0: return 720;
-    case 1: return 1080;
-    default: return 1080;
-    }
-}
-
-int ScreenShareDialog::selectedFps() const {
-    switch (selectedQualityProfile()) {
-    case 0: return 30;
-    case 1: return 30;
-    default: return 60;
-    }
-}
-
-int ScreenShareDialog::selectedBitrateKbps() const {
-    switch (selectedQualityProfile()) {
-    case 0: return 2500;
-    case 1: return 4500;
-    default: return 8000;
-    }
-}
+int ScreenShareDialog::selectedWidth() const { return selectedProfile().width; }
+int ScreenShareDialog::selectedHeight() const { return selectedProfile().height; }
+int ScreenShareDialog::selectedFps() const { return selectedProfile().fps; }
+int ScreenShareDialog::selectedBitrateKbps() const { return selectedProfile().bitrateKbps; }
 
 bool ScreenShareDialog::captureSystemAudio() const {
     return m_audioCombo && m_audioCombo->currentData().toInt() == 1;

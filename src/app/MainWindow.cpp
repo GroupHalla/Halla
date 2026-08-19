@@ -2161,7 +2161,9 @@ void MainWindow::toggleScreenShare() {
     }
 
     if (m_actScreenShare->isChecked()) {
-        ScreenShareDialog dlg(this);
+        ScreenShareDialog dlg(
+            t->net()->screenshareWidth(), t->net()->screenshareHeight(),
+            t->net()->screenshareFps(), t->net()->screenshareBitrateKbps(), this);
         if (dlg.exec() == QDialog::Accepted) {
             m_screenShareSourceType = dlg.selectedSourceType();
             m_screenShareSourceId = dlg.selectedSourceId();

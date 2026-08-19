@@ -4006,6 +4006,14 @@ Ping TCP: %11 ms</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>%1p — %2 FPS — %3 Mbps</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Máximo do servidor — %1x%2 — %3 FPS — %4 kbps</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/dialogs/ScreenShareDialog.cpp" line="149"/>
         <source>ÁUDIO DA TRANSMISSÃO:</source>
         <translation type="unfinished"></translation>
@@ -4156,6 +4164,10 @@ Ping TCP: %11 ms</source>
     <message>
         <location filename="../src/net/NetSession.cpp" line="185"/>
         <source>O compartilhamento de tela está desativado pelo servidor.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A qualidade escolhida excede o limite do servidor.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

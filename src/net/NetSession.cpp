@@ -194,6 +194,7 @@ static QString localizedServerError(const QString& code, const QString& serverTe
     static const QHash<QString, const char*> messages = {
         { QStringLiteral("rate_limited"), QT_TRANSLATE_NOOP("ServerErrors", "Você está enviando solicitações rápido demais.") },
         { QStringLiteral("screenshare_disabled"), QT_TRANSLATE_NOOP("ServerErrors", "O compartilhamento de tela está desativado pelo servidor.") },
+        { QStringLiteral("screenshare_quality"), QT_TRANSLATE_NOOP("ServerErrors", "A qualidade escolhida excede o limite do servidor.") },
         { QStringLiteral("webrtc_target"), QT_TRANSLATE_NOOP("ServerErrors", "O destino da transmissão é inválido.") },
         { QStringLiteral("webrtc_channel"), QT_TRANSLATE_NOOP("ServerErrors", "A transmissão é permitida apenas entre usuários do mesmo canal.") },
         { QStringLiteral("webrtc_not_streaming"), QT_TRANSLATE_NOOP("ServerErrors", "O usuário selecionado não está transmitindo.") },
@@ -980,9 +981,11 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         d.platform = srv["platform"].toString("Linux");
         d.maxClients = srv["maxClients"].toInt(32);
         m_allowScreenShare = srv["screenshare"].toBool(true);
-        m_screenshareWidth = srv["screenshare_w"].toInt(800);
-        m_screenshareHeight = srv["screenshare_h"].toInt(450);
-        m_screenshareFps = srv["screenshare_fps"].toInt(20);
+        m_screenshareWidth = qBound(640, srv["screenshare_w"].toInt(1920), 3840);
+        m_screenshareHeight = qBound(360, srv["screenshare_h"].toInt(1080), 2160);
+        m_screenshareFps = qBound(1, srv["screenshare_fps"].toInt(60), 60);
+        m_screenshareBitrateKbps = qBound(500,
+            srv["screenshare_bitrate"].toInt(8000), 50000);
         m_webRtcIceServers = obj["iceServers"].toArray();
         d.serverBanner = QByteArray::fromBase64(srv["banner"].toString().toLatin1());
 
@@ -1279,8 +1282,14 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
 }
 
-void NetSession::sendWebRtcStreamStart() {
-    send(HProto::msg("webrtc_stream_start"));
+void NetSession::sendWebRtcStreamStart(int width, int height, int fps,
+                                       int bitrateKbps) {
+    QJsonObject message = HProto::msg("webrtc_stream_start");
+    message["width"] = width;
+    message["height"] = height;
+    message["fps"] = fps;
+    message["bitrate"] = bitrateKbps;
+    send(message);
 }
 
 void NetSession::sendWebRtcStreamStop() {
