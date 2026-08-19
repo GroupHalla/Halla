@@ -368,6 +368,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Dados de complementos</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/dialogs/ChannelDialog.cpp" line="196"/>
         <source>Enviar arquivos</source>
         <translation type="unfinished"></translation>
@@ -4342,6 +4346,10 @@ Ping TCP: %11 ms</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Dados de complementos só podem ser enviados a usuários do mesmo canal.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/net/NetSession.cpp" line="225"/>
         <source>A cota de arquivos do canal foi excedida.</source>
         <translation type="unfinished"></translation>
@@ -4412,6 +4420,18 @@ Ping TCP: %11 ms</source>
     <message>
         <location filename="../src/dialogs/AdminDialogs.cpp" line="215"/>
         <source>Usar sussurros</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dados de complementos no canal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dados de complementos globais</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Somente um administrador total pode conceder esta permissão.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

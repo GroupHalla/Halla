@@ -92,6 +92,9 @@ for required in ("m_siglaPlacement", "m_orderEnabled", "m_pendingGroup",
     assert required in group_dialog, required
 assert 't == "group_set_ok"' in net_session
 assert "groupSetConfirmed" in net_session
+assert "plugin_data_scope" in net_session
+assert 'QStringLiteral("pluginData")' in group_dialog
+assert 'QStringLiteral("pluginDataGlobal")' in group_dialog
 assert "Qt::ScrollBarAlwaysOn" in tools_dialog
 assert "Qt::ElideNone" in tools_dialog
 assert "u.siglaSuffix" in tree_widget
@@ -111,6 +114,7 @@ assert "restartForLanguage = true" in main_window
 assert "dlg.accept()" in main_window
 assert "tempChannelParent" in models
 channel_dialog = (root / "src/dialogs/ChannelDialog.cpp").read_text(encoding="utf-8")
+assert 'QStringLiteral("pluginData")' in channel_dialog
 assert "Receber canais temporários como subcanais" in channel_dialog
 assert '{ QStringLiteral("view"), tr("Ver canal") }' in channel_dialog
 assert "O servidor continua sendo a autoridade" in channel_dialog

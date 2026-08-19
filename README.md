@@ -242,7 +242,9 @@ Plugins nativos para Windows usam `QLibrary` e a ABI C pública em
 [`sdk/halla_plugin_api.h`](sdk/halla_plugin_api.h). Além da API-base compatível,
 o SDK possui interfaces modulares de conexões, clientes/canais, PCM de captura
 e reprodução, áudio 3D, filtros de rádio, transporte de dados pelo protocolo v5,
-notificações, ações e atalhos. Há um exemplo mínimo em
+notificações, ações e atalhos. O transporte respeita isolamento de canal e a
+permissão `pluginData`; broadcasts globais exigem a permissão administrativa
+`pluginDataGlobal`. Há um exemplo mínimo em
 [`examples/plugins/hello_world`](examples/plugins/hello_world) e um consumidor
 avançado em [`examples/plugins/advanced_sdk`](examples/plugins/advanced_sdk).
 

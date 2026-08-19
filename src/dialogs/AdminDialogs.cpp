@@ -213,6 +213,8 @@ static const QList<QPair<QString, const char*>>& permDefs() {
         { QStringLiteral("poke"),            QT_TRANSLATE_NOOP("ServerGroupsDialog", "Cutucar clientes") },
         { QStringLiteral("privmsg"),         QT_TRANSLATE_NOOP("ServerGroupsDialog", "Enviar mensagens privadas") },
         { QStringLiteral("whisper"),         QT_TRANSLATE_NOOP("ServerGroupsDialog", "Usar sussurros") },
+        { QStringLiteral("pluginData"),      QT_TRANSLATE_NOOP("ServerGroupsDialog", "Dados de complementos no canal") },
+        { QStringLiteral("pluginDataGlobal"), QT_TRANSLATE_NOOP("ServerGroupsDialog", "Dados de complementos globais") },
         { QStringLiteral("chanCreateTemp"),  QT_TRANSLATE_NOOP("ServerGroupsDialog", "Criar canal temporário") },
         { QStringLiteral("chanCreateSemi"),  QT_TRANSLATE_NOOP("ServerGroupsDialog", "Criar canal semi-permanente") },
         { QStringLiteral("chanCreatePerm"),  QT_TRANSLATE_NOOP("ServerGroupsDialog", "Criar canal permanente") },
@@ -389,6 +391,11 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
 
     for (const auto& def : permDefs()) {
         QCheckBox* cb = new QCheckBox(tr(def.second), m_editor);
+        if (def.first == QLatin1String("pluginDataGlobal")
+                && (!m_net || !m_net->myPerms().value(QStringLiteral("*")).toBool())) {
+            cb->setEnabled(false);
+            cb->setToolTip(tr("Somente um administrador total pode conceder esta permissão."));
+        }
         el->addWidget(cb);
         m_checks << qMakePair(def.first, cb);
     }

@@ -367,6 +367,10 @@
       <translation>Mensaje de texto</translation>
     </message>
     <message>
+      <source>Dados de complementos</source>
+      <translation>Datos de complementos</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/ChannelDialog.cpp" line="196" />
       <source>Enviar arquivos</source>
       <translation>Subir archivos</translation>
@@ -4380,6 +4384,10 @@ Ping TCP: %11 ms</translation>
       <translation>Los datos enviados por el complemento superan el límite permitido.</translation>
     </message>
     <message>
+      <source>Dados de complementos só podem ser enviados a usuários do mesmo canal.</source>
+      <translation>Los datos de complementos solo se pueden enviar a usuarios del mismo canal.</translation>
+    </message>
+    <message>
       <location filename="../src/net/NetSession.cpp" line="225" />
       <source>A cota de arquivos do canal foi excedida.</source>
       <translation>Se ha excedido la cuota de archivos del canal.</translation>
@@ -4451,6 +4459,18 @@ Ping TCP: %11 ms</translation>
       <location filename="../src/dialogs/AdminDialogs.cpp" line="215" />
       <source>Usar sussurros</source>
       <translation>Usa susurros</translation>
+    </message>
+    <message>
+      <source>Dados de complementos no canal</source>
+      <translation>Datos de complementos en el canal</translation>
+    </message>
+    <message>
+      <source>Dados de complementos globais</source>
+      <translation>Datos globales de complementos</translation>
+    </message>
+    <message>
+      <source>Somente um administrador total pode conceder esta permissão.</source>
+      <translation>Solo un administrador total puede conceder este permiso.</translation>
     </message>
     <message>
       <location filename="../src/dialogs/AdminDialogs.cpp" line="216" />

@@ -367,6 +367,10 @@
       <translation>Text message</translation>
     </message>
     <message>
+      <source>Dados de complementos</source>
+      <translation>Add-on data</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/ChannelDialog.cpp" line="196" />
       <source>Enviar arquivos</source>
       <translation>Upload files</translation>
@@ -4380,6 +4384,10 @@ TCP Ping: %11 ms</translation>
       <translation>The data sent by the add-on exceeds the allowed limit.</translation>
     </message>
     <message>
+      <source>Dados de complementos só podem ser enviados a usuários do mesmo canal.</source>
+      <translation>Add-on data can only be sent to users in the same channel.</translation>
+    </message>
+    <message>
       <location filename="../src/net/NetSession.cpp" line="225" />
       <source>A cota de arquivos do canal foi excedida.</source>
       <translation>The channel's file quota has been exceeded.</translation>
@@ -4451,6 +4459,18 @@ TCP Ping: %11 ms</translation>
       <location filename="../src/dialogs/AdminDialogs.cpp" line="215" />
       <source>Usar sussurros</source>
       <translation>Use whispers</translation>
+    </message>
+    <message>
+      <source>Dados de complementos no canal</source>
+      <translation>Add-on data in the channel</translation>
+    </message>
+    <message>
+      <source>Dados de complementos globais</source>
+      <translation>Global add-on data</translation>
+    </message>
+    <message>
+      <source>Somente um administrador total pode conceder esta permissão.</source>
+      <translation>Only a full administrator can grant this permission.</translation>
     </message>
     <message>
       <location filename="../src/dialogs/AdminDialogs.cpp" line="216" />

@@ -233,6 +233,7 @@ static QString localizedServerError(const QString& code, const QString& serverTe
         { QStringLiteral("plugin_data_unsupported"), QT_TRANSLATE_NOOP("ServerErrors", "Este servidor não oferece transporte de dados para complementos.") },
         { QStringLiteral("bad_plugin_data"), QT_TRANSLATE_NOOP("ServerErrors", "Os dados enviados pelo complemento são inválidos.") },
         { QStringLiteral("plugin_data_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "Os dados enviados pelo complemento excedem o limite permitido.") },
+        { QStringLiteral("plugin_data_scope"), QT_TRANSLATE_NOOP("ServerErrors", "Dados de complementos só podem ser enviados a usuários do mesmo canal.") },
         { QStringLiteral("quota"), QT_TRANSLATE_NOOP("ServerErrors", "A cota de arquivos do canal foi excedida.") },
         { QStringLiteral("inbox_full"), QT_TRANSLATE_NOOP("ServerErrors", "A caixa de entrada do usuário está cheia.") },
         { QStringLiteral("io_error"), QT_TRANSLATE_NOOP("ServerErrors", "O servidor não conseguiu salvar os dados.") },

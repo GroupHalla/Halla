@@ -193,6 +193,7 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
         { QStringLiteral("talk"), tr("Falar no canal") },
         { QStringLiteral("whisper"), tr("Sussurrar neste canal") },
         { QStringLiteral("text_chat"), tr("Mensagem de texto") },
+        { QStringLiteral("pluginData"), tr("Dados de complementos") },
         { QStringLiteral("file_upload"), tr("Enviar arquivos") },
         { QStringLiteral("file_download"), tr("Baixar arquivos") }
     };

@@ -222,9 +222,13 @@ remove todo o estado ao desativar/descarregar o complemento.
 `HallaDataApiV1` envia payload binário pelo canal TCP/TLS do Halla Server.
 Mensagens são isoladas pelo ID do complemento e podem ter como destino:
 
-- usuários específicos;
+- usuários específicos **do mesmo canal**;
 - participantes do canal atual;
-- todos os clientes compatíveis no servidor.
+- todos os clientes compatíveis no servidor, somente com `pluginDataGlobal`.
+
+O envio local exige `pluginData` e `listen` efetivos no canal. Destinatários
+explícitos fora do canal fazem a mensagem inteira ser recusada; o alcance global
+é administrativo e negado por padrão.
 
 Limites:
 

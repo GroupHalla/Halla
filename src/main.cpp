@@ -1296,6 +1296,11 @@ private:
         m_en["Ativar áudio"] = "Unmute audio";
         m_en["Parar de assistir"] = "Stop watching";
         m_en["Assistir Live"] = "Watch Live";
+        m_en["Dados de complementos no canal"] = "Add-on data in the channel";
+        m_en["Dados de complementos globais"] = "Global add-on data";
+        m_en["Dados de complementos"] = "Add-on data";
+        m_en["Somente um administrador total pode conceder esta permissão."] = "Only a full administrator can grant this permission.";
+        m_en["Dados de complementos só podem ser enviados a usuários do mesmo canal."] = "Add-on data can only be sent to users in the same channel.";
         m_en["Alterar apelido..."] = "Change nickname...";
         m_en["Alternar comandante do canal"] = "Toggle channel commander";
         m_en["Iniciar gravação"] = "Start recording";
@@ -1408,6 +1413,11 @@ private:
         m_es["Ativar áudio"] = "Activar audio";
         m_es["Parar de assistir"] = "Dejar de ver";
         m_es["Assistir Live"] = "Ver en vivo";
+        m_es["Dados de complementos no canal"] = "Datos de complementos en el canal";
+        m_es["Dados de complementos globais"] = "Datos globales de complementos";
+        m_es["Dados de complementos"] = "Datos de complementos";
+        m_es["Somente um administrador total pode conceder esta permissão."] = "Solo un administrador total puede conceder este permiso.";
+        m_es["Dados de complementos só podem ser enviados a usuários do mesmo canal."] = "Los datos de complementos solo se pueden enviar a usuarios del mismo canal.";
         m_es["Alterar apelido..."] = "Cambiar apodo...";
         m_es["Alternar comandante do canal"] = "Alternar comandante del canal";
         m_es["Iniciar gravação"] = "Iniciar grabación";
