@@ -46,7 +46,6 @@ Segurança: Conexões autenticadas via chaves criptográficas Ed25519 e tráfego
 Dados de Conexão:
 Endereço: 163.176.35.133
 Porta: 9987
-
 ---
 
 ## Visão geral
