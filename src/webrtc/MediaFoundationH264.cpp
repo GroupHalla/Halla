@@ -24,7 +24,6 @@
 #include "api/video/encoded_image.h"
 #include "api/video/i420_buffer.h"
 #include "api/video/video_frame.h"
-#include "api/video_codecs/h264_packetization_mode.h"
 #include "api/video_codecs/video_codec.h"
 #include "libyuv/convert.h"
 #include "modules/video_coding/include/video_codec_interface.h"
