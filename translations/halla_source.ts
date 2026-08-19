@@ -4022,6 +4022,54 @@ Ping TCP: %11 ms</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>RESOLUÇÃO:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>FPS:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>BITRATE:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>480p</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>720p HD</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>1080p Full HD</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>1440p 2K</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>2160p 4K</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1p — máximo do servidor (%2x%3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Máximo do servidor (%1x%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 FPS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>30 FPS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/dialogs/ScreenShareDialog.cpp" line="149"/>
         <source>ÁUDIO DA TRANSMISSÃO:</source>
         <translation type="unfinished"></translation>

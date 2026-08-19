@@ -5,6 +5,8 @@
 #include <QGuiApplication>
 #include <QListView>
 #include <QFrame>
+#include <QGridLayout>
+#include <QMap>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -116,28 +118,58 @@ ScreenShareDialog::ScreenShareDialog(int maxWidth, int maxHeight, int maxFps,
     // Controles de qualidade da transmissão WebRTC
     QFrame* qualityBox = new QFrame(this);
     qualityBox->setStyleSheet(QStringLiteral("background-color: %1; border-radius: 8px; padding: 4px;").arg(qualityBoxBg));
-    QHBoxLayout* qLayout = new QHBoxLayout(qualityBox);
+    QGridLayout* qLayout = new QGridLayout(qualityBox);
     qLayout->setContentsMargins(12, 8, 12, 8);
-    qLayout->setSpacing(10);
+    qLayout->setHorizontalSpacing(10);
+    qLayout->setVerticalSpacing(5);
 
-    QLabel* qualityLabel = new QLabel(tr("QUALIDADE:"), qualityBox);
-    qualityLabel->setStyleSheet(QStringLiteral("color: %1; font-size: 11px; font-weight: bold;").arg(qualityBoxText));
-    qLayout->addWidget(qualityLabel);
+    auto makeLabel = [&](const QString& text) {
+        QLabel* label = new QLabel(text, qualityBox);
+        label->setStyleSheet(QStringLiteral(
+            "color: %1; font-size: 10px; font-weight: bold;").arg(qualityBoxText));
+        return label;
+    };
+    qLayout->addWidget(makeLabel(tr("RESOLUÇÃO:")), 0, 0);
+    qLayout->addWidget(makeLabel(tr("FPS:")), 0, 1);
+    qLayout->addWidget(makeLabel(tr("BITRATE:")), 0, 2);
 
-    m_qualityCombo = new QComboBox(qualityBox);
-    populateQualityProfiles(maxWidth, maxHeight, maxFps, maxBitrateKbps);
-    m_qualityCombo->setStyleSheet(QStringLiteral(
-        "QComboBox { background-color: %1; color: %2; border: 1px solid %3; border-radius: 6px; padding: 6px 10px; font-weight: bold; }"
+    const QString comboStyle = QStringLiteral(
+        "QComboBox, QSpinBox { background-color: %1; color: %2; border: 1px solid %3; border-radius: 6px; padding: 6px 10px; font-weight: bold; }"
         "QComboBox::drop-down { border: none; width: 24px; }"
         "QComboBox QAbstractItemView { background-color: %1; color: %2; selection-background-color: %4; border: 1px solid %3; }"
-    ).arg(tabPaneBg, itemTextColor, tabBorder, tabBgSelected));
-    qLayout->addWidget(m_qualityCombo, 1);
+    ).arg(tabPaneBg, itemTextColor, tabBorder, tabBgSelected);
+
+    m_qualityCombo = new QComboBox(qualityBox);
+    m_qualityCombo->setStyleSheet(comboStyle);
+    populateResolutionOptions(maxWidth, maxHeight);
+    qLayout->addWidget(m_qualityCombo, 1, 0, 1, 1);
+
+    m_fpsCombo = new QComboBox(qualityBox);
+    m_fpsCombo->setStyleSheet(comboStyle);
+    populateFpsOptions(maxFps);
+    qLayout->addWidget(m_fpsCombo, 1, 1);
+
+    m_maxBitrateKbps = qBound(500, maxBitrateKbps, 50000);
+    m_bitrateSpin = new QSpinBox(qualityBox);
+    m_bitrateSpin->setRange(500, m_maxBitrateKbps);
+    m_bitrateSpin->setSingleStep(500);
+    m_bitrateSpin->setSuffix(tr(" kbps"));
+    m_bitrateSpin->setStyleSheet(comboStyle);
+    qLayout->addWidget(m_bitrateSpin, 1, 2);
+
+    connect(m_qualityCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int) { updateRecommendedBitrate(); });
+    connect(m_fpsCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int) { updateRecommendedBitrate(); });
+    updateRecommendedBitrate();
 
     QLabel* hintLabel = new QLabel(
         tr("Limite do servidor: %1x%2, %3 FPS, %4 kbps")
             .arg(maxWidth).arg(maxHeight).arg(maxFps).arg(maxBitrateKbps), qualityBox);
-    hintLabel->setStyleSheet(QStringLiteral("color: %1; font-size: 10px; font-weight: normal;").arg(qualityBoxText));
-    qLayout->addWidget(hintLabel);
+    hintLabel->setStyleSheet(QStringLiteral(
+        "color: %1; font-size: 10px; font-weight: normal;").arg(qualityBoxText));
+    qLayout->addWidget(hintLabel, 2, 0, 1, 3);
+
 
     mainLayout->addWidget(qualityBox);
 
@@ -191,98 +223,101 @@ ScreenShareDialog::ScreenShareDialog(int maxWidth, int maxHeight, int maxFps,
 }
 
 
-void ScreenShareDialog::populateQualityProfiles(int maxWidth, int maxHeight,
-                                                   int maxFps, int maxBitrateKbps) {
+void ScreenShareDialog::populateResolutionOptions(int maxWidth, int maxHeight) {
     maxWidth = qBound(640, maxWidth, 3840);
     maxHeight = qBound(360, maxHeight, 2160);
-    maxFps = qBound(1, maxFps, 60);
-    maxBitrateKbps = qBound(500, maxBitrateKbps, 50000);
-
-    struct BaseProfile { int width, height, bitrate30, bitrate60; };
-    const BaseProfile standards[] = {
-        {1280, 720, 2500, 4500},
-        {1920, 1080, 4500, 8000},
-        {2560, 1440, 9000, 16000},
-        {3840, 2160, 18000, 32000},
+    const int standardHeights[] = {480, 720, 1080, 1440, 2160};
+    const QMap<int, QString> names{
+        {480, tr("480p")},
+        {720, tr("720p HD")},
+        {1080, tr("1080p Full HD")},
+        {1440, tr("1440p 2K")},
+        {2160, tr("2160p 4K")},
     };
-    QList<int> frameRates;
-    if (maxFps < 30) frameRates << maxFps;
-    else {
-        frameRates << 30;
-        if (maxFps > 30) frameRates << maxFps;
+    auto widthForHeight = [&](int height) {
+        int width = qRound(double(height) * double(maxWidth) / double(maxHeight));
+        width = qBound(2, width & ~1, maxWidth);
+        return width;
+    };
+    for (int height : standardHeights) {
+        if (height > maxHeight) continue;
+        const int width = widthForHeight(height);
+        if (width < 640) continue;
+        const QString label = QStringLiteral("%1  (%2x%3)")
+            .arg(names.value(height)).arg(width).arg(height);
+        m_resolutionOptions.push_back({width, height, label});
+        m_qualityCombo->addItem(label, m_resolutionOptions.size() - 1);
     }
-
-    for (const BaseProfile& base : standards) {
-        if (base.width > maxWidth || base.height > maxHeight) continue;
-        for (int fps : frameRates) {
-            const int bitrate = fps <= 30 ? base.bitrate30
-                : base.bitrate30 + (base.bitrate60 - base.bitrate30)
-                    * (fps - 30) / 30;
-            if (bitrate > maxBitrateKbps) continue;
-            m_qualityProfiles.push_back({base.width, base.height, fps, bitrate});
-            const double mbps = bitrate / 1000.0;
-            m_qualityCombo->addItem(
-                tr("%1p — %2 FPS — %3 Mbps")
-                    .arg(base.height).arg(fps)
-                    .arg(mbps, 0, 'f', bitrate % 1000 == 0 ? 0 : 1),
-                m_qualityProfiles.size() - 1);
-        }
+    const QList<int> standards{480, 720, 1080, 1440, 2160};
+    if (!standards.contains(maxHeight) && maxHeight >= 360) {
+        const QString label = tr("%1p — máximo do servidor (%2x%3)")
+            .arg(maxHeight).arg(maxWidth).arg(maxHeight);
+        m_resolutionOptions.push_back({maxWidth, maxHeight, label});
+        m_qualityCombo->addItem(label, m_resolutionOptions.size() - 1);
     }
-
-    bool exactStandard = false;
-    for (const BaseProfile& base : standards) {
-        if (base.width == maxWidth && base.height == maxHeight) {
-            exactStandard = true;
-            break;
-        }
-    }
-    if (!exactStandard) {
-        for (int fps : frameRates) {
-            // Estima bitrate pela quantidade de pixels em relação a 1080p.
-            // Ex.: 1440x1080@60 requer ~6 Mbps e vira opção própria em vez de
-            // ocultar toda a classe 1080 por não ter largura 1920.
-            const qint64 reference = fps <= 30 ? 4500 : 4500 + (8000 - 4500)
-                * (fps - 30) / 30;
-            int bitrate = int(reference * qint64(maxWidth) * qint64(maxHeight)
-                / (1920ll * 1080ll));
-            bitrate = qMax(500, ((bitrate + 50) / 100) * 100);
-            if (bitrate > maxBitrateKbps) continue;
-            m_qualityProfiles.push_back({maxWidth, maxHeight, fps, bitrate});
-            m_qualityCombo->addItem(
-                tr("%1x%2 — %3 FPS — %4 Mbps")
-                    .arg(maxWidth).arg(maxHeight).arg(fps)
-                    .arg(bitrate / 1000.0, 0, 'f', bitrate % 1000 == 0 ? 0 : 1),
-                m_qualityProfiles.size() - 1);
-        }
-    }
-
-    // Configurações com bitrate muito baixo ainda recebem uma
-    // opção segura, sempre dentro dos quatro limites anunciados pelo servidor.
-    if (m_qualityProfiles.isEmpty()) {
-        m_qualityProfiles.push_back({maxWidth, maxHeight, maxFps, maxBitrateKbps});
-        m_qualityCombo->addItem(
-            tr("Máximo do servidor — %1x%2 — %3 FPS — %4 kbps")
-                .arg(maxWidth).arg(maxHeight).arg(maxFps).arg(maxBitrateKbps), 0);
+    if (m_resolutionOptions.isEmpty()) {
+        const QString label = tr("Máximo do servidor (%1x%2)")
+            .arg(maxWidth).arg(maxHeight);
+        m_resolutionOptions.push_back({maxWidth, maxHeight, label});
+        m_qualityCombo->addItem(label, 0);
     }
     m_qualityCombo->setCurrentIndex(m_qualityCombo->count() - 1);
 }
 
-const ScreenShareDialog::QualityProfile& ScreenShareDialog::selectedProfile() const {
-    static const QualityProfile fallback;
-    if (!m_qualityCombo || m_qualityProfiles.isEmpty()) return fallback;
+void ScreenShareDialog::populateFpsOptions(int maxFps) {
+    maxFps = qBound(1, maxFps, 60);
+    if (maxFps < 30) {
+        m_fpsCombo->addItem(tr("%1 FPS").arg(maxFps), maxFps);
+    } else {
+        m_fpsCombo->addItem(tr("30 FPS"), 30);
+        if (maxFps > 30) m_fpsCombo->addItem(tr("%1 FPS").arg(maxFps), maxFps);
+    }
+    m_fpsCombo->setCurrentIndex(m_fpsCombo->count() - 1);
+}
+
+int ScreenShareDialog::recommendedBitrateKbps(int width, int height, int fps) const {
+    int bitrate30 = 1200;
+    int bitrate60 = 2500;
+    if (height > 480 && height <= 720) { bitrate30 = 2500; bitrate60 = 4500; }
+    else if (height > 720 && height <= 1080) { bitrate30 = 4500; bitrate60 = 8000; }
+    else if (height > 1080 && height <= 1440) { bitrate30 = 9000; bitrate60 = 16000; }
+    else if (height > 1440) { bitrate30 = 18000; bitrate60 = 32000; }
+    int bitrate = fps <= 30 ? bitrate30
+        : bitrate30 + (bitrate60 - bitrate30) * (fps - 30) / 30;
+    const int standardWidth = qMax(1, qRound(double(height) * 16.0 / 9.0));
+    bitrate = qMax(500, bitrate * width / standardWidth);
+    return qMin(bitrate, m_maxBitrateKbps);
+}
+
+void ScreenShareDialog::updateRecommendedBitrate() {
+    if (!m_qualityCombo || !m_fpsCombo || !m_bitrateSpin
+            || m_resolutionOptions.isEmpty()) return;
     const int index = m_qualityCombo->currentData().toInt();
-    return index >= 0 && index < m_qualityProfiles.size()
-        ? m_qualityProfiles[index] : m_qualityProfiles.last();
+    const ResolutionOption option = index >= 0 && index < m_resolutionOptions.size()
+        ? m_resolutionOptions[index] : m_resolutionOptions.last();
+    m_bitrateSpin->setValue(recommendedBitrateKbps(
+        option.width, option.height, m_fpsCombo->currentData().toInt()));
 }
 
-int ScreenShareDialog::selectedQualityProfile() const {
-    return m_qualityCombo ? m_qualityCombo->currentData().toInt() : 0;
+int ScreenShareDialog::selectedWidth() const {
+    const int index = m_qualityCombo ? m_qualityCombo->currentData().toInt() : -1;
+    return index >= 0 && index < m_resolutionOptions.size()
+        ? m_resolutionOptions[index].width : 854;
 }
 
-int ScreenShareDialog::selectedWidth() const { return selectedProfile().width; }
-int ScreenShareDialog::selectedHeight() const { return selectedProfile().height; }
-int ScreenShareDialog::selectedFps() const { return selectedProfile().fps; }
-int ScreenShareDialog::selectedBitrateKbps() const { return selectedProfile().bitrateKbps; }
+int ScreenShareDialog::selectedHeight() const {
+    const int index = m_qualityCombo ? m_qualityCombo->currentData().toInt() : -1;
+    return index >= 0 && index < m_resolutionOptions.size()
+        ? m_resolutionOptions[index].height : 480;
+}
+
+int ScreenShareDialog::selectedFps() const {
+    return m_fpsCombo ? m_fpsCombo->currentData().toInt() : 30;
+}
+
+int ScreenShareDialog::selectedBitrateKbps() const {
+    return m_bitrateSpin ? m_bitrateSpin->value() : 1200;
+}
 
 bool ScreenShareDialog::captureSystemAudio() const {
     return m_audioCombo && m_audioCombo->currentData().toInt() == 1;
