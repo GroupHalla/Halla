@@ -1301,6 +1301,9 @@ private:
         m_en["Dados de complementos"] = "Add-on data";
         m_en["Somente um administrador total pode conceder esta permissão."] = "Only a full administrator can grant this permission.";
         m_en["Dados de complementos só podem ser enviados a usuários do mesmo canal."] = "Add-on data can only be sent to users in the same channel.";
+        m_en["Administrar canal temporário"] = "Manage temporary channel";
+        m_en["Como criador deste canal temporário, você pode alterar somente senha, bitrate do codec e máximo de clientes."] = "As the creator of this temporary channel, you can only change its password, codec bitrate, and maximum clients.";
+        m_en["O dono do canal temporário só pode alterar senha, bitrate e máximo de clientes."] = "The temporary channel owner can only change the password, bitrate, and maximum clients.";
         m_en["Alterar apelido..."] = "Change nickname...";
         m_en["Alternar comandante do canal"] = "Toggle channel commander";
         m_en["Iniciar gravação"] = "Start recording";
@@ -1418,6 +1421,9 @@ private:
         m_es["Dados de complementos"] = "Datos de complementos";
         m_es["Somente um administrador total pode conceder esta permissão."] = "Solo un administrador total puede conceder este permiso.";
         m_es["Dados de complementos só podem ser enviados a usuários do mesmo canal."] = "Los datos de complementos solo se pueden enviar a usuarios del mismo canal.";
+        m_es["Administrar canal temporário"] = "Administrar canal temporal";
+        m_es["Como criador deste canal temporário, você pode alterar somente senha, bitrate do codec e máximo de clientes."] = "Como creador de este canal temporal, solo puedes cambiar la contraseña, el bitrate del códec y el máximo de clientes.";
+        m_es["O dono do canal temporário só pode alterar senha, bitrate e máximo de clientes."] = "El propietario del canal temporal solo puede cambiar la contraseña, el bitrate y el máximo de clientes.";
         m_es["Alterar apelido..."] = "Cambiar apodo...";
         m_es["Alternar comandante do canal"] = "Alternar comandante del canal";
         m_es["Iniciar gravação"] = "Iniciar grabación";

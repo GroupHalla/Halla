@@ -647,10 +647,16 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
         menu.addAction(HIcons::fileNew(), tr("Criar sub-canal"), this,
                        [this, id] { emit createChannelRequested(id); });
         menu.addSeparator();
-        menu.addAction(HIcons::editPencil(), tr("Editar canal"), this,
+        const QString selfUid = m_data->users.value(m_data->selfId).uniqueId;
+        const bool localOperator = !selfUid.isEmpty() && c.opUids.contains(selfUid);
+        const bool temporaryOwner = c.type == 0 && c.temporaryOwnerUid == selfUid;
+        QAction* edit = menu.addAction(HIcons::editPencil(), tr("Editar canal"), this,
                        [this, id] { emit editChannelRequested(id); });
-        menu.addAction(HIcons::trash(), tr("Excluir canal"), this,
+        edit->setEnabled(m_canEditChannels || temporaryOwner
+                         || (c.type != 0 && localOperator));
+        QAction* remove = menu.addAction(HIcons::trash(), tr("Excluir canal"), this,
                        [this, id] { emit deleteChannelRequested(id); });
+        remove->setEnabled(m_canDeleteChannels);
         menu.addSeparator();
         menu.addAction(HIcons::info(), tr("Ver descrição do canal"), this,
                        [this, id] { emit channelDescriptionRequested(id); });

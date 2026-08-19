@@ -391,6 +391,9 @@ void ServerTab::updatePermissionUi() {
     const bool otherCommander = hasPermission({ QStringLiteral("setCommander"),
                                                 QStringLiteral("b_client_set_channel_commander") });
     m_tree->setCanMoveOthers(moveOthers);
+    m_tree->setChannelManagementPermissions(
+        hasPermission({QStringLiteral("chanEdit")}),
+        hasPermission({QStringLiteral("chanDelete")}));
     m_tree->setCommanderPermissions(selfCommander, otherCommander);
 }
 
@@ -785,15 +788,32 @@ void ServerTab::createChannel(int parentId) {
 
 void ServerTab::editChannel(int channelId) {
     if (!m_data.channels.contains(channelId)) return;
+    const Channel original = m_data.channels[channelId];
+    const QString selfUid = m_data.users.value(m_data.selfId).uniqueId;
+    const bool globalEditor = hasPermission({QStringLiteral("chanEdit")});
+    const bool temporaryOwner = original.type == 0
+        && !selfUid.isEmpty() && original.temporaryOwnerUid == selfUid;
+    const bool limitedTemporaryOwner = temporaryOwner && !globalEditor;
+
     ChannelDialog dlg(tr("Editar canal"), &m_data, m_net, this);
-    dlg.setChannel(m_data.channels[channelId]);
+    dlg.setChannel(original);
+    dlg.setTemporaryOwnerMode(limitedTemporaryOwner);
     if (dlg.exec() != QDialog::Accepted) return;
 
     Channel c = dlg.resultChannel();
     if (m_net) {
+        if (limitedTemporaryOwner) {
+            QJsonObject limited;
+            limited["id"] = channelId;
+            limited["bitrate"] = c.bitrate;
+            limited["max"] = c.maxClients;
+            if (dlg.passwordWasEdited()) limited["pass"] = c.passwordHash;
+            m_net->editChannel(limited);
+            return;
+        }
         QJsonObject o = chanToJson(c);
         o["id"] = channelId;
-        o["parent"] = m_data.channels[channelId].parentId;
+        o["parent"] = original.parentId;
         m_data.channels[channelId].noSymbol = c.noSymbol;
         m_net->editChannel(o);
         return;

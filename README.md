@@ -140,6 +140,8 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
 - A árvore de canais agrupa rajadas de atualização em um único redesenho,
   rejeita movimentos cíclicos/duplicados e tolera dados antigos com pai inválido,
   evitando travamentos ao reorganizar canais.
+- O criador de canal temporário recebe um editor limitado a senha, bitrate e
+  máximo de clientes, além de poder expulsar membros daquele canal.
 
 **Segurança**
 - Canal de controle em **TLS**, com pinagem TOFU (confia no certificado na

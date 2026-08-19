@@ -124,6 +124,11 @@ assert "tempChannelParent" in models
 channel_dialog = (root / "src/dialogs/ChannelDialog.cpp").read_text(encoding="utf-8")
 assert 'QStringLiteral("pluginData")' in channel_dialog
 assert "Receber canais temporários como subcanais" in channel_dialog
+assert "temporaryOwnerUid" in models
+assert "setTemporaryOwnerMode" in channel_dialog
+assert "limitedTemporaryOwner" in server_tab
+assert 'limited["bitrate"]' in server_tab
+assert 'limited["max"]' in server_tab
 assert '{ QStringLiteral("view"), tr("Ver canal") }' in channel_dialog
 assert "O servidor continua sendo a autoridade" in channel_dialog
 assert "m_tempChannelParent->setEnabled(!temporary)" in channel_dialog

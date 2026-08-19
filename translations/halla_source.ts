@@ -191,6 +191,14 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Administrar canal temporário</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Como criador deste canal temporário, você pode alterar somente senha, bitrate do codec e máximo de clientes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/dialogs/ChannelDialog.cpp" line="41"/>
         <source>Nome do canal:</source>
         <translation type="unfinished"></translation>
@@ -4347,6 +4355,10 @@ Ping TCP: %11 ms</source>
     </message>
     <message>
         <source>Dados de complementos só podem ser enviados a usuários do mesmo canal.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>O dono do canal temporário só pode alterar senha, bitrate e máximo de clientes.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

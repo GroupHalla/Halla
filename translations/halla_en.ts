@@ -190,6 +190,14 @@
       <translation>Configure channel properties</translation>
     </message>
     <message>
+      <source>Administrar canal temporário</source>
+      <translation>Manage temporary channel</translation>
+    </message>
+    <message>
+      <source>Como criador deste canal temporário, você pode alterar somente senha, bitrate do codec e máximo de clientes.</source>
+      <translation>As the creator of this temporary channel, you can only change its password, codec bitrate, and maximum clients.</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/ChannelDialog.cpp" line="41" />
       <source>Nome do canal:</source>
       <translation>Channel name:</translation>
@@ -4386,6 +4394,10 @@ TCP Ping: %11 ms</translation>
     <message>
       <source>Dados de complementos só podem ser enviados a usuários do mesmo canal.</source>
       <translation>Add-on data can only be sent to users in the same channel.</translation>
+    </message>
+    <message>
+      <source>O dono do canal temporário só pode alterar senha, bitrate e máximo de clientes.</source>
+      <translation>The temporary channel owner can only change the password, bitrate, and maximum clients.</translation>
     </message>
     <message>
       <location filename="../src/net/NetSession.cpp" line="225" />

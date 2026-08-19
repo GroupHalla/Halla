@@ -28,8 +28,8 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
                                  HIcons::channel(false, false, false, false).pixmap(24, 24), this));
     root->addSpacing(10);
 
-    QTabWidget* tabs = new QTabWidget(this);
-    QWidget* propPage = new QWidget(tabs);
+    m_tabs = new QTabWidget(this);
+    QWidget* propPage = new QWidget(m_tabs);
     QVBoxLayout* propLayout = new QVBoxLayout(propPage);
     propLayout->setContentsMargins(4, 4, 4, 4);
 
@@ -143,10 +143,10 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
 
     propLayout->addLayout(form);
     propPage->setLayout(propLayout);
-    tabs->addTab(propPage, tr("Propriedades"));
+    m_tabs->addTab(propPage, tr("Propriedades"));
 
     // ---- Tab 2: Permissões — regras de acesso no estilo LCA do Halla
-    QWidget* permPage = new QWidget(tabs);
+    QWidget* permPage = new QWidget(m_tabs);
     QHBoxLayout* pLayout = new QHBoxLayout(permPage);
     pLayout->setContentsMargins(8, 8, 8, 8);
     pLayout->setSpacing(8);
@@ -212,7 +212,7 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     }
     right->addWidget(m_permTable, 1);
     pLayout->addLayout(right, 1);
-    tabs->addTab(permPage, tr("Permissões"));
+    m_tabs->addTab(permPage, tr("Permissões"));
 
     if (m_net) {
         for (const QJsonValue& v : m_net->serverGroups()) {
@@ -265,7 +265,7 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     rebuildLcaList();
     if (m_permGroupCombo->count() > 0) loadGroupPerms(m_permGroupCombo->itemData(0).toInt());
 
-    root->addWidget(tabs);
+    root->addWidget(m_tabs);
 
     QDialogButtonBox* bb = new QDialogButtonBox(QDialogButtonBox::Ok |
                                                 QDialogButtonBox::Cancel, this);
@@ -292,6 +292,7 @@ void ChannelDialog::setChannel(const Channel& c) {
     m_topic->setText(c.topic);
     m_desc->setPlainText(c.description);
     m_password->setText(c.passwordHash);
+    m_password->setModified(false);
     m_codec->setCurrentIndex(c.codec);
     m_quality->setValue(c.codecQuality);
     m_bitrate->setValue(c.bitrate > 0 ? qBound(16, c.bitrate, 384) : 96);
@@ -312,6 +313,39 @@ void ChannelDialog::setChannel(const Channel& c) {
     if (m_permGroupCombo->count() > 0) {
         m_permGroupCombo->setCurrentIndex(-1);
         m_permGroupCombo->setCurrentIndex(0);
+    }
+}
+
+void ChannelDialog::setTemporaryOwnerMode(bool enabled) {
+    m_temporaryOwnerMode = enabled;
+    if (!enabled) return;
+
+    setWindowTitle(tr("Administrar canal temporário"));
+    const QString explanation = tr(
+        "Como criador deste canal temporário, você pode alterar somente senha, "
+        "bitrate do codec e máximo de clientes.");
+    m_password->setToolTip(explanation);
+    m_bitrate->setToolTip(explanation);
+    m_maxClients->setToolTip(explanation);
+
+    for (QWidget* widget : {static_cast<QWidget*>(m_name),
+                            static_cast<QWidget*>(m_topic),
+                            static_cast<QWidget*>(m_desc),
+                            static_cast<QWidget*>(m_codec),
+                            static_cast<QWidget*>(m_quality),
+                            static_cast<QWidget*>(m_sortAfter),
+                            static_cast<QWidget*>(m_temp),
+                            static_cast<QWidget*>(m_semi),
+                            static_cast<QWidget*>(m_perm),
+                            static_cast<QWidget*>(m_default),
+                            static_cast<QWidget*>(m_moderated),
+                            static_cast<QWidget*>(m_hideSymbol),
+                            static_cast<QWidget*>(m_tempChannelParent)}) {
+        if (widget) widget->setEnabled(false);
+    }
+    if (m_tabs) {
+        m_tabs->setCurrentIndex(0);
+        if (m_tabs->count() > 1) m_tabs->setTabEnabled(1, false);
     }
 }
 

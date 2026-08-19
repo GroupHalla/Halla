@@ -80,6 +80,7 @@ struct Channel {
     bool    moderated = false;
     int     codec = 4;               // Opus Voice
     QStringList opUids;              // UIDs dos operadores deste canal (v3)
+    QString temporaryOwnerUid;       // criador do canal temporário; poderes locais limitados
     int     codecQuality = 6;        // 0..10
     int     bitrate = 96;            // de 16kbps a 384kbps (padrão 96)
     QJsonObject groupPerms;          // Pilar 3: permissões de canal por cargo { "groupId": { "perm": state } }

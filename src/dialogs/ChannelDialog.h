@@ -15,6 +15,7 @@ class NetSession;
 class QListWidget;
 class QTableWidget;
 class QPushButton;
+class QTabWidget;
 
 // Diálogo "Criar canal" / "Editar canal" — editor de propriedades e das
 // permissões de canal já suportadas pelo protocolo Halla.
@@ -24,6 +25,9 @@ public:
     ChannelDialog(const QString& title, const ServerData* server, NetSession* net, QWidget* parent = nullptr);
 
     void setChannel(const Channel& c);
+    void setTemporaryOwnerMode(bool enabled);
+    bool temporaryOwnerMode() const { return m_temporaryOwnerMode; }
+    bool passwordWasEdited() const { return m_password && m_password->isModified(); }
     Channel resultChannel() const;
 
 private:
@@ -46,6 +50,8 @@ private:
     QCheckBox* m_moderated;
     QCheckBox* m_hideSymbol;
     QCheckBox* m_tempChannelParent;
+    QTabWidget* m_tabs = nullptr;
+    bool m_temporaryOwnerMode = false;
 
     // Editor visual em duas colunas para as permissões específicas de canal
     // que o servidor Halla aplica por grupo, incluindo visibilidade.

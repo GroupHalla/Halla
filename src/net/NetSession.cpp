@@ -234,6 +234,7 @@ static QString localizedServerError(const QString& code, const QString& serverTe
         { QStringLiteral("bad_plugin_data"), QT_TRANSLATE_NOOP("ServerErrors", "Os dados enviados pelo complemento são inválidos.") },
         { QStringLiteral("plugin_data_too_big"), QT_TRANSLATE_NOOP("ServerErrors", "Os dados enviados pelo complemento excedem o limite permitido.") },
         { QStringLiteral("plugin_data_scope"), QT_TRANSLATE_NOOP("ServerErrors", "Dados de complementos só podem ser enviados a usuários do mesmo canal.") },
+        { QStringLiteral("temporary_owner_limit"), QT_TRANSLATE_NOOP("ServerErrors", "O dono do canal temporário só pode alterar senha, bitrate e máximo de clientes.") },
         { QStringLiteral("quota"), QT_TRANSLATE_NOOP("ServerErrors", "A cota de arquivos do canal foi excedida.") },
         { QStringLiteral("inbox_full"), QT_TRANSLATE_NOOP("ServerErrors", "A caixa de entrada do usuário está cheia.") },
         { QStringLiteral("io_error"), QT_TRANSLATE_NOOP("ServerErrors", "O servidor não conseguiu salvar os dados.") },
@@ -909,6 +910,7 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     for (const QJsonValue& v : c["users"].toArray()) ch.users << v.toInt();
     ch.opUids.clear();
     for (const QJsonValue& v : c["ops"].toArray()) ch.opUids << v.toString(); // v3
+    ch.temporaryOwnerUid = c["tempOwner"].toString();
     d.channels[ch.id] = ch;
     if (ch.id >= d.nextChannelId) d.nextChannelId = ch.id + 1;
     refreshOperators();

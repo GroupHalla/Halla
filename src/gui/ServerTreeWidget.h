@@ -51,6 +51,10 @@ public:
     void setShowMinis(bool on);
     void setSortClientsBelow(bool on) { m_sortClientsBelow = on; }
     void setCanMoveOthers(bool on) { m_canMoveOthers = on; }
+    void setChannelManagementPermissions(bool edit, bool remove) {
+        m_canEditChannels = edit;
+        m_canDeleteChannels = remove;
+    }
     void setCommanderPermissions(bool self, bool others) {
         m_canSetSelfCommander = self;
         m_canSetOtherCommander = others;
@@ -123,6 +127,8 @@ private:
     bool m_showCounts = true;
     bool m_sortClientsBelow = false;
     bool m_canMoveOthers = false;
+    bool m_canEditChannels = false;
+    bool m_canDeleteChannels = false;
     bool m_canSetSelfCommander = false;
     bool m_canSetOtherCommander = false;
     QElapsedTimer m_lastChannelMoveClock;
