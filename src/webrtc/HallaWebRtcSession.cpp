@@ -205,7 +205,7 @@ private:
             bool busy = false;
         };
         std::mutex mutex;
-        std::vector<Slot> slots;
+        std::vector<Slot> frames;
         int width = 0;
         int height = 0;
     };
@@ -213,7 +213,7 @@ private:
     static void releasePoolSlot(const std::shared_ptr<TexturePool>& pool, size_t slot) {
         if (!pool) return;
         std::lock_guard<std::mutex> lock(pool->mutex);
-        if (slot < pool->slots.size()) pool->slots[slot].busy = false;
+        if (slot < pool->frames.size()) pool->frames[slot].busy = false;
     }
 
     static bool isDeviceLost(HRESULT hr) {
@@ -372,16 +372,16 @@ private:
         }
         selectedPool = m_texturePool;
         std::lock_guard<std::mutex> lock(selectedPool->mutex);
-        for (size_t i = 0; i < selectedPool->slots.size(); ++i) {
-            if (!selectedPool->slots[i].busy) {
-                selectedPool->slots[i].busy = true;
+        for (size_t i = 0; i < selectedPool->frames.size(); ++i) {
+            if (!selectedPool->frames[i].busy) {
+                selectedPool->frames[i].busy = true;
                 selectedSlot = i;
-                texture = selectedPool->slots[i].texture;
+                texture = selectedPool->frames[i].texture;
                 return S_OK;
             }
         }
         constexpr size_t kMaxGpuFramesInFlight = 8;
-        if (selectedPool->slots.size() >= kMaxGpuFramesInFlight)
+        if (selectedPool->frames.size() >= kMaxGpuFramesInFlight)
             return HRESULT_FROM_WIN32(ERROR_BUSY);
 
         D3D11_TEXTURE2D_DESC desc{};
@@ -397,8 +397,8 @@ private:
         const HRESULT hr = m_device->CreateTexture2D(&desc, nullptr, &slot.texture);
         if (FAILED(hr)) return hr;
         slot.busy = true;
-        selectedPool->slots.push_back(slot);
-        selectedSlot = selectedPool->slots.size() - 1;
+        selectedPool->frames.push_back(slot);
+        selectedSlot = selectedPool->frames.size() - 1;
         texture = slot.texture;
         return S_OK;
     }
