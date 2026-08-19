@@ -1306,6 +1306,10 @@ private:
         m_en["O dono do canal temporário só pode alterar senha, bitrate e máximo de clientes."] = "The temporary channel owner can only change the password, bitrate, and maximum clients.";
         m_en["Máximo do servidor — %1x%2 — %3 FPS — %4 kbps"] = "Server maximum — %1x%2 — %3 FPS — %4 kbps";
         m_en["A qualidade escolhida excede o limite do servidor."] = "The selected quality exceeds the server limit.";
+        m_en["Encoder da transmissão de tela"] = "Screen-share encoder";
+        m_en["Usar encoder H.264 por hardware quando disponível"] = "Use hardware H.264 encoder when available";
+        m_en["Usa o encoder de vídeo da GPU pelo Windows Media Foundation. Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software."] = "Uses the GPU video encoder through Windows Media Foundation. If no compatible encoder is available, Halla automatically falls back to software VP8.";
+        m_en["Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS."] = "Reconnect to the server to recreate WebRTC. Recommended for 1440p/4K and 60 FPS.";
         m_en["Limite do servidor: %1x%2, %3 FPS, %4 kbps"] = "Server limit: %1x%2, %3 FPS, %4 kbps";
         m_en["%1x%2 — %3 FPS — %4 Mbps"] = "%1x%2 — %3 FPS — %4 Mbps";
         m_en["RESOLUÇÃO:"] = "RESOLUTION:";
@@ -1434,6 +1438,10 @@ private:
         m_es["O dono do canal temporário só pode alterar senha, bitrate e máximo de clientes."] = "El propietario del canal temporal solo puede cambiar la contraseña, el bitrate y el máximo de clientes.";
         m_es["Máximo do servidor — %1x%2 — %3 FPS — %4 kbps"] = "Máximo del servidor — %1x%2 — %3 FPS — %4 kbps";
         m_es["A qualidade escolhida excede o limite do servidor."] = "La calidad elegida supera el límite del servidor.";
+        m_es["Encoder da transmissão de tela"] = "Codificador de pantalla compartida";
+        m_es["Usar encoder H.264 por hardware quando disponível"] = "Usar codificador H.264 por hardware cuando esté disponible";
+        m_es["Usa o encoder de vídeo da GPU pelo Windows Media Foundation. Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software."] = "Usa el codificador de vídeo de la GPU mediante Windows Media Foundation. Si no hay uno compatible, Halla vuelve automáticamente a VP8 por software.";
+        m_es["Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS."] = "Requiere reconectarse al servidor para recrear WebRTC. Recomendado para 1440p/4K y 60 FPS.";
         m_es["Limite do servidor: %1x%2, %3 FPS, %4 kbps"] = "Límite del servidor: %1x%2, %3 FPS, %4 kbps";
         m_es["%1x%2 — %3 FPS — %4 Mbps"] = "%1x%2 — %3 FPS — %4 Mbps";
         m_es["RESOLUÇÃO:"] = "RESOLUCIÓN:";

@@ -105,6 +105,8 @@ set(HALLA_SOURCES
     src/net/VoiceEngine.cpp
     src/webrtc/HallaWebRtcSession.cpp
     src/webrtc/HallaWebRtcSession.h
+    src/webrtc/MediaFoundationH264.cpp
+    src/webrtc/MediaFoundationH264.h
 )
 
 add_executable(Halla ${HALLA_SOURCES})
@@ -161,7 +163,7 @@ if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
             target_include_directories(Halla PRIVATE ${HALLA_WEBRTC_INCLUDE_DIRS})
             target_link_libraries(Halla PRIVATE "${HALLA_WEBRTC_LIBRARY}")
             if (WIN32)
-                target_link_libraries(Halla PRIVATE winmm mmdevapi secur32 crypt32 iphlpapi dmoguids strmiids msdmo wmcodecdspuuid ole32 oleaut32 user32 advapi32 d3d11 dxgi)
+                target_link_libraries(Halla PRIVATE winmm mmdevapi secur32 crypt32 iphlpapi dmoguids strmiids msdmo wmcodecdspuuid ole32 oleaut32 user32 advapi32 d3d11 dxgi mf mfplat mfuuid propsys)
             endif()
             message(STATUS "Halla: WebRTC nativo habilitado (${HALLA_WEBRTC_LIBRARY})")
         else()

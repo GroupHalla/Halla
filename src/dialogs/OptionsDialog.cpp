@@ -1223,6 +1223,25 @@ QWidget* OptionsDialog::pageCapture() {
     cueHint->setWordWrap(true);
     cueLayout->addWidget(cueHint);
     right->addWidget(gbSpeechCue);
+
+    QGroupBox* streamEncoder = new QGroupBox(tr("Encoder da transmissão de tela"), w);
+    QVBoxLayout* encoderLayout = new QVBoxLayout(streamEncoder);
+    QCheckBox* hardwareEncoder = new QCheckBox(
+        tr("Usar encoder H.264 por hardware quando disponível"), streamEncoder);
+    hardwareEncoder->setChecked(S::flag("screenshare/hardwareEncoder", false));
+    hardwareEncoder->setToolTip(tr(
+        "Usa o encoder de vídeo da GPU pelo Windows Media Foundation. "
+        "Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software."));
+    connect(hardwareEncoder, &QCheckBox::toggled, this,
+            [](bool enabled) { S::set("screenshare/hardwareEncoder", enabled); });
+    encoderLayout->addWidget(hardwareEncoder);
+    QLabel* encoderHint = new QLabel(tr(
+        "Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS."),
+        streamEncoder);
+    encoderHint->setWordWrap(true);
+    encoderHint->setObjectName(QStringLiteral("captionLabel"));
+    encoderLayout->addWidget(encoderHint);
+    right->addWidget(streamEncoder);
     right->addStretch(1);
 
     main->addLayout(right, 1);

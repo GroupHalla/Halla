@@ -2900,6 +2900,22 @@ Mensagens offline podem ser enviadas apenas a usuários registrados neste servid
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Encoder da transmissão de tela</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Usar encoder H.264 por hardware quando disponível</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Usa o encoder de vídeo da GPU pelo Windows Media Foundation. Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/dialogs/OptionsDialog.cpp" line="1235"/>
         <source>Canal atual</source>
         <translation type="unfinished"></translation>

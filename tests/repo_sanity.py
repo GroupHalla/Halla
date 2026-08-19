@@ -50,6 +50,13 @@ assert 'HSound::play(QStringLiteral("moved"))' in server_tab
 assert "Silenciar todos os avisos de áudio" in (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
 webrtc = (root / "src/webrtc/HallaWebRtcSession.cpp").read_text(encoding="utf-8")
 assert "PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE" in webrtc
+mf_h264 = (root / "src/webrtc/MediaFoundationH264.cpp").read_text(encoding="utf-8")
+assert "MFT_ENUM_FLAG_HARDWARE" in mf_h264
+assert "MFVideoFormat_H264" in mf_h264
+assert "I420ToNV12" in mf_h264
+assert "is_hardware_accelerated = true" in mf_h264
+assert 'S::flag("screenshare/hardwareEncoder", false)' in webrtc
+assert "screenshare/hardwareEncoder" in (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
 assert "TargetProcessId = GetCurrentProcessId()" in webrtc
 assert "GetDefaultAudioEndpoint" not in webrtc
 # Regressões Desktop↔Mobile: ICE precoce deve ser enfileirado, a live remota só

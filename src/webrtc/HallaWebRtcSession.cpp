@@ -1,6 +1,8 @@
 #include "HallaWebRtcSession.h"
 #include "net/NetSession.h"
 #include "core/AppLog.h"
+#include "core/Settings.h"
+#include "MediaFoundationH264.h"
 
 #include <QDateTime>
 #include <QJsonArray>
@@ -537,10 +539,25 @@ private:
     int m_peerId = 0;
 };
 
-class HallaVp8EncoderFactory : public webrtc::VideoEncoderFactory {
+class HallaVideoEncoderFactory : public webrtc::VideoEncoderFactory {
 public:
+    explicit HallaVideoEncoderFactory(bool requestHardware)
+        : m_hardware(requestHardware && HallaMfH264::encoderAvailable()) {
+        if (requestHardware && !m_hardware)
+            AppLog::warn(QStringLiteral(
+                "WebRTC: encoder de hardware solicitado, mas nenhum H264 MFT foi encontrado; usando VP8 por software"));
+        else if (m_hardware)
+            AppLog::info(QStringLiteral("WebRTC: H264 por hardware disponível e preferido"));
+    }
+
     std::vector<webrtc::SdpVideoFormat> GetSupportedFormats() const override {
-        return { webrtc::SdpVideoFormat("VP8") };
+        std::vector<webrtc::SdpVideoFormat> formats;
+        if (m_hardware) {
+            const auto hardware = HallaMfH264::formats();
+            formats.insert(formats.end(), hardware.begin(), hardware.end());
+        }
+        formats.emplace_back("VP8");
+        return formats;
     }
 
     CodecSupport QueryCodecSupport(const webrtc::SdpVideoFormat& format,
@@ -548,20 +565,29 @@ public:
                                    std::optional<webrtc::Resolution> resolution) const override {
         Q_UNUSED(scalabilityMode);
         Q_UNUSED(resolution);
-        return { format.name == "VP8" || format.name == "vp8", false };
+        if ((format.name == "H264" || format.name == "h264") && m_hardware)
+            return {true, true};
+        return {format.name == "VP8" || format.name == "vp8", false};
     }
 
     std::unique_ptr<webrtc::VideoEncoder> Create(const webrtc::Environment& env,
                                                  const webrtc::SdpVideoFormat& format) override {
+        if ((format.name == "H264" || format.name == "h264") && m_hardware)
+            return HallaMfH264::createEncoder();
         if (format.name != "VP8" && format.name != "vp8") return nullptr;
         return webrtc::CreateVp8Encoder(env);
     }
+
+private:
+    bool m_hardware = false;
 };
 
-class HallaVp8DecoderFactory : public webrtc::VideoDecoderFactory {
+class HallaVideoDecoderFactory : public webrtc::VideoDecoderFactory {
 public:
     std::vector<webrtc::SdpVideoFormat> GetSupportedFormats() const override {
-        return { webrtc::SdpVideoFormat("VP8") };
+        std::vector<webrtc::SdpVideoFormat> formats = HallaMfH264::formats();
+        formats.emplace_back("VP8");
+        return formats;
     }
 
     CodecSupport QueryCodecSupport(const webrtc::SdpVideoFormat& format,
@@ -569,11 +595,14 @@ public:
                                    std::optional<webrtc::Resolution> resolution) const override {
         Q_UNUSED(referenceScaling);
         Q_UNUSED(resolution);
-        return { format.name == "VP8" || format.name == "vp8", false };
+        if (format.name == "H264" || format.name == "h264") return {true, false};
+        return {format.name == "VP8" || format.name == "vp8", false};
     }
 
     std::unique_ptr<webrtc::VideoDecoder> Create(const webrtc::Environment& env,
                                                  const webrtc::SdpVideoFormat& format) override {
+        if (format.name == "H264" || format.name == "h264")
+            return HallaMfH264::createDecoder();
         if (format.name != "VP8" && format.name != "vp8") return nullptr;
         return webrtc::CreateVp8Decoder(env);
     }
@@ -915,8 +944,9 @@ bool HallaWebRtcSession::ensureNativeFactory() {
 #endif
         webrtc::CreateBuiltinAudioEncoderFactory(),
         webrtc::CreateBuiltinAudioDecoderFactory(),
-        std::make_unique<HallaVp8EncoderFactory>(),
-        std::make_unique<HallaVp8DecoderFactory>(),
+        std::make_unique<HallaVideoEncoderFactory>(
+            S::flag("screenshare/hardwareEncoder", false)),
+        std::make_unique<HallaVideoDecoderFactory>(),
         nullptr, nullptr);
     if (m_native->factory) {
         m_native->videoSource = webrtc::make_ref_counted<QtScreenVideoSource>();

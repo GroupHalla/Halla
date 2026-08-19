@@ -2911,6 +2911,22 @@ Offline messages can only be sent to users registered on this server.</translati
       <translation>Local signals follow the chosen mode. Check "Other users" to hear the same signal when someone else speaks.</translation>
     </message>
     <message>
+      <source>Encoder da transmissão de tela</source>
+      <translation>Screen-share encoder</translation>
+    </message>
+    <message>
+      <source>Usar encoder H.264 por hardware quando disponível</source>
+      <translation>Use hardware H.264 encoder when available</translation>
+    </message>
+    <message>
+      <source>Usa o encoder de vídeo da GPU pelo Windows Media Foundation. Se não houver encoder compatível, o Halla volta automaticamente ao VP8 por software.</source>
+      <translation>Uses the GPU video encoder through Windows Media Foundation. If no compatible encoder is available, Halla automatically falls back to software VP8.</translation>
+    </message>
+    <message>
+      <source>Requer reconectar ao servidor para recriar o WebRTC. Recomendado para 1440p/4K e 60 FPS.</source>
+      <translation>Reconnect to the server to recreate WebRTC. Recommended for 1440p/4K and 60 FPS.</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1235" />
       <source>Canal atual</source>
       <translation>Current channel</translation>

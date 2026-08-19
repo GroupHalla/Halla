@@ -144,7 +144,9 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   somente quando resolução, FPS e bitrate cabem nos máximos do HallaServer.
   A resolução é escolhida no estilo YouTube (480p, 720p, 1080p, 2K e 4K),
   preservando a proporção máxima do servidor; FPS e bitrate ficam em controles
-  separados e nunca ultrapassam o INI. Exige o SDK nativo do
+  separados e nunca ultrapassam o INI. Em **Opções → Capturar**, o encoder H.264
+  por hardware do Windows pode ser ativado para 1440p/4K e 60 FPS; se a GPU não
+  oferecer um MFT compatível, o cliente volta ao VP8 por software. Exige o SDK nativo do
   [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds)
   compilado junto (veja [Compilando](#compilando)).
 - Áudio opcional do PC via process loopback no Windows: captura os fluxos dos
