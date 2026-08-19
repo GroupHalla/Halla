@@ -37,15 +37,16 @@ O primeiro servidor oficial do Halla já se encontra em operação contínua e a
 O objetivo desta instância é fornecer um ambiente estável e acessível para que usuários e desenvolvedores 
 possam testar o desempenho do áudio de baixa latência, o compartilhamento de tela e os recursos do ecossistema.
 
-Estrutura e Recursos do Servidor:
-Canais Permanentes: Salas abertas para interação geral, testes técnicos e alinhamento de projetos.
-Canais Temporários Dinâmicos: Sistema que permite a qualquer usuário criar sua própria sala de voz sob demanda.
-Acesso Multiplataforma: Totalmente integrado entre os clientes Desktop (Windows/Linux) e Mobile (Android).
-Segurança: Conexões autenticadas via chaves criptográficas Ed25519 e tráfego de voz cifrado com ChaCha20-Poly1305.
+**Estrutura e Recursos do Servidor:**
+- Canais Permanentes: Salas abertas para interação geral, testes técnicos e alinhamento de projetos.
+- Canais Temporários Dinâmicos: Sistema que permite a qualquer usuário criar sua própria sala de voz sob demanda.
+- Acesso Multiplataforma: Totalmente integrado entre os clientes Desktop (Windows/Linux) e Mobile (Android).
+- Segurança: Conexões autenticadas via chaves criptográficas Ed25519 e tráfego de voz cifrado com ChaCha20-Poly1305.
 
-Dados de Conexão:
-Endereço: 163.176.35.133
-Porta: 9987
+**Dados de Conexão:**
+- Endereço: 163.176.35.133
+- Porta: 9987
+
 ---
 
 ## Visão geral
