@@ -750,12 +750,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
     QMenu* mTools = menuBar()->addMenu(tr("Fer&ramentas"));
     mTools->addAction(HIcons::logPage(), tr("Registro do cliente"), this,
-                      [this] {
-                          if (!m_log) m_log = new LogDialog(this);
-                          m_log->show();
-                          m_log->raise();
-                          m_log->activateWindow();
-                      });
+                      [this] { openLogDialog(); });
     mTools->addAction(HIcons::transfer(), tr("Transferência de arquivos..."), this,
                       [this] {
                           ServerTab* t = currentTab();
@@ -960,6 +955,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     plugins.announceUiActions();
 
     QMenu* mHelp = menuBar()->addMenu(tr("A&juda"));
+    mHelp->addAction(HIcons::logPage(), tr("Registro do cliente"), this,
+                     [this] { openLogDialog(); });
     mHelp->addAction(tr("Sobre o Halla"), this,
                      [this] { AboutDialog dlg(this); dlg.exec(); });
     mHelp->addSeparator();
@@ -1411,6 +1408,15 @@ void MainWindow::finishDisconnectTab(ServerTab* tab) {
 
 void MainWindow::publishPluginState() {
     PluginManager::instance().setActiveSession(currentTab());
+}
+
+// Abre (ou reabre) o "Registro do cliente" — o diálogo carrega o histórico do
+// halla.log, então mostra também decisões passadas (ex.: encoder GPU/CPU).
+void MainWindow::openLogDialog() {
+    if (!m_log) m_log = new LogDialog(this);
+    m_log->show();
+    m_log->raise();
+    m_log->activateWindow();
 }
 
 ServerTab* MainWindow::currentTab() const {

@@ -74,6 +74,7 @@ private:
     void updateStatusBar();
     void publishPluginState();
     void saveSession();
+    void openLogDialog();  // abre o "Registro do cliente" (log) — de Ajuda e Ferramentas
 
     QStackedWidget* m_stack = nullptr;
     WelcomePage* m_welcome = nullptr;

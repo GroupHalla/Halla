@@ -12,6 +12,8 @@
 #include <QFile>
 #include <QTextStream>
 #include <QHeaderView>
+#include <QStandardPaths>
+#include <QDir>
 
 LogDialog::LogDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle(tr("Registro do cliente"));
@@ -88,6 +90,59 @@ LogDialog::LogDialog(QWidget* parent) : QDialog(parent) {
             [this](int) { rebuild(); });
 
     connect(&AppLog::instance(), &AppLog::message, this, &LogDialog::append);
+
+    // Carrega o histórico do arquivo para que mensagens anteriores à abertura
+    // (ex.: a escolha de encoder GPU/CPU no começo de uma transmissão 4K)
+    // já apareçam na janela.
+    loadFromFile();
+}
+
+AppLog::Level LogDialog::levelFromName(const QString& name) {
+    const QString n = name.trimmed().toUpper();
+    if (n == QLatin1String("ERRO") || n == QLatin1String("ERROR")) return AppLog::Error;
+    if (n == QLatin1String("AVISO") || n == QLatin1String("WARN")
+            || n == QLatin1String("WARNING")) return AppLog::Warning;
+    if (n == QLatin1String("DEPURAÇÃO") || n == QLatin1String("DEBUG")
+            || n == QLatin1String("DEPURACAO")) return AppLog::Debug;
+    return AppLog::Info;
+}
+
+void LogDialog::loadFromFile() {
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QFile f(dir + QStringLiteral("/halla.log"));
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+
+    // Mantém no máximo as últimas ~2000 linhas para não travar a janela.
+    QStringList lines;
+    QTextStream in(&f);
+    QString line;
+    while (in.readLineInto(&line))
+        lines << line;
+    if (lines.size() > 2000) {
+        lines = lines.mid(lines.size() - 2000);
+    }
+
+    for (const QString& raw : lines) {
+        // Formato: [dd/MM/yyyy HH:mm:ss] [NIVEL] mensagem
+        const QString l = raw.trimmed();
+        if (l.isEmpty()) continue;
+        QString ts, levelText, text;
+        int close = l.indexOf(QLatin1Char(']'));
+        if (l.startsWith(QLatin1Char('[')) && close > 0) {
+            ts = l.mid(1, close - 1);
+            int nextOpen = l.indexOf(QLatin1Char('['), close);
+            int nextClose = l.indexOf(QLatin1Char(']'), close + 1);
+            if (nextOpen >= 0 && nextClose > nextOpen) {
+                levelText = l.mid(nextOpen + 1, nextClose - nextOpen - 1);
+                text = l.mid(nextClose + 1).trimmed();
+            } else {
+                text = l.mid(close + 1).trimmed();
+            }
+        } else {
+            text = l;
+        }
+        append(int(levelFromName(levelText)), ts, text);
+    }
 }
 
 void LogDialog::append(int level, const QString& timestamp, const QString& text) {
