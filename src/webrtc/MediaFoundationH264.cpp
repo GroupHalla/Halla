@@ -215,7 +215,7 @@ public:
         if (!m_initialized || !m_transform || !m_callback) return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
         auto i420 = frame.video_frame_buffer() ? frame.video_frame_buffer()->ToI420() : nullptr;
         if (!i420 || i420->width() != m_width || i420->height() != m_height)
-            return WEBRTC_VIDEO_CODEC_ERR_SIZE;
+            return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
         const bool forceKey = frameTypes && std::find(frameTypes->begin(), frameTypes->end(),
             webrtc::VideoFrameType::kVideoFrameKey) != frameTypes->end();
         if (forceKey) setCodecApiU32(m_transform.Get(), CODECAPI_AVEncVideoForceKeyFrame, TRUE);
@@ -402,7 +402,7 @@ public:
         if (!m_callback || !input.data() || input.size() == 0) return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
         const int width = int(input._encodedWidth);
         const int height = int(input._encodedHeight);
-        if (width <= 0 || height <= 0) return WEBRTC_VIDEO_CODEC_ERR_SIZE;
+        if (width <= 0 || height <= 0) return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
         if (!m_transform || width != m_width || height != m_height) {
             if (!initialize(width, height)) return WEBRTC_VIDEO_CODEC_ERROR;
         }
