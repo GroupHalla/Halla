@@ -49,6 +49,25 @@ possam testar o desempenho do áudio de baixa latência, o compartilhamento de t
 
 ---
 
+### Programa de Feedback e Relato de Problemas —  Halla
+Com o avanço contínuo do ecossistema Halla (Desktop, Mobile e Server), nosso compromisso é garantir a máxima estabilidade, segurança e desempenho em transmissões de voz e tela.
+Para que possamos identificar e corrigir eventuais falhas com rapidez, abrimos um canal oficial e direto para coleta de relatórios de bugs, inconsistências e sugestões de melhorias técnicas.
+
+**O que você pode relatar:**
+- Problemas de conectividade, latência ou sincronização com o servidor.
+- Falhas de captura ou reprodução de áudio (ruídos, eco ou cortes).
+- Instabilidades na transmissão de tela (queda de FPS, resolução ou congelamento).
+- Bugs visuais e comportamentais na interface do Desktop (Windows/Linux) ou Mobile (Android).
+- Sugestões de novas funcionalidades e melhorias de usabilidade.
+
+Sua contribuição é fundamental para o aprimoramento contínuo deste projeto de código aberto.
+Envie seu relatório através do formulário oficial:
+https://docs.google.com/forms/d/e/1FAIpQLScwy7k_HyeNnl8kuNfMSs8H-pHUGfhuKijAxkYkzd7m_aX4NA/viewform
+
+Agradecemos a colaboração de todos no fortalecimento da plataforma.
+
+---
+
 ## Visão geral
 
 O **Halla** é um cliente de VoIP para comunidades e servidores privado. 
