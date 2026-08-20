@@ -13,6 +13,7 @@
 #include <QMutex>
 #include <QSet>
 #include <QtGlobal>
+#include <atomic>
 class QTimer;
 class QThread;
 
@@ -101,7 +102,11 @@ private:
     bool m_broadcasting = false;
     // Preview local é reduzido ANTES de ir para a GUI: um QImage 4K cruzando
     // a fronteira de thread + QPixmap::fromImage + scaled travava a janela.
-    int m_previewMaxWidth = 960;
+    int m_previewMaxWidth = 1280;
+    // Evita que dois frames de captura rodem ao mesmo tempo (o primeiro frame
+    // e o timer da thread de trabalho), o que corrompia o DxgiScreenCapturer e
+    // crashava o app ao clicar em "Compartilhar".
+    std::atomic<bool> m_captureInFlight{false};
     // Coalesce vídeo remoto: se a UI estiver ocupada, substitua o frame
     // pendente pelo mais recente em vez de enfileirar segundos de atraso.
     QMutex m_remoteFrameMutex;

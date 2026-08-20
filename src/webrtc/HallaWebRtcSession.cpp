@@ -1573,14 +1573,36 @@ void HallaWebRtcSession::closePeer(int peerId) {
     }
 }
 
-static QImage downscaleForPreview(const QImage& source, int maxWidth = 960) {
+static QImage downscaleForPreview(const QImage& source, int maxWidth = 1280) {
     if (source.isNull()) return source;
     if (source.width() <= maxWidth) return source;
-    return source.scaledToWidth(maxWidth, Qt::FastTransformation);
+    // SmoothTransformation: o antigo FastTransformation (vizinho mais próximo)
+    // deixava o preview todo pixelado quando escalado para cima na janela.
+    return source.scaledToWidth(maxWidth, Qt::SmoothTransformation);
 }
+
+// Impede que o captureFrame() rode de forma concorrente. O primeiro frame é
+// agendado na thread de captura e o timer também a dispara; sem este guard,
+// duas execuções simultâneas acessavam o DxgiScreenCapturer/D3D11 e crashavam
+// o app ao clicar em "Compartilhar".
+class CaptureFrameGuard {
+public:
+    explicit CaptureFrameGuard(std::atomic<bool>& flag) : m_flag(flag) {
+        m_acquired = !m_flag.exchange(true);
+    }
+    ~CaptureFrameGuard() {
+        if (m_acquired) m_flag.store(false);
+    }
+    bool acquired() const { return m_acquired; }
+private:
+    std::atomic<bool>& m_flag;
+    bool m_acquired = false;
+};
 
 void HallaWebRtcSession::captureFrame() {
     if (!m_broadcasting || !m_native || !m_native->videoSource) return;
+    CaptureFrameGuard guard(m_captureInFlight);
+    if (!guard.acquired()) return; // frame anterior ainda em execução
 
     QImage frameImage;
     QPixmap pix;
@@ -1593,7 +1615,9 @@ void HallaWebRtcSession::captureFrame() {
         const int screenIndex = int(m_captureSourceId);
         if (!m_native->dxgiCapturer)
             m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
-        const uint64_t previewInterval = uint64_t(std::max(1, m_captureFps / 10));
+        // Preview em ~1/20 dos frames (~20 FPS num stream de 60 FPS) para ficar
+        // visível e suave, mantendo o custo de cópia CPU baixo.
+        const uint64_t previewInterval = uint64_t(std::max(1, m_captureFps / 20));
         const bool makePreview = (m_native->captureFrameNumber++ % previewInterval) == 0;
         QImage preview;
         auto native = m_native->dxgiCapturer->grabGpu(
@@ -1722,9 +1746,10 @@ void HallaWebRtcSession::startBroadcast() {
     }
     // Prepare a first frame (and the D3D11 adapter) before advertising the
     // live. This guarantees that the H.264 MFT is bound to the capture GPU.
-    captureFrame();
-    // O timer vive na thread de captura; inicie por fila de eventos.
+    // IMPORTANTE: roda na thread de captura (não na GUI) — chamar aqui na GUI
+    // criava uma corrida com o timer da thread de trabalho e crashava o app.
     QMetaObject::invokeMethod(m_captureTimer, [this] {
+        captureFrame();
         m_captureTimer->start(qMax(1, 1000 / m_captureFps));
     }, Qt::QueuedConnection);
     if (m_net) m_net->sendWebRtcStreamStart(
