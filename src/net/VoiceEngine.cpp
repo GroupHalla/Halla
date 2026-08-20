@@ -109,7 +109,11 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
     if (!outDev.isNull()) {
         m_sink = new QAudioSink(outDev, outputFmt, this);
-        m_sink->setBufferSize(960 * 2 * 2 * 20); // ~400 ms estéreo
+        // Buffer de ~120 ms: o antigo de 400 ms deixava o áudio de transmissões
+        // (WebRTC) muito atrás do vídeo no visualizador, porque o vídeo era
+        // mostrado no último frame disponível enquanto o áudio ficava guardado
+        // no dispositivo. 120 ms mantém folga para a rede sem atraso perceptível.
+        m_sink->setBufferSize(960 * 2 * 2 * 6); // ~120 ms estéreo
         m_sinkDev = m_sink->start();
 
         m_playTimer = new QTimer(this);
