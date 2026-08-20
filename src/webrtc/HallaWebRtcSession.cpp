@@ -14,6 +14,8 @@
 #include <QPixmap>
 #include <QScreen>
 #include <QTimer>
+#include <QThread>
+#include <functional>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -1168,6 +1170,18 @@ HallaWebRtcSession::HallaWebRtcSession(NetSession* net, QObject* parent)
 
 HallaWebRtcSession::~HallaWebRtcSession() {
     stopBroadcast();
+    // Encerra a thread de captura iniciada em startBroadcast (se existir).
+    if (m_captureThread) {
+        if (m_captureTimer)
+            QMetaObject::invokeMethod(m_captureTimer, [t = m_captureTimer] { t->stop(); },
+                                      Qt::QueuedConnection);
+        m_captureThread->quit();
+        m_captureThread->wait(2000);
+        delete m_captureTimer;
+        m_captureTimer = nullptr;
+        delete m_captureThread;
+        m_captureThread = nullptr;
+    }
 #ifdef HALLA_WEBRTC_NATIVE
     if (m_native) {
         while (!m_native->peers.empty()) closePeer(m_native->peers.begin()->first);
@@ -1209,8 +1223,11 @@ void HallaWebRtcSession::setCaptureQuality(int width, int height, int fps, int b
     m_captureHeight = qBound(360, height, 2160);
     m_captureFps = qBound(15, fps, 60);
     m_captureBitrateKbps = qBound(500, bitrateKbps, 50000);
-    if (m_captureTimer && m_captureTimer->isActive()) {
-        m_captureTimer->start(qMax(1, 1000 / m_captureFps));
+    if (m_captureThread && m_captureTimer) {
+        // O timer vive na thread de captura; reinicie por fila de eventos.
+        QMetaObject::invokeMethod(m_captureTimer, [this] {
+            m_captureTimer->start(qMax(1, 1000 / m_captureFps));
+        }, Qt::QueuedConnection);
     }
 }
 
@@ -1543,6 +1560,12 @@ void HallaWebRtcSession::closePeer(int peerId) {
     }
 }
 
+static QImage downscaleForPreview(const QImage& source, int maxWidth = 960) {
+    if (source.isNull()) return source;
+    if (source.width() <= maxWidth) return source;
+    return source.scaledToWidth(maxWidth, Qt::FastTransformation);
+}
+
 void HallaWebRtcSession::captureFrame() {
     if (!m_broadcasting || !m_native || !m_native->videoSource) return;
 
@@ -1565,10 +1588,9 @@ void HallaWebRtcSession::captureFrame() {
             &preview, makePreview);
         if (native) {
             if (!preview.isNull()) {
-                if (preview.width() != native->width() || preview.height() != native->height())
-                    preview = preview.scaled(native->width(), native->height(),
-                                             Qt::IgnoreAspectRatio, Qt::FastTransformation);
-                emit localPreviewFrame(preview);
+                // Preview reduzido: evita cruzar um QImage 4K na fronteira de
+                // thread e travar a janela ao arrastar o Halla.
+                emit localPreviewFrame(downscaleForPreview(preview, m_previewMaxWidth));
             }
             m_native->videoSource->PushBuffer(native);
             return;
@@ -1638,7 +1660,7 @@ void HallaWebRtcSession::captureFrame() {
     } else {
         img = frameImage.scaled(m_captureWidth, m_captureHeight, Qt::KeepAspectRatio, Qt::FastTransformation);
     }
-    emit localPreviewFrame(img);
+    emit localPreviewFrame(downscaleForPreview(img, m_previewMaxWidth));
     m_native->videoSource->PushImage(img);
 }
 #endif
@@ -1669,19 +1691,29 @@ void HallaWebRtcSession::startBroadcast() {
         return;
     }
     m_broadcasting = true;
-    if (!m_captureTimer) {
-        m_captureTimer = new QTimer(this);
+    if (!m_captureThread) {
+        // A captura (DXGI, escala, preview) roda fora da GUI para não travar a
+        // interface ao transmitir em 4K. O QTimer vive na thread de captura e
+        // chama captureFrame() com conexão direta (no thread do timer).
+        m_captureThread = new QThread(this);
+        m_captureThread->setObjectName(QStringLiteral("HallaCapture"));
+        m_captureThread->start();
+        m_captureTimer = new QTimer; // sem parent; moveToThread abaixo
         m_captureTimer->setTimerType(Qt::PreciseTimer);
+        m_captureTimer->moveToThread(m_captureThread);
         connect(m_captureTimer, &QTimer::timeout, this, [this] {
 #ifdef HALLA_WEBRTC_NATIVE
             captureFrame();
 #endif
-        });
+        }, Qt::DirectConnection);
     }
     // Prepare a first frame (and the D3D11 adapter) before advertising the
     // live. This guarantees that the H.264 MFT is bound to the capture GPU.
     captureFrame();
-    m_captureTimer->start(qMax(1, 1000 / m_captureFps));
+    // O timer vive na thread de captura; inicie por fila de eventos.
+    QMetaObject::invokeMethod(m_captureTimer, [this] {
+        m_captureTimer->start(qMax(1, 1000 / m_captureFps));
+    }, Qt::QueuedConnection);
     if (m_net) m_net->sendWebRtcStreamStart(
         m_captureWidth, m_captureHeight, m_captureFps, m_captureBitrateKbps);
     emit broadcastStarted();
@@ -1696,7 +1728,12 @@ void HallaWebRtcSession::startBroadcast() {
 void HallaWebRtcSession::stopBroadcast() {
     if (!m_broadcasting) return;
     m_broadcasting = false;
-    if (m_captureTimer) m_captureTimer->stop();
+    if (m_captureThread && m_captureTimer) {
+        // O timer vive na thread de captura; pare por fila de eventos. Mantém a
+        // thread viva para reuso na próxima transmissão (encerrada no destrutor).
+        QMetaObject::invokeMethod(m_captureTimer, [t = m_captureTimer] { t->stop(); },
+                                  Qt::QueuedConnection);
+    }
 #ifdef HALLA_WEBRTC_NATIVE
     while (!m_native->peers.empty()) closePeer(m_native->peers.begin()->first);
 #endif

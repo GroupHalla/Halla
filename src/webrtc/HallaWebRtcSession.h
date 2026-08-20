@@ -14,6 +14,7 @@
 #include <QSet>
 #include <QtGlobal>
 class QTimer;
+class QThread;
 
 class NetSession;
 #ifdef HALLA_WEBRTC_NATIVE
@@ -86,6 +87,9 @@ private:
     struct NativeState;
     std::unique_ptr<NativeState> m_native;
     NetSession* m_net = nullptr;
+    // A captura roda numa thread de trabalho (não na GUI) para que o DXGI,
+    // a escala e o preview não travem a interface em transmissões 4K.
+    QThread* m_captureThread = nullptr;
     QTimer* m_captureTimer = nullptr;
     int m_captureSourceType = 0;
     quintptr m_captureSourceId = 0;
@@ -95,6 +99,9 @@ private:
     int m_captureBitrateKbps = 8000;
     bool m_captureSystemAudio = false;
     bool m_broadcasting = false;
+    // Preview local é reduzido ANTES de ir para a GUI: um QImage 4K cruzando
+    // a fronteira de thread + QPixmap::fromImage + scaled travava a janela.
+    int m_previewMaxWidth = 960;
     // Coalesce vídeo remoto: se a UI estiver ocupada, substitua o frame
     // pendente pelo mais recente em vez de enfileirar segundos de atraso.
     QMutex m_remoteFrameMutex;
