@@ -3,6 +3,7 @@
 #include <QDialog>
 #include <QTableWidget>
 #include <QComboBox>
+#include "AppLog.h"
 
 // Janela "Registro do cliente" (Client Log) — nivel filtrável, cores e exportação.
 class LogDialog : public QDialog {
