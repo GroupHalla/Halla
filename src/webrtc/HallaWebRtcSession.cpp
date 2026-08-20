@@ -179,6 +179,11 @@ public:
                     "WebRTC DXGI: conversão GPU BGRA->NV12 indisponível (0x%1); usando caminho pela CPU")
                     .arg(quint32(hr), 8, 16, QLatin1Char('0')));
             }
+            // Um VideoProcessor com estado obsoleto (ou um pool de texturas de
+            // um dispositivo D3D11 antigo, p.ex. após trocar resolução/monitor)
+            // costuma ficar preso retornando E_INVALIDARG. Redefina-o para que o
+            // próximo frame tente criar um processador novo e limpo.
+            resetVideoProcessor();
             return nullptr;
         }
 
@@ -451,10 +456,7 @@ private:
     }
 
     void reset() {
-        m_lastNative = nullptr;
-        m_texturePool.reset();
-        m_videoProcessor.Reset();
-        m_processorEnumerator.Reset();
+        resetVideoProcessor();
         m_videoContext.Reset();
         m_videoDevice.Reset();
         m_duplication.Reset();
@@ -465,16 +467,27 @@ private:
         m_stagingWidth = 0;
         m_stagingHeight = 0;
         m_stagingFormat = DXGI_FORMAT_UNKNOWN;
+        m_frameNumber = 0;
+        m_screenIndex = -1;
+        m_gpuPathLogged = false;
+        m_gpuFailureLogged = false;
+    }
+
+    // Limpa apenas o estado do VideoProcessor e o pool de texturas de saída,
+    // mantendo a duplicação/desktop e o dispositivo D3D11. É chamado quando o
+    // caminho GPU falha (ex.: E_INVALIDARG) para que o próximo frame recrie um
+    // processador limpo, em vez de ficar preso num estado obsoleto.
+    void resetVideoProcessor() {
+        m_lastNative = nullptr;
+        m_texturePool.reset();
+        m_videoProcessor.Reset();
+        m_processorEnumerator.Reset();
         m_processorSourceWidth = 0;
         m_processorSourceHeight = 0;
         m_processorSourceFormat = DXGI_FORMAT_UNKNOWN;
         m_processorOutputWidth = 0;
         m_processorOutputHeight = 0;
         m_processorFps = 0;
-        m_frameNumber = 0;
-        m_screenIndex = -1;
-        m_gpuPathLogged = false;
-        m_gpuFailureLogged = false;
     }
 
     Microsoft::WRL::ComPtr<ID3D11Device> m_device;
