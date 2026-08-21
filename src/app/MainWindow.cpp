@@ -1069,6 +1069,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_tabs, &QTabWidget::currentChanged, this, [this](int) {
         updateConnectionUi();
         updateStatusBar();
+        rebuildServerMenu();
         publishPluginState();
     });
 
@@ -1585,6 +1586,48 @@ void MainWindow::updateStatusBar() {
         m_statusText->setText(tr("Desconectado"));
         m_pingLabel->clear();
     }
+
+    // Mantém a lista de servidores do menu da barra de status sincronizada
+    // (é chamada a cada mudança de conexão/aba/ping).
+    rebuildServerMenu();
+}
+
+// Lista os servidores conectados no menu da barra de status (o botão clicável
+// com o nome do servidor). O servidor atualmente selecionado fica marcado com
+// ✓ e, ao clicar num servidor, a aba correspondente é selecionada (mostrando
+// os canais e o chat daquele servidor) — mesmo que o usuário continue conectado
+// a outros.
+void MainWindow::rebuildServerMenu() {
+    if (!m_serverMenu) return;
+    m_serverMenu->clear();
+
+    const int current = m_tabs ? m_tabs->currentIndex() : -1;
+    if (m_tabs && m_tabs->count() > 0) {
+        for (int i = 0; i < m_tabs->count(); ++i) {
+            ServerTab* tab = qobject_cast<ServerTab*>(m_tabs->widget(i));
+            if (!tab) continue;
+            const QString name = tab->data().name;
+            QAction* action = m_serverMenu->addAction(HIcons::server(), name);
+            action->setCheckable(true);
+            action->setChecked(i == current); // marcador no servidor selecionado
+            action->setToolTip(tab->data().address);
+            // captura o índice; evita chamar setCurrentIndex do mesmo (sem efeito)
+            connect(action, &QAction::triggered, this, [this, i] {
+                if (m_tabs && i >= 0 && i < m_tabs->count()) {
+                    m_tabs->setCurrentIndex(i);
+                    updateConnectionUi();
+                    updateStatusBar();
+                    publishPluginState();
+                }
+            });
+        }
+        m_serverMenu->addSeparator();
+    }
+
+    m_serverMenu->addAction(m_actDisconnect);
+    m_serverMenu->addAction(m_actBookmarkAdd);
+    m_serverMenu->addSeparator();
+    m_serverMenu->addAction(m_actConnect);
 }
 
 // ======================================================================

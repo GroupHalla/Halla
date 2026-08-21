@@ -75,6 +75,7 @@ private:
     void publishPluginState();
     void saveSession();
     void openLogDialog();  // abre o "Registro do cliente" (log) — de Ajuda e Ferramentas
+    void rebuildServerMenu();  // lista os servidores conectados no menu da barra de status
 
     QStackedWidget* m_stack = nullptr;
     WelcomePage* m_welcome = nullptr;
