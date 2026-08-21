@@ -1069,7 +1069,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_tabs, &QTabWidget::currentChanged, this, [this](int) {
         updateConnectionUi();
         updateStatusBar();
-        rebuildServerMenu();
+        rebuildServerButtons();
         publishPluginState();
     });
 
@@ -1095,20 +1095,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     // ------------------------- barra de status --------------------------
     // três zonas, como no Halla:
     // [aba do servidor atual]  |  [linha de notícias]  |  [ícone + conexão + ping]
-    m_serverMenu = new QMenu(this);
-    m_serverMenu->addAction(m_actDisconnect);
-    m_serverMenu->addAction(m_actBookmarkAdd);
-    m_serverMenu->addSeparator();
-    m_serverMenu->addAction(m_actConnect);
-
-    m_serverButton = new QToolButton(this);
-    m_serverButton->setObjectName(QStringLiteral("serverTabButton"));
-    m_serverButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    m_serverButton->setIcon(HIcons::server());
-    m_serverButton->setText(tr("Nenhum servidor"));
-    m_serverButton->setPopupMode(QToolButton::InstantPopup);
-    m_serverButton->setMenu(m_serverMenu);
-    statusBar()->addWidget(m_serverButton, 0);
+    // Fileira horizontal de servidores conectados (um botão por servidor).
+    m_serverBar = new QWidget(this);
+    m_serverBar->setObjectName(QStringLiteral("serverBar"));
+    m_serverBarLayout = new QHBoxLayout(m_serverBar);
+    m_serverBarLayout->setContentsMargins(0, 0, 0, 0);
+    m_serverBarLayout->setSpacing(4);
+    statusBar()->addWidget(m_serverBar, 0);
+    rebuildServerButtons();
 
     m_newsLabel = new QLabel(
         tr("Bem-vindo ao Halla!  •  Cliente de comunicação de voz  •  "
@@ -1561,9 +1555,8 @@ void MainWindow::updateConnectionUi() {
 
 void MainWindow::updateStatusBar() {
     ServerTab* t = currentTab();
-    // zona esquerda: "aba" com o nome do servidor atual
-    m_serverButton->setText(t ? t->data().name : tr("Nenhum servidor"));
-    m_serverButton->setIcon(HIcons::server());
+    // zona esquerda: fileira com um botão por servidor conectado (rebuild abaixo)
+    rebuildServerButtons();
 
     // zona direita: estado da conexão + ping/perda
     if (t) {
@@ -1577,7 +1570,6 @@ void MainWindow::updateStatusBar() {
             m_pingLabel->setText(tr("Ping: --"));
         }
     } else if (m_tabs->count() > 0) {
-        m_serverButton->setText(tr("%1 servidores").arg(m_tabs->count()));
         m_statusIcon->setPixmap(HIcons::connectPlug().pixmap(14, 14));
         m_statusText->setText(tr("%1 conexões abertas").arg(m_tabs->count()));
         m_pingLabel->clear();
@@ -1586,33 +1578,52 @@ void MainWindow::updateStatusBar() {
         m_statusText->setText(tr("Desconectado"));
         m_pingLabel->clear();
     }
-
-    // Mantém a lista de servidores do menu da barra de status sincronizada
-    // (é chamada a cada mudança de conexão/aba/ping).
-    rebuildServerMenu();
 }
 
-// Lista os servidores conectados no menu da barra de status (o botão clicável
-// com o nome do servidor). O servidor atualmente selecionado fica marcado com
-// ✓ e, ao clicar num servidor, a aba correspondente é selecionada (mostrando
-// os canais e o chat daquele servidor) — mesmo que o usuário continue conectado
-// a outros.
-void MainWindow::rebuildServerMenu() {
-    if (!m_serverMenu) return;
-    m_serverMenu->clear();
+// Reconstrói a fileira horizontal de servidores conectados na barra de status.
+// Cada servidor conectado vira um botão clicável (nome ao lado dos demais) e o
+// servidor atualmente selecionado fica destacado (negrito + cor de fundo).
+void MainWindow::rebuildServerButtons() {
+    if (!m_serverBar || !m_serverBarLayout) return;
+
+    // Remove todos os botões anteriores.
+    while (QLayoutItem* item = m_serverBarLayout->takeAt(0)) {
+        if (QWidget* w = item->widget()) { w->deleteLater(); }
+        delete item;
+    }
 
     const int current = m_tabs ? m_tabs->currentIndex() : -1;
+
     if (m_tabs && m_tabs->count() > 0) {
         for (int i = 0; i < m_tabs->count(); ++i) {
             ServerTab* tab = qobject_cast<ServerTab*>(m_tabs->widget(i));
             if (!tab) continue;
             const QString name = tab->data().name;
-            QAction* action = m_serverMenu->addAction(HIcons::server(), name);
-            action->setCheckable(true);
-            action->setChecked(i == current); // marcador no servidor selecionado
-            action->setToolTip(tab->data().address);
-            // captura o índice; evita chamar setCurrentIndex do mesmo (sem efeito)
-            connect(action, &QAction::triggered, this, [this, i] {
+            const bool selected = (i == current);
+
+            QToolButton* button = new QToolButton(m_serverBar);
+            button->setObjectName(QStringLiteral("serverTabButton"));
+            button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+            button->setIcon(HIcons::server());
+            button->setText(name);
+            button->setToolTip(tab->data().address);
+            button->setCheckable(true);
+            button->setChecked(selected);
+            button->setAutoRaise(true);
+            // Estilo de destaque do servidor selecionado (negrito + fundo).
+            QString css = selected
+                ? QStringLiteral(
+                      "QToolButton#serverTabButton { font-weight: bold; "
+                      "background: palette(highlight); color: palette(highlighted-text); "
+                      "border-radius: 6px; padding: 2px 8px; }")
+                : QStringLiteral(
+                      "QToolButton#serverTabButton { border-radius: 6px; padding: 2px 8px; "
+                      "background: transparent; }"
+                      "QToolButton#serverTabButton:hover { background: palette(alternate-base); }");
+            button->setStyleSheet(css);
+
+            // Clicar seleciona a aba daquele servidor (mostrando seus canais/chat).
+            connect(button, &QToolButton::clicked, this, [this, i] {
                 if (m_tabs && i >= 0 && i < m_tabs->count()) {
                     m_tabs->setCurrentIndex(i);
                     updateConnectionUi();
@@ -1620,14 +1631,20 @@ void MainWindow::rebuildServerMenu() {
                     publishPluginState();
                 }
             });
+            m_serverBarLayout->addWidget(button);
         }
-        m_serverMenu->addSeparator();
+    } else {
+        // Nenhum servidor conectado: mostra apenas o rótulo neutro.
+        QToolButton* button = new QToolButton(m_serverBar);
+        button->setObjectName(QStringLiteral("serverTabButton"));
+        button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        button->setIcon(HIcons::server());
+        button->setText(tr("Nenhum servidor"));
+        button->setEnabled(false);
+        button->setStyleSheet(QStringLiteral(
+            "QToolButton#serverTabButton { border-radius: 6px; padding: 2px 8px; background: transparent; }"));
+        m_serverBarLayout->addWidget(button);
     }
-
-    m_serverMenu->addAction(m_actDisconnect);
-    m_serverMenu->addAction(m_actBookmarkAdd);
-    m_serverMenu->addSeparator();
-    m_serverMenu->addAction(m_actConnect);
 }
 
 // ======================================================================

@@ -12,6 +12,7 @@ class QSystemTrayIcon;
 class QShortcut;
 class QLabel;
 class QToolButton;
+class QHBoxLayout;
 class ServerTab;
 class WelcomePage;
 class LogDialog;
@@ -75,7 +76,7 @@ private:
     void publishPluginState();
     void saveSession();
     void openLogDialog();  // abre o "Registro do cliente" (log) — de Ajuda e Ferramentas
-    void rebuildServerMenu();  // lista os servidores conectados no menu da barra de status
+    void rebuildServerButtons();  // fileira horizontal de servidores conectados na barra de status
 
     QStackedWidget* m_stack = nullptr;
     WelcomePage* m_welcome = nullptr;
@@ -122,9 +123,10 @@ private:
     QMap<int, QPair<QString, QString>> m_pluginGlobalHotkeys;
     int m_nextPluginHotkeyId = 10000;
 
-    // barra de status em 3 zonas (servidor | notícias | conexão), como no Halla
-    QToolButton* m_serverButton = nullptr;
-    QMenu* m_serverMenu = nullptr;
+    // barra de status em 3 zonas (servidores | notícias | conexão), como no Halla.
+    // m_serverBar é uma fileira horizontal com um botão por servidor conectado.
+    QWidget* m_serverBar = nullptr;
+    QHBoxLayout* m_serverBarLayout = nullptr;
     QLabel* m_newsLabel = nullptr;
     QLabel* m_statusIcon = nullptr;
     QLabel* m_statusText = nullptr;
