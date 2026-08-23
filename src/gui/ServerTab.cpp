@@ -391,6 +391,7 @@ void ServerTab::updatePermissionUi() {
     const bool otherCommander = hasPermission({ QStringLiteral("setCommander"),
                                                 QStringLiteral("b_client_set_channel_commander") });
     m_tree->setCanMoveOthers(moveOthers);
+    m_tree->setCanRenameOthers(moveOthers);
     m_tree->setChannelManagementPermissions(
         hasPermission({QStringLiteral("chanEdit")}),
         hasPermission({QStringLiteral("chanDelete")}));
@@ -433,6 +434,8 @@ void ServerTab::hookSignals() {
             this, &ServerTab::deleteChannel);
     connect(m_tree, &ServerTreeWidget::renameRequested,
             this, &ServerTab::renameSelf);
+    connect(m_tree, &ServerTreeWidget::renameUserRequested,
+            this, &ServerTab::renameUser);
     connect(m_tree, &ServerTreeWidget::setDescriptionRequested,
             this, &ServerTab::setSelfDescription);
     connect(m_tree, &ServerTreeWidget::channelDescriptionRequested, this,
@@ -886,6 +889,23 @@ void ServerTab::renameSelf() {
     m_chat->setSelfName(name);
     m_tree->rebuild();
     emit statusChanged();
+}
+
+// Renomear outro cliente. O servidor valida permissão (move) e hierarquia,
+// persiste o apelido para a identidade do alvo e faz o broadcast user_nick.
+void ServerTab::renameUser(int userId) {
+    if (!m_data.users.contains(userId)) return;
+    User& target = m_data.users[userId];
+    bool ok = false;
+    QString name = QInputDialog::getText(this, tr("Alterar apelido"),
+                                         tr("Novo apelido para %1:").arg(target.name),
+                                         QLineEdit::Normal, target.name, &ok);
+    if (!ok || name.trimmed().isEmpty()) return;
+    name = name.trimmed().left(30);
+    if (m_net) {
+        m_net->rename(name, userId);
+        return;
+    }
 }
 
 void ServerTab::setSelfDescription() {

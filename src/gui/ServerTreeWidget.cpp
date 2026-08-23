@@ -691,6 +691,12 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
             menu.addAction(tr("Registrar reclamação..."), this,
                            [this, id] { emit complaintRequested(id); });
             menu.addSeparator();
+            // Renomear terceiro: o servidor exige permissão de moderação
+            // (move) e hierarquia; a opção só aparece para quem pode usá-la.
+            if (m_canRenameOthers) {
+                menu.addAction(tr("Alterar apelido"), this,
+                               [this, id] { emit renameUserRequested(id); });
+            }
             menu.addAction(tr("Definir volume..."), this,
                            [this, id] { emit volumeRequested(id); });
             menu.addAction(tr("Silenciar"), this,

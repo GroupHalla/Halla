@@ -624,8 +624,11 @@ void NetSession::sendTalking(bool on) {
     send(m);
 }
 
-void NetSession::rename(const QString& newName) {
+void NetSession::rename(const QString& newName, int targetUserId) {
     QJsonObject m = HProto::msg("nick");
+    // Sem id: renomeia a si mesmo. Com id: renomeia outro cliente (o
+    // servidor exige permissão de moderação e hierarquia compatível).
+    if (targetUserId > 0) m["id"] = targetUserId;
     m["name"] = newName;
     send(m);
 }

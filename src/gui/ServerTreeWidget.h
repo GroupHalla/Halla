@@ -51,6 +51,7 @@ public:
     void setShowMinis(bool on);
     void setSortClientsBelow(bool on) { m_sortClientsBelow = on; }
     void setCanMoveOthers(bool on) { m_canMoveOthers = on; }
+    void setCanRenameOthers(bool on) { m_canRenameOthers = on; }
     void setChannelManagementPermissions(bool edit, bool remove) {
         m_canEditChannels = edit;
         m_canDeleteChannels = remove;
@@ -78,6 +79,7 @@ signals:
     void deleteChannelRequested(int channelId);
     void channelDescriptionRequested(int channelId);
     void renameRequested();
+    void renameUserRequested(int userId);
     void setDescriptionRequested();
     void viewAvatarRequested(int userId);
     void userInfoRequested(int userId);
@@ -127,6 +129,7 @@ private:
     bool m_showCounts = true;
     bool m_sortClientsBelow = false;
     bool m_canMoveOthers = false;
+    bool m_canRenameOthers = false;
     bool m_canEditChannels = false;
     bool m_canDeleteChannels = false;
     bool m_canSetSelfCommander = false;

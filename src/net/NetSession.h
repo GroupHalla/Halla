@@ -52,7 +52,7 @@ public:
     void setCommander(int userId, bool on);
     void sendStatus();
     void sendTalking(bool on);
-    void rename(const QString& newName);
+    void rename(const QString& newName, int targetUserId = 0);
     void setDescription(const QString& desc);
     void poke(int userId, const QString& msg);
     void createChannel(const QJsonObject& chan);

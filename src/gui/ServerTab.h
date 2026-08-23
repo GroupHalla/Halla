@@ -42,6 +42,7 @@ public:
     void editChannel(int channelId);
     void deleteChannel(int channelId);
     void renameSelf();
+    void renameUser(int userId);
     void setSelfDescription();
     void editVirtualServerName();
 

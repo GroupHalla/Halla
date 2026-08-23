@@ -1391,6 +1391,7 @@ private:
         m_en["Clique aqui e pressione uma tecla ou botão do mouse"] = "Click here and press a key or a mouse button";
         m_en["Definir descrição do cliente"] = "Set client description";
         m_en["Alterar apelido"] = "Change nickname";
+        m_en["Novo apelido para %1:"] = "New nickname for %1:";
         m_en["Ver avatar"] = "View avatar";
         m_en["Enviar mensagem"] = "Send message";
         m_en["Criar canal"] = "Create channel";
@@ -1522,6 +1523,7 @@ private:
         m_es["Clique aqui e pressione uma tecla ou botão do mouse"] = "Haga clic aquí y presione una tecla o botón del mouse";
         m_es["Definir descrição do cliente"] = "Definir descripción del cliente";
         m_es["Alterar apelido"] = "Cambiar apodo";
+        m_es["Novo apelido para %1:"] = "Nuevo apodo para %1:";
         m_es["Ver avatar"] = "Ver avatar";
         m_es["Enviar mensagem"] = "Enviar mensaje";
         m_es["Criar canal"] = "Crear canal";
