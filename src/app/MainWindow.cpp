@@ -1247,6 +1247,8 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         HSpeech::say(tr("Conectado ao servidor"));
 
         S::set("connect/nickname", net->data().users[net->data().selfId].name);
+        // memoriza o apelido aceito por servidor: reconectar não perde mais
+        S::ServerNicks::set(address, port, net->data().users[net->data().selfId].name);
         addRecent(address, port);
         saveSession();
 
@@ -1275,6 +1277,12 @@ void MainWindow::wireTab(ServerTab* tab) {
         }
     });
     if (tab->net()) {
+        // apelido renomeado em sessão: memoriza para este servidor
+        connect(tab->net(), &NetSession::selfRenamed, this, [this, tab](const QString& name) {
+            if (!tab->net()) return;
+            S::ServerNicks::set(tab->net()->hostPort(), 0, name);
+            S::set("connect/nickname", name);
+        });
         connect(tab->net(), &NetSession::screenshareStateChanged, this, &MainWindow::handleScreenshareStateChanged);
         connect(tab->net(), &NetSession::screenshareFrameReceived, this, &MainWindow::handleScreenshareFrameReceived);
         if (!m_webrtcSession) {
@@ -1431,12 +1439,19 @@ void MainWindow::openBookmarksDialog(const QString& prefillLabel, const QString&
     BookmarksDialog dlg(this);
     connect(&dlg, &BookmarksDialog::connectRequested, this,
             [this](const QString& a, quint16 p, const QString& n, const QString& pw) {
-                connectTo(a, p, n, pw);
+                connectTo(a, p,
+                          !n.trimmed().isEmpty()
+                              ? n
+                              : S::ServerNicks::get(a, p,
+                                  S::str("connect/nickname",
+                                         IdentityDialog::defaultNickname())),
+                          pw);
             });
     connect(&dlg, &BookmarksDialog::changed, this, [this] { rebuildBookmarksMenu(); });
     if (!prefillAddr.isEmpty())
         dlg.prefill(prefillLabel.isEmpty() ? prefillAddr : prefillLabel, prefillAddr, 9987,
-                    S::str("connect/nickname", IdentityDialog::defaultNickname()));
+                    S::ServerNicks::get(prefillAddr, 9987,
+                        S::str("connect/nickname", IdentityDialog::defaultNickname())));
     dlg.exec();
     rebuildBookmarksMenu();
 }
@@ -1458,14 +1473,28 @@ void MainWindow::rebuildBookmarksMenu() {
     for (const Bookmark& b : list) {
         QString text = b.label.isEmpty() ? b.address : b.label;
         m_bookmarksMenu->addAction(HIcons::bookmarkStar(), text, this,
-                                   [this, b] { connectTo(b.address, b.port, b.nickname,
-                                                         b.password); });
+                                   [this, b] {
+                                       // favorito com apelido próprio prevalece; sem um,
+                                       // usa a memória do servidor
+                                       const QString nick = !b.nickname.trimmed().isEmpty()
+                                           ? b.nickname
+                                           : S::ServerNicks::get(b.address, b.port,
+                                               S::str("connect/nickname",
+                                                      IdentityDialog::defaultNickname()));
+                                       connectTo(b.address, b.port, nick, b.password);
+                                   });
     }
     m_bookmarksMenu->addSeparator();
     m_bookmarksMenu->addAction(tr("Conectar a todos os favoritos"), this, [this] {
         for (const Bookmark& b : BookmarksDialog::loadAll())
             if (!b.address.trimmed().isEmpty())
-                connectTo(b.address, b.port, b.nickname, b.password);
+                connectTo(b.address, b.port,
+                          !b.nickname.trimmed().isEmpty()
+                              ? b.nickname
+                              : S::ServerNicks::get(b.address, b.port,
+                                  S::str("connect/nickname",
+                                         IdentityDialog::defaultNickname())),
+                          b.password);
     });
 }
 
@@ -1498,10 +1527,13 @@ void MainWindow::rebuildRecentMenu() {
             any = true;
             m_recentMenu->addAction(o["addr"].toString(), this,
                                     [this, o] {
-                                        connectTo(o["addr"].toString(),
-                                                  quint16(o["port"].toInt(9987)),
-                                                  S::str("connect/nickname",
-                                                         IdentityDialog::defaultNickname()));
+                                        const QString addr = o["addr"].toString();
+                                        const quint16 port = quint16(o["port"].toInt(9987));
+                                        // último apelido usado neste servidor; sem memória, global
+                                        connectTo(addr, port,
+                                                  S::ServerNicks::get(addr, port,
+                                                      S::str("connect/nickname",
+                                                             IdentityDialog::defaultNickname())));
                                     });
         }
     }

@@ -1132,6 +1132,10 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             if (obj.contains("icon")) u.groupIcon = obj["icon"].toString();
             if (obj.contains("order")) u.groupOrder = obj["order"].toInt(0);
             if (obj.contains("orderEnabled")) u.groupOrderEnabled = obj["orderEnabled"].toBool(true);
+            // renomeação confirmada pelo servidor: avisa para memorizar o
+            // apelido deste servidor (persistência por host:porta)
+            if (t == "user_nick" && id == d.selfId && obj.contains("name"))
+                emit selfRenamed(u.name);
         }
         emit stateChanged();
         return;

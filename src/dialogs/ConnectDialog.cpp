@@ -42,6 +42,15 @@ ConnectDialog::ConnectDialog(QWidget* parent) : QDialog(parent) {
     hw->setLayout(hostRow);
     form->addRow(tr("Endereço do servidor:"), hw);
 
+    // Apelido memorizado por servidor: ao digitar um endereço já visitado,
+    // o campo de apelido preenche sozinho com o último apelido usado lá.
+    auto refreshSavedNick = [this] {
+        const QString saved = S::ServerNicks::get(m_host->text(), m_port->text().toUShort());
+        if (!saved.isEmpty()) m_nick->setText(saved);
+    };
+    connect(m_host, &QLineEdit::textChanged, this, refreshSavedNick);
+    connect(m_port, &QLineEdit::textChanged, this, refreshSavedNick);
+
     m_password = new QLineEdit(this);
     m_password->setEchoMode(QLineEdit::Password);
     form->addRow(tr("Senha do servidor:"), m_password);

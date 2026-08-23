@@ -113,6 +113,7 @@ public:
 
 signals:
     void welcomeReceived();                     // estado completo carregado
+    void selfRenamed(const QString& name);      // servidor confirmou nosso novo apelido (user_nick)
     void stateChanged();                        // ServerData mudou (rebuild da UI)
     void chatReceived(const QString& scope, int fromId, const QString& fromName,
                       const QString& text);
