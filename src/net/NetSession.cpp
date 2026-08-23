@@ -861,6 +861,7 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.groupOrderEnabled = u["orderEnabled"].toBool(true);
     usr.groupId = u["gid"].toInt(0);
     usr.groupPosition = u["position"].toInt(0);  // Pilar 1: posição hierárquica
+    usr.groupSiglaPosition = u["siglaPosition"].toInt(0); // hierarquia da tag visível
     usr.inputMuted = u["mic"].toBool();
     usr.outputMuted = u["spk"].toBool();
     usr.away = u["away"].toBool();
@@ -1135,6 +1136,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             if (obj.contains("icon")) u.groupIcon = obj["icon"].toString();
             if (obj.contains("order")) u.groupOrder = obj["order"].toInt(0);
             if (obj.contains("orderEnabled")) u.groupOrderEnabled = obj["orderEnabled"].toBool(true);
+            if (obj.contains("position")) u.groupPosition = obj["position"].toInt(0);
+            if (obj.contains("siglaPosition")) u.groupSiglaPosition = obj["siglaPosition"].toInt(0);
             // renomeação confirmada pelo servidor: avisa para memorizar o
             // apelido deste servidor (persistência por host:porta)
             if (t == "user_nick" && id == d.selfId && obj.contains("name"))

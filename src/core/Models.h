@@ -58,6 +58,7 @@ struct User {
     bool    groupOrderEnabled = true; // servidores antigos sempre usavam a ordem
     int     groupId = 0;
     int     groupPosition = 0;       // Pilar 1: posição hierárquica do cargo (quanto maior, mais autoridade)
+    int     groupSiglaPosition = 0;  // hierarquia do cargo com a tag visível (ordena a lista; 0 em servidores antigos)
     bool    talking = false;
     bool    whispering = false;      // sussurrando (sinal laranja)
     bool    screensharing = false;   // compartilhando tela (🔴 LIVE)

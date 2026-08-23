@@ -504,8 +504,10 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
     }
 
     // Ordena os usuários apenas por cargos cuja ordem visual está habilitada.
-    // A posição hierárquica de permissões é independente desta lista.
-    // Se empatado (ou sem ordem ativa), usa a ordem alfabética de apelido.
+    // A hierarquia (position) do cargo primário é o critério principal — a
+    // mesma tag exibida antes do nome — com a ordem visual como desempate e o
+    // apelido por último. Servidores antigos sem posição enviada ordenam como
+    // antes (todos em 0: ordem visual, depois alfabético).
     QList<int> sortedUsers;
     for (int uid : c.users) {
         if (m_data->users.contains(uid)) {
@@ -517,8 +519,18 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
         const User& uB = m_data->users[uidB];
         if (uA.groupOrderEnabled != uB.groupOrderEnabled)
             return uA.groupOrderEnabled; // quem tem uma ordem ativa vem primeiro
-        if (uA.groupOrderEnabled && uA.groupOrder != uB.groupOrder)
-            return uA.groupOrder < uB.groupOrder;
+        if (uA.groupOrderEnabled) {
+            // A hierarquia manda: primeiro a posição do cargo com a tag visível
+            // (ex.: [3Sgt] acima de [Cb] mesmo quando ambos dividem um cargo
+            // operacional sem sigla, como ROTA), depois a hierarquia geral,
+            // depois a ordem visual do cargo e, por fim, o apelido.
+            if (uA.groupSiglaPosition != uB.groupSiglaPosition)
+                return uA.groupSiglaPosition > uB.groupSiglaPosition;
+            if (uA.groupPosition != uB.groupPosition)
+                return uA.groupPosition > uB.groupPosition;
+            if (uA.groupOrder != uB.groupOrder)
+                return uA.groupOrder < uB.groupOrder;
+        }
         return uA.name.localeAwareCompare(uB.name) < 0;
     });
 
