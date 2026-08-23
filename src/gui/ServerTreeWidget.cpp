@@ -520,14 +520,13 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
         if (uA.groupOrderEnabled != uB.groupOrderEnabled)
             return uA.groupOrderEnabled; // quem tem uma ordem ativa vem primeiro
         if (uA.groupOrderEnabled) {
-            // A hierarquia manda: primeiro a posição do cargo com a tag visível
-            // (ex.: [3Sgt] acima de [Cb] mesmo quando ambos dividem um cargo
-            // operacional sem sigla, como ROTA), depois a hierarquia geral,
-            // depois a ordem visual do cargo e, por fim, o apelido.
+            // Hierarquia visual (siglaPosition) é enviada pelo servidor já
+            // filtrada: cargos com "Usar a ordem deste cargo na lista de
+            // nomes" desligado não contam — nem a ordem, nem a hierarquia.
+            // A position de PERMISSÕES não entra aqui de forma nenhuma, ou
+            // um admin com ordem desligada voltaria ao topo da lista.
             if (uA.groupSiglaPosition != uB.groupSiglaPosition)
                 return uA.groupSiglaPosition > uB.groupSiglaPosition;
-            if (uA.groupPosition != uB.groupPosition)
-                return uA.groupPosition > uB.groupPosition;
             if (uA.groupOrder != uB.groupOrder)
                 return uA.groupOrder < uB.groupOrder;
         }
