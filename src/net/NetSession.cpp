@@ -1157,6 +1157,9 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "poke") {
+        // "self" marca o eco de confirmação do próprio poke enviado — não é
+        // um poke recebido de outra pessoa.
+        if (obj.contains("self") && obj["self"].toBool()) return;
         emit pokeReceived(obj["from"].toInt(), obj["fromName"].toString(""),
                           obj["msg"].toString());
         return;
