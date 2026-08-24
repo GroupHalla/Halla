@@ -122,6 +122,9 @@ signals:
     void kickedReceived(const QString& reason, bool ban, int minutes);
     void errorOccurred(const QString& code, const QString& msg); // erro do servidor
     void connectionFailed(const QString& reason);                // TCP falhou/negado
+    // Login recusado por apelido (name_in_use/bad_nick): o servidor fecha a
+    // conexão; a UI pede outro apelido e reconecta.
+    void nickRejected(const QString& message);
     void disconnectedUnexpected();
     void voicePacketReceived(int fromId, quint16 seq, const QByteArray& payload);
     void screenshareStateChanged(int userId, bool on);

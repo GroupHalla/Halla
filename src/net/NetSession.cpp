@@ -969,6 +969,12 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         if (!m_ready) {
             m_fatalError = true;
             m_data = ServerData();
+            // Apelido recusado no login: sinal dedicado para a UI pedir outro
+            // nome e reconectar, em vez do aviso genérico de falha.
+            if (code == QLatin1String("name_in_use") || code == QLatin1String("bad_nick")) {
+                emit nickRejected(msg.isEmpty() ? code : msg);
+                return;
+            }
             emit connectionFailed(msg.isEmpty() ? code : msg);
             return;
         }

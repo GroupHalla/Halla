@@ -28,7 +28,19 @@ static QString bookmarkSecretKey(const Bookmark& b) {
 
 QList<Bookmark> BookmarksDialog::loadAll() {
     QList<Bookmark> out;
-    QJsonDocument doc = QJsonDocument::fromJson(S::str("bookmarks").toUtf8());
+    const QString raw = S::str(QStringLiteral("bookmarks"));
+    if (raw.trimmed().isEmpty()) {
+        // Primeira execução: o servidor oficial já vem pré-salvo, sem
+        // apelido — o app pergunta o nome na hora de conectar e o servidor
+        // recusa apelidos em uso (name_in_use).
+        Bookmark official;
+        official.label = QStringLiteral("HALLA OFFICIAL SERVER");
+        official.address = QStringLiteral("163.176.35.133");
+        official.port = 9987;
+        out << official;
+        return out;
+    }
+    QJsonDocument doc = QJsonDocument::fromJson(raw.toUtf8());
     if (!doc.isArray()) return out;
     for (const QJsonValue& v : doc.array()) {
         QJsonObject o = v.toObject();

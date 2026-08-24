@@ -35,6 +35,8 @@
 #include <QMenuBar>
 #include <QToolBar>
 #include <QStatusBar>
+#include <QInputDialog>
+#include <QLineEdit>
 #include <QPainter>
 #include <QPainterPath>
 #include <QFrame>
@@ -1199,7 +1201,19 @@ MainWindow::~MainWindow() {
 // ======================================================================
 void MainWindow::connectTo(const QString& address, quint16 port, const QString& nickname,
                            const QString& password) {
-    const QString nick = nickname.isEmpty() ? IdentityDialog::defaultNickname() : nickname;
+    // Entrar sem nome não é permitido: o servidor oficial vem pré-salvo nos
+    // favoritos com o apelido vazio justamente para o app perguntar aqui.
+    QString nick = nickname.trimmed();
+    if (nick.isEmpty()) {
+        bool ok = false;
+        const QString remembered = S::ServerNicks::get(address, port,
+            S::str(QStringLiteral("connect/nickname"), QString()));
+        nick = QInputDialog::getText(this, tr("Escolha um apelido"),
+            tr("Digite o apelido com que você vai entrar em %1:%2.")
+                .arg(address).arg(port),
+            QLineEdit::Normal, remembered, &ok).trimmed();
+        if (!ok || nick.isEmpty()) return;
+    }
     // ID único da identidade PADRÃO (estável — gerado e persistido uma vez)
     QString uid;
     for (const QStringList& r : IdentityDialog::loadAll())
@@ -1216,6 +1230,21 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
                              tr("<b>Falha ao conectar ao servidor %1:%2</b><br>%3")
                                  .arg(address).arg(port).arg(reason.toHtmlEscaped()));
         net->deleteLater();
+    });
+
+    // apelido recusado (name_in_use/bad_nick): pede outro nome e reconecta
+    connect(net, &NetSession::nickRejected, this,
+            [this, net, address, port, password](const QString& message) {
+        bool ok = false;
+        const QString remembered = S::ServerNicks::get(address, port,
+            S::str(QStringLiteral("connect/nickname"), QString()));
+        const QString nick = QInputDialog::getText(this, tr("Apelido em uso"),
+            tr("%1\nEscolha outro apelido para entrar em %2:%3.")
+                .arg(message, address).arg(port),
+            QLineEdit::Normal, remembered, &ok).trimmed();
+        net->deleteLater();
+        if (!ok || nick.isEmpty()) return;
+        connectTo(address, port, nick, password);
     });
 
     // login aceito: cria a aba do servidor
@@ -1439,19 +1468,18 @@ void MainWindow::openBookmarksDialog(const QString& prefillLabel, const QString&
     BookmarksDialog dlg(this);
     connect(&dlg, &BookmarksDialog::connectRequested, this,
             [this](const QString& a, quint16 p, const QString& n, const QString& pw) {
+                // Apelido vazio no favorito + nada memorizado -> connectTo
+                // pergunta o nome (não inventa um padrão).
                 connectTo(a, p,
                           !n.trimmed().isEmpty()
                               ? n
-                              : S::ServerNicks::get(a, p,
-                                  S::str("connect/nickname",
-                                         IdentityDialog::defaultNickname())),
+                              : S::ServerNicks::get(a, p, QString()),
                           pw);
             });
     connect(&dlg, &BookmarksDialog::changed, this, [this] { rebuildBookmarksMenu(); });
     if (!prefillAddr.isEmpty())
         dlg.prefill(prefillLabel.isEmpty() ? prefillAddr : prefillLabel, prefillAddr, 9987,
-                    S::ServerNicks::get(prefillAddr, 9987,
-                        S::str("connect/nickname", IdentityDialog::defaultNickname())));
+                    S::ServerNicks::get(prefillAddr, 9987, QString()));
     dlg.exec();
     rebuildBookmarksMenu();
 }
@@ -1475,12 +1503,11 @@ void MainWindow::rebuildBookmarksMenu() {
         m_bookmarksMenu->addAction(HIcons::bookmarkStar(), text, this,
                                    [this, b] {
                                        // favorito com apelido próprio prevalece; sem um,
-                                       // usa a memória do servidor
+                                       // usa a memória do servidor — e vazio faz
+                                       // connectTo perguntar o nome na hora
                                        const QString nick = !b.nickname.trimmed().isEmpty()
                                            ? b.nickname
-                                           : S::ServerNicks::get(b.address, b.port,
-                                               S::str("connect/nickname",
-                                                      IdentityDialog::defaultNickname()));
+                                           : S::ServerNicks::get(b.address, b.port, QString());
                                        connectTo(b.address, b.port, nick, b.password);
                                    });
     }
@@ -1491,9 +1518,7 @@ void MainWindow::rebuildBookmarksMenu() {
                 connectTo(b.address, b.port,
                           !b.nickname.trimmed().isEmpty()
                               ? b.nickname
-                              : S::ServerNicks::get(b.address, b.port,
-                                  S::str("connect/nickname",
-                                         IdentityDialog::defaultNickname())),
+                              : S::ServerNicks::get(b.address, b.port, QString()),
                           b.password);
     });
 }
