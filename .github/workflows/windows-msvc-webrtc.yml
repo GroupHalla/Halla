@@ -1,4 +1,4 @@
-name: Build and release Windows MSVC WebRTC
+name: Build and release Windows Desktop
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         default: v0.1.14
   push:
-    tags: ['desktop-webrtc-v*']
+    tags: ['v*', 'desktop-webrtc-v*']
 
 permissions:
   contents: read
@@ -29,8 +29,11 @@ jobs:
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
           if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid VERSION=$version" }
-          if ('${{ github.ref_type }}' -eq 'tag' -and '${{ github.ref_name }}' -ne "desktop-webrtc-v$version") {
-            throw "Tag ${{ github.ref_name }} does not match VERSION=$version"
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $expected = @("v$version", "desktop-webrtc-v$version")
+            if ($expected -notcontains '${{ github.ref_name }}') {
+              throw "Tag ${{ github.ref_name }} does not match VERSION=$version"
+            }
           }
           "value=$version" >> $env:GITHUB_OUTPUT
 
@@ -119,7 +122,6 @@ jobs:
           choco install nsis --no-progress -y
           $version = '${{ steps.version.outputs.value }}'
           & "C:\Program Files (x86)\NSIS\makensis.exe" "/DAPP_VERSION=$version" packaging\halla-setup.nsi
-          Move-Item "Halla-Setup-$version.exe" "Halla-Setup-WebRTC-$version.exe" -Force
 
       - name: Sign installer when certificate is configured
         shell: pwsh
@@ -131,14 +133,14 @@ jobs:
           if (-not $env:PFX) { Write-Host "Signing certificate not configured; manual installer remains unsigned"; exit 0 }
           $version = '${{ steps.version.outputs.value }}'
           $timestamp = if ($env:TIMESTAMP_URL) { $env:TIMESTAMP_URL } else { "http://timestamp.digicert.com" }
-          signtool sign /fd SHA256 /td SHA256 /tr $timestamp /f "$env:RUNNER_TEMP\halla-signing.pfx" /p "$env:PASSWORD" "Halla-Setup-WebRTC-$version.exe"
-          signtool verify /pa /v "Halla-Setup-WebRTC-$version.exe"
+          signtool sign /fd SHA256 /td SHA256 /tr $timestamp /f "$env:RUNNER_TEMP\halla-signing.pfx" /p "$env:PASSWORD" "Halla-Setup-$version.exe"
+          signtool verify /pa /v "Halla-Setup-$version.exe"
 
       - name: Generate installer checksum
         shell: pwsh
         run: |
           $version = '${{ steps.version.outputs.value }}'
-          $file = "Halla-Setup-WebRTC-$version.exe"
+          $file = "Halla-Setup-$version.exe"
           $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
           "$hash  $file" | Set-Content -Encoding ascii "$file.sha256"
 
@@ -148,8 +150,8 @@ jobs:
           name: halla-desktop-webrtc-installer
           if-no-files-found: error
           path: |
-            Halla-Setup-WebRTC-${{ steps.version.outputs.value }}.exe
-            Halla-Setup-WebRTC-${{ steps.version.outputs.value }}.exe.sha256
+            Halla-Setup-${{ steps.version.outputs.value }}.exe
+            Halla-Setup-${{ steps.version.outputs.value }}.exe.sha256
 
   release:
     if: github.ref_type == 'tag'
@@ -166,10 +168,10 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Halla Desktop WebRTC ${{ github.ref_name }}
+          name: Halla Desktop ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: |
-            Halla-Setup-WebRTC-*.exe
-            Halla-Setup-WebRTC-*.exe.sha256
+            Halla-Setup-*.exe
+            Halla-Setup-*.exe.sha256
