@@ -1,24 +1,18 @@
-﻿HALLA — CLIENTE DE COMUNICAÇÃO DE VOZ
-=====================================
+LICENÇA — HALLA (DOMÍNIO PÚBLICO / UNLICENSE)
 
-Contrato de Licença de Usuário Final
+Este software é livre e sem restrições, dedicado ao domínio público.
 
-1. CONCESSÃO DE LICENÇA
-   É concedida a você uma licença não exclusiva e intransferível para
-   instalar e utilizar o Halla em seu computador, para uso pessoal.
+Qualquer pessoa está livre para copiar, modificar, publicar, usar,
+compilar, vender ou distribuir este software, em forma de código-fonte ou
+de binário compilado, para qualquer finalidade, comercial ou não, e por
+qualquer meio, sem pedir permissão, sem pagar nada e sem precisar dar
+crédito.
 
-2. RESTRIÇÕES
-   Não é permitido descompilar, fazer engenharia reversa ou redistribuir
-   o software para fins comerciais sem autorização.
+O SOFTWARE É FORNECIDO "COMO ESTÁ", SEM GARANTIA DE QUALQUER TIPO.
+EM NENHUM CASO OS AUTORES SERÃO RESPONSÁVEIS POR QUALQUER REIVINDICAÇÃO,
+DANOS OU OUTRA RESPONSABILIDADE DECORRENTES DO USO DO SOFTWARE.
 
-3. ISENÇÃO DE GARANTIA
-   O software é fornecido "como está", sem garantias de qualquer tipo,
-   expressas ou implícitas. Em nenhum caso os autores serão responsáveis
-   por danos decorrentes do uso do software.
+Componentes de terceiros (Qt, Opus, OpenSSL, libwebrtc, mbedTLS) seguem
+as respectivas licenças originais de seus autores.
 
-4. COMPONENTES DE TERCEIROS
-   Este produto utiliza o Qt Framework (The Qt Company), licenciado sob
-   a LGPL v3, e runtime do compilador MinGW-w64 GCC (GPL com exceção de
-   runtime).
-
-Copyright © 2026 Halla. Todos os direitos reservados.
+Para mais informações: https://unlicense.org

@@ -360,5 +360,7 @@ executável (`src/halla.rc.in`) e monta o instalador NSIS (`packaging/halla-setu
 
 ## Licença
 
-Distribuído sob os termos do contrato de licença de usuário final em
-[`packaging/LICENSE.txt`](packaging/LICENSE.txt).
+Domínio público ([Unlicense](https://unlicense.org)): livre para todos,
+para tudo — usar, copiar, modificar, vender ou redistribuir, com ou sem
+crédito. Ver [`LICENSE`](LICENSE). Componentes de terceiros (Qt, Opus,
+OpenSSL, libwebrtc, mbedTLS) seguem as respectivas licenças originais.
