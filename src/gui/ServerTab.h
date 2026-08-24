@@ -105,8 +105,11 @@ private:
     QVector<OfflineMsgItem> m_offlineInbox;
     QStringList m_whisperUids;
     bool m_whisperHold = false;           // atalho de sussurro pressionado agora
+    QList<int> m_lastSentWhisperIds;      // último conjunto whisper efetivamente enviado
+    bool m_stateRefreshPending = false;   // coalesce rajadas de user_state
 
     void hookSignals();
+    void refreshServerState();     // estado consolidado (coalesce rajadas de user_state)
     bool hasPermission(const QStringList& keys) const;
     void updatePermissionUi();
     void applyWhisper();                  // mapeia uids -> ids e envia ao servidor

@@ -32,6 +32,7 @@
 #include <QStandardPaths>
 #include <QDateTime>
 #include <QDir>
+#include <QTimer>
 #include <QLabel>
 #include <QDialogButtonBox>
 #include <QTextBrowser>
@@ -197,6 +198,10 @@ void ServerTab::attachNetwork(NetSession* net) {
     net->attachTo(&m_data);
     updatePermissionUi();
 
+    // ids de sessão de uma conexão anterior não valem para esta; obriga o
+    // primeiro applyWhisper a reenviar o conjunto resolvido.
+    m_lastSentWhisperIds.clear();
+
     // usuários já presentes no login (não tocar som para eles)
     for (const User& u : m_data.users) {
         m_knownUsers << u.id;
@@ -218,77 +223,17 @@ void ServerTab::attachNetwork(NetSession* net) {
 
     // estado vindo do servidor -> redesenha a árvore/informações
     connect(net, &NetSession::stateChanged, this, [this] {
-        // Detecta entradas e saídas especificamente no canal atual do usuário.
-        // Usuários que entram em outros canais não disparam o aviso da call.
-        QSet<int> now;
-        QMap<int, int> currentChannels;
-        for (const User& u : m_data.users) {
-            now << u.id;
-            currentChannels[u.id] = m_data.channelOfUser(u.id);
-            m_lastNames[u.id] = u.name;
-            if (u.id != m_data.selfId) {
-                const bool wasTalking = m_lastTalking.value(u.id, false);
-                const bool wasWhispering = m_lastWhispering.value(u.id, false);
-                if (u.talking && (!wasTalking || (u.whispering && !wasWhispering))) {
-                    playRemoteSpeechCue(u, true);
-                } else if (!u.talking && wasTalking) {
-                    playRemoteSpeechCue(u, false);
-                }
-                m_lastTalking[u.id] = u.talking;
-                m_lastWhispering[u.id] = u.whispering;
-            }
-        }
-
-        const int myChan = currentChannels.value(m_data.selfId, m_data.channelOfUser(m_data.selfId));
-        const bool selfChangedChannel = m_myChan >= 0 && myChan != m_myChan;
-        if (!selfChangedChannel && myChan > 0) {
-            for (int id : now) {
-                if (id == m_data.selfId) continue;
-                const int current = currentChannels.value(id, 0);
-                if (!m_knownUsers.contains(id)) {
-                    if (current == myChan) {
-                        if (S::flag("notify/userJoinSound", true))
-                            HSound::play(QStringLiteral("user_joined"));
-                        HSpeech::say(tr("%1 entrou no seu canal").arg(m_lastNames.value(id)));
-                    }
-                    continue;
-                }
-                const int previous = m_lastChannels.value(id, current);
-                if (previous == current) continue;
-                if (current == myChan) {
-                    if (S::flag("notify/userJoinSound", true))
-                        HSound::play(QStringLiteral("user_joined"));
-                    HSpeech::say(tr("%1 entrou no seu canal").arg(m_lastNames.value(id)));
-                } else if (previous == myChan) {
-                    if (S::flag("notify/userLeftSound", true))
-                        HSound::play(QStringLiteral("user_left"));
-                    HSpeech::say(tr("%1 saiu do seu canal").arg(m_lastNames.value(id)));
-                }
-            }
-            for (int id : m_knownUsers) {
-                if (id == m_data.selfId || now.contains(id)) continue;
-                if (m_lastChannels.value(id, 0) == myChan) {
-                    if (S::flag("notify/userLeftSound", true))
-                        HSound::play(QStringLiteral("user_left"));
-                    HSpeech::say(tr("%1 saiu do seu canal").arg(m_lastNames.value(id)));
-                }
-            }
-        }
-
-        // A própria troca de canal usa um único aviso, sem tocar uma vez para
-        // cada pessoa que já estava no destino.
-        if (selfChangedChannel && S::flag("notify/channelSwitchSound", true))
-            HSound::play(QStringLiteral("moved"));
-        m_knownUsers = now;
-        m_lastChannels = currentChannels;
-        m_myChan = myChan;
-
-        applyWhisper(); // mantém o alvo do sussurro sincronizado (ids mudam a cada login)
-        updatePermissionUi();
-
-        m_tree->rebuild();
-        m_info->refresh();
-        emit statusChanged();
+        // user_state chega a cada transição de fala (VAD) de qualquer cliente;
+        // um microfone oscilando pode gerar dezenas de eventos por segundo.
+        // Reconstruir a árvore em cada evento congelava a interface e fazia a
+        // lista de canais "descer sozinha". Coalesce as rajadas: processa no
+        // máximo uma vez a cada 120 ms, sempre com o estado mais recente.
+        if (m_stateRefreshPending) return;
+        m_stateRefreshPending = true;
+        QTimer::singleShot(120, this, [this] {
+            m_stateRefreshPending = false;
+            refreshServerState();
+        });
     });
 
     connect(net, &NetSession::chatReceived, this,
@@ -685,6 +630,84 @@ void ServerTab::hookSignals() {
 
 void ServerTab::systemMsgServer(const QString& msg)  { m_chat->addServerSystem(msg); }
 void ServerTab::systemMsgChannel(const QString& msg) { m_chat->addChannelSystem(msg); }
+
+// Estado consolidado do servidor: sons de entrada/saída, sincronização do
+// sussurro e redesenho da árvore. Extraído do handler de stateChanged para
+// poder ser coalescido (rajadas de user_state de VAD não podem reexecutar
+// tudo dezenas de vezes por segundo).
+void ServerTab::refreshServerState() {
+    // Detecta entradas e saídas especificamente no canal atual do usuário.
+    // Usuários que entram em outros canais não disparam o aviso da call.
+    QSet<int> now;
+    QMap<int, int> currentChannels;
+    for (const User& u : m_data.users) {
+        now << u.id;
+        currentChannels[u.id] = m_data.channelOfUser(u.id);
+        m_lastNames[u.id] = u.name;
+        if (u.id != m_data.selfId) {
+            const bool wasTalking = m_lastTalking.value(u.id, false);
+            const bool wasWhispering = m_lastWhispering.value(u.id, false);
+            if (u.talking && (!wasTalking || (u.whispering && !wasWhispering))) {
+                playRemoteSpeechCue(u, true);
+            } else if (!u.talking && wasTalking) {
+                playRemoteSpeechCue(u, false);
+            }
+            m_lastTalking[u.id] = u.talking;
+            m_lastWhispering[u.id] = u.whispering;
+        }
+    }
+
+    const int myChan = currentChannels.value(m_data.selfId, m_data.channelOfUser(m_data.selfId));
+    const bool selfChangedChannel = m_myChan >= 0 && myChan != m_myChan;
+    if (!selfChangedChannel && myChan > 0) {
+        for (int id : now) {
+            if (id == m_data.selfId) continue;
+            const int current = currentChannels.value(id, 0);
+            if (!m_knownUsers.contains(id)) {
+                if (current == myChan) {
+                    if (S::flag("notify/userJoinSound", true))
+                        HSound::play(QStringLiteral("user_joined"));
+                    HSpeech::say(tr("%1 entrou no seu canal").arg(m_lastNames.value(id)));
+                }
+                continue;
+            }
+            const int previous = m_lastChannels.value(id, current);
+            if (previous == current) continue;
+            if (current == myChan) {
+                if (S::flag("notify/userJoinSound", true))
+                    HSound::play(QStringLiteral("user_joined"));
+                HSpeech::say(tr("%1 entrou no seu canal").arg(m_lastNames.value(id)));
+            } else if (previous == myChan) {
+                if (S::flag("notify/userLeftSound", true))
+                    HSound::play(QStringLiteral("user_left"));
+                HSpeech::say(tr("%1 saiu do seu canal").arg(m_lastNames.value(id)));
+            }
+        }
+        for (int id : m_knownUsers) {
+            if (id == m_data.selfId || now.contains(id)) continue;
+            if (m_lastChannels.value(id, 0) == myChan) {
+                if (S::flag("notify/userLeftSound", true))
+                    HSound::play(QStringLiteral("user_left"));
+                HSpeech::say(tr("%1 saiu do seu canal").arg(m_lastNames.value(id)));
+            }
+        }
+    }
+
+    // A própria troca de canal usa um único aviso, sem tocar uma vez para
+    // cada pessoa que já estava no destino.
+    if (selfChangedChannel && S::flag("notify/channelSwitchSound", true))
+        HSound::play(QStringLiteral("moved"));
+    m_knownUsers = now;
+    m_lastChannels = currentChannels;
+    m_myChan = myChan;
+
+    applyWhisper(); // mantém o alvo do sussurro sincronizado (ids mudam a cada login)
+    updatePermissionUi();
+
+    m_tree->rebuild();
+    m_info->refresh();
+    emit statusChanged();
+}
 
 void ServerTab::playSpeechCue(bool active) {
     if (!S::flag("capture/speechCueEnabled", false)) return;
@@ -1146,6 +1169,7 @@ void ServerTab::setWhisperUids(const QStringList& uids) {
         playSpeechCue(true);
     if (!m_net) return;
     if (uids.isEmpty()) {
+        m_lastSentWhisperIds.clear();
         m_net->setWhisperIds({});
         systemMsgChannel(tr("Sussurro desativado. Sua voz segue para o canal."));
         return;
@@ -1177,6 +1201,14 @@ void ServerTab::applyWhisper() {
         if (m_whisperUids.contains(u.uniqueId) || channelTargets.contains(userChannel))
             if (!ids.contains(u.id)) ids << u.id;
     }
+    // stateChanged dispara a cada user_state — inclusive o indicador de fala
+    // (talking) de qualquer cliente oscilando com o VAD. Reenviar o whisper
+    // idêntico nessa frequência inundava o servidor e acionava o rate limit
+    // ("você está enviando mensagens rápido demais"). Envie somente quando o
+    // conjunto resolvido realmente mudar (ex.: um alvo reconectou e ganhou
+    // novo id de sessão).
+    if (ids == m_lastSentWhisperIds) return;
+    m_lastSentWhisperIds = ids;
     m_net->setWhisperIds(ids);
 }
 
@@ -1242,7 +1274,10 @@ void ServerTab::setWhisperHold(bool on, int scope) {
             systemMsgChannel(tr("Sussurro: a lista de usuários está vazia — "
                                 "configure em Ferramentas > Listas de sussurro."));
         }
-        if (m_net) m_net->setWhisperIds(ids);
+        if (m_net) {
+            m_lastSentWhisperIds = ids;
+            m_net->setWhisperIds(ids);
+        }
         const QStringList names = { tr("canal atual"), tr("canal atual + subcanais"),
                                     tr("lista de usuários") };
         systemMsgChannel(tr("Sussurro ativo (%1): sua voz vai para %2 usuário(s).")
@@ -1251,7 +1286,10 @@ void ServerTab::setWhisperHold(bool on, int scope) {
     } else {
         // ao soltar: restaura a lista fixa (se houver) ou volta a falar no canal
         if (!m_whisperUids.isEmpty()) applyWhisper();
-        else if (m_net)              m_net->setWhisperIds({});
+        else if (m_net) {
+            m_lastSentWhisperIds.clear();
+            m_net->setWhisperIds({});
+        }
         systemMsgChannel(tr("Sussurro desativado. Sua voz segue para o canal."));
     }
     m_tree->rebuild();
