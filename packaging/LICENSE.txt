@@ -1,18 +1,19 @@
-LICENÇA — HALLA (DOMÍNIO PÚBLICO / UNLICENSE)
+LICENÇA — HALLA (LIVRE PARA USO NÃO COMERCIAL)
 
-Este software é livre e sem restrições, dedicado ao domínio público.
+O Halla é software livre para uso pessoal, educacional e comunitário.
 
-Qualquer pessoa está livre para copiar, modificar, publicar, usar,
-compilar, vender ou distribuir este software, em forma de código-fonte ou
-de binário compilado, para qualquer finalidade, comercial ou não, e por
-qualquer meio, sem pedir permissão, sem pagar nada e sem precisar dar
-crédito.
+GRÁTIS E SEM PERMISSÃO: usar em quantos dispositivos quiser; estudar,
+modificar e criar versões derivadas; redistribuir cópias originais ou
+modificadas, gratuitamente; usar em comunidades, clãs, eventos e
+projetos sem fins lucrativos.
 
-O SOFTWARE É FORNECIDO "COMO ESTÁ", SEM GARANTIA DE QUALQUER TIPO.
-EM NENHUM CASO OS AUTORES SERÃO RESPONSÁVEIS POR QUALQUER REIVINDICAÇÃO,
-DANOS OU OUTRA RESPONSABILIDADE DECORRENTES DO USO DO SOFTWARE.
+EXIGE AUTORIZAÇÃO ESCRITA DOS MANTENEDORES: vender, alugar, licenciar
+ou cobrar qualquer valor pelo software ou por versões derivadas;
+oferecê-lo como serviço pago ou embutido em produto comercial.
+
+CONDIÇÕES: redistribuições devem manter este arquivo de licença. O
+software é fornecido "como está", sem garantia de qualquer tipo; os
+autores não se responsabilizam por danos decorrentes do uso.
 
 Componentes de terceiros (Qt, Opus, OpenSSL, libwebrtc, mbedTLS) seguem
 as respectivas licenças originais de seus autores.
-
-Para mais informações: https://unlicense.org

@@ -22,10 +22,12 @@ installer = (root / "packaging/halla-setup.nsi").read_text(encoding="utf-8")
 catalog = json.loads((root / "addons/catalog.json").read_text(encoding="utf-8"))
 
 assert "HALLA_PLUGIN_ABI_VERSION 1u" in api
-# O SDK é domínio público (Unlicense): a frase MIT virou "free and unencumbered
-# software released into the public domain".
-assert "public domain" in sdk_license.lower()
-assert "unlicense.org" in sdk_license.lower()
+# O SDK é livre para uso não comercial: vender/explorar comercialmente
+# exige autorização escrita dos mantenedores. (Espaços normalizados porque
+# a frase pode quebrar linha no arquivo.)
+_sdk_flat = " ".join(sdk_license.lower().split())
+assert "non-commercial" in _sdk_flat
+assert "written permission" in _sdk_flat
 assert "HallaHostApi" in api and "HallaPluginApi" in api
 assert "halla_plugin_entry" in api
 assert "get_settings_json" in api and "request_client_state" in api

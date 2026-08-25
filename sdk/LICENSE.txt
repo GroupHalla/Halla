@@ -1,12 +1,13 @@
-Halla Plugin SDK License (Public Domain / Unlicense)
+Halla Plugin SDK License (Free for Non-Commercial Use)
 
-This is free and unencumbered software released into the public domain.
+You are free, at no cost and without asking permission, to use, copy,
+modify, compile and redistribute this SDK and plugins created with it,
+for personal, educational and community purposes.
 
-Anyone is free to copy, modify, publish, use, compile, sell or distribute
-this software, in source code form or as a compiled binary, for any
-purpose, commercial or non-commercial, and by any means, without
-permission, payment or attribution requirements.
+Selling, renting, licensing or charging for this SDK, for plugins built
+with it, or embedding it in a commercial product requires prior written
+permission from the Halla maintainers.
+
+Redistributions must retain this notice.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
-
-For more information, please refer to <https://unlicense.org>

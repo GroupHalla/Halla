@@ -360,7 +360,8 @@ executável (`src/halla.rc.in`) e monta o instalador NSIS (`packaging/halla-setu
 
 ## Licença
 
-Domínio público ([Unlicense](https://unlicense.org)): livre para todos,
-para tudo — usar, copiar, modificar, vender ou redistribuir, com ou sem
-crédito. Ver [`LICENSE`](LICENSE). Componentes de terceiros (Qt, Opus,
-OpenSSL, libwebrtc, mbedTLS) seguem as respectivas licenças originais.
+Livre para uso não comercial ([`LICENSE`](LICENSE)): usar, estudar,
+modificar e redistribuir gratuitamente, sem pedir permissão. Vender,
+alugar ou embutir em produto comercial exige autorização escrita dos
+mantenedores. Componentes de terceiros (Qt, Opus, OpenSSL, libwebrtc,
+mbedTLS) seguem as respectivas licenças originais.
