@@ -822,4 +822,99 @@ QIcon record(bool on) {
     }));
 }
 
+// Ícones de navegação do diálogo de Opções em estilo CONTORNO. Inspirados
+// no estilo "linha fina, sem preenchimento" dos mockups do usuário: cada
+// categoria recebe um desenho recognizível e monocromático. A cor do
+// traço acompanha o tema (quase-branco no escuro, grafite no claro) para
+// ficar visível em qualquer superfície.
+QIcon navOutlineIcon(const QString& kind) {
+    const QColor stroke = HTheme::isDark() ? QColor("#E7E5F0") : QColor("#475569");
+    const qreal w = 1.6;
+    return QIcon(mk(24, [&](QPainter& p) {
+        p.setPen(QPen(stroke, w, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.setBrush(Qt::NoBrush);
+        if (kind == QStringLiteral("application")) {
+            // 2x2 grid de cantos arredondados
+            p.drawRoundedRect(QRectF(3.0, 3.0, 7.5, 7.5), 1.6, 1.6);
+            p.drawRoundedRect(QRectF(13.5, 3.0, 7.5, 7.5), 1.6, 1.6);
+            p.drawRoundedRect(QRectF(3.0, 13.5, 7.5, 7.5), 1.6, 1.6);
+            p.drawRoundedRect(QRectF(13.5, 13.5, 7.5, 7.5), 1.6, 1.6);
+        } else if (kind == QStringLiteral("playback")) {
+            // círculo + triângulo play
+            p.drawEllipse(QPointF(12.0, 12.0), 9.4, 9.4);
+            QPainterPath tri;
+            tri.moveTo(10.0, 7.6);
+            tri.lineTo(10.0, 16.4);
+            tri.lineTo(17.6, 12.0);
+            tri.closeSubpath();
+            p.drawPath(tri);
+        } else if (kind == QStringLiteral("capture")) {
+            // microfone: cápsula + suporte em arco + haste + base
+            p.drawRoundedRect(QRectF(8.5, 3.0, 7.0, 11.0), 3.5, 3.5);
+            QPainterPath arc;
+            arc.moveTo(5.0, 11.0);
+            arc.cubicTo(5.0, 16.6, 19.0, 16.6, 19.0, 11.0);
+            p.drawPath(arc);
+            p.drawLine(QPointF(12.0, 16.6), QPointF(12.0, 19.4));
+            p.drawLine(QPointF(8.0, 19.4), QPointF(16.0, 19.4));
+        } else if (kind == QStringLiteral("design")) {
+            // paleta: círculo grande + 3 pontos de tinta (contornos)
+            p.drawEllipse(QPointF(12.0, 12.0), 9.4, 9.4);
+            p.drawEllipse(QPointF(9.0, 9.0), 1.5, 1.5);
+            p.drawEllipse(QPointF(15.0, 9.0), 1.5, 1.5);
+            p.drawEllipse(QPointF(15.0, 15.0), 1.5, 1.5);
+        } else if (kind == QStringLiteral("notifications")) {
+            // sino: topo curvo, corpo, badalo
+            QPainterPath bell;
+            bell.moveTo(7.0, 17.0);
+            bell.lineTo(7.0, 11.0);
+            bell.cubicTo(7.0, 5.0, 17.0, 5.0, 17.0, 11.0);
+            bell.lineTo(17.0, 17.0);
+            bell.closeSubpath();
+            p.drawPath(bell);
+            p.drawEllipse(QPointF(12.0, 19.6), 1.6, 1.6);
+            p.drawLine(QPointF(12.0, 5.0), QPointF(12.0, 3.4));
+        } else if (kind == QStringLiteral("hotkeys")) {
+            // 3 sliders verticais com botões em alturas diferentes
+            p.drawLine(QPointF(6.0, 4.0), QPointF(6.0, 20.0));
+            p.drawLine(QPointF(12.0, 4.0), QPointF(12.0, 20.0));
+            p.drawLine(QPointF(18.0, 4.0), QPointF(18.0, 20.0));
+            p.drawEllipse(QPointF(6.0, 8.0), 2.0, 2.0);
+            p.drawEllipse(QPointF(12.0, 14.0), 2.0, 2.0);
+            p.drawEllipse(QPointF(18.0, 10.0), 2.0, 2.0);
+        } else if (kind == QStringLiteral("whisper")) {
+            // pessoa: cabeça + ombros
+            p.drawEllipse(QPointF(12.0, 8.0), 3.4, 3.4);
+            QPainterPath body;
+            body.moveTo(5.0, 20.0);
+            body.cubicTo(5.0, 14.0, 8.0, 12.0, 12.0, 12.0);
+            body.cubicTo(16.0, 12.0, 19.0, 14.0, 19.0, 20.0);
+            p.drawPath(body);
+        } else if (kind == QStringLiteral("security")) {
+            // escudo
+            QPainterPath s;
+            s.moveTo(12.0, 3.0);
+            s.lineTo(20.0, 6.0);
+            s.lineTo(20.0, 13.0);
+            s.cubicTo(20.0, 17.0, 16.0, 20.0, 12.0, 21.0);
+            s.cubicTo(8.0, 20.0, 4.0, 17.0, 4.0, 13.0);
+            s.lineTo(4.0, 6.0);
+            s.closeSubpath();
+            p.drawPath(s);
+        } else if (kind == QStringLiteral("addons")) {
+            // peça de quebra-cabeça: quadrado com aba superior e entalhe direito
+            QPainterPath pz;
+            pz.moveTo(3.0, 6.0);
+            pz.lineTo(8.0, 6.0);
+            pz.cubicTo(8.0, 4.0, 11.0, 4.0, 11.0, 6.0);
+            pz.lineTo(11.0, 11.0);
+            pz.cubicTo(13.0, 11.0, 13.0, 14.0, 11.0, 14.0);
+            pz.lineTo(11.0, 18.0);
+            pz.lineTo(3.0, 18.0);
+            pz.closeSubpath();
+            p.drawPath(pz);
+        }
+    }));
+}
+
 } // namespace HIcons

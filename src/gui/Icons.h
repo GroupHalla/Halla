@@ -64,4 +64,9 @@ QIcon trash();
 QIcon check();
 QIcon record(bool on);
 
+// Ícones de navegação do diálogo de Opções em estilo CONTORNO (sem
+// preenchimento, traços finos). Cada categoria recebe um desenho
+// recognizível e monocromático que se adapta ao tema (claro/escuro).
+QIcon navOutlineIcon(const QString& kind);
+
 } // namespace HIcons

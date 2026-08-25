@@ -359,15 +359,15 @@ OptionsDialog::OptionsDialog(QWidget* parent, const ServerData* whisperData) : Q
 
     struct PageDef { QString name; QString subtitle; QIcon icon; };
     const QList<PageDef> pages = {
-        { tr("Aplicativo"),       tr("Opções gerais do aplicativo"),          HIcons::application() },
-        { tr("Reprodução"),       tr("Configure o sistema de reprodução de áudio"), HIcons::playbackSpeaker() },
-        { tr("Capturar"),         tr("Configure o sistema de captura de áudio"),    HIcons::captureMic() },
-        { tr("Aparência"),        tr("Configure a aparência"),                  HIcons::design() },
-        { tr("Notificações"),     tr("Sons e avisos de eventos"),             HIcons::notifyBell() },
-        { tr("Teclas de atalho"), tr("Configure teclas de atalho"),           HIcons::hotkeys() },
-        { tr("Sussurro"),         tr("Configure o recurso de sussurros"),     HIcons::contacts() },
-        { tr("Segurança"),        tr("Identidade e segurança"),               HIcons::security() },
-        { tr("Complementos"),     tr("Extensões e pacotes do cliente"),       HIcons::addons() },
+        { tr("Aplicativo"),       tr("Opções gerais do aplicativo"),          HIcons::navOutlineIcon(QStringLiteral("application")) },
+        { tr("Reprodução"),       tr("Configure o sistema de reprodução de áudio"), HIcons::navOutlineIcon(QStringLiteral("playback")) },
+        { tr("Capturar"),         tr("Configure o sistema de captura de áudio"),    HIcons::navOutlineIcon(QStringLiteral("capture")) },
+        { tr("Aparência"),        tr("Configure a aparência"),                  HIcons::navOutlineIcon(QStringLiteral("design")) },
+        { tr("Notificações"),     tr("Sons e avisos de eventos"),             HIcons::navOutlineIcon(QStringLiteral("notifications")) },
+        { tr("Teclas de atalho"), tr("Configure teclas de atalho"),           HIcons::navOutlineIcon(QStringLiteral("hotkeys")) },
+        { tr("Sussurro"),         tr("Configure o recurso de sussurros"),     HIcons::navOutlineIcon(QStringLiteral("whisper")) },
+        { tr("Segurança"),        tr("Identidade e segurança"),               HIcons::navOutlineIcon(QStringLiteral("security")) },
+        { tr("Complementos"),     tr("Extensões e pacotes do cliente"),       HIcons::navOutlineIcon(QStringLiteral("addons")) },
     };
     for (const PageDef& d : pages) {
         QListWidgetItem* it = new QListWidgetItem(largeNavigationIcon(d.icon), d.name);
