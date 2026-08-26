@@ -180,9 +180,20 @@ assert 'if (!legacy.isEmpty() && SecureStore::write(privateKeyName, legacy)) {' 
 # com EVP_PKEY_new_raw_private_key. Sem isso TODA identidade nascia com ID
 # único vazio e todo login caía em bad_identity no build WebRTC.
 assert 'EVP_PKEY_get_raw_private_key(key' in identity_dialog
-assert 'EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519' in identity_dialog
 assert 'i2d_PrivateKey(' not in identity_dialog
 assert 'd2i_AutoPrivateKey(nullptr, &p, priv.size())' in identity_dialog
+# O NID de Ed25519 NÃO pode vir do header: o build Windows compila com os
+# headers do OpenSSL 3 (vcpkg, NID_ED25519=1087) mas LINKA o BoringSSL do
+# webrtc.lib (NID_ED25519=949) — EVP_PKEY_CTX_new_id/EVP_PKEY_new_raw_private_key
+# com o valor do header devolvem UNSUPPORTED_ALGORITHM e nenhuma identidade
+# é criada (bug v1.1.0–v1.1.2, confirmado em runtime pelo smoke do CI). O ID
+# correto é resolvido em runtime por ed25519Id() (parse de um DER Ed25519 de
+# teste via OID + EVP_PKEY_id).
+assert 'static int ed25519Id()' in identity_dialog
+assert 'EVP_PKEY_CTX_new_id(ed25519Id(), nullptr)' in identity_dialog
+assert 'EVP_PKEY_new_raw_private_key(ed25519Id(), nullptr' in identity_dialog
+assert 'EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519' not in identity_dialog
+assert 'EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519' not in identity_dialog
 runpy.run_path(str(root / "tests/icon_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/plugin_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")

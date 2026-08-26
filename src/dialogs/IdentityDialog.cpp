@@ -30,6 +30,38 @@ static QString keyBase(const QString& uid, const QString& field) {
     return QStringLiteral("identityKeys/%1/%2").arg(uid, field);
 }
 
+// ID numérico de Ed25519 RESOLVIDO EM RUNTIME. Este arquivo compila com os
+// headers do OpenSSL 3 (vcpkg) no build WebRTC, mas LINKA o BoringSSL
+// embutido no webrtc.lib — e os dois discordam do número: OpenSSL usa
+// NID_ED25519=1087 e BoringSSL usa NID_ED25519=949. Com o valor do header,
+// EVP_PKEY_CTX_new_id/EVP_PKEY_new_raw_private_key devolviam
+// UNSUPPORTED_ALGORITHM e NENHUMA identidade foi criada em nenhum build
+// WebRTC (era a causa raiz do ID único vazio e do bad_identity).
+// O DER abaixo é uma chave Ed25519 pública de teste: o parse identifica o
+// algoritmo pelo OID (1.3.101.112, idêntico nas duas bibliotecas) e
+// EVP_PKEY_id devolve o número que a IMPLEMENTAÇÃO linkada entende.
+static int ed25519Id() {
+    static int cached = 0;
+    if (cached) return cached;
+    static const unsigned char kProbeDer[] = {
+        0x30, 0x2E, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70,
+        0x04, 0x22, 0x04, 0x20, 0xBF, 0x91, 0x6E, 0x89, 0xDD, 0x7B, 0x0B, 0xB6,
+        0xDE, 0xE1, 0x9B, 0x42, 0x6E, 0xB4, 0xD3, 0x45, 0x35, 0x31, 0x3E, 0xF7,
+        0x84, 0x57, 0xFF, 0xD5, 0xB3, 0x57, 0x3F, 0x13, 0x5A, 0xD5, 0xED, 0x6A,
+    };
+    const unsigned char* p = kProbeDer;
+    if (EVP_PKEY* probe = d2i_AutoPrivateKey(nullptr, &p, static_cast<long>(sizeof(kProbeDer)))) {
+        const int id = EVP_PKEY_id(probe);
+        EVP_PKEY_free(probe);
+        if (id != 0) {
+            cached = id;
+            return cached;
+        }
+    }
+    cached = EVP_PKEY_ED25519; // último recurso: valor do header (OpenSSL)
+    return cached;
+}
+
 // Último motivo pelo qual generateUniqueId()/storeIdentityKey() devolveram
 // vazio. Antes o diálogo só dizia "não pôde ser gerada ou salva" e era
 // impossível distinguir keygen quebrado, serialização quebrada ou cofre
@@ -95,7 +127,10 @@ static QString storeIdentityKey(EVP_PKEY* key) {
 }
 
 QString IdentityDialog::generateUniqueId() {
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
+    // ed25519Id(): NID resolvido em runtime (OpenSSL do header ≠ BoringSSL
+    // linkado — ver comentário da função). Com EVP_PKEY_ED25519 cru do
+    // header, o keygen falhava com UNSUPPORTED_ALGORITHM no build WebRTC.
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(ed25519Id(), nullptr);
     EVP_PKEY* key = nullptr;
     QString uid;
     if (!ctx)
@@ -144,9 +179,11 @@ QByteArray IdentityDialog::signNonce(const QString& uid, const QByteArray& nonce
         // Formato cru (seed Ed25519 de 32 bytes) gravado por
         // storeIdentityKey(): no BoringSSL do SDK WebRTC o i2d_PrivateKey
         // não suporta Ed25519, então a chave é persistida como seed crua.
-        // EVP_PKEY_new_raw_private_key existe em OpenSSL e BoringSSL.
+        // ed25519Id(): NID em runtime — o do header (OpenSSL) difere do
+        // BoringSSL linkado e faria esta chamada falhar com
+        // UNSUPPORTED_ALGORITHM.
         if (priv.size() == 32)
-            key = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, nullptr,
+            key = EVP_PKEY_new_raw_private_key(ed25519Id(), nullptr,
                                                reinterpret_cast<const unsigned char*>(priv.constData()), 32);
         if (!key) return QByteArray();
     }
