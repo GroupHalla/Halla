@@ -164,6 +164,16 @@ assert 'm_myPerms[QStringLiteral("*")] = true' in net_session
 assert 'o["tempParent"]' in server_tab
 assert 'contains("tempParent")' in net_session
 assert "halla-app-icon.png" in (root / "src/gui/Icons.cpp").read_text(encoding="utf-8")
+identity_dialog = (root / "src/dialogs/IdentityDialog.cpp").read_text(encoding="utf-8")
+# Identidade nunca nasce sem ID: com o cofre do sistema (qtkeychain/Credential
+# Manager) indisponível, a chave privada cai no armazenamento local legado.
+assert 'a chave privada será guardada apenas no perfil local' in identity_dialog
+assert 'S::set(keyBase(uid, QStringLiteral("privateDer")), QString::fromLatin1(priv.toBase64()))' in identity_dialog
+# signNonce() usa o material local mesmo quando a re-migração para o cofre
+# volta a falhar — sem isso o desafio de login falhava em máquinas com o
+# cofre bloqueado mesmo com a chave presente no perfil local.
+assert 'usa o material local MESMO' in identity_dialog
+assert 'if (!legacy.isEmpty() && SecureStore::write(privateKeyName, legacy)) {' not in identity_dialog
 runpy.run_path(str(root / "tests/icon_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/plugin_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")

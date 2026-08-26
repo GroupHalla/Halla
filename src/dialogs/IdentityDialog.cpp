@@ -78,12 +78,20 @@ QByteArray IdentityDialog::signNonce(const QString& uid, const QByteArray& nonce
     const QString privateKeyName = keyBase(uid, QStringLiteral("privateDer"));
     QByteArray priv = SecureStore::read(privateKeyName);
     if (priv.isEmpty()) {
-        // Migração única de instalações anteriores que gravavam PKCS#8 em QSettings.
+        // Migração de instalações legadas (PKCS#8 em QSettings) e de
+        // identidades gravadas pelo fallback de storeIdentityKey() quando o
+        // cofre do sistema estava indisponível: usa o material local MESMO
+        // QUE a re-gravação no cofre falhe de novo. Sem isso, em máquinas
+        // com o Credential Manager bloqueado, a identidade era criada pelo
+        // fallback mas o desafio de login falhava — a chave estava no
+        // perfil local e o signNonce se recusava a usá-la.
         const QByteArray legacy = QByteArray::fromBase64(S::str(privateKeyName).toLatin1());
-        if (!legacy.isEmpty() && SecureStore::write(privateKeyName, legacy)) {
+        if (!legacy.isEmpty()) {
             priv = legacy;
-            S::store().remove(privateKeyName);
-            S::store().sync();
+            if (SecureStore::write(privateKeyName, legacy)) {
+                S::store().remove(privateKeyName);
+                S::store().sync();
+            }
         }
     }
     if (priv.isEmpty() || nonce.isEmpty()) return QByteArray();
