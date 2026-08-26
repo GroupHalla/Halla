@@ -29,14 +29,26 @@ static QString keyBase(const QString& uid, const QString& field) {
 }
 
 static QString storeIdentityKey(EVP_PKEY* key) {
-    int pubLen = i2d_PUBKEY(key, nullptr);
-    int privLen = i2d_PrivateKey(key, nullptr);
-    if (pubLen <= 0 || privLen <= 0) return QString();
-    QByteArray pub(pubLen, 0), priv(privLen, 0);
+    // Chave pública em SPKI DER (i2d_PUBKEY) — suportado por OpenSSL e
+    // BoringSSL para todos os tipos de chave.
+    const int pubLen = i2d_PUBKEY(key, nullptr);
+    if (pubLen <= 0) return QString();
+    // Chave privada NO FORMATO CRU (seed Ed25519 de 32 bytes). O
+    // i2d_PrivateKey clássico só serializa RSA/EC/DSA: no BoringSSL
+    // embutido no SDK WebRTC (que o build Windows linka no lugar do
+    // OpenSSL) ele devolve -1 para Ed25519 — toda identidade nascia com
+    // ID único vazio e todo login caía em bad_identity. O formato cru
+    // existe e funciona igual nos dois (EVP_PKEY_get_raw_private_key),
+    // e a seed basta para reconstruir a chave ao assinar.
+    QByteArray priv(64, 0);
+    size_t rawLen = priv.size();
+    if (EVP_PKEY_get_raw_private_key(key, reinterpret_cast<unsigned char*>(priv.data()), &rawLen) != 1
+        || rawLen == 0 || rawLen > 64)
+        return QString();
+    priv.resize(int(rawLen));
+    QByteArray pub(pubLen, 0);
     unsigned char* p = reinterpret_cast<unsigned char*>(pub.data());
     i2d_PUBKEY(key, &p);
-    p = reinterpret_cast<unsigned char*>(priv.data());
-    i2d_PrivateKey(key, &p);
     const QString uid = QString::fromLatin1(QCryptographicHash::hash(pub, QCryptographicHash::Sha256).toBase64());
     QString secureError;
     if (!SecureStore::write(keyBase(uid, QStringLiteral("privateDer")), priv, &secureError)) {
@@ -97,7 +109,16 @@ QByteArray IdentityDialog::signNonce(const QString& uid, const QByteArray& nonce
     if (priv.isEmpty() || nonce.isEmpty()) return QByteArray();
     const unsigned char* p = reinterpret_cast<const unsigned char*>(priv.constData());
     EVP_PKEY* key = d2i_AutoPrivateKey(nullptr, &p, priv.size());
-    if (!key) return QByteArray();
+    if (!key) {
+        // Formato cru (seed Ed25519 de 32 bytes) gravado por
+        // storeIdentityKey(): no BoringSSL do SDK WebRTC o i2d_PrivateKey
+        // não suporta Ed25519, então a chave é persistida como seed crua.
+        // EVP_PKEY_new_raw_private_key existe em OpenSSL e BoringSSL.
+        if (priv.size() == 32)
+            key = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, nullptr,
+                                               reinterpret_cast<const unsigned char*>(priv.constData()), 32);
+        if (!key) return QByteArray();
+    }
     EVP_MD_CTX* ctx = EVP_MD_CTX_new();
     QByteArray sig(64, 0);
     size_t sigLen = sig.size();

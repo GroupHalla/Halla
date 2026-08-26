@@ -174,6 +174,15 @@ assert 'S::set(keyBase(uid, QStringLiteral("privateDer")), QString::fromLatin1(p
 # cofre bloqueado mesmo com a chave presente no perfil local.
 assert 'usa o material local MESMO' in identity_dialog
 assert 'if (!legacy.isEmpty() && SecureStore::write(privateKeyName, legacy)) {' not in identity_dialog
+# BoringSSL (embutido no SDK WebRTC do build Windows) NÃO implementa
+# i2d_PrivateKey para Ed25519 (só RSA/EC/DSA — devolve -1): a chave privada é
+# persistida como seed crua via EVP_PKEY_get_raw_private_key e reconstruída
+# com EVP_PKEY_new_raw_private_key. Sem isso TODA identidade nascia com ID
+# único vazio e todo login caía em bad_identity no build WebRTC.
+assert 'EVP_PKEY_get_raw_private_key(key' in identity_dialog
+assert 'EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519' in identity_dialog
+assert 'i2d_PrivateKey(' not in identity_dialog
+assert 'd2i_AutoPrivateKey(nullptr, &p, priv.size())' in identity_dialog
 runpy.run_path(str(root / "tests/icon_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/plugin_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")
