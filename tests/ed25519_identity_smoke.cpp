@@ -8,9 +8,12 @@
 // exercitou o caminho BoringSSL. Foi assim que o build WebRTC passou meses
 // sem criar UMA única identidade: os headers do OpenSSL declaram
 // NID_ED25519=1087, o BoringSSL linkado espera NID_ED25519=949, e
-// EVP_PKEY_CTX_new_id(1087) devolvia UNSUPPORTED_ALGORITHM. Por isso a
-// primeira coisa que este teste faz é RESOLVER o ID em runtime — igual ao
-// ed25519Id() do IdentityDialog — e usá-lo em todas as chamadas.
+// EVP_PKEY_CTX_new_id(1087) devolvia UNSUPPORTED_ALGORITHM.
+//
+// Por isso a sequência testada aqui é 100% LIVRE DE NID — igual ao
+// IdentityDialog: RAND_bytes para a seed, chave reconstruída pelo parser
+// OID (d2i_AutoPrivateKey sobre um PKCS#8 mínimo), i2d_PUBKEY para a chave
+// pública e EVP_DigestSign/EVP_DigestVerify para a assinatura.
 //
 // Cada etapa devolve um código de saída distinto: quando este teste falha,
 // o número aponta exatamente qual chamada quebrou.
@@ -20,6 +23,7 @@
 
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include <openssl/x509.h>
 
 static int fail(int code, const char* what) {
@@ -31,11 +35,16 @@ static int fail(int code, const char* what) {
     return code;
 }
 
-// PKCS#8 DER de uma chave Ed25519 (openssl genpkey -algorithm ed25519) — o
-// MESMO vetor de teste usado pelo ed25519Id() do IdentityDialog. O parse
-// identifica o algoritmo pelo OID (1.3.101.112), idêntico em OpenSSL e
-// BoringSSL; EVP_PKEY_id devolve o número que a implementação linkada usa.
-static const unsigned char kProbePkcs8[] = {
+// Cabeçalho PKCS#8 fixo (RFC 8410) — o MESMO do IdentityDialog.
+static const unsigned char kPkcs8SeedHeader[] = {
+    0x30, 0x2E, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70,
+    0x04, 0x22, 0x04, 0x20,
+};
+
+// PKCS#8 DER completo de uma chave Ed25519 (openssl genpkey) — o formato
+// que instalações antigas, construídas com OpenSSL de verdade, guardaram no
+// cofre do sistema. signNonce() precisa continuar parseando.
+static const unsigned char kLegacyPkcs8[] = {
     0x30, 0x2E, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70,
     0x04, 0x22, 0x04, 0x20, 0xBF, 0x91, 0x6E, 0x89, 0xDD, 0x7B, 0x0B, 0xB6,
     0xDE, 0xE1, 0x9B, 0x42, 0x6E, 0xB4, 0xD3, 0x45, 0x35, 0x31, 0x3E, 0xF7,
@@ -44,60 +53,51 @@ static const unsigned char kProbePkcs8[] = {
 
 // 32 bytes que NÃO são ASN.1 válido (tag 0xAB + comprimento 171 > 30
 // restantes): a seed crua gravada por storeIdentityKey() tem que ser
-// rejeitada pelo parser PKCS#8 e cair no ramo EVP_PKEY_new_raw_private_key.
+// rejeitada pelo parser PKCS#8 direto — por isso o embrulho no cabeçalho.
 static const unsigned char kRawSeedNotAsn1[32] = {
     0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB,
     0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB,
     0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB,
 };
 
-static int ed25519Id() {
-    static int cached = 0;
-    if (cached) return cached;
-    const unsigned char* p = kProbePkcs8;
-    if (EVP_PKEY* probe = d2i_AutoPrivateKey(nullptr, &p, (long)sizeof(kProbePkcs8))) {
-        const int id = EVP_PKEY_id(probe);
-        EVP_PKEY_free(probe);
-        if (id != 0) { cached = id; return cached; }
-    }
-    cached = EVP_PKEY_ED25519; // último recurso: valor do header
-    return cached;
+static EVP_PKEY* keyFromSeed(const unsigned char* seed) {
+    unsigned char der[48];
+    std::memcpy(der, kPkcs8SeedHeader, sizeof(kPkcs8SeedHeader));
+    std::memcpy(der + sizeof(kPkcs8SeedHeader), seed, 32);
+    const unsigned char* p = der;
+    return d2i_AutoPrivateKey(nullptr, &p, sizeof(der));
 }
 
 int main() {
-    std::printf("ed25519_identity_smoke: inicio\n");
+    std::printf("ed25519_identity_smoke: inicio (sequencia livre de NID)\n");
 
-    // ---- [1] resolução do ID Ed25519 (ed25519Id) ----
-    const int id = ed25519Id();
-    std::printf("[1] NID Ed25519 — header: %d, implementacao linkada: %d%s\n",
-                int(EVP_PKEY_ED25519), id,
-                int(EVP_PKEY_ED25519) == id ? " (iguais)" : " (DIFERENTES — resolver em runtime e' obrigatorio)");
-    if (id <= 0) return fail(1, "ed25519Id (resolucao de NID)");
+    // ---- [1] generateUniqueId(): seed do CSPRNG da biblioteca ----
+    unsigned char seed[32];
+    if (RAND_bytes(seed, sizeof(seed)) != 1) return fail(1, "RAND_bytes");
+    std::printf("[1] RAND_bytes ok\n");
 
-    // ---- [2] generateUniqueId(): keygen Ed25519 com o ID resolvido ----
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(id, nullptr);
-    if (!ctx) return fail(2, "EVP_PKEY_CTX_new_id(ed25519Id())");
-    if (EVP_PKEY_keygen_init(ctx) != 1) return fail(3, "EVP_PKEY_keygen_init");
-    EVP_PKEY* key = nullptr;
-    if (EVP_PKEY_keygen(ctx, &key) != 1) return fail(4, "EVP_PKEY_keygen");
-    EVP_PKEY_CTX_free(ctx);
-    std::printf("[2] keygen Ed25519 ok\n");
+    // ---- [2] generateUniqueId(): chave via parser OID (keyFromSeed) ----
+    EVP_PKEY* key = keyFromSeed(seed);
+    if (!key) return fail(2, "d2i_AutoPrivateKey (PKCS#8 minimo + seed)");
+    std::printf("[2] chave Ed25519 reconstruida por OID ok\n");
 
     // ---- [3] storeIdentityKey(): chave publica em SPKI DER ----
     const int pubLen = i2d_PUBKEY(key, nullptr);
-    if (pubLen <= 0) return fail(5, "i2d_PUBKEY (previsao de tamanho)");
+    if (pubLen <= 0) return fail(3, "i2d_PUBKEY (previsao de tamanho)");
     unsigned char pub[128] = {0};
     unsigned char* p = pub;
-    if (i2d_PUBKEY(key, &p) != pubLen) return fail(6, "i2d_PUBKEY");
+    if (i2d_PUBKEY(key, &p) != pubLen) return fail(4, "i2d_PUBKEY");
     std::printf("[3] i2d_PUBKEY ok (%d bytes)\n", pubLen);
 
-    // ---- [4] storeIdentityKey(): seed crua de 32 bytes ----
-    unsigned char seed[64] = {0};
-    size_t seedLen = sizeof(seed);
-    if (EVP_PKEY_get_raw_private_key(key, seed, &seedLen) != 1)
-        return fail(7, "EVP_PKEY_get_raw_private_key");
-    if (seedLen != 32) return fail(8, "seed com tamanho inesperado");
-    std::printf("[4] seed crua ok (%zu bytes)\n", seedLen);
+    // ---- [4] storeIdentityKey(): seed crua de 32 bytes + round-trip ----
+    unsigned char seedBack[64] = {0};
+    size_t seedLen = sizeof(seedBack);
+    if (EVP_PKEY_get_raw_private_key(key, seedBack, &seedLen) != 1)
+        return fail(5, "EVP_PKEY_get_raw_private_key");
+    if (seedLen != 32) return fail(6, "seed com tamanho inesperado");
+    if (std::memcmp(seed, seedBack, 32) != 0)
+        return fail(7, "seed round-trip diferente da original");
+    std::printf("[4] seed crua ok com round-trip identico (%zu bytes)\n", seedLen);
 
     // ---- [5] diagnostico do bug historico (v1.1.0 a v1.1.2) ----
     // i2d_PrivateKey com Ed25519: no BoringSSL do SDK devolve -1. E a
@@ -107,67 +107,60 @@ int main() {
     else
         std::printf("[5] i2d_PrivateKey rejeita Ed25519 (confirma a causa raiz antiga)\n");
 
-    // ---- [6] signNonce(): reconstrucao da chave a partir da seed crua ----
-    EVP_PKEY* rk = EVP_PKEY_new_raw_private_key(id, nullptr, seed, 32);
-    if (!rk) return fail(9, "EVP_PKEY_new_raw_private_key(ed25519Id())");
-    std::printf("[6] chave reconstruida da seed ok\n");
-
-    // ---- [7] signNonce(): assinatura do desafio de 32 bytes ----
+    // ---- [6] signNonce(): assinatura do desafio de 32 bytes ----
     unsigned char nonce[32];
     for (int i = 0; i < 32; ++i) nonce[i] = static_cast<unsigned char>(i * 7 + 1);
     EVP_MD_CTX* sctx = EVP_MD_CTX_new();
-    if (!sctx) return fail(10, "EVP_MD_CTX_new");
+    if (!sctx) return fail(8, "EVP_MD_CTX_new");
     unsigned char sig[128] = {0};
     size_t sigLen = sizeof(sig);
-    if (EVP_DigestSignInit(sctx, nullptr, nullptr, nullptr, rk) != 1)
-        return fail(11, "EVP_DigestSignInit");
+    if (EVP_DigestSignInit(sctx, nullptr, nullptr, nullptr, key) != 1)
+        return fail(9, "EVP_DigestSignInit");
     if (EVP_DigestSign(sctx, sig, &sigLen, nonce, sizeof(nonce)) != 1)
-        return fail(12, "EVP_DigestSign");
+        return fail(10, "EVP_DigestSign");
     EVP_MD_CTX_free(sctx);
-    if (sigLen != 64) return fail(13, "assinatura com tamanho != 64");
-    std::printf("[7] assinatura do desafio ok (%zu bytes)\n", sigLen);
+    if (sigLen != 64) return fail(11, "assinatura com tamanho != 64");
+    std::printf("[6] assinatura do desafio ok (%zu bytes)\n", sigLen);
 
-    // ---- [8] verificacao no estilo do servidor (SPKI DER + DigestVerify) ----
+    // ---- [7] verificacao no estilo do servidor (SPKI DER + DigestVerify) ----
     const unsigned char* q = pub;
     EVP_PKEY* vk = d2i_PUBKEY(nullptr, &q, pubLen);
-    if (!vk) return fail(14, "d2i_PUBKEY");
+    if (!vk) return fail(12, "d2i_PUBKEY");
     EVP_MD_CTX* vctx = EVP_MD_CTX_new();
-    if (!vctx) return fail(15, "EVP_MD_CTX_new (verificacao)");
+    if (!vctx) return fail(13, "EVP_MD_CTX_new (verificacao)");
     if (EVP_DigestVerifyInit(vctx, nullptr, nullptr, nullptr, vk) != 1)
-        return fail(16, "EVP_DigestVerifyInit");
+        return fail(14, "EVP_DigestVerifyInit");
     if (EVP_DigestVerify(vctx, sig, sigLen, nonce, sizeof(nonce)) != 1)
-        return fail(17, "EVP_DigestVerify");
+        return fail(15, "EVP_DigestVerify");
     EVP_MD_CTX_free(vctx);
     EVP_PKEY_free(vk);
-    std::printf("[8] verificacao estilo servidor ok\n");
+    std::printf("[7] verificacao estilo servidor ok\n");
 
-    // ---- [9] migracao legada: PKCS#8 parseia via d2i_AutoPrivateKey ----
-    const unsigned char* r = kProbePkcs8;
-    EVP_PKEY* lk = d2i_AutoPrivateKey(nullptr, &r, static_cast<long>(sizeof(kProbePkcs8)));
-    if (!lk) return fail(18, "d2i_AutoPrivateKey (PKCS#8 legado do cofre)");
-    // e a chave legada ASSINA um desafio (caminho completo do cofre antigo)
+    // ---- [8] migracao legada: PKCS#8 completo parseia e assina ----
+    const unsigned char* r = kLegacyPkcs8;
+    EVP_PKEY* lk = d2i_AutoPrivateKey(nullptr, &r, static_cast<long>(sizeof(kLegacyPkcs8)));
+    if (!lk) return fail(16, "d2i_AutoPrivateKey (PKCS#8 legado do cofre)");
     EVP_MD_CTX* lctx = EVP_MD_CTX_new();
     unsigned char lsig[128] = {0};
     size_t lsigLen = sizeof(lsig);
-    if (!lctx) return fail(19, "EVP_MD_CTX_new (legado)");
+    if (!lctx) return fail(17, "EVP_MD_CTX_new (legado)");
     if (EVP_DigestSignInit(lctx, nullptr, nullptr, nullptr, lk) != 1)
-        return fail(20, "EVP_DigestSignInit (legado)");
+        return fail(18, "EVP_DigestSignInit (legado)");
     if (EVP_DigestSign(lctx, lsig, &lsigLen, nonce, sizeof(nonce)) != 1)
-        return fail(21, "EVP_DigestSign (legado)");
+        return fail(19, "EVP_DigestSign (legado)");
     EVP_MD_CTX_free(lctx);
     EVP_PKEY_free(lk);
-    std::printf("[9] assinatura com chave PKCS#8 legada ok (%zu bytes)\n", lsigLen);
+    std::printf("[8] assinatura com chave PKCS#8 legada ok (%zu bytes)\n", lsigLen);
 
-    // ---- [10] seed crua e rejeitada pelo parser ASN.1 (ramo size==32) ----
+    // ---- [9] seed crua e rejeitada pelo parser ASN.1 direto ----
     const unsigned char* s = kRawSeedNotAsn1;
     EVP_PKEY* wrong = d2i_AutoPrivateKey(nullptr, &s, 32);
     if (wrong) {
         EVP_PKEY_free(wrong);
-        return fail(22, "seed crua parseou como ASN.1 (inesperado)");
+        return fail(20, "seed crua parseou como ASN.1 (inesperado)");
     }
-    std::printf("[10] seed crua rejeitada pelo parser PKCS#8 (esperado)\n");
+    std::printf("[9] seed crua rejeitada pelo parser PKCS#8 direto (esperado)\n");
 
-    EVP_PKEY_free(rk);
     EVP_PKEY_free(key);
     std::printf("ed25519_identity_smoke: TUDO OK\n");
     return 0;
