@@ -304,8 +304,23 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
     m_pendingHello["proto"] = HProto::kProtoVersion;
     m_pendingHello["uid"] = uid;
     const QByteArray publicKey = IdentityDialog::publicKeyForUid(uid);
-    if (!publicKey.isEmpty())
-        m_pendingHello["idPub"] = QString::fromLatin1(publicKey.toBase64());
+    if (publicKey.isEmpty()) {
+        // Sem chave pública o servidor responderia bad_identity ("identidade
+        // ausente") — falha antes do round-trip com um erro acionável.
+        // Emitido adiado: o chamador ancora connectionFailed depois deste
+        // retorno (ver MainWindow::connectTo).
+        QMetaObject::invokeMethod(
+            this,
+            [this] {
+                emit connectionFailed(
+                    tr("Sua identidade não está disponível neste computador "
+                       "(chave pública ausente).\n\nAbra a janela Identidades e crie "
+                       "uma nova, ou restaure seu backup de identidade."));
+            },
+            Qt::QueuedConnection);
+        return;
+    }
+    m_pendingHello["idPub"] = QString::fromLatin1(publicKey.toBase64());
     m_pendingHello["nick"] = nickname;
     m_pendingHello["ver"] = QString::fromUtf8(halla::kAppVersion);
     m_pendingHello["platform"] =
@@ -952,7 +967,10 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const QByteArray nonce = QByteArray::fromBase64(obj["nonce"].toString().toLatin1());
         const QByteArray sig = IdentityDialog::signNonce(m_identityUid, nonce);
         if (sig.isEmpty()) {
-            emit connectionFailed(tr("Não foi possível assinar o desafio da identidade"));
+            emit connectionFailed(tr(
+                "Não foi possível assinar o desafio da identidade: a chave privada não "
+                "está acessível no cofre deste computador.\n\nRestaure seu backup de "
+                "identidade ou crie uma nova (janela Identidades)."));
             m_tcp->abort();
             return;
         }
@@ -964,8 +982,14 @@ void NetSession::handleMessage(const QJsonObject& obj) {
 
     if (t == "error") {
         const QString code = obj["code"].toString();
-        const QString msg = localizedServerError(code, obj["msg"].toString());
-        AppLog::warn(tr("Erro do servidor: %1 (%2)").arg(msg, code));
+        const QString serverText = obj["msg"].toString();
+        const QString msg = localizedServerError(code, serverText);
+        // O detalhe do servidor distingue causas do mesmo código (ex.:
+        // bad_identity por chave ausente vs. assinatura inválida).
+        AppLog::warn(serverText.isEmpty()
+                         ? tr("Erro do servidor: %1 (código: %2)").arg(msg, code)
+                         : tr("Erro do servidor: %1 (código: %2; servidor: %3)")
+                               .arg(msg, code, serverText));
         if (!m_ready) {
             m_fatalError = true;
             m_data = ServerData();

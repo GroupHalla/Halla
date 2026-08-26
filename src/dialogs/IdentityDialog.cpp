@@ -40,12 +40,21 @@ static QString storeIdentityKey(EVP_PKEY* key) {
     const QString uid = QString::fromLatin1(QCryptographicHash::hash(pub, QCryptographicHash::Sha256).toBase64());
     QString secureError;
     if (!SecureStore::write(keyBase(uid, QStringLiteral("privateDer")), priv, &secureError)) {
-        AppLog::error(QObject::tr("Não foi possível salvar a identidade no cofre do sistema: %1").arg(secureError));
-        return QString();
+        // Sem cofre do sistema (keyring ausente/travado, Credential Manager
+        // bloqueado por política etc.) a identidade ainda assim precisa ser
+        // criável: cai no armazenamento local — o mesmo local legado que as
+        // instalações antigas usavam. signNonce() lê o SecureStore primeiro
+        // e migra de volta para o cofre assim que ele volta a funcionar.
+        AppLog::error(QObject::tr(
+                          "Não foi possível salvar a identidade no cofre do sistema: %1 — "
+                          "a chave privada será guardada apenas no perfil local (menos seguro).")
+                          .arg(secureError));
+        S::set(keyBase(uid, QStringLiteral("privateDer")), QString::fromLatin1(priv.toBase64()));
+    } else {
+        // Cofre ok: remove material legado em texto simples.
+        S::store().remove(keyBase(uid, QStringLiteral("privateDer")));
     }
     S::set(keyBase(uid, QStringLiteral("publicDer")), QString::fromLatin1(pub.toBase64()));
-    // Remove material legado em texto simples após migração/gravação segura.
-    S::store().remove(keyBase(uid, QStringLiteral("privateDer")));
     S::store().sync();
     return uid;
 }
@@ -200,8 +209,17 @@ IdentityDialog::IdentityDialog(QWidget* parent) : QDialog(parent) {
                                              tr("Apelido:"), QLineEdit::Normal,
                                              QString(), &ok);
         if (!ok || name.trimmed().isEmpty()) return;
+        const QString uid = generateUniqueId();
+        if (uid.isEmpty() || publicKeyForUid(uid).isEmpty()) {
+            QMessageBox::critical(
+                this, tr("Identidades"),
+                tr("Não foi possível criar a identidade: a chave Ed25519 não pôde ser "
+                   "gerada ou salva.\n\nVerifique o cofre de senhas do sistema "
+                   "(Keychain, Keyring ou Credential Manager) e tente novamente."));
+            return;
+        }
         QList<QStringList> rows = loadAll();
-        rows << QStringList{ "0", name.trimmed(), QString(), generateUniqueId() };
+        rows << QStringList{ "0", name.trimmed(), QString(), uid };
         saveAll(rows);
         reload();
         AppLog::info(tr("Identidade \"%1\" criada").arg(name.trimmed()));

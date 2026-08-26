@@ -1033,6 +1033,15 @@
       <source>  (padrão)</source>
       <translation>  (default)</translation>
     </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="200" />
+      <source>Não foi possível criar a identidade: a chave Ed25519 não pôde ser gerada ou salva.
+
+Verifique o cofre de senhas do sistema (Keychain, Keyring ou Credential Manager) e tente novamente.</source>
+      <translation>Could not create the identity: the Ed25519 key could not be generated or saved.
+
+Check the system password vault (Keychain, Keyring or Credential Manager) and try again.</translation>
+    </message>
   </context>
   <context>
     <name>InfoPanel</name>
@@ -2023,6 +2032,15 @@ Do you want to run it anyway?</translation>
       <source>Nenhuma notificação nova</source>
       <translation>No new notifications</translation>
     </message>
+    <message>
+      <location filename="../src/app/MainWindow.cpp" line="1230" />
+      <source>Sua identidade não está disponível neste computador: o ID único está vazio ou a chave pública não foi encontrada.
+
+Abra a janela Identidades, crie uma nova identidade (ou restaure seu backup) e conecte de novo.</source>
+      <translation>Your identity is not available on this computer: the unique ID is empty or the public key was not found.
+
+Open the Identities window, create a new identity (or restore your backup) and connect again.</translation>
+    </message>
   </context>
   <context>
     <name>NetSession</name>
@@ -2042,13 +2060,31 @@ Connection refused for your protection.</translation>
     </message>
     <message>
       <location filename="../src/net/NetSession.cpp" line="840" />
-      <source>Não foi possível assinar o desafio da identidade</source>
-      <translation>Unable to sign identity challenge</translation>
+      <source>Não foi possível assinar o desafio da identidade: a chave privada não está acessível no cofre deste computador.
+
+Restaure seu backup de identidade ou crie uma nova (janela Identidades).</source>
+      <translation>Could not sign the identity challenge: the private key is not accessible in this computer's keychain.
+
+Restore your identity backup or create a new one (Identities window).</translation>
     </message>
     <message>
       <location filename="../src/net/NetSession.cpp" line="853" />
-      <source>Erro do servidor: %1 (%2)</source>
-      <translation>Server error: %1 (%2)</translation>
+      <source>Erro do servidor: %1 (código: %2)</source>
+      <translation>Server error: %1 (code: %2)</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="853" />
+      <source>Erro do servidor: %1 (código: %2; servidor: %3)</source>
+      <translation>Server error: %1 (code: %2; server: %3)</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="853" />
+      <source>Sua identidade não está disponível neste computador (chave pública ausente).
+
+Abra a janela Identidades e crie uma nova, ou restaure seu backup de identidade.</source>
+      <translation>Your identity is not available on this computer (public key missing).
+
+Open the Identities window and create a new one, or restore your identity backup.</translation>
     </message>
     <message>
       <location filename="../src/net/NetSession.cpp" line="916" />
@@ -3983,8 +4019,8 @@ TCP Ping: %11 ms</translation>
     </message>
     <message>
       <location filename="../src/dialogs/IdentityDialog.cpp" line="43" />
-      <source>Não foi possível salvar a identidade no cofre do sistema: %1</source>
-      <translation>Unable to save identity to system vault: %1</translation>
+      <source>Não foi possível salvar a identidade no cofre do sistema: %1 — a chave privada será guardada apenas no perfil local (menos seguro).</source>
+      <translation>Could not save the identity to the system keychain: %1 — the private key will be stored only in the local profile (less secure).</translation>
     </message>
     <message>
       <location filename="../src/main.cpp" line="71" />

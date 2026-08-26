@@ -1220,6 +1220,18 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         if (r.value(0) == "1") { uid = r.value(3); break; }
     if (uid.isEmpty()) uid = IdentityDialog::loadAll().value(0).value(3);
 
+    // A identidade precisa estar completa ANTES de conectar: sem a chave
+    // pública o servidor rejeitaria com bad_identity, sem dizer o porquê.
+    if (uid.isEmpty() || IdentityDialog::publicKeyForUid(uid).isEmpty()) {
+        QMessageBox::warning(
+            this, tr("Erro ao conectar"),
+            tr("Sua identidade não está disponível neste computador: o ID único está "
+               "vazio ou a chave pública não foi encontrada.\n\nAbra a janela "
+               "Identidades, crie uma nova identidade (ou restaure seu backup) e "
+               "conecte de novo."));
+        return;
+    }
+
     NetSession* net = new NetSession(this);
     net->connectToServer(address, port, nick, uid, password);
 

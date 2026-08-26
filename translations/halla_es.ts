@@ -1033,6 +1033,15 @@
       <source>  (padrão)</source>
       <translation>  (estándar)</translation>
     </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="200" />
+      <source>Não foi possível criar a identidade: a chave Ed25519 não pôde ser gerada ou salva.
+
+Verifique o cofre de senhas do sistema (Keychain, Keyring ou Credential Manager) e tente novamente.</source>
+      <translation>No se pudo crear la identidad: no se pudo generar o guardar la clave Ed25519.
+
+Verifique el almacén de contraseñas del sistema (Keychain, Keyring o Credential Manager) e inténtelo de nuevo.</translation>
+    </message>
   </context>
   <context>
     <name>InfoPanel</name>
@@ -2023,6 +2032,15 @@ Detalles: %1
       <source>Nenhuma notificação nova</source>
       <translation>Ninguna notificación nueva</translation>
     </message>
+    <message>
+      <location filename="../src/app/MainWindow.cpp" line="1230" />
+      <source>Sua identidade não está disponível neste computador: o ID único está vazio ou a chave pública não foi encontrada.
+
+Abra a janela Identidades, crie uma nova identidade (ou restaure seu backup) e conecte de novo.</source>
+      <translation>Su identidad no está disponible en este equipo: el ID único está vacío o no se encontró la clave pública.
+
+Abra la ventana Identidades, cree una nueva identidad (o restaure su copia de seguridad) y vuelva a conectar.</translation>
+    </message>
   </context>
   <context>
     <name>NetSession</name>
@@ -2042,13 +2060,31 @@ Conexión rechazada para su protección.</translation>
     </message>
     <message>
       <location filename="../src/net/NetSession.cpp" line="840" />
-      <source>Não foi possível assinar o desafio da identidade</source>
-      <translation>No se puede firmar el desafío de identidad</translation>
+      <source>Não foi possível assinar o desafio da identidade: a chave privada não está acessível no cofre deste computador.
+
+Restaure seu backup de identidade ou crie uma nova (janela Identidades).</source>
+      <translation>No se pudo firmar el desafío de identidad: la clave privada no está accesible en el almacén seguro de este equipo.
+
+Restaure su copia de seguridad de identidad o cree una nueva (ventana Identidades).</translation>
     </message>
     <message>
       <location filename="../src/net/NetSession.cpp" line="853" />
-      <source>Erro do servidor: %1 (%2)</source>
-      <translation>Error del servidor: %1 (%2)</translation>
+      <source>Erro do servidor: %1 (código: %2)</source>
+      <translation>Error del servidor: %1 (código: %2)</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="853" />
+      <source>Erro do servidor: %1 (código: %2; servidor: %3)</source>
+      <translation>Error del servidor: %1 (código: %2; servidor: %3)</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="853" />
+      <source>Sua identidade não está disponível neste computador (chave pública ausente).
+
+Abra a janela Identidades e crie uma nova, ou restaure seu backup de identidade.</source>
+      <translation>Su identidad no está disponible en este equipo (clave pública ausente).
+
+Abra la ventana Identidades y cree una nueva, o restaure su copia de seguridad de identidad.</translation>
     </message>
     <message>
       <location filename="../src/net/NetSession.cpp" line="916" />
@@ -3983,8 +4019,8 @@ Ping TCP: %11 ms</translation>
     </message>
     <message>
       <location filename="../src/dialogs/IdentityDialog.cpp" line="43" />
-      <source>Não foi possível salvar a identidade no cofre do sistema: %1</source>
-      <translation>No se puede guardar la identidad en la bóveda del sistema: %1</translation>
+      <source>Não foi possível salvar a identidade no cofre do sistema: %1 — a chave privada será guardada apenas no perfil local (menos seguro).</source>
+      <translation>No se pudo guardar la identidad en el almacén seguro del sistema: %1 — la clave privada se guardará solo en el perfil local (menos seguro).</translation>
     </message>
     <message>
       <location filename="../src/main.cpp" line="71" />
