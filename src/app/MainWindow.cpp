@@ -2142,9 +2142,18 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
                     hit(3, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
                     hit(4, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
                     hit(5, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
+                    // O raw input do mouse chega para TODO movimento (não só
+                    // botões): com RIDEV_INPUTSINK e um mouse de 1000 Hz eram
+                    // ~1000 WM_INPUT/s, cada um despertando a GUI e rodando o
+                    // poll completo. O estado só muda em evento de BOTÃO — o
+                    // movimento fica para o timer de 50 ms.
+                    if (f & (RI_MOUSE_MIDDLE_BUTTON_DOWN | RI_MOUSE_MIDDLE_BUTTON_UP |
+                             RI_MOUSE_BUTTON_4_DOWN | RI_MOUSE_BUTTON_4_UP |
+                             RI_MOUSE_BUTTON_5_DOWN | RI_MOUSE_BUTTON_5_UP)) {
+                        pollGlobalInputs();
+                    }
                 }
             }
-            pollGlobalInputs();
         } else if (msg->message == WM_XBUTTONDOWN || msg->message == WM_XBUTTONUP ||
                    msg->message == WM_MBUTTONDOWN || msg->message == WM_MBUTTONUP ||
                    msg->message == WM_APPCOMMAND) {

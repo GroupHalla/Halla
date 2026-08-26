@@ -142,21 +142,30 @@ public:
 static HHOOK hMouseHook = NULL;
 static HotkeyEdit* activeCaptureEdit = nullptr;
 
+// Hook de baixo nível: o caminho crítico do input do sistema INTEIRO passa
+// por aqui enquanto um campo de captura está armado. Por isso ele só faz o
+// mínimo — identifica o botão e ENFILEIRA o processamento (invokeMethod
+// com QueuedConnection volta ao loop da GUI depois que o hook retorna).
+// As versões anteriores chamavam setText/emit/clearFocus e até
+// UnhookWindowsHookEx DENTRO do hook: além do risco de reentrância, qualquer
+// demora aqui (ex.: sync do QSettings num slot conectado) travava o mouse
+// do sistema inteiro até o Windows descartar o hook por timeout.
 LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && activeCaptureEdit) {
-        if (wParam == WM_XBUTTONDOWN) {
-            MSLLHOOKSTRUCT* hs = (MSLLHOOKSTRUCT*)lParam;
-            int button = HIWORD(hs->mouseData);
-            QString name = (button == XBUTTON1) ? QStringLiteral("Mouse4") : QStringLiteral("Mouse5");
-            activeCaptureEdit->acceptSpec(name);
-            activeCaptureEdit->clearFocus();
-            return 1; // engole o clique
-        }
-        else if (wParam == WM_MBUTTONDOWN) {
-            activeCaptureEdit->acceptSpec(QStringLiteral("MouseMeio"));
-            activeCaptureEdit->clearFocus();
-            return 1; // engole o clique
-        }
+    if (nCode >= 0 && activeCaptureEdit
+        && (wParam == WM_XBUTTONDOWN || wParam == WM_MBUTTONDOWN)) {
+        const int button = (wParam == WM_MBUTTONDOWN) ? 3
+            : ((HIWORD(reinterpret_cast<MSLLHOOKSTRUCT*>(lParam)->mouseData) == XBUTTON1) ? 4 : 5);
+        HotkeyEdit* const target = activeCaptureEdit;
+        QMetaObject::invokeMethod(target, [target, button] {
+            // fora do hook: pode tocar Qt, mudar foco e desarmar com segurança
+            switch (button) {
+            case 3: target->acceptSpec(QString::fromLatin1(HotkeyEdit::kMouseMiddle)); break;
+            case 4: target->acceptSpec(QString::fromLatin1(HotkeyEdit::kMouse4));      break;
+            default: target->acceptSpec(QString::fromLatin1(HotkeyEdit::kMouse5));     break;
+            }
+            target->clearFocus(); // desarma via focusOutEvent
+        }, Qt::QueuedConnection);
+        return 1; // engole o clique: ele está sendo capturado como atalho
     }
     return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
 }
@@ -177,6 +186,13 @@ HotkeyEdit::HotkeyEdit(QWidget* parent) : QLineEdit(parent) {
 
 HotkeyEdit::~HotkeyEdit() {
 #ifdef Q_OS_WIN
+    // Desarma ANTES de destruir: se o campo estava com foco quando o diálogo
+    // fechou, o hook LL de mouse ficava instalado para sempre e
+    // activeCaptureEdit apontava para este objeto já morto — o próximo clique
+    // de botão lateral/meio em QUALQUER app era use-after-free (crash
+    // aleatório) e o hook vazado engrossava o input do sistema a cada
+    // travada da GUI.
+    if (m_armed) setArmed(false);
     if (m_native) {
         qApp->removeNativeEventFilter(m_native);
         delete m_native;
@@ -208,19 +224,23 @@ void HotkeyEdit::setArmed(bool on) {
         setStyleSheet(QStringLiteral("HotkeyEdit { border: 1px solid #0078D7; }"));
 #ifdef Q_OS_WIN
         activeCaptureEdit = this;
-        hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, GlobalMouseProc, GetModuleHandle(NULL), 0);
+        // um único hook para o app todo (dois campos armados ao mesmo tempo
+        // não devem instalar dois hooks — o segundo sobrescreveria o
+        // handle do primeiro e o hook antigo vazaria instalado)
+        if (!hMouseHook)
+            hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, GlobalMouseProc, GetModuleHandle(NULL), 0);
 #endif
     } else {
         qApp->removeEventFilter(this);
         setPlaceholderText(tr("Clique aqui e pressione uma tecla ou botão do mouse"));
         setStyleSheet(QString());
 #ifdef Q_OS_WIN
+        if (activeCaptureEdit == this) {
+            activeCaptureEdit = nullptr;
+        }
         if (hMouseHook) {
             UnhookWindowsHookEx(hMouseHook);
             hMouseHook = NULL;
-        }
-        if (activeCaptureEdit == this) {
-            activeCaptureEdit = nullptr;
         }
 #endif
     }
