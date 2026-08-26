@@ -2183,6 +2183,14 @@ void MainWindow::registerPttHotkey() {
     if (RegisterRawInputDevices(&rid, 1, sizeof(rid)))
         m_rawInputRegistered = true;
 
+    // A tecla PTT só vira hotkey global no modo "pressionar para falar" (0).
+    // Nos modos por voz (1, PADRÃO) e contínuo (2), registrar a tecla engolia
+    // ela do sistema INTEIRO à toa: com o padrão Space, TODO usuário em modo
+    // por voz perdia a barra de espaço em TODOS os aplicativos enquanto o
+    // Halla estivesse aberto — era um dos motivadores dos relatos de
+    // "teclado parou de funcionar".
+    if (S::num("capture/pttMode", 1) != 0) return;
+
     const QString spec = S::str("capture/pttKey", QStringLiteral("Space"));
     if (spec.isEmpty()) return;
 

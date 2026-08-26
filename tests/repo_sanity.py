@@ -45,6 +45,11 @@ net_session = (root / "src/net/NetSession.cpp").read_text(encoding="utf-8")
 server_tab = (root / "src/gui/ServerTab.cpp").read_text(encoding="utf-8")
 voice_engine = (root / "src/net/VoiceEngine.cpp").read_text(encoding="utf-8")
 assert "m_closeDelayPending" in main_window and "QTimer::singleShot(1000" in main_window
+# A tecla PTT só pode virar hotkey global no modo "pressionar para falar"
+# (capture/pttMode == 0). Registrá-la nos modos por voz (1, PADRÃO) e
+# contínuo (2) engole a tecla do sistema inteiro à toa — com o padrão Space,
+# todo usuário em modo por voz perdia a barra de espaço em todos os apps.
+assert 'if (S::num("capture/pttMode", 1) != 0) return;' in main_window
 assert "m_intentionalDisconnect" in net_session and "waitForBytesWritten" not in net_session
 assert 'HSound::play(QStringLiteral("moved"))' in server_tab
 assert "Silenciar todos os avisos de áudio" in (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
