@@ -1034,13 +1034,41 @@
       <translation>  (default)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/IdentityDialog.cpp" line="200" />
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="276" />
       <source>Não foi possível criar a identidade: a chave Ed25519 não pôde ser gerada ou salva.
 
-Verifique o cofre de senhas do sistema (Keychain, Keyring ou Credential Manager) e tente novamente.</source>
+Etapa com problema: %1
+
+Verifique o cofre de senhas do sistema (Keychain, Keyring ou Credential Manager) e tente novamente.
+
+Halla %2</source>
       <translation>Could not create the identity: the Ed25519 key could not be generated or saved.
 
-Check the system password vault (Keychain, Keyring or Credential Manager) and try again.</translation>
+Failing step: %1
+
+Check the system password vault (Keychain, Keyring or Credential Manager) and try again.
+
+Halla %2</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="281" />
+      <source>desconhecida</source>
+      <translation>unknown</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="362" />
+      <source>(vazia)</source>
+      <translation>(empty)</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="365" />
+      <source>O ID desta identidade está vazio — a geração de chave falhou neste computador na versão que a criou. Use Adicionar para criar uma identidade nova.</source>
+      <translation>This identity's unique ID is empty — key generation failed on this computer in the version that created it. Use Add to create a new identity.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="377" />
+      <source>Atenção: há identidade com ID vazio — ao conectar ela é rejeitada pelo servidor. Crie uma nova com Adicionar e defina-a como padrão.</source>
+      <translation>Warning: there is an identity with an empty ID — the server rejects it when connecting. Create a new one with Add and set it as default.</translation>
     </message>
   </context>
   <context>

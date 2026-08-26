@@ -23,4 +23,5 @@ private:
 
     QTableWidget* m_table;
     class QToolButton* m_defaultBtn;
+    class QLabel* m_note = nullptr;
 };

@@ -1034,13 +1034,41 @@
       <translation>  (estándar)</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/IdentityDialog.cpp" line="200" />
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="276" />
       <source>Não foi possível criar a identidade: a chave Ed25519 não pôde ser gerada ou salva.
 
-Verifique o cofre de senhas do sistema (Keychain, Keyring ou Credential Manager) e tente novamente.</source>
-      <translation>No se pudo crear la identidad: no se pudo generar o guardar la clave Ed25519.
+Etapa com problema: %1
 
-Verifique el almacén de contraseñas del sistema (Keychain, Keyring o Credential Manager) e inténtelo de nuevo.</translation>
+Verifique o cofre de senhas do sistema (Keychain, Keyring ou Credential Manager) e tente novamente.
+
+Halla %2</source>
+      <translation>No se pudo crear la identidad: la clave Ed25519 no pudo generarse o guardarse.
+
+Etapa con problema: %1
+
+Verifique el depósito de contraseñas del sistema (Keychain, Keyring o Credential Manager) e inténtelo de nuevo.
+
+Halla %2</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="281" />
+      <source>desconhecida</source>
+      <translation>desconocida</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="362" />
+      <source>(vazia)</source>
+      <translation>(vacía)</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="365" />
+      <source>O ID desta identidade está vazio — a geração de chave falhou neste computador na versão que a criou. Use Adicionar para criar uma identidade nova.</source>
+      <translation>El ID único de esta identidad está vacío: la generación de claves falló en este equipo en la versión que la creó. Use Add para crear una identidad nueva.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="377" />
+      <source>Atenção: há identidade com ID vazio — ao conectar ela é rejeitada pelo servidor. Crie uma nova com Adicionar e defina-a como padrão.</source>
+      <translation>Atención: hay una identidad con ID vacío; el servidor la rechaza al conectar. Cree una nueva con Add y defínala como predeterminada.</translation>
     </message>
   </context>
   <context>

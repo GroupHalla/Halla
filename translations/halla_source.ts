@@ -1034,10 +1034,34 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/IdentityDialog.cpp" line="200"/>
+        <location filename="../src/dialogs/IdentityDialog.cpp" line="276"/>
         <source>Não foi possível criar a identidade: a chave Ed25519 não pôde ser gerada ou salva.
 
-Verifique o cofre de senhas do sistema (Keychain, Keyring ou Credential Manager) e tente novamente.</source>
+Etapa com problema: %1
+
+Verifique o cofre de senhas do sistema (Keychain, Keyring ou Credential Manager) e tente novamente.
+
+Halla %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/IdentityDialog.cpp" line="281"/>
+        <source>desconhecida</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/IdentityDialog.cpp" line="362"/>
+        <source>(vazia)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/IdentityDialog.cpp" line="365"/>
+        <source>O ID desta identidade está vazio — a geração de chave falhou neste computador na versão que a criou. Use Adicionar para criar uma identidade nova.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/IdentityDialog.cpp" line="377"/>
+        <source>Atenção: há identidade com ID vazio — ao conectar ela é rejeitada pelo servidor. Crie uma nova com Adicionar e defina-a como padrão.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

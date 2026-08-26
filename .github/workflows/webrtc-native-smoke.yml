@@ -40,3 +40,17 @@ jobs:
             /I "sdk\include" /I "sdk\include\third_party\abseil-cpp" /I "sdk\include\third_party\libyuv\include" `
             tests\webrtc_factory_smoke.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib /out:webrtc_factory_smoke.exe
           .\webrtc_factory_smoke.exe
+
+      # Reproduz o ambiente misto do build de release: headers do OpenSSL 3
+      # (vcpkg) + implementação BoringSSL do webrtc.lib. Sem este teste de
+      # runtime, quebras de Ed25519 só apareciam nas máquinas dos usuários.
+      - name: Compile and run Ed25519 identity smoke
+        shell: pwsh
+        run: |
+          vcpkg install openssl:x64-windows
+          $libs = Get-ChildItem "sdk\lib\windows-x64" -Filter *.lib | ForEach-Object { $_.FullName }
+          cl /nologo /std:c++20 /MD /EHsc /DWEBRTC_WIN=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN `
+            /I "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" `
+            /I "sdk\include" /I "sdk\include\third_party\abseil-cpp" /I "sdk\include\third_party\libyuv\include" `
+            tests\ed25519_identity_smoke.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib /out:ed25519_identity_smoke.exe
+          .\ed25519_identity_smoke.exe

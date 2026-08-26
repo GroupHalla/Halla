@@ -20,6 +20,8 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QCryptographicHash>
+#include "version.h"
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>
@@ -28,11 +30,29 @@ static QString keyBase(const QString& uid, const QString& field) {
     return QStringLiteral("identityKeys/%1/%2").arg(uid, field);
 }
 
+// Último motivo pelo qual generateUniqueId()/storeIdentityKey() devolveram
+// vazio. Antes o diálogo só dizia "não pôde ser gerada ou salva" e era
+// impossível distinguir keygen quebrado, serialização quebrada ou cofre
+// bloqueado — cada relato de usuário virava um interrogatório. Guardado em
+// texto pronto para exibir/logar (a geração roda só na thread da GUI).
+static QString g_lastIdentityError;
+
+static QString sslErrorText() {
+    const unsigned long e = ERR_get_error();
+    if (!e) return QStringLiteral("sem detalhe");
+    char buf[256] = {0};
+    ERR_error_string_n(e, buf, sizeof(buf));
+    return QString::fromLatin1(buf);
+}
+
 static QString storeIdentityKey(EVP_PKEY* key) {
     // Chave pública em SPKI DER (i2d_PUBKEY) — suportado por OpenSSL e
     // BoringSSL para todos os tipos de chave.
     const int pubLen = i2d_PUBKEY(key, nullptr);
-    if (pubLen <= 0) return QString();
+    if (pubLen <= 0) {
+        g_lastIdentityError = QStringLiteral("i2d_PUBKEY (chave pública): %1").arg(sslErrorText());
+        return QString();
+    }
     // Chave privada NO FORMATO CRU (seed Ed25519 de 32 bytes). O
     // i2d_PrivateKey clássico só serializa RSA/EC/DSA: no BoringSSL
     // embutido no SDK WebRTC (que o build Windows linka no lugar do
@@ -43,8 +63,11 @@ static QString storeIdentityKey(EVP_PKEY* key) {
     QByteArray priv(64, 0);
     size_t rawLen = priv.size();
     if (EVP_PKEY_get_raw_private_key(key, reinterpret_cast<unsigned char*>(priv.data()), &rawLen) != 1
-        || rawLen == 0 || rawLen > 64)
+        || rawLen == 0 || rawLen > 64) {
+        g_lastIdentityError =
+            QStringLiteral("EVP_PKEY_get_raw_private_key (chave privada): %1").arg(sslErrorText());
         return QString();
+    }
     priv.resize(int(rawLen));
     QByteArray pub(pubLen, 0);
     unsigned char* p = reinterpret_cast<unsigned char*>(pub.data());
@@ -75,8 +98,16 @@ QString IdentityDialog::generateUniqueId() {
     EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
     EVP_PKEY* key = nullptr;
     QString uid;
-    if (ctx && EVP_PKEY_keygen_init(ctx) == 1 && EVP_PKEY_keygen(ctx, &key) == 1)
+    if (!ctx)
+        g_lastIdentityError = QStringLiteral("EVP_PKEY_CTX_new_id: %1").arg(sslErrorText());
+    else if (EVP_PKEY_keygen_init(ctx) != 1)
+        g_lastIdentityError = QStringLiteral("EVP_PKEY_keygen_init: %1").arg(sslErrorText());
+    else if (EVP_PKEY_keygen(ctx, &key) != 1)
+        g_lastIdentityError = QStringLiteral("EVP_PKEY_keygen (geração Ed25519): %1").arg(sslErrorText());
+    else
         uid = storeIdentityKey(key);
+    if (uid.isEmpty() && !g_lastIdentityError.isEmpty())
+        AppLog::error(QStringLiteral("Identidade não gerada — %1").arg(g_lastIdentityError));
     EVP_PKEY_free(key);
     EVP_PKEY_CTX_free(ctx);
     return uid;
@@ -222,10 +253,10 @@ IdentityDialog::IdentityDialog(QWidget* parent) : QDialog(parent) {
 
     QHBoxLayout* bottom = new QHBoxLayout;
     bottom->setContentsMargins(10, 6, 10, 0);
-    QLabel* note = new QLabel(tr("O ID único identifica você perante os servidores. "
-                                 "Guarde-o com segurança."), this);
-    note->setStyleSheet(QStringLiteral("color:#666666"));
-    bottom->addWidget(note, 1);
+    m_note = new QLabel(tr("O ID único identifica você perante os servidores. "
+                           "Guarde-o com segurança."), this);
+    m_note->setStyleSheet(QStringLiteral("color:#666666"));
+    bottom->addWidget(m_note, 1);
     QPushButton* close = new QPushButton(tr("Fechar"), this);
     bottom->addWidget(close);
     root->addLayout(bottom);
@@ -243,8 +274,12 @@ IdentityDialog::IdentityDialog(QWidget* parent) : QDialog(parent) {
             QMessageBox::critical(
                 this, tr("Identidades"),
                 tr("Não foi possível criar a identidade: a chave Ed25519 não pôde ser "
-                   "gerada ou salva.\n\nVerifique o cofre de senhas do sistema "
-                   "(Keychain, Keyring ou Credential Manager) e tente novamente."));
+                   "gerada ou salva.\n\nEtapa com problema: %1\n\n"
+                   "Verifique o cofre de senhas do sistema (Keychain, Keyring ou "
+                   "Credential Manager) e tente novamente.\n\n"
+                   "Halla %2")
+                    .arg(g_lastIdentityError.isEmpty() ? tr("desconhecida") : g_lastIdentityError,
+                         QString::fromUtf8(halla::kAppVersion)));
             return;
         }
         QList<QStringList> rows = loadAll();
@@ -316,15 +351,37 @@ int IdentityDialog::selectedRow() const {
 void IdentityDialog::reload() {
     const QList<QStringList> rows = loadAll();
     m_table->setRowCount(rows.size());
+    bool broken = false;
     for (int i = 0; i < rows.size(); ++i) {
         QString nick = rows[i].value(1);
         if (rows[i].value(0) == "1") nick += tr("  (padrão)");
         m_table->setItem(i, 0, new QTableWidgetItem(nick));
         m_table->setItem(i, 1, new QTableWidgetItem(rows[i].value(2)));
+        const QString uidText = rows[i].value(3);
         QTableWidgetItem* uid = new QTableWidgetItem(
-            rows[i].value(3).left(13) + QStringLiteral("..."));
-        uid->setToolTip(rows[i].value(3));
+            uidText.isEmpty() ? tr("(vazia)")
+                              : uidText.left(13) + QStringLiteral("..."));
+        uid->setToolTip(uidText.isEmpty()
+            ? tr("O ID desta identidade está vazio — a geração de chave falhou "
+                 "neste computador na versão que a criou. Use Adicionar para "
+                 "criar uma identidade nova.")
+            : uidText);
+        if (uidText.isEmpty()) broken = true;
         m_table->setItem(i, 2, uid);
     }
     if (rows.size()) m_table->selectRow(0);
+    // Nota de rodapé vira alerta quando há identidade quebrada na lista: o
+    // usuário precisa saber POR QUE o ID está vazio, não apenas vê-lo vazio.
+    if (m_note) {
+        if (broken) {
+            m_note->setText(tr("Atenção: há identidade com ID vazio — ao conectar "
+                               "ela é rejeitada pelo servidor. Crie uma nova com "
+                               "Adicionar e defina-a como padrão."));
+            m_note->setStyleSheet(QStringLiteral("color:#b3261e"));
+        } else {
+            m_note->setText(tr("O ID único identifica você perante os servidores. "
+                               "Guarde-o com segurança."));
+            m_note->setStyleSheet(QStringLiteral("color:#666666"));
+        }
+    }
 }
