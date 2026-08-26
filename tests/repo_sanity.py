@@ -165,6 +165,12 @@ assert 'o["tempParent"]' in server_tab
 assert 'contains("tempParent")' in net_session
 assert "halla-app-icon.png" in (root / "src/gui/Icons.cpp").read_text(encoding="utf-8")
 identity_dialog = (root / "src/dialogs/IdentityDialog.cpp").read_text(encoding="utf-8")
+# Versão sem comentários: as proibições abaixo valem para CÓDIGO — os
+# comentários documentam justamente as funções proibidas, e citar o nome
+# delas na explicação não pode violar a política.
+import re as _re
+_identity_code = _re.sub(r"//[^\n]*", "", identity_dialog)
+_identity_code = _re.sub(r"/\*.*?\*/", "", _identity_code, flags=_re.S)
 # Identidade nunca nasce sem ID: com o cofre do sistema (qtkeychain/Credential
 # Manager) indisponível, a chave privada cai no armazenamento local legado.
 assert 'a chave privada será guardada apenas no perfil local' in identity_dialog
@@ -191,12 +197,12 @@ assert 'd2i_AutoPrivateKey(nullptr, &p, priv.size())' in identity_dialog
 # runtime pelo smoke do CI). Toda a sequência usa caminhos identificados por
 # OID: RAND_bytes (seed) + d2i_AutoPrivateKey sobre o PKCS#8 mínimo do
 # RFC 8410 (kPkcs8SeedHeader) + i2d_PUBKEY + EVP_DigestSign/Verify.
-assert 'kPkcs8SeedHeader' in identity_dialog
-assert 'RAND_bytes(seed, sizeof(seed)) != 1' in identity_dialog
-assert 'EVP_PKEY_CTX_new_id' not in identity_dialog
-assert 'EVP_PKEY_new_raw_private_key' not in identity_dialog
-assert 'EVP_PKEY_id' not in identity_dialog
-assert 'EVP_PKEY_get_id' not in identity_dialog
+assert 'kPkcs8SeedHeader' in _identity_code
+assert 'RAND_bytes(seed, sizeof(seed)) != 1' in _identity_code
+assert 'EVP_PKEY_CTX_new_id' not in _identity_code
+assert 'EVP_PKEY_new_raw_private_key' not in _identity_code
+assert 'EVP_PKEY_id' not in _identity_code
+assert 'EVP_PKEY_get_id' not in _identity_code
 runpy.run_path(str(root / "tests/icon_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/plugin_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")
