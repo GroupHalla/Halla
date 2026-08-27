@@ -10,7 +10,7 @@
 // Cadeia de processamento (48 kHz, PCM S16, um canal por instância):
 //   1. AGC de pico (ataque rápido, liberação ~160 ms): voz sempre "no talo",
 //      como o microfone de um rádio amassando a dinâmica da fala;
-//   2. Banda estreita de radiocomunicação: 2x passa-altas ~420 Hz seguidos de
+//   2. Banda estreita de radiocomunicação: 2x passa-altas ~350 Hz seguidos de
 //      2x passa-baixas ~3,1 kHz — a voz "fininha" de transceptor PMR;
 //   3. Saturação tanh com drive alto + quantização grosseira: o "grito"
 //      distorcido de transmissor saturado;
@@ -28,7 +28,7 @@
 //
 // Todos os coeficientes abaixo estão pré-calculados para 48 kHz. Derivações:
 //   passa-altas 1ª ordem  y[n] = a*(y[n-1] + x[n] - x[n-1]), a = 1/(1+2*pi*fc/fs)
-//     fc=420 Hz  -> a = 0.94787
+//     fc=350 Hz  -> a = 0.95630
 //   passa-baixas 1ª ordem  y[n] += g*(x[n] - y[n]), g = 1-exp(-2*pi*fc/fs)
 //     fc=3100 Hz -> g = 0.33368 ; fc=1700 Hz -> g = 0.20
 //   ressonância (biquad peaking RBJ, fc=1900 Hz, Q=2,2, +5 dB, normalizado):
@@ -101,15 +101,15 @@ private:
         m_agcGain += 0.003f * (wanted - m_agcGain); // suavização ~7 ms
         const float leveled = input * m_agcGain;
 
-        // --- 2) Banda estreita ~420 Hz a ~3,1 kHz --------------------------
-        m_hp1 = 0.94787f * (m_hp1 + leveled - m_hp1x); m_hp1x = leveled;
-        m_hp2 = 0.94787f * (m_hp2 + m_hp1 - m_hp2x);   m_hp2x = m_hp1;
+        // --- 2) Banda estreita ~350 Hz a ~3,1 kHz --------------------------
+        m_hp1 = 0.95630f * (m_hp1 + leveled - m_hp1x); m_hp1x = leveled;
+        m_hp2 = 0.95630f * (m_hp2 + m_hp1 - m_hp2x);   m_hp2x = m_hp1;
         m_lp1 += 0.33368f * (m_hp2 - m_lp1);
         m_lp2 += 0.33368f * (m_lp1 - m_lp2);
         const float band = m_lp2;
 
         // --- 3) Saturação de transmissor + quantização grosseira -----------
-        float crushed = std::tanh(band * 3.4f) * 0.60f;
+        float crushed = std::tanh(band * 2.6f) * 0.60f;
         crushed = std::round(crushed * 48.0f) / 48.0f;
 
         // --- 4) Ressonância do alto-falante pequeno ------------------------
