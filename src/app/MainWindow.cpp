@@ -1358,6 +1358,11 @@ void MainWindow::wireTab(ServerTab* tab) {
                             uint32_t(frames), uint32_t(channels), 1.0f);
                     });
         }
+        // A sessão WebRTC é única e sobrevive às abas: ao (re)conectar, aponte
+        // para o NetSession vivo desta aba. Sem isto, m_net ficava pendente
+        // para a sessão antiga (deletada) após reconectar, e a transmissão
+        // crashava o app (use-after-free) ou não fazia nada (estado preso).
+        m_webrtcSession->setNetSession(tab->net());
         connect(tab->net(), &NetSession::webRtcSignalReceived,
                 m_webrtcSession, &HallaWebRtcSession::handleSignal);
     }
@@ -1433,6 +1438,11 @@ void MainWindow::finishDisconnectTab(ServerTab* tab) {
 
     NetSession* net = tab->net();
     if (net) {
+        // Encerra a transmissão/watch da sessão WebRTC ENQUANTO o NetSession
+        // ainda existe (o stream_stop precisa dele) e solta o ponteiro antes
+        // do deleteLater — evita use-after-free e broadcast preso no estado
+        // "ligado" ao reconectar.
+        if (m_webrtcSession) m_webrtcSession->detachFromNet(net);
         net->quit();
         QTimer::singleShot(500, net, &QObject::deleteLater);
     }

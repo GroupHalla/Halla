@@ -12,6 +12,8 @@
 #include <QMap>
 #include <QMutex>
 #include <QSet>
+#include <QVector>
+#include <QRect>
 #include <QtGlobal>
 #include <atomic>
 class QTimer;
@@ -23,6 +25,7 @@ namespace webrtc {
 template <typename T> class scoped_refptr;
 class VideoTrackInterface;
 class AudioTrackInterface;
+class PeerConnectionInterface;
 }
 #endif
 
@@ -45,6 +48,12 @@ public:
     void setCaptureSystemAudio(bool enabled);
     void startWatching(int userId);
     void stopWatching(int userId);
+    // A sessão WebRTC sobrevive às abas (uma por janela); ao reconectar, o
+    // NetSession antigo é destruído. Sem estes métodos, m_net ficaria pendente
+    // (use-after-free no sendWebRtcStreamStart) e m_broadcasting preso em true
+    // (a próxima transmissão não fazia nada).
+    void setNetSession(NetSession* net);
+    void detachFromNet(NetSession* net);
 
 public slots:
     void startBroadcast();
@@ -57,6 +66,9 @@ public:
     bool ensureNativeFactory();
     void resetNativeFactoryForEncoderSetting();
     PeerContext* ensurePeer(int peerId);
+    // Cópia ref-counted do PeerConnection de um peer — segura de usar fora do
+    // lock mesmo que closePeer apague o contexto da thread da GUI no intervalo.
+    webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peerConnection(int peerId);
     void createOfferForPeer(int peerId);
     void setRemoteAnswer(int peerId, const QString& sdp);
     void setRemoteOffer(int peerId, const QString& sdp);
@@ -94,6 +106,10 @@ private:
     QTimer* m_captureTimer = nullptr;
     int m_captureSourceType = 0;
     quintptr m_captureSourceId = 0;
+    // Snapshot das geometrias lógicas das telas, coletado NA GUI THREAD
+    // (setCaptureSource). QGuiApplication::screens()/geometry() não podem ser
+    // lidos da thread de captura — o crop de janelas usa esta cópia.
+    QVector<QRect> m_screenGeometries;
     int m_captureWidth = 1920;
     int m_captureHeight = 1080;
     int m_captureFps = 60;

@@ -55,6 +55,49 @@ assert 'HSound::play(QStringLiteral("moved"))' in server_tab
 assert "Silenciar todos os avisos de áudio" in (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
 webrtc = (root / "src/webrtc/HallaWebRtcSession.cpp").read_text(encoding="utf-8")
 assert "PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE" in webrtc
+# Threading do WebRTC (v1.1.6 — crash do app ao clicar "Compartilhar" logo
+# após conectar): os observers do libwebrtc (OnIceCandidate/OnTrack/OnSuccess
+# de oferta/resposta) rodam na THREAD DE SINALIZAÇÃO, enquanto handleSignal/
+# closePeer/startBroadcast rodam na GUI. Três famílias de proteção são
+# OBRIGATÓRIAS no fonte e não podem regredir:
+#   1) sends da thread de sinalização EMPACOTADOS para a GUI — escrever no
+#      QTcpSocket do NetSession de outra thread corrompia a heap na rajada de
+#      offer/answer/ICE que segue o início da transmissão;
+#   2) todo acesso a m_native->peers sob peersMutex — o std::map era lido e
+#      escrito pelas duas threads ao mesmo tempo;
+#   3) Start/Stop de playout/recording do ADM de loopback sob mutex — dois
+#      joins concorrentes no mesmo std::thread terminam o processo
+#      (std::terminate) sem diálogo: o app "fecha sozinho".
+webrtc_code = re.sub(r"//[^\n]*", "", webrtc)
+for required in ("std::recursive_mutex peersMutex",
+                 "peersMutex", "peerConnection(int peerId)",
+                 "setNetSession", "detachFromNet",
+                 "Qt::QueuedConnection);\n}",):
+    assert required in webrtc, required
+# sendNative* só podem tocar o NetSession dentro de um lambda enfileirado
+# para a GUI (a chamada direta m_net->sendWebRtc* fora de invokeMethod é a
+# corrida que crashava o app).
+for call in ("sendWebRtcIce", "sendWebRtcOffer", "sendWebRtcAnswer"):
+    direct = re.compile(r"m_net->" + call + r"\(")
+    queued = re.compile(r"invokeMethod\(this, \[[^\]]*\] \{\s*if \(m_net\) m_net->" + call)
+    assert not direct.search(webrtc_code) or queued.search(webrtc_code), call
+    assert queued.search(webrtc_code), f"{call} deve ser enfileirado para a GUI"
+# O ADM de loopback precisa do mutex nas quatro transições de thread.
+assert webrtc_code.count("std::lock_guard<std::mutex> threadLock(m_threadMutex);") == 4, \
+    "Start/StopPlayout/Recording do ADM precisam do mutex de thread"
+# QScreen::grabWindow() NUNCA na thread de captura (só existe na GUI): o
+# fallback crashava quando o DXGI falhava com uma janela minimizada.
+# (grabWindowsAppForWebRtc é a captura GDI/PrintWindow — permitida.)
+_capture_frame = webrtc_code[webrtc_code.find("void HallaWebRtcSession::captureFrame()"):]
+_capture_frame = _capture_frame[:_capture_frame.find("\n}\n")]
+assert "->grabWindow(" not in _capture_frame and "::grabWindow(" not in _capture_frame, \
+    "captureFrame não pode usar QScreen::grabWindow"
+assert "m_screenGeometries" in _capture_frame, "crop deve usar o snapshot de geometrias da GUI"
+assert "QGuiApplication::screens()" not in _capture_frame, "screens() só na GUI thread"
+# MainWindow mantém o m_net da sessão WebRTC vivo: wireTab atualiza,
+# finishDisconnectTab desanexa ANTES do deleteLater do NetSession.
+assert "m_webrtcSession->setNetSession(tab->net());" in main_window
+assert "m_webrtcSession->detachFromNet(net);" in main_window
 mf_h264 = (root / "src/webrtc/MediaFoundationH264.cpp").read_text(encoding="utf-8")
 assert "MFT_ENUM_FLAG_HARDWARE" in mf_h264
 assert "MFVideoFormat_H264" in mf_h264

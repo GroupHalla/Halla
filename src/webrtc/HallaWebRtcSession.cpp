@@ -607,18 +607,25 @@ public:
     bool PlayoutIsInitialized() const override { return true; }
     int32_t InitPlayout() override { return 0; }
     int32_t StartPlayout() override {
+        // Start/Stop podem chegar de threads diferentes (GUI x signaling do
+        // libwebrtc). Sem o mutex, dois joins concorrentes no mesmo
+        // std::thread (ou join durante reatribuição) são UB e terminam o
+        // processo sem diálogo — o app "fecha sozinho".
+        std::lock_guard<std::mutex> threadLock(m_threadMutex);
         if (m_playoutRunning.exchange(true)) return 0;
         if (m_playoutThread.joinable()) m_playoutThread.join();
         m_playoutThread = std::thread([this] { playoutLoop(); });
         return 0;
     }
     int32_t StopPlayout() override {
+        std::lock_guard<std::mutex> threadLock(m_threadMutex);
         m_playoutRunning.store(false);
         if (m_playoutThread.joinable()) m_playoutThread.join();
         return 0;
     }
     bool Playing() const override { return m_playoutRunning.load(); }
     int32_t StartRecording() override {
+        std::lock_guard<std::mutex> threadLock(m_threadMutex);
         if (m_running.exchange(true)) return 0;
         // Uma tentativa anterior pode ter falhado e encerrado a thread depois
         // de limpar m_running; faça join antes de reutilizar std::thread.
@@ -627,6 +634,7 @@ public:
         return 0;
     }
     int32_t StopRecording() override {
+        std::lock_guard<std::mutex> threadLock(m_threadMutex);
         m_running.store(false);
         if (m_thread.joinable()) m_thread.join();
         return 0;
@@ -767,6 +775,7 @@ private:
     std::atomic<webrtc::AudioTransport*> m_audioCallback{nullptr};
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_playoutRunning{false};
+    std::mutex m_threadMutex;
     std::thread m_thread;
     std::thread m_playoutThread;
     std::vector<int16_t> m_pcm;
@@ -1168,6 +1177,11 @@ struct HallaWebRtcSession::NativeState {
     std::unique_ptr<DxgiScreenCapturer> dxgiCapturer;
 #endif
     std::map<int, std::unique_ptr<PeerContext>> peers;
+    // Observers do libwebrtc (OnTrack/OnIceCandidate/OnSuccess de ofertas)
+    // rodam na thread de signaling; handleSignal/closePeer rodam na GUI. O
+    // mapa e cada PeerContext só podem ser tocados com este lock — acessos
+    // concorrentes corrompiam a heap e crashavam o app ao iniciar transmissão.
+    std::recursive_mutex peersMutex;
     uint64_t captureFrameNumber = 0;
     bool gpuCaptureFrames = false;
     bool factoryHardwareConfigured = false;
@@ -1180,6 +1194,36 @@ struct HallaWebRtcSession::NativeState {
 
 HallaWebRtcSession::HallaWebRtcSession(NetSession* net, QObject* parent)
     : QObject(parent), m_native(std::make_unique<NativeState>()), m_net(net) {}
+
+void HallaWebRtcSession::setNetSession(NetSession* net) {
+    // wireTab() chama a cada aba conectada: mantém m_net apontando para a
+    // sessão viva mais recente (a sessão WebRTC é única e sobrevive às abas).
+    if (m_net == net) return;
+    m_net = net;
+}
+
+void HallaWebRtcSession::detachFromNet(NetSession* net) {
+    // A aba que possui a conexão morreu: encerra a transmissão (fecha peers,
+    // para o timer de captura e avisa o servidor enquanto o NetSession ainda
+    // existe) e solta o ponteiro — nunca deixe m_net pendente para um
+    // QObject agendado para deleteLater.
+    if (net && m_net != net) return;
+    if (m_broadcasting) stopBroadcast();
+#ifdef HALLA_WEBRTC_NATIVE
+    if (m_native) {
+        while (true) {
+            int peerId = 0;
+            {
+                std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+                if (m_native->peers.empty()) break;
+                peerId = m_native->peers.begin()->first;
+            }
+            closePeer(peerId);
+        }
+    }
+#endif
+    m_net = nullptr;
+}
 
 HallaWebRtcSession::~HallaWebRtcSession() {
     stopBroadcast();
@@ -1197,7 +1241,15 @@ HallaWebRtcSession::~HallaWebRtcSession() {
     }
 #ifdef HALLA_WEBRTC_NATIVE
     if (m_native) {
-        while (!m_native->peers.empty()) closePeer(m_native->peers.begin()->first);
+        while (true) {
+            int peerId = 0;
+            {
+                std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+                if (m_native->peers.empty()) break;
+                peerId = m_native->peers.begin()->first;
+            }
+            closePeer(peerId);
+        }
         if (m_native->loopbackAdm) {
             m_native->loopbackAdm->StopPlayout();
             m_native->loopbackAdm->StopRecording();
@@ -1227,6 +1279,12 @@ bool HallaWebRtcSession::isNativeAvailable() const {
 }
 
 void HallaWebRtcSession::setCaptureSource(int sourceType, quintptr sourceId) {
+    // Roda na GUI thread: snapshot das geometrias para o crop da thread de
+    // captura (não pode tocar QGuiApplication::screens() fora daqui).
+    m_screenGeometries.clear();
+    const QList<QScreen*> screens = QGuiApplication::screens();
+    for (QScreen* screen : screens)
+        m_screenGeometries.push_back(screen ? screen->geometry() : QRect());
     m_captureSourceType = sourceType;
     m_captureSourceId = sourceId;
 }
@@ -1260,7 +1318,15 @@ void HallaWebRtcSession::resetNativeFactoryForEncoderSetting() {
 
     AppLog::info(QStringLiteral(
         "WebRTC: configuração do encoder mudou; recriando factory para a próxima transmissão"));
-    while (!m_native->peers.empty()) closePeer(m_native->peers.begin()->first);
+    while (true) {
+        int peerId = 0;
+        {
+            std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+            if (m_native->peers.empty()) break;
+            peerId = m_native->peers.begin()->first;
+        }
+        closePeer(peerId);
+    }
     if (m_native->loopbackAdm) {
         m_native->loopbackAdm->StopPlayout();
         m_native->loopbackAdm->StopRecording();
@@ -1329,6 +1395,7 @@ bool HallaWebRtcSession::ensureNativeFactory() {
 
 HallaWebRtcSession::PeerContext* HallaWebRtcSession::ensurePeer(int peerId) {
     if (peerId <= 0 || !ensureNativeFactory()) return nullptr;
+    std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
     auto it = m_native->peers.find(peerId);
     if (it != m_native->peers.end()) return it->second.get();
 
@@ -1369,18 +1436,44 @@ HallaWebRtcSession::PeerContext* HallaWebRtcSession::ensurePeer(int peerId) {
     return raw;
 }
 
+webrtc::scoped_refptr<webrtc::PeerConnectionInterface>
+HallaWebRtcSession::peerConnection(int peerId) {
+    // Chamado por observers da thread de signaling: devolve uma referência
+    // contada, mantendo o PeerConnection vivo mesmo que a GUI apague o
+    // contexto (closePeer) antes do uso.
+    if (!m_native) return nullptr;
+    std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+    auto it = m_native->peers.find(peerId);
+    return it == m_native->peers.end() ? nullptr : it->second->pc;
+}
+
 void HallaWebRtcSession::sendNativeIce(int peerId, const std::string& candidate,
                                        const std::string& mid, int mline) {
-    if (m_net) m_net->sendWebRtcIce(peerId, QString::fromStdString(candidate),
-                                    QString::fromStdString(mid), mline);
+    // Chamado pela thread de signaling do libwebrtc (OnIceCandidate). O
+    // QTcpSocket do NetSession vive na GUI: escrever nele de outra thread
+    // corrompia a heap e crashava o app justamente na rajada de ICE que
+    // segue o "Compartilhar". Empacota para a fila da GUI.
+    const QString candidateText = QString::fromStdString(candidate);
+    const QString midText = QString::fromStdString(mid);
+    QMetaObject::invokeMethod(this, [this, peerId, candidateText, midText, mline] {
+        if (m_net) m_net->sendWebRtcIce(peerId, candidateText, midText, mline);
+    }, Qt::QueuedConnection);
 }
 
 void HallaWebRtcSession::sendNativeOffer(int peerId, const std::string& sdp) {
-    if (m_net) m_net->sendWebRtcOffer(peerId, QString::fromStdString(sdp));
+    // Thread de signaling -> GUI (mesmo motivo de sendNativeIce).
+    const QString sdpText = QString::fromStdString(sdp);
+    QMetaObject::invokeMethod(this, [this, peerId, sdpText] {
+        if (m_net) m_net->sendWebRtcOffer(peerId, sdpText);
+    }, Qt::QueuedConnection);
 }
 
 void HallaWebRtcSession::sendNativeAnswer(int peerId, const std::string& sdp) {
-    if (m_net) m_net->sendWebRtcAnswer(peerId, QString::fromStdString(sdp));
+    // Thread de signaling -> GUI (mesmo motivo de sendNativeIce).
+    const QString sdpText = QString::fromStdString(sdp);
+    QMetaObject::invokeMethod(this, [this, peerId, sdpText] {
+        if (m_net) m_net->sendWebRtcAnswer(peerId, sdpText);
+    }, Qt::QueuedConnection);
 }
 
 void HallaWebRtcSession::startWatching(int userId) {
@@ -1459,24 +1552,30 @@ void HallaWebRtcSession::createAnswerForPeer(int peerId) {
 
 void HallaWebRtcSession::attachRemoteVideoTrack(int peerId, webrtc::scoped_refptr<webrtc::VideoTrackInterface> track) {
     if (!track || !m_native) return;
-    auto it = m_native->peers.find(peerId);
-    if (it == m_native->peers.end()) return;
     auto sink = std::make_unique<RemoteVideoSink>(this, peerId);
-    track->AddOrUpdateSink(sink.get(), webrtc::VideoSinkWants());
-    it->second->remoteVideo.push_back({track, std::move(sink)});
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+        auto it = m_native->peers.find(peerId);
+        if (it == m_native->peers.end()) return; // peer fechado entre o evento e aqui
+        track->AddOrUpdateSink(sink.get(), webrtc::VideoSinkWants());
+        it->second->remoteVideo.push_back({track, std::move(sink)});
+    }
     AppLog::info(QStringLiteral("WebRTC Desktop viewer: vídeo remoto anexado do peer #%1").arg(peerId));
 }
 
 void HallaWebRtcSession::attachRemoteAudioTrack(
         int peerId, webrtc::scoped_refptr<webrtc::AudioTrackInterface> track) {
     if (!track || !m_native) return;
-    auto it = m_native->peers.find(peerId);
-    if (it == m_native->peers.end()) return;
-    for (const auto& binding : it->second->remoteAudio)
-        if (binding.track.get() == track.get()) return;
-    auto sink = std::make_unique<RemoteAudioSink>(this, peerId);
-    track->AddSink(sink.get());
-    it->second->remoteAudio.push_back({track, std::move(sink)});
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+        auto it = m_native->peers.find(peerId);
+        if (it == m_native->peers.end()) return; // peer fechado entre o evento e aqui
+        for (const auto& binding : it->second->remoteAudio)
+            if (binding.track.get() == track.get()) return;
+        auto sink = std::make_unique<RemoteAudioSink>(this, peerId);
+        track->AddSink(sink.get());
+        it->second->remoteAudio.push_back({track, std::move(sink)});
+    }
     // O ADM customizado captura o loopback do sistema, mas a saída final é o
     // mixer/QAudioSink do Halla. Ainda assim o libwebrtc precisa ser puxado a
     // cada 10 ms para decodificar a track e chamar RemoteAudioSink::OnData.
@@ -1519,47 +1618,87 @@ void HallaWebRtcSession::deliverRemoteAudio(int peerId, const QByteArray& pcm,
 }
 
 void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
-    PeerContext* ctx = ensurePeer(peerId);
-    if (!ctx || !ctx->pc) return;
+    // Rode tanto na GUI (handleSignal) quanto na thread de signaling
+    // (remoteDescriptionReady): só PROCURA o peer — nunca cria um fantasma
+    // para ICE órfão de negociação encerrada.
+    webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pc;
+    bool remoteDescriptionSet = false;
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+        auto it = m_native->peers.find(peerId);
+        if (it == m_native->peers.end()) return;
+        pc = it->second->pc;
+        remoteDescriptionSet = it->second->remoteDescriptionSet;
+    }
+    if (!pc) return;
     const QString candidate = signal.value(QStringLiteral("candidate")).toString();
     if (candidate.isEmpty()) return;
     // Android costuma enviar ICE imediatamente após a oferta. libwebrtc rejeita
     // candidatos antes de SetRemoteDescription concluir; preserve-os e aplique
     // em ordem quando a descrição remota ficar pronta.
-    if (!ctx->remoteDescriptionSet) {
-        if (ctx->pendingRemoteIce.size() < 128) ctx->pendingRemoteIce.push_back(signal);
+    if (!remoteDescriptionSet) {
+        std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+        auto it = m_native->peers.find(peerId);
+        if (it != m_native->peers.end()) {
+            if (it->second->pendingRemoteIce.size() < 128)
+                it->second->pendingRemoteIce.push_back(signal);
+        }
         return;
     }
     std::unique_ptr<webrtc::IceCandidate> ice(webrtc::CreateIceCandidate(
         signal.value(QStringLiteral("sdpMid")).toString(QStringLiteral("0")).toStdString(),
         signal.value(QStringLiteral("sdpMLineIndex")).toInt(0),
         candidate.toStdString(), nullptr));
-    if (ice) ctx->pc->AddIceCandidate(std::move(ice), [](webrtc::RTCError error) {
+    if (ice) pc->AddIceCandidate(std::move(ice), [](webrtc::RTCError error) {
         if (!error.ok()) AppLog::warn(QStringLiteral("WebRTC AddIceCandidate falhou: %1")
                                          .arg(QString::fromStdString(error.message())));
     });
 }
 
 void HallaWebRtcSession::remoteDescriptionReady(int peerId) {
-    PeerContext* ctx = ensurePeer(peerId);
-    if (!ctx) return;
-    ctx->remoteDescriptionSet = true;
-    const std::vector<QJsonObject> pending = std::move(ctx->pendingRemoteIce);
-    ctx->pendingRemoteIce.clear();
+    // Thread de signaling: não usa ensurePeer() — se o peer foi fechado pela
+    // GUI no meio da negociação, não recrie um fantasma; apenas descarte.
+    std::vector<QJsonObject> pending;
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+        auto it = m_native->peers.find(peerId);
+        if (it == m_native->peers.end()) return;
+        PeerContext* ctx = it->second.get();
+        ctx->remoteDescriptionSet = true;
+        pending = std::move(ctx->pendingRemoteIce);
+        ctx->pendingRemoteIce.clear();
+    }
     for (const QJsonObject& signal : pending) addRemoteIce(peerId, signal);
 }
 
 void HallaWebRtcSession::closePeer(int peerId) {
-    auto it = m_native->peers.find(peerId);
-    if (it != m_native->peers.end()) {
-        for (auto& binding : it->second->remoteVideo) {
+    std::unique_ptr<PeerContext> ctx;
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+        auto it = m_native->peers.find(peerId);
+        if (it != m_native->peers.end()) {
+            ctx = std::move(it->second);
+            m_native->peers.erase(it);
+        }
+    }
+    // RemoveSink/Close fora do lock: podem demorar e disparar callbacks na
+    // thread de signaling (que tentaria pegar o mesmo mutex — recursivo só
+    // reentra na MESMA thread; travaria se mantido aqui).
+    if (ctx) {
+        for (auto& binding : ctx->remoteVideo) {
             if (binding.track && binding.sink) binding.track->RemoveSink(binding.sink.get());
         }
-        for (auto& binding : it->second->remoteAudio) {
+        for (auto& binding : ctx->remoteAudio) {
             if (binding.track && binding.sink) binding.track->RemoveSink(binding.sink.get());
         }
-        if (it->second->pc) it->second->pc->Close();
-        m_native->peers.erase(it);
+        if (ctx->pc) {
+            ctx->pc->Close();
+            // Solte a referência ANTES de ctx morrer: a ordem natural de
+            // destruição dos membros derrubaria o observer primeiro, deixando
+            // o PeerConnection vivo (refs internas) apontando para observer
+            // liberado — use-after-free na thread de signaling.
+            ctx->pc = nullptr;
+        }
     }
     {
         QMutexLocker lock(&m_remoteFrameMutex);
@@ -1567,10 +1706,13 @@ void HallaWebRtcSession::closePeer(int peerId) {
         // Um dispatch já postado pode executar e encontrar imagem vazia.
         m_remoteFrameDispatchPosted.remove(peerId);
     }
-    if (m_native->peers.empty() && m_native->loopbackAdm
-            && m_native->loopbackAdm->Playing()) {
-        m_native->loopbackAdm->StopPlayout();
+    bool stopPlayout = false;
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+        stopPlayout = m_native->peers.empty() && m_native->loopbackAdm
+                      && m_native->loopbackAdm->Playing();
     }
+    if (stopPlayout) m_native->loopbackAdm->StopPlayout();
 }
 
 static QImage downscaleForPreview(const QImage& source, int maxWidth = 1280) {
@@ -1606,7 +1748,6 @@ void HallaWebRtcSession::captureFrame() {
 
     QImage frameImage;
     QPixmap pix;
-    QScreen* primary = QGuiApplication::primaryScreen();
 #ifdef Q_OS_WIN
     // Caminho de alto desempenho para monitor inteiro: o frame permanece em
     // D3D11 desde Desktop Duplication até o MFT/NVENC. A prévia local é copiada
@@ -1639,36 +1780,38 @@ void HallaWebRtcSession::captureFrame() {
 #ifdef Q_OS_WIN
         if (!m_native->dxgiCapturer) m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
         frameImage = m_native->dxgiCapturer->grab(screenIndex);
+#else
+        // QScreen::grabWindow() só pode rodar na thread da GUI; captureFrame
+        // roda na thread de captura. Builds nativos não-Windows (não
+        // publicados) apenas ignoram o frame neste caminho.
+        Q_UNUSED(screenIndex);
+        return;
 #endif
-        if (frameImage.isNull()) {
-            const QList<QScreen*> screens = QGuiApplication::screens();
-            if (screenIndex >= 0 && screenIndex < screens.size() && screens[screenIndex]) {
-                pix = screens[screenIndex]->grabWindow(0);
-            } else if (primary) {
-                pix = primary->grabWindow(0);
-            }
-        }
     } else {
 #ifdef Q_OS_WIN
         if (m_captureSourceId > 0) {
             HWND hwnd = reinterpret_cast<HWND>(m_captureSourceId);
             RECT wr = {};
             if (hwnd && !IsIconic(hwnd) && GetWindowRect(hwnd, &wr)) {
+                // Geometrias vêm do snapshot tirado na GUI thread
+                // (m_screenGeometries); NUNCA de QGuiApplication::screens()
+                // aqui — captureFrame roda na thread de captura.
                 const QPoint center((wr.left + wr.right) / 2, (wr.top + wr.bottom) / 2);
-                const QList<QScreen*> screens = QGuiApplication::screens();
                 int screenIndex = 0;
-                QScreen* targetScreen = primary;
-                for (int i = 0; i < screens.size(); ++i) {
-                    if (screens[i] && screens[i]->geometry().contains(center)) {
+                QRect targetGeometry;
+                for (int i = 0; i < m_screenGeometries.size(); ++i) {
+                    if (m_screenGeometries[i].contains(center)) {
                         screenIndex = i;
-                        targetScreen = screens[i];
+                        targetGeometry = m_screenGeometries[i];
                         break;
                     }
                 }
+                if (targetGeometry.isNull() && !m_screenGeometries.isEmpty())
+                    targetGeometry = m_screenGeometries.first();
                 if (!m_native->dxgiCapturer) m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
                 QImage screenImage = m_native->dxgiCapturer->grab(screenIndex);
-                if (!screenImage.isNull() && targetScreen) {
-                    const QRect sg = targetScreen->geometry();
+                if (!screenImage.isNull() && !targetGeometry.isNull()) {
+                    const QRect sg = targetGeometry;
                     const qreal dprX = sg.width() > 0 ? qreal(screenImage.width()) / qreal(sg.width()) : 1.0;
                     const qreal dprY = sg.height() > 0 ? qreal(screenImage.height()) / qreal(sg.height()) : 1.0;
                     QRect crop(qRound((wr.left - sg.left()) * dprX),
@@ -1684,9 +1827,9 @@ void HallaWebRtcSession::captureFrame() {
             if (frameImage.isNull()) pix = grabWindowsAppForWebRtc(m_captureSourceId);
         }
 #else
-        if (primary && m_captureSourceId > 0) pix = primary->grabWindow(WId(m_captureSourceId));
+        // Mesma restrição de thread: sem caminho nativo fora do Windows aqui.
+        Q_UNUSED(pix);
 #endif
-        if (frameImage.isNull() && pix.isNull() && primary) pix = primary->grabWindow(0);
     }
 
     if (frameImage.isNull() && !pix.isNull()) frameImage = pix.toImage();
@@ -1773,7 +1916,15 @@ void HallaWebRtcSession::stopBroadcast() {
                                   Qt::QueuedConnection);
     }
 #ifdef HALLA_WEBRTC_NATIVE
-    while (!m_native->peers.empty()) closePeer(m_native->peers.begin()->first);
+    while (true) {
+        int peerId = 0;
+        {
+            std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
+            if (m_native->peers.empty()) break;
+            peerId = m_native->peers.begin()->first;
+        }
+        closePeer(peerId);
+    }
 #endif
     if (m_net) m_net->sendWebRtcStreamStop();
     emit broadcastStopped();
@@ -1830,8 +1981,12 @@ void PeerObserver::OnIceCandidate(const webrtc::IceCandidate* candidate) {
 void OfferObserver::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
     if (!desc || !m_owner) return;
     std::string sdp = desc->ToString();
-    if (auto* ctx = m_owner->ensurePeer(m_peerId)) {
-        ctx->pc->SetLocalDescription(new webrtc::RefCountedObject<NoopSetObserver>(), desc);
+    // Thread de signaling: nunca use ensurePeer() aqui (toca o mapa sem lock
+    // e o ponteiro cru pode ser apagado pela GUI). A cópia ref-counted do
+    // PeerConnection mantém o objeto vivo; SetLocalDescription em pc já
+    // fechado apenas falha sem crashar.
+    if (auto pc = m_owner->peerConnection(m_peerId)) {
+        pc->SetLocalDescription(new webrtc::RefCountedObject<NoopSetObserver>(), desc);
     } else {
         delete desc;
     }
@@ -1841,8 +1996,8 @@ void OfferObserver::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
 void AnswerObserver::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
     if (!desc || !m_owner) return;
     std::string sdp = desc->ToString();
-    if (auto* ctx = m_owner->ensurePeer(m_peerId)) {
-        ctx->pc->SetLocalDescription(new webrtc::RefCountedObject<NoopSetObserver>(), desc);
+    if (auto pc = m_owner->peerConnection(m_peerId)) {
+        pc->SetLocalDescription(new webrtc::RefCountedObject<NoopSetObserver>(), desc);
     } else {
         delete desc;
     }
