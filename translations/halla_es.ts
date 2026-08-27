@@ -3940,6 +3940,86 @@ Capacidades solicitadas:
       <translation>Instalar seleccionado</translation>
     </message>
     <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Plataformas</source>
+        <translation>Plataformas</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Abrir site do catálogo</source>
+        <translation>Abrir sitio del catálogo</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Indisponível para Desktop</source>
+        <translation>No disponible para Desktop</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Este complemento está disponível apenas para o Halla Mobile.</source>
+        <translation>Este complemento está disponible solo para Halla Mobile.</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Incluído no aplicativo</source>
+        <translation>Incluido en la aplicación</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Este complemento já vem com o Halla — ative-o na aba Complementos.</source>
+        <translation>Este complemento ya viene con Halla — actívalo en la pestaña Complementos.</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Atualizar selecionado</source>
+        <translation>Actualizar seleccionado</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Reinstalar selecionado</source>
+        <translation>Reinstalar seleccionado</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>(incluído no aplicativo)</source>
+        <translation>(incluido en la aplicación)</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>(atualização disponível)</source>
+        <translation>(actualización disponible)</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>(instalada)</source>
+        <translation>(instalada)</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Desktop + Mobile</source>
+        <translation>Desktop + Mobile</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Só Mobile</source>
+        <translation>Solo Mobile</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Só Desktop</source>
+        <translation>Solo Desktop</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Complementos com atualização aparecem em destaque. Downloads são validados por SHA-256 antes da instalação.</source>
+        <translation>Los complementos con actualización aparecen destacados. Las descargas se validan por SHA-256 antes de la instalación.</translation>
+    </message>
+    <message>
+        <location filename="../src/plugins/PluginManager.cpp" line="1470"/>
+        <source>Complemento atualizado com sucesso.</source>
+        <translation>Complemento actualizado correctamente.</translation>
+    </message>
+    <message>
       <location filename="../src/plugins/PluginManager.cpp" line="1485" />
       <source>Fechar</source>
       <translation>Cerrar</translation>
@@ -3960,11 +4040,6 @@ Aún puedes instalar archivos .halla-addon.</translation>
       <location filename="../src/plugins/PluginManager.cpp" line="1532" />
       <source>O catálogo está disponível, mas ainda não possui pacotes publicados.</source>
       <translation>El catálogo está disponible, pero aún no hay paquetes publicados.</translation>
-    </message>
-    <message>
-      <location filename="../src/plugins/PluginManager.cpp" line="1533" />
-      <source>Selecione um pacote. Downloads são validados por SHA-256 antes da instalação.</source>
-      <translation>Selecciona un paquete. Las descargas se validan con SHA-256 antes de la instalación.</translation>
     </message>
     <message>
       <location filename="../src/plugins/PluginManager.cpp" line="1543" />

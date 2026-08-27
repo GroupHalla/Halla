@@ -788,7 +788,7 @@ QString PluginManager::addonsRoot() {
 }
 
 QString PluginManager::catalogUrl() {
-    return QStringLiteral("https://raw.githubusercontent.com/GroupHalla/Halla/main/addons/catalog.json");
+    return QStringLiteral("https://grouphalla.github.io/Halla-Addons/api/v1/addons.json");
 }
 
 QString PluginManager::platformKey() {
@@ -1460,34 +1460,81 @@ void PluginManager::openAddonsFolder() {
     QDesktopServices::openUrl(QUrl::fromLocalFile(addonsRoot()));
 }
 
+static QList<int> hallaCatalogVersionParts(const QString& version) {
+    QList<int> parts;
+    for (const QString& chunk : QString(version).split(QLatin1Char('.'), Qt::SkipEmptyParts)) {
+        bool ok = false;
+        const int value = chunk.toInt(&ok);
+        parts.append(ok ? value : 0);
+    }
+    while (parts.size() < 3) parts.append(0);
+    return parts;
+}
+
+static bool hallaCatalogIsNewer(const QString& candidate, const QString& current) {
+    const QList<int> a = hallaCatalogVersionParts(candidate);
+    const QList<int> b = hallaCatalogVersionParts(current);
+    for (int i = 0; i < 3; ++i) {
+        if (a.value(i) != b.value(i)) return a.value(i) > b.value(i);
+    }
+    return false;
+}
+
+static QString hallaCatalogPlatformText(const QJsonObject& addon) {
+    const QJsonArray platforms = addon.value("platforms").toArray();
+    const bool desktop = platforms.contains(QLatin1String("desktop"));
+    const bool mobile = platforms.contains(QLatin1String("mobile"));
+    if (desktop && mobile)
+        return QCoreApplication::translate("PluginManager", "Desktop + Mobile");
+    if (mobile)
+        return QCoreApplication::translate("PluginManager", "Só Mobile");
+    if (desktop)
+        return QCoreApplication::translate("PluginManager", "Só Desktop");
+    return QCoreApplication::translate("PluginManager", "Desktop + Mobile");
+}
+
 void PluginManager::showCatalog(QWidget* parent) {
+    struct CatalogRow {
+        QJsonObject addon;
+        bool compatible = true;   // disponível para Desktop
+        bool bundled = false;     // já incluído no aplicativo
+        bool installed = false;   // instalado (não embutido)
+        bool updateAvailable = false;
+    };
     auto* dialog = new QDialog(parent);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowTitle(tr("Catálogo de complementos do Halla"));
-    dialog->resize(760, 470);
+    dialog->resize(880, 500);
     auto* root = new QVBoxLayout(dialog);
     auto* status = new QLabel(tr("Carregando catálogo seguro por HTTPS..."), dialog);
     status->setWordWrap(true);
     root->addWidget(status);
-    auto* table = new QTableWidget(0, 4, dialog);
-    table->setHorizontalHeaderLabels({tr("Nome"), tr("Versão"), tr("Autor"), tr("Descrição")});
+    auto* table = new QTableWidget(0, 5, dialog);
+    table->setHorizontalHeaderLabels(
+        {tr("Nome"), tr("Versão"), tr("Plataformas"), tr("Autor"), tr("Descrição")});
     table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
     table->setSelectionMode(QAbstractItemView::SingleSelection);
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     root->addWidget(table, 1);
     auto* row = new QHBoxLayout;
+    auto* site = new QPushButton(tr("Abrir site do catálogo"), dialog);
     auto* install = new QPushButton(tr("Instalar selecionado"), dialog);
     install->setEnabled(false);
     auto* close = new QPushButton(tr("Fechar"), dialog);
+    row->addWidget(site);
     row->addStretch(1); row->addWidget(install); row->addWidget(close);
     root->addLayout(row);
     connect(close, &QPushButton::clicked, dialog, &QDialog::close);
+    connect(site, &QPushButton::clicked, dialog, [] {
+        QDesktopServices::openUrl(QUrl(QStringLiteral("https://grouphalla.github.io/Halla-Addons/")));
+    });
 
-    auto entries = std::make_shared<QJsonArray>();
+    auto entries = std::make_shared<QVector<CatalogRow>>();
     auto* network = new QNetworkAccessManager(dialog);
     QNetworkRequest request{QUrl(catalogUrl())};
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
@@ -1497,6 +1544,88 @@ void PluginManager::showCatalog(QWidget* parent) {
             [reply](qint64 received, qint64 total) {
         if (received > 1024 * 1024 || total > 1024 * 1024) reply->abort();
     });
+
+    auto updateInstallButton = [dialog, table, entries, install, status, this]() {
+        const int rowIndex = table->currentRow();
+        if (rowIndex < 0 || rowIndex >= entries->size()) {
+            install->setEnabled(false);
+            install->setText(tr("Instalar selecionado"));
+            return;
+        }
+        const CatalogRow& row = entries->at(rowIndex);
+        if (!row.compatible) {
+            install->setEnabled(false);
+            install->setText(tr("Indisponível para Desktop"));
+            status->setText(tr("Este complemento está disponível apenas para o Halla Mobile."));
+            return;
+        }
+        if (row.bundled) {
+            install->setEnabled(false);
+            install->setText(tr("Incluído no aplicativo"));
+            status->setText(tr("Este complemento já vem com o Halla — ative-o na aba Complementos."));
+            return;
+        }
+        if (row.updateAvailable) {
+            install->setEnabled(true);
+            install->setText(tr("Atualizar selecionado"));
+        } else if (row.installed) {
+            install->setEnabled(true);
+            install->setText(tr("Reinstalar selecionado"));
+        } else {
+            install->setEnabled(true);
+            install->setText(tr("Instalar selecionado"));
+        }
+    };
+    connect(table, &QTableWidget::itemSelectionChanged, dialog, updateInstallButton);
+
+    auto populate = [dialog, table, entries, this]() {
+        table->setRowCount(0);
+        for (const CatalogRow& catalogRow : *entries) {
+            const QJsonObject& addon = catalogRow.addon;
+            const int index = table->rowCount();
+            table->insertRow(index);
+            const QColor gray(150, 148, 165);
+            const QColor green(110, 200, 140);
+            const QColor amber(230, 190, 90);
+
+            QString versionText = addon.value("version").toString();
+            if (catalogRow.bundled) {
+                versionText += QStringLiteral("\n") + tr("(incluído no aplicativo)");
+            } else if (catalogRow.updateAvailable) {
+                const Record* installed = record(addon.value("id").toString());
+                versionText = QStringLiteral("%1 → %2")
+                                  .arg(installed ? installed->info.version : QString(),
+                                       versionText)
+                                  + QStringLiteral("\n") + tr("(atualização disponível)");
+            } else if (catalogRow.installed) {
+                versionText += QStringLiteral("\n") + tr("(instalada)");
+            }
+
+            auto* name = new QTableWidgetItem(addon.value("name").toString());
+            name->setData(Qt::UserRole, index);
+            table->setItem(index, 0, name);
+            auto* version = new QTableWidgetItem(versionText);
+            table->setItem(index, 1, version);
+            auto* platform = new QTableWidgetItem(hallaCatalogPlatformText(addon));
+            table->setItem(index, 2, platform);
+            table->setItem(index, 3, new QTableWidgetItem(addon.value("author").toString()));
+            table->setItem(index, 4, new QTableWidgetItem(addon.value("description").toString()));
+
+            if (catalogRow.updateAvailable) {
+                version->setForeground(amber);
+                name->setForeground(amber);
+            } else if (catalogRow.installed) {
+                version->setForeground(green);
+            }
+            if (!catalogRow.compatible) {
+                for (int column = 0; column < 5; ++column) {
+                    if (QTableWidgetItem* item = table->item(index, column))
+                        item->setForeground(gray);
+                }
+            }
+        }
+    };
+
     connect(reply, &QNetworkReply::finished, dialog, [=] {
         const QByteArray bytes = reply->readAll();
         const QString networkError = reply->errorString();
@@ -1513,31 +1642,43 @@ void PluginManager::showCatalog(QWidget* parent) {
             return;
         }
         const QJsonArray received = document.object().value("addons").toArray();
-        *entries = QJsonArray();
-        for (int i = 0; i < received.size() && i < 500; ++i)
-            entries->append(received.at(i));
-        table->setRowCount(0);
-        for (const QJsonValue& value : *entries) {
-            const QJsonObject addon = value.toObject();
-            const int index = table->rowCount();
-            table->insertRow(index);
-            auto* name = new QTableWidgetItem(addon.value("name").toString());
-            name->setData(Qt::UserRole, index);
-            table->setItem(index, 0, name);
-            table->setItem(index, 1, new QTableWidgetItem(addon.value("version").toString()));
-            table->setItem(index, 2, new QTableWidgetItem(addon.value("author").toString()));
-            table->setItem(index, 3, new QTableWidgetItem(addon.value("description").toString()));
+        *entries = QVector<CatalogRow>();
+        for (int i = 0; i < received.size() && i < 500; ++i) {
+            const QJsonObject addon = received.at(i).toObject();
+            if (addon.value("id").toString().isEmpty()) continue;
+            CatalogRow catalogRow;
+            catalogRow.addon = addon;
+            const QJsonArray platforms = addon.value("platforms").toArray();
+            catalogRow.compatible = platforms.isEmpty()
+                || platforms.contains(QLatin1String("desktop"));
+            const QUrl url(addon.value("downloadUrl").toString());
+            const bool downloadable = url.isValid() && url.scheme() == QLatin1String("https")
+                && addon.value("sha256").toString().size() == 64;
+            catalogRow.bundled = addon.value("distribution").toString() == QLatin1String("bundled")
+                || !downloadable;
+            if (const Record* installed = record(addon.value("id").toString())) {
+                if (!installed->info.builtIn) {
+                    catalogRow.installed = true;
+                    catalogRow.updateAvailable = hallaCatalogIsNewer(
+                        addon.value("version").toString(), installed->info.version);
+                }
+            }
+            entries->append(catalogRow);
         }
+        populate();
         status->setText(entries->isEmpty()
             ? tr("O catálogo está disponível, mas ainda não possui pacotes publicados.")
-            : tr("Selecione um pacote. Downloads são validados por SHA-256 antes da instalação."));
-        install->setEnabled(!entries->isEmpty());
+            : tr("Complementos com atualização aparecem em destaque. "
+                 "Downloads são validados por SHA-256 antes da instalação."));
+        install->setEnabled(false);
+        if (!entries->isEmpty()) table->selectRow(0);
     });
 
     connect(install, &QPushButton::clicked, dialog, [=, this] {
         const int rowIndex = table->currentRow();
         if (rowIndex < 0 || rowIndex >= entries->size()) return;
-        const QJsonObject addon = entries->at(rowIndex).toObject();
+        const CatalogRow catalogRow = entries->at(rowIndex);
+        const QJsonObject addon = catalogRow.addon;
         const QUrl url(addon.value("downloadUrl").toString());
         if (!url.isValid() || url.scheme() != QLatin1String("https")) {
             QMessageBox::critical(dialog, tr("Catálogo"), tr("O pacote possui uma URL não segura."));
@@ -1573,7 +1714,20 @@ void PluginManager::showCatalog(QWidget* parent) {
             file.write(data); file.flush(); file.close();
             QString installedId, installError;
             if (installPackage(file.fileName(), dialog, &installedId, &installError)) {
-                status->setText(tr("Complemento instalado. Ative-o na aba Complementos."));
+                status->setText(catalogRow.updateAvailable
+                    ? tr("Complemento atualizado com sucesso.")
+                    : tr("Complemento instalado. Ative-o na aba Complementos."));
+                // Atualiza o estado da linha recém-instalada.
+                for (CatalogRow& rowRef : *entries) {
+                    if (rowRef.addon.value("id").toString() == installedId) {
+                        rowRef.installed = true;
+                        rowRef.updateAvailable = false;
+                    }
+                }
+                populate();
+                const int selected = table->currentRow();
+                if (selected >= 0) table->selectRow(selected);
+                updateInstallButton();
             } else if (!installError.isEmpty()) {
                 status->setText(installError);
             }
