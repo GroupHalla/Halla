@@ -3,7 +3,7 @@
 #include "halla_plugin_api.h"
 
 #include <QtGlobal>
-#include <cmath>
+#include <cstdint>
 
 void RadioVoiceEffect::applySettings(const QJsonObject& settings) {
     m_sendMode = settings.value(QStringLiteral("sendMode")).toString(QStringLiteral("whisper"));
@@ -51,29 +51,13 @@ bool RadioVoiceEffect::process(quint64 connectionId, int userId, uint32_t stage,
 
     auto& streams = m_states[connectionId];
     for (uint32_t channel = 0; channel < channels; ++channel) {
-        State& state = streams[streamKey(userId, stage, channel)];
-        if (state.noiseState == 0) {
-            state.noiseState = 0xA341316Cu ^ quint32(userId * 2654435761u)
-                ^ quint32(connectionId) ^ (stage << 8) ^ channel;
-            if (state.noiseState == 0) state.noiseState = 1;
+        RadioVoiceDsp& dsp = streams[streamKey(userId, stage, channel)];
+        if (!dsp.seeded()) {
+            dsp.seed(0xA341316Cu ^ quint32(userId * 2654435761u)
+                ^ quint32(connectionId) ^ (stage << 8) ^ channel);
         }
-        for (uint32_t frame = 0; frame < frames; ++frame) {
-            const uint32_t index = frame * channels + channel;
-            const float input = float(samples[index]);
-
-            // Resposta de banda estreita semelhante a um comunicador: remove
-            // graves, amortece agudos, comprime/satura e adiciona chiado.
-            state.highPass = 0.94f * (state.highPass + input - state.previousInput);
-            state.previousInput = input;
-            state.lowPass += 0.30f * (state.highPass - state.lowPass);
-            const float compressed = std::tanh(state.lowPass / 11500.0f) * 17500.0f;
-            state.noiseState = state.noiseState * 1664525u + 1013904223u;
-            const float random = float((state.noiseState >> 16) & 0xffffu) / 32767.5f - 1.0f;
-            const float radio = compressed + random * (1900.0f * m_noise);
-            const float output = (input * (1.0f - m_intensity)
-                                  + radio * m_intensity) * m_gain;
-            samples[index] = int16_t(qBound(-32768.0f, output, 32767.0f));
-        }
+        dsp.configure(m_intensity, m_noise, m_gain);
+        dsp.process(samples + channel, frames, channels);
     }
     return true;
 }

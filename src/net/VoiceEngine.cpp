@@ -290,24 +290,12 @@ OpusDecoder* VoiceEngine::decoderFor(int userId) {
 void VoiceEngine::applyRadioEffect(int userId, int16_t* mono, int frames,
                                    const PluginAudioControl& control) {
     if (!control.radio || !mono || frames <= 0) return;
-    RadioState& state = m_radioStates[userId];
-    const float strength = qBound(0.0f, control.radioStrength, 1.0f);
-    const float noiseLevel = qBound(0.0f, control.radioNoise, 1.0f);
-    for (int i = 0; i < frames; ++i) {
-        const float input = float(mono[i]);
-        // Banda estreita aproximada: passa-altas de um polo seguido de
-        // passa-baixas, saturação e ruído determinístico de rádio.
-        state.highPass = 0.94f * (state.highPass + input - state.previousInput);
-        state.previousInput = input;
-        state.lowPass += 0.32f * (state.highPass - state.lowPass);
-        float filtered = qBound(-22000.0f, state.lowPass * 1.65f, 22000.0f);
-        state.noiseState = state.noiseState * 1664525u + 1013904223u;
-        const float noise = (float((state.noiseState >> 16) & 0xffffu) / 32767.5f - 1.0f)
-            * 1800.0f * noiseLevel;
-        const float output = input * (1.0f - strength)
-            + (filtered + noise) * strength;
-        mono[i] = int16_t(qBound(-32768.0f, output, 32767.0f));
-    }
+    RadioVoiceDsp& dsp = m_radioStates[userId];
+    if (!dsp.seeded())
+        dsp.seed(0xA341316Cu ^ quint32(userId * 2654435761u));
+    dsp.configure(qBound(0.0f, control.radioStrength, 1.0f),
+                  qBound(0.0f, control.radioNoise, 1.0f), 1.0f);
+    dsp.process(mono, uint32_t(frames));
 }
 
 QByteArray VoiceEngine::spatializeFrame(int userId, int16_t* mono, int frames) {

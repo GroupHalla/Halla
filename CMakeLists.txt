@@ -75,6 +75,7 @@ set(HALLA_SOURCES
     src/plugins/PluginManager.h
     src/plugins/RadioVoiceEffect.cpp
     src/plugins/RadioVoiceEffect.h
+    src/plugins/RadioVoiceDsp.h
     src/plugins/TalkingOverlay.cpp
     src/plugins/TalkingOverlay.h
     src/gui/Icons.cpp

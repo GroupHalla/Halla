@@ -8,6 +8,7 @@ sdk_license = (root / "sdk/LICENSE.txt").read_text(encoding="utf-8")
 manager = (root / "src/plugins/PluginManager.cpp").read_text(encoding="utf-8")
 overlay = (root / "src/plugins/TalkingOverlay.cpp").read_text(encoding="utf-8")
 radio = (root / "src/plugins/RadioVoiceEffect.cpp").read_text(encoding="utf-8")
+radio_dsp = (root / "src/plugins/RadioVoiceDsp.h").read_text(encoding="utf-8")
 radio_test = (root / "tests/radio_voice_smoke.cpp").read_text(encoding="utf-8")
 options = (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
 docs = (root / "docs/PLUGINS.md").read_text(encoding="utf-8")
@@ -55,7 +56,12 @@ assert "official.talking-overlay" in manager
 assert "official.radio-voice" in manager
 assert "HALLA_AUDIO_FLAG_WHISPER" in api
 assert "sendMode" in manager and "receiveMode" in manager
-assert "std::tanh" in radio and "m_noise" in radio
+assert "RadioVoiceDsp" in radio and "m_noise" in radio
+# O DSP de rádio vive num header compartilhado com o Halla Mobile: o audit
+# garante que a cadeia completa continua presente e integrada nos dois caminhos.
+assert "std::tanh" in radio_dsp and "squelch" in radio_dsp.lower()
+assert "src/plugins/RadioVoiceDsp.h" in (root / "CMakeLists.txt").read_text(encoding="utf-8")
+assert "RadioVoiceDsp" in voice
 assert "src/plugins/RadioVoiceEffect.cpp" in (root / "CMakeLists.txt").read_text(encoding="utf-8")
 assert "Official radio voice DSP smoke OK" in radio_test
 assert "HALLA_AUDIO_REMOTE_BEFORE_SPATIAL" in radio_test

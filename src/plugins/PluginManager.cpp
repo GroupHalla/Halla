@@ -861,7 +861,7 @@ void PluginManager::addOfficialRadioVoice() {
     auto* item = new Record;
     item->info.id = QStringLiteral("official.radio-voice");
     item->info.name = tr("Voz de rádio policial");
-    item->info.version = QStringLiteral("1.0.0");
+    item->info.version = QStringLiteral("1.1.0");
     item->info.author = QStringLiteral("Halla-DEV");
     item->info.description = tr(
         "Simula um comunicador policial no microfone e nas vozes recebidas, "

@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <deque>
 
+#include "plugins/RadioVoiceDsp.h"
+
 class NetSession;
 class QAudioSource;
 class QAudioSink;
@@ -64,13 +66,6 @@ private:
     void applyRadioEffect(int userId, int16_t* mono, int frames,
                           const PluginAudioControl& control);
 
-    struct RadioState {
-        float previousInput = 0.0f;
-        float highPass = 0.0f;
-        float lowPass = 0.0f;
-        quint32 noiseState = 0xA341316Cu;
-    };
-
     NetSession* m_net;
     ServerData* m_data;
     quint64 m_pluginConnectionId = 0;
@@ -93,7 +88,7 @@ private:
     QMap<int, std::deque<QByteArray>> m_streamQueues;
     QSet<int> m_primedStreams;
     QMap<int, qint64> m_streamLastPacketMs;
-    QMap<int, RadioState> m_radioStates;
+    QMap<int, RadioVoiceDsp> m_radioStates;
     QByteArray m_captureBuf;
     quint16 m_seq = 0;
     bool m_talking = false;
