@@ -17,10 +17,17 @@ public:
     void setSelection(int kind, int id) { m_kind = kind; m_id = id; refresh(); }
     void refresh();
 
+signals:
+    // Ícone de cargo (imagem) ainda não está no cache local — o ServerTab
+    // conecta este sinal ao icon_get, igual faz para a árvore de canais.
+    void iconRequested(const QString& name);
+
 private:
     QString serverHtml() const;
     QString channelHtml(const Channel& c) const;
-    QString userHtml(const User& u) const;
+    QString userHtml(const User& u);
+    // Uma linha de cargo do usuário: "<icone> <nome>" vira imagem + nome.
+    QString roleHtml(const QString& roleLine, const QString& serverKey);
     static QString uptime(const QDateTime& since);
 
     QLabel* m_banner = nullptr;

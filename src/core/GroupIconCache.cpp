@@ -1,9 +1,11 @@
 #include "GroupIconCache.h"
 
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QSet>
 #include <QStandardPaths>
 
 GroupIconCache& GroupIconCache::instance() {
@@ -43,6 +45,31 @@ QString GroupIconCache::cacheDir() {
 
 QString GroupIconCache::diskPath(const QString& serverKey, const QString& safe) const {
     return cacheDir() + QStringLiteral("/") + serverKey + QStringLiteral("/") + safe;
+}
+
+bool GroupIconCache::isImageName(const QString& name) {
+    return name.endsWith(QStringLiteral(".png"), Qt::CaseInsensitive)
+        || name.endsWith(QStringLiteral(".jpg"), Qt::CaseInsensitive)
+        || name.endsWith(QStringLiteral(".jpeg"), Qt::CaseInsensitive)
+        || name.endsWith(QStringLiteral(".gif"), Qt::CaseInsensitive);
+}
+
+bool GroupIconCache::shouldRequest(const QString& requestKey, bool haveIt) {
+    // Estado compartilhado por processo: a árvore e o painel de informações
+    // pedem os MESMOS ícones — quem chegar primeiro consome a cota.
+    static QHash<QString, qint64> lastAsked;
+    static QSet<QString> refreshed;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (haveIt) {
+        if (refreshed.contains(requestKey)) return false;
+        refreshed.insert(requestKey);
+        lastAsked.insert(requestKey, now);
+        return true;
+    }
+    const auto it = lastAsked.constFind(requestKey);
+    if (it != lastAsked.constEnd() && now - it.value() < 5000) return false;
+    lastAsked.insert(requestKey, now);
+    return true;
 }
 
 QPixmap GroupIconCache::pixmap(const QString& serverKey, const QString& name) {

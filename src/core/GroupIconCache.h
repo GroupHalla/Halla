@@ -48,6 +48,20 @@ public:
     // ServerCore): caminho de arquivo jamais escapa do diretório de cache.
     static QString safeName(const QString& name);
 
+    // Nome de ícone que referencia uma IMAGEM enviada ao servidor
+    // (icon_set). Compartilhado entre o delegado da árvore e o painel de
+    // informações — os dois renderizam ícones de cargo e precisam da MESMA
+    // regra do que é imagem (emoji/letra/sigla renderizam como texto).
+    static bool isImageName(const QString& name);
+
+    // Porta de requisição COMPARTILHADA (árvore + painel de informações):
+    // sem o ícone em mãos, re-tenta a cada 5 s (o upload pode estar a
+    // caminho); com o ícone, um único re-fetch por execução — troca cópia
+    // antiga de disco pela versão atual do servidor sem spamear pedidos.
+    // Compartilhar o estado entre os dois consumidores evita pedido
+    // duplicado quando a árvore e o painel pedem o mesmo ícone juntos.
+    static bool shouldRequest(const QString& requestKey, bool haveIt);
+
     // Diretório de cache absoluto (criado se possível).
     static QString cacheDir();
 

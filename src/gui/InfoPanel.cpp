@@ -3,7 +3,10 @@
 #include "ChatPanel.h"
 #include "RichTextBrowser.h"
 #include "app/Theme.h"
+#include "core/GroupIconCache.h"
 
+#include <QTextDocument>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QPainter>
 #include <QImage>
@@ -132,22 +135,30 @@ QString InfoPanel::channelHtml(const Channel& c) const {
     return h;
 }
 
-QString InfoPanel::userHtml(const User& u) const {
+QString InfoPanel::userHtml(const User& u) {
     QString h = heading(QStringLiteral("●"), tr("Cliente: %1").arg(u.name.toHtmlEscaped()));
     h += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\">");
     if (u.id == m_data->selfId) h += row(tr("Tipo:"), tr("Você (este cliente)"));
     h += row(tr("Versão:"), QStringLiteral("%1 no %2").arg(u.version, u.platform));
     h += row(tr("Tempo online:"), uptime(u.connectedAt));
     h += row(tr("Volume:"), QStringLiteral("%1 dB").arg(u.volumeDb));
-    
+
+    // O servidor envia cada cargo como "<icone> <nome>" quando o cargo tem
+    // ícone (ex.: "rota.png ROTA") — cargo sem ícone vem só com o nome.
+    // Antes este campo era impresso como texto puro, e o painel mostrava
+    // literalmente "rota.png ROTA" em vez da imagem do ícone. Agora o
+    // MESMO GroupIconCache da árvore fornece o pixmap, que é embutido no
+    // HTML como recurso do documento (escopo por servidor, atualização na
+    // hora quando o admin troca a imagem).
+    const QString serverKey = GroupIconCache::serverKey(m_data->address);
     QStringList roles = u.serverGroups.split(QStringLiteral("\n"));
     int printedIndex = 0;
     for (const QString& r : roles) {
         if (r.trimmed().isEmpty()) continue;
         if (printedIndex == 0) {
-            h += row(tr("Cargos:"), r.toHtmlEscaped());
+            h += row(tr("Cargos:"), roleHtml(r.trimmed(), serverKey));
         } else {
-            h += row(QString(), r.toHtmlEscaped());
+            h += row(QString(), roleHtml(r.trimmed(), serverKey));
         }
         printedIndex++;
     }
@@ -165,6 +176,53 @@ QString InfoPanel::userHtml(const User& u) const {
         h += QStringLiteral("<p style=\"line-height:1.5;\"><i>%1</i></p>")
                  .arg(u.description.toHtmlEscaped());
     return h;
+}
+
+QString InfoPanel::roleHtml(const QString& roleLine, const QString& serverKey) {
+    // O servidor concatena "<icone> <nome>" (applyGroup) sem separador
+    // explícito. Ícones de IMAGEM terminam em extensão conhecida: varremos os
+    // espaços da esquerda para a direita e a PRIMEIRA quebra cujo lado
+    // esquerdo é um nome de imagem delimita o ícone — cobre também nomes de
+    // arquivo com espaços ("meu cargo.png ROTA"). Ícones de emoji/letra/sigla
+    // e cargos sem ícone continuam como texto (o emoji renderiza
+    // nativamente no HTML).
+    QString iconName;
+    int sp = -1;
+    while ((sp = roleLine.indexOf(QLatin1Char(' '), sp + 1)) > 0) {
+        if (GroupIconCache::isImageName(roleLine.left(sp))) {
+            iconName = roleLine.left(sp);
+            break;
+        }
+    }
+    const QString label = iconName.isEmpty() ? QString() : roleLine.mid(sp + 1).trimmed();
+    if (!iconName.isEmpty() && !label.isEmpty()) {
+        const QPixmap pm = GroupIconCache::instance().pixmap(serverKey, iconName);
+        if (!pm.isNull()) {
+            // Recurso embutido no documento: URL interna do painel, sem
+            // espaços (espaço no src atravessa a resolução de QUrl do rich
+            // text de forma dependente de formato — '_' remove a dúvida).
+            // Mesma chave em cada refresh: quando o admin troca a imagem,
+            // iconDataReceived refaz o refresh e addResource sobrescreve o
+            // pixmap antigo pelo novo.
+            const QUrl url(QStringLiteral("halla-role-icon:///")
+                               + GroupIconCache::safeName(iconName)
+                                     .replace(QLatin1Char(' '), QLatin1Char('_')));
+            m_view->document()->addResource(QTextDocument::ImageResource, url, pm.toImage());
+            return QStringLiteral(
+                       "<img src=\"%1\" width=\"16\" height=\"14\" "
+                       "style=\"vertical-align:middle\"/> %2")
+                .arg(url.toString(), label.toHtmlEscaped());
+        }
+        // Ainda não temos os bytes (ex.: primeira exibição antes do
+        // icon_data chegar): pede ao servidor e mostra só o nome do
+        // cargo — o nome do ARQUIVO é detalhe interno e não deve vazar
+        // para a interface. Quando o dado chega, o ServerTab chama
+        // refresh() e a linha ganha a imagem.
+        if (GroupIconCache::shouldRequest(serverKey + QLatin1Char('|') + iconName, false))
+            emit iconRequested(iconName);
+        return label.toHtmlEscaped();
+    }
+    return roleLine.toHtmlEscaped();
 }
 
 void InfoPanel::refresh() {

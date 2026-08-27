@@ -218,6 +218,10 @@ void ServerTab::attachNetwork(NetSession* net) {
         // repinta a lista na hora. Escopo por servidor.
         GroupIconCache::instance().store(GroupIconCache::serverKey(m_data.address), name, bytes);
         m_tree->viewport()->update();
+        // O painel de informações embute o ícone de cargo no HTML — precisa
+        // re-renderizar quando os bytes chegam (a linha passa de só-nome
+        // para imagem + nome).
+        m_info->refresh();
     });
 
     connect(net, &NetSession::iconUploaded, this, [this](const QString& name) {
@@ -370,6 +374,13 @@ void ServerTab::applyDisplayOptions() {
 
 void ServerTab::hookSignals() {
     connect(m_tree, &ServerTreeWidget::iconRequested, this, [this](const QString& name) {
+        if (m_net) {
+            m_net->iconGet(name);
+        }
+    });
+    // Painel de informações: mesmo caminho de ícones da árvore (cota
+    // compartilhada no GroupIconCache — sem pedido duplicado).
+    connect(m_info, &InfoPanel::iconRequested, this, [this](const QString& name) {
         if (m_net) {
             m_net->iconGet(name);
         }
