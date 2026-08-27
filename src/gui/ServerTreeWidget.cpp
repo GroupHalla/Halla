@@ -7,6 +7,7 @@
 #include <QContextMenuEvent>
 #include <QMouseEvent>
 #include <QMenu>
+#include <QScrollBar>
 #include <QGuiApplication>
 #include <QMimeData>
 #include <QDropEvent>
@@ -390,6 +391,16 @@ QString ServerTreeWidget::channelTooltip(const Channel& c) const {
 void ServerTreeWidget::rebuild() {
     if (!m_data) return;
 
+    // Preserva a posição de rolagem: rebuild() roda a cada transição de fala
+    // (user_state -> refreshServerState, coalescido em 120 ms) e clear() zera
+    // o scroll — a lista de canais "pulava/descia sozinha" quando alguém
+    // falava ou quando o próprio usuário apertava o push-to-talk. O
+    // setCurrentItem da restauração de seleção também rola até o item; salvar
+    // antes e restaurar por último cobre os dois casos. Se o conteúdo encolheu
+    // (usuário saiu), setValue faz clamp no máximo automaticamente.
+    const int savedScrollY = verticalScrollBar() ? verticalScrollBar()->value() : 0;
+    const int savedScrollX = horizontalScrollBar() ? horizontalScrollBar()->value() : 0;
+
     // preserva itens COLAPSADOS (padrão Halla: tudo expandido — assim usuários
     // que entram depois do primeiro rebuild nunca ficam invisíveis)
     QSet<int> collapsed;
@@ -457,6 +468,12 @@ void ServerTreeWidget::rebuild() {
         for (int i = 0; i < it->childCount(); ++i) expand(it->child(i));
     };
     for (int i = 0; i < topLevelItemCount(); ++i) expand(topLevelItem(i));
+
+    // Devolve a posição de rolagem salva no início (ver comentário no topo):
+    // tem que ser a ÚLTIMA operação para vencer o reset do clear() e o
+    // scrollTo implícito do setCurrentItem acima.
+    if (verticalScrollBar()) verticalScrollBar()->setValue(savedScrollY);
+    if (horizontalScrollBar()) horizontalScrollBar()->setValue(savedScrollX);
 }
 
 QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,

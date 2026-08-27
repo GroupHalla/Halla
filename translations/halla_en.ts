@@ -5260,6 +5260,11 @@ The assignment is saved on the server (by unique ID).</translation>
       <translation>Message from %1</translation>
     </message>
     <message>
+      <location filename="../src/gui/ServerTab.cpp" line="283"/>
+      <source>Usuário</source>
+      <translation>User</translation>
+    </message>
+    <message>
       <location filename="../src/gui/ServerTab.cpp" line="314" />
       <source>Você foi cutucado por %1: %2</source>
       <translation>You were poked by %1: %2</translation>

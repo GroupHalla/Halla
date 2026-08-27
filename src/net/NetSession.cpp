@@ -1099,6 +1099,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "chat") {
         emit chatReceived(obj["scope"].toString(), obj["from"].toInt(),
+                          obj["to"].toInt(0),
                           obj["fromName"].toString(""), obj["text"].toString());
         return;
     }

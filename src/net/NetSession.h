@@ -115,7 +115,10 @@ signals:
     void welcomeReceived();                     // estado completo carregado
     void selfRenamed(const QString& name);      // servidor confirmou nosso novo apelido (user_nick)
     void stateChanged();                        // ServerData mudou (rebuild da UI)
-    void chatReceived(const QString& scope, int fromId, const QString& fromName,
+    // toId: destinatário real de mensagens privadas. O servidor ecoa a
+    // mensagem privada de volta ao remetente (from = eu) para ela aparecer
+    // na conversa; sem o "to" o cliente não distingue eco de mensagem nova.
+    void chatReceived(const QString& scope, int fromId, int toId, const QString& fromName,
                       const QString& text);
     void systemEvent(const QString& text);      // "* X entrou no canal Y" etc.
     void pokeReceived(int fromUserId, const QString& fromName, const QString& msg);

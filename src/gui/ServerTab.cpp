@@ -262,14 +262,32 @@ void ServerTab::attachNetwork(NetSession* net) {
     });
 
     connect(net, &NetSession::chatReceived, this,
-            [this](const QString& scope, int fromId, const QString& fromName, const QString& text) {
+            [this](const QString& scope, int fromId, int toId, const QString& fromName, const QString& text) {
                 if (scope == "server") {
                     m_chat->addServerChat(fromName, text);
                 } else if (scope == "private") {
-                    m_chat->addPrivateTab(fromId, fromName);
-                    m_chat->addPrivateChat(fromId, fromName, text);
-                    if (S::flag("notify/messageSound", true)) HSound::play(QStringLiteral("message"));
-                    HSpeech::say(tr("Mensagem de %1").arg(fromName));
+                    // O servidor ecoa a mensagem privada de volta ao remetente
+                    // para ela aparecer na conversa. Sem distinguir o eco
+                    // (from == eu), ele abria um privado "comigo mesmo" e a
+                    // mensagem caía lá em vez de ficar na conversa do destino
+                    // — exatamente o bug relatado. O peer certo é "to" no eco.
+                    const bool selfEcho = (fromId == m_data.selfId);
+                    const int peerId = selfEcho ? toId : fromId;
+                    QString peerName = fromName;
+                    if (selfEcho) {
+                        // Nome do destinatário: estado atual ou último conhecido
+                        // (ele pode ter saído do servidor entre o envio e o eco).
+                        if (m_data.users.contains(peerId))
+                            peerName = m_data.users[peerId].name;
+                        else
+                            peerName = m_lastNames.value(peerId, tr("Usuário"));
+                    }
+                    m_chat->addPrivateTab(peerId, peerName);
+                    m_chat->addPrivateChat(peerId, fromName, text);
+                    if (!selfEcho) {
+                        if (S::flag("notify/messageSound", true)) HSound::play(QStringLiteral("message"));
+                        HSpeech::say(tr("Mensagem de %1").arg(fromName));
+                    }
                 } else {
                     m_chat->addChannelChat(fromName, text);
                 }

@@ -1634,11 +1634,12 @@ quint64 PluginManager::registerSession(ServerTab* tab) {
             handlePluginData(id, senderId, pluginId, topic, data);
         });
         connect(tab->net(), &NetSession::chatReceived, this,
-                [this, id](const QString& scope, int senderId,
+                [this, id](const QString& scope, int senderId, int targetId,
                            const QString& senderName, const QString& text) {
             dispatchEvent(QJsonObject{{"event", "chat_message"},
                 {"payload", QJsonObject{{"connectionId", qint64(id)},
                     {"scope", scope}, {"senderId", senderId},
+                    {"targetId", targetId},
                     {"senderName", senderName}, {"text", text}}}});
         });
         connect(tab->net(), &NetSession::pokeReceived, this,

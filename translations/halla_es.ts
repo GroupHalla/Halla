@@ -5260,6 +5260,11 @@ La tarea se guarda en el servidor (mediante ID única).</translation>
       <translation>Mensaje de %1</translation>
     </message>
     <message>
+      <location filename="../src/gui/ServerTab.cpp" line="283"/>
+      <source>Usuário</source>
+      <translation>Usuario</translation>
+    </message>
+    <message>
       <location filename="../src/gui/ServerTab.cpp" line="314" />
       <source>Você foi cutucado por %1: %2</source>
       <translation>%1 te pinchó: %2</translation>

@@ -5196,6 +5196,11 @@ A atribuição fica salva no servidor (por ID único).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+      <location filename="../src/gui/ServerTab.cpp" line="283"/>
+      <source>Usuário</source>
+      <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/gui/ServerTab.cpp" line="314"/>
         <source>Você foi cutucado por %1: %2</source>
         <translation type="unfinished"></translation>
