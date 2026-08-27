@@ -1070,6 +1070,119 @@ Halla %2</translation>
       <source>Atenção: há identidade com ID vazio — ao conectar ela é rejeitada pelo servidor. Crie uma nova com Adicionar e defina-a como padrão.</source>
       <translation>Warning: there is an identity with an empty ID — the server rejects it when connecting. Create a new one with Add and set it as default.</translation>
     </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="897" />
+      <source>Apelido da identidade restaurada:</source>
+      <translation>Nickname of the restored identity:</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="932" />
+      <source>Backup de identidade exportado</source>
+      <translation>Identity backup exported</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="743" />
+      <source>Carregar uma identidade de um arquivo de backup do Halla Desktop ou Mobile</source>
+      <translation>Load an identity from a Halla Desktop or Mobile backup file</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="841" />
+      <source>Cole abaixo o ID único completo da identidade que deseja recuperar:</source>
+      <translation>Paste below the full unique ID of the identity you want to recover:</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="952" />
+      <source>Definir a identidade importada como padrão?</source>
+      <translation>Set the imported identity as default?</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="908" />
+      <source>Definir a identidade restaurada como padrão?</source>
+      <translation>Set the restored identity as default?</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="740" />
+      <source>Exportar...</source>
+      <translation>Export...</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="845" />
+      <source>ID único (colar)</source>
+      <translation>Unique ID (paste)</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="964" />
+      <source>Identidade "%1" importada de um backup</source>
+      <translation>Identity "%1" imported from a backup</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="962" />
+      <source>Identidade "%1" importada!
+
+Conecte-se aos servidores com ela para usar os cargos e permissões dessa identidade.</source>
+      <translation>Identity "%1" imported!
+
+Connect to the servers with it to use this identity's roles and permissions.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="919" />
+      <source>Identidade "%1" restaurada com sucesso!
+
+Ao conectar, o servidor reconhece o mesmo ID: cargos, permissões e histórico voltam a valer para ela.</source>
+      <translation>Identity "%1" restored successfully!
+
+When you connect, the server recognizes the same ID: roles, permissions and history apply to it again.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="922" />
+      <source>Identidade "%1" restaurada do cofre local</source>
+      <translation>Identity "%1" restored from the local vault</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="890" />
+      <source>Identidade já presente na lista.</source>
+      <translation>Identity already in the list.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="869" />
+      <source>Identidades encontradas no cofre do Windows:</source>
+      <translation>Identities found in the Windows vault:</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="742" />
+      <source>Importar...</source>
+      <translation>Import...</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="859" />
+      <source>Nenhuma identidade adicional encontrada no cofre do Windows.</source>
+      <translation>No additional identities found in the Windows vault.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="849" />
+      <source>Procurar no cofre do Windows</source>
+      <translation>Search the Windows vault</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="739" />
+      <source>Recuperar uma identidade deste computador pelo ID único</source>
+      <translation>Recover an identity from this computer by its unique ID</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="839" />
+      <source>Restaurar identidade</source>
+      <translation>Restore identity</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="736" />
+      <source>Restaurar...</source>
+      <translation>Restore...</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="741" />
+      <source>Salvar a identidade selecionada em um arquivo protegido por senha</source>
+      <translation>Save the selected identity to a password-protected file</translation>
+    </message>
   </context>
   <context>
     <name>InfoPanel</name>
@@ -4074,6 +4187,120 @@ TCP Ping: %11 ms</translation>
       <location filename="../src/plugins/PluginManager.cpp" line="1272" />
       <source>Não foi possível copiar %1.</source>
       <translation>Could not copy %1.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="492" />
+      <source>A chave privada do backup não corresponde à chave pública declarada.</source>
+      <translation>The private key in the backup does not match the declared public key.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="275" />
+      <source>A chave privada encontrada para este ID não pôde ser interpretada.</source>
+      <translation>The private key found for this ID could not be parsed.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="297" />
+      <source>A identidade selecionada está com ID vazio e não pode ser exportada.</source>
+      <translation>The selected identity has an empty ID and cannot be exported.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="422" />
+      <source>Arquivo de backup inválido ou corrompido.</source>
+      <translation>Invalid or corrupted backup file.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="389" />
+      <source>Arquivos de backup (*.json)</source>
+      <translation>Backup files (*.json)</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="347" />
+      <source>As senhas não conferem ou são curtas demais (mínimo de 10 caracteres).</source>
+      <translation>The passwords do not match or are too short (minimum 10 characters).</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="407" />
+      <source>Backup de identidade salvo em:
+%1
+
+Guarde o arquivo e a senha em lugares seguros: com os dois, qualquer pessoa pode se passar por você nos servidores.</source>
+      <translation>Identity backup saved to:
+%1
+
+Keep the file and the password in safe places: with both, anyone can impersonate you on the servers.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="335" />
+      <source>Crie uma senha para proteger o arquivo (mínimo de 10 caracteres):</source>
+      <translation>Create a password to protect the file (minimum 10 characters):</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="334" />
+      <source>Exportar backup de identidade</source>
+      <translation>Export identity backup</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="416" />
+      <source>Importar backup de identidade</source>
+      <translation>Import identity backup</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="263" />
+      <source>Nenhuma chave privada foi encontrada para este ID no cofre do sistema nem no perfil local.
+
+Isso acontece quando o registro do Windows foi limpo junto com a identidade antiga, ou quando o cofre também foi apagado.
+
+Alternativas: importe um arquivo de backup de identidade (Halla Desktop ou Mobile) ou peça a um administrador do servidor para reconceder suas permissões ao seu novo ID.</source>
+      <translation>No private key was found for this ID in the system vault or in the local profile.
+
+This happens when the Windows registry was cleaned along with the old identity, or when the vault was also wiped.
+
+Alternatives: import an identity backup file (Halla Desktop or Mobile) or ask a server administrator to re-grant your permissions to your new ID.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="366" />
+      <source>Não foi possível cifrar o backup: %1</source>
+      <translation>Could not encrypt the backup: %1</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="306" />
+      <source>Não foi possível ler a chave privada desta identidade para exportar.</source>
+      <translation>Could not read the private key of this identity to export.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="394" />
+      <source>Não foi possível salvar o arquivo de backup.</source>
+      <translation>Could not save the backup file.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="501" />
+      <source>O ID do backup não confere com a chave pública.</source>
+      <translation>The backup ID does not match the public key.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="286" />
+      <source>O material encontrado não gera este ID único.</source>
+      <translation>The material found does not produce this unique ID.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="342" />
+      <source>Repita a senha:</source>
+      <translation>Repeat the password:</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="460" />
+      <source>Senha do arquivo de backup:</source>
+      <translation>Password of the backup file:</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="468" />
+      <source>Senha incorreta.</source>
+      <translation>Wrong password.</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/IdentityDialog.cpp" line="262" />
+      <source>Identidades</source>
+      <translation>Identities</translation>
     </message>
   </context>
   <context>

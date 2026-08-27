@@ -208,6 +208,27 @@ assert 'EVP_PKEY_CTX_new_id' not in _identity_code
 assert 'EVP_PKEY_new_raw_private_key' not in _identity_code
 assert 'EVP_PKEY_id' not in _identity_code
 assert 'EVP_PKEY_get_id' not in _identity_code
+# Recuperação de identidade (v1.1.5): o ID único é base64(SHA-256(chave
+# pública)) — o MESMO cálculo do servidor — e a chave privada sobrevive no
+# cofre do sistema (qtkeychain/Credential Manager) quando o registro do
+# Windows é limpo. "Restaurar..." re-deriva a pública da privada, CONFERE o
+# hash contra o ID colado e re-registra no perfil: cargos e permissões
+# voltam sem gerar um ID novo. Sem a conferência, um material trocado no
+# cofre registraria identidade com ID que não corresponde às chaves.
+for required in ('uidForPublicDer', 'privateMaterialForUid', 'keyFromMaterial',
+                 'restoreIdentityFromVault', 'vaultIdentityUids',
+                 'CredEnumerateW', 'exportIdentityBackupFile',
+                 'importIdentityBackupFile'):
+    assert required in _identity_code, required
+assert 'uidForPublicDer(pub) != uid' in _identity_code
+# Backup portátil usa o MESMO formato do Halla Mobile ("halla-identity-backup"
+# v1: PBKDF2-HMAC-SHA256 + AES-256-GCM com AAD alias|algoritmo|chave pública)
+# — arquivos cruzam Desktop <-> Mobile em qualquer direção. A mesma política
+# do NID vale aqui: só APIs que existem iguais em OpenSSL e BoringSSL.
+for required in ('halla-identity-backup', 'PKCS5_PBKDF2_HMAC', 'EVP_aes_256_gcm',
+                 'EVP_CTRL_GCM_GET_TAG', 'EVP_CTRL_GCM_SET_TAG',
+                 'OPENSSL_cleanse'):
+    assert required in _identity_code, required
 runpy.run_path(str(root / "tests/icon_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/plugin_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")

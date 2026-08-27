@@ -161,6 +161,98 @@ int main() {
     }
     std::printf("[9] seed crua rejeitada pelo parser PKCS#8 direto (esperado)\n");
 
+    // ---- [10] backup portátil: PBKDF2-HMAC-SHA256 (mesma sequência do
+    // exportIdentityBackupFile — formato "halla-identity-backup" v1, idêntico
+    // ao Halla Mobile) ----
+    unsigned char salt[16], iv[12];
+    if (RAND_bytes(salt, sizeof(salt)) != 1) return fail(21, "RAND_bytes (salt)");
+    if (RAND_bytes(iv, sizeof(iv)) != 1) return fail(22, "RAND_bytes (iv)");
+    unsigned char backupKey[32];
+    if (PKCS5_PBKDF2_HMAC("senha-do-backup-123", -1, salt, sizeof(salt), 310000,
+                          EVP_sha256(), sizeof(backupKey), backupKey) != 1)
+        return fail(23, "PKCS5_PBKDF2_HMAC");
+    std::printf("[10] PBKDF2-HMAC-SHA256 (310000 iteracoes) ok\n");
+
+    // ---- [11] backup portátil: AES-256-GCM com AAD + tag ----
+    // O plaintext é o PKCS#8 mínimo (cabeçalho + seed) — exatamente o que o
+    // export grava no arquivo (e o MESMO layout que Java/Android produz).
+    unsigned char pkcs8[48];
+    std::memcpy(pkcs8, kPkcs8SeedHeader, sizeof(kPkcs8SeedHeader));
+    std::memcpy(pkcs8 + sizeof(kPkcs8SeedHeader), seedBack, 32);
+    const char* aad = "halla-identity-backup|1|desktop|Ed25519|PublicKeyBase64==";
+    EVP_CIPHER_CTX* ectx = EVP_CIPHER_CTX_new();
+    if (!ectx) return fail(24, "EVP_CIPHER_CTX_new (encrypt)");
+    unsigned char ct[64 + 16] = {0};
+    int len = 0, total = 0;
+    if (EVP_EncryptInit_ex(ectx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1)
+        return fail(25, "EVP_EncryptInit_ex (GCM)");
+    if (EVP_CIPHER_CTX_ctrl(ectx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1)
+        return fail(26, "EVP_CTRL_GCM_SET_IVLEN");
+    if (EVP_EncryptInit_ex(ectx, nullptr, nullptr, backupKey, iv) != 1)
+        return fail(27, "EVP_EncryptInit_ex (chave/iv)");
+    if (EVP_EncryptUpdate(ectx, nullptr, &len,
+                          reinterpret_cast<const unsigned char*>(aad),
+                          static_cast<int>(std::strlen(aad))) != 1)
+        return fail(28, "EVP_EncryptUpdate (AAD)");
+    if (EVP_EncryptUpdate(ectx, ct, &len, pkcs8, sizeof(pkcs8)) != 1)
+        return fail(29, "EVP_EncryptUpdate (plaintext)");
+    total = len;
+    if (EVP_EncryptFinal_ex(ectx, ct + total, &len) != 1)
+        return fail(30, "EVP_EncryptFinal_ex");
+    total += len;
+    if (EVP_CIPHER_CTX_ctrl(ectx, EVP_CTRL_GCM_GET_TAG, 16, ct + total) != 1)
+        return fail(31, "EVP_CTRL_GCM_GET_TAG");
+    total += 16;
+    EVP_CIPHER_CTX_free(ectx);
+    if (total != 48 + 16) return fail(32, "cifrado com tamanho inesperado");
+    std::printf("[11] AES-256-GCM cifrada com AAD e tag ok (%d bytes)\n", total);
+
+    // ---- [12] backup portátil: decifra e confere o plaintext ----
+    EVP_CIPHER_CTX* dctx = EVP_CIPHER_CTX_new();
+    if (!dctx) return fail(33, "EVP_CIPHER_CTX_new (decrypt)");
+    unsigned char pt[64] = {0};
+    unsigned char tag[16];
+    std::memcpy(tag, ct + 48, sizeof(tag));
+    len = 0;
+    if (EVP_DecryptInit_ex(dctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1)
+        return fail(34, "EVP_DecryptInit_ex (GCM)");
+    if (EVP_CIPHER_CTX_ctrl(dctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1)
+        return fail(35, "EVP_CTRL_GCM_SET_IVLEN (decrypt)");
+    if (EVP_DecryptInit_ex(dctx, nullptr, nullptr, backupKey, iv) != 1)
+        return fail(36, "EVP_DecryptInit_ex (chave/iv)");
+    if (EVP_DecryptUpdate(dctx, nullptr, &len,
+                          reinterpret_cast<const unsigned char*>(aad),
+                          static_cast<int>(std::strlen(aad))) != 1)
+        return fail(37, "EVP_DecryptUpdate (AAD decrypt)");
+    if (EVP_DecryptUpdate(dctx, pt, &len, ct, 48) != 1)
+        return fail(38, "EVP_DecryptUpdate (cifrado)");
+    if (EVP_CIPHER_CTX_ctrl(dctx, EVP_CTRL_GCM_SET_TAG, sizeof(tag), tag) != 1)
+        return fail(39, "EVP_CTRL_GCM_SET_TAG");
+    if (EVP_DecryptFinal_ex(dctx, pt + len, &len) != 1)
+        return fail(40, "EVP_DecryptFinal_ex (tag ou senha errada)");
+    EVP_CIPHER_CTX_free(dctx);
+    if (std::memcmp(pt, pkcs8, sizeof(pkcs8)) != 0)
+        return fail(41, "plaintext decifrado difere do original");
+    std::printf("[12] decifragem GCM confere com o PKCS#8 original\n");
+
+    // ---- [13] AAD adulterada: a decifragem TEM que falhar ----
+    EVP_CIPHER_CTX* wctx = EVP_CIPHER_CTX_new();
+    if (!wctx) return fail(42, "EVP_CIPHER_CTX_new (AAD errada)");
+    const char* badAad = "halla-identity-backup|1|desktop|Ed25519|OutraChave==";
+    len = 0;
+    bool aadRejected = EVP_DecryptInit_ex(wctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) == 1
+        && EVP_CIPHER_CTX_ctrl(wctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) == 1
+        && EVP_DecryptInit_ex(wctx, nullptr, nullptr, backupKey, iv) == 1
+        && EVP_DecryptUpdate(wctx, nullptr, &len,
+                             reinterpret_cast<const unsigned char*>(badAad),
+                             static_cast<int>(std::strlen(badAad))) == 1
+        && EVP_DecryptUpdate(wctx, pt, &len, ct, 48) == 1
+        && EVP_CIPHER_CTX_ctrl(wctx, EVP_CTRL_GCM_SET_TAG, sizeof(tag), tag) == 1
+        && EVP_DecryptFinal_ex(wctx, pt + len, &len) == 1;
+    EVP_CIPHER_CTX_free(wctx);
+    if (aadRejected) return fail(43, "AAD adulterada foi aceita (inesperado)");
+    std::printf("[13] AAD adulterada rejeitada pela tag GCM (esperado)\n");
+
     EVP_PKEY_free(key);
     std::printf("ed25519_identity_smoke: TUDO OK\n");
     return 0;
