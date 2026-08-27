@@ -47,7 +47,10 @@ assert "NoLessSafeRedirectPolicy" in manager
 assert "O pacote contém caminhos inseguros" in manager
 assert "100ll * 1024 * 1024" in manager
 assert "250ll * 1024 * 1024" in manager
-assert "https://raw.githubusercontent.com/GroupHalla/Halla/main/addons/catalog.json" in manager
+assert "https://grouphalla.github.io/Halla-Addons/api/v1/addons.json" in manager
+assert "https://grouphalla.github.io/Halla-Addons/" in manager
+assert "hallaCatalogPlatformText" in manager and "hallaCatalogIsNewer" in manager
+assert 'platforms.contains(QLatin1String("desktop"))' in manager
 assert "official.talking-overlay" in manager
 assert "official.radio-voice" in manager
 assert "HALLA_AUDIO_FLAG_WHISPER" in api
