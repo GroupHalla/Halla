@@ -1488,6 +1488,10 @@ Al conectarse, el servidor reconoce el mismo ID: los cargos, permisos e historia
       <translation>Desconectar</translation>
     </message>
     <message>
+      <source>Editar servidor virtual</source>
+      <translation>Editar servidor virtual</translation>
+    </message>
+    <message>
       <location filename="../src/app/MainWindow.cpp" line="299" />
       <source>Desconectar de todos os servidores</source>
       <translation>Desconectar de todos los servidores</translation>
@@ -5228,6 +5232,10 @@ La tarea se guarda en el servidor (mediante ID única).</translation>
       <location filename="../src/gui/ServerTab.cpp" line="121" />
       <source>Opções do servidor</source>
       <translation>Opciones del servidor</translation>
+    </message>
+    <message>
+      <source>Desconectar</source>
+      <translation>Desconectar</translation>
     </message>
     <message>
       <location filename="../src/gui/ServerTab.cpp" line="181" />

@@ -33,6 +33,7 @@
 #include <QStandardPaths>
 #include <QDateTime>
 #include <QDir>
+#include <QMenu>
 #include <QTimer>
 #include <QLabel>
 #include <QDialogButtonBox>
@@ -123,6 +124,19 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     more->setToolTip(tr("Opções do servidor"));
     headerLayout->addWidget(more);
     treeLayout->addWidget(treeHeader);
+
+    // O botão "…" abre o menu do servidor (antes era um botão morto) e o
+    // botão direito no nome do servidor no cabeçalho abre o mesmo menu —
+    // "clicar com o direito no servidor" precisa funcionar em todos os
+    // lugares onde o servidor aparece, não só no espaço vazio da árvore.
+    connect(more, &QToolButton::clicked, this, [this, more] {
+        showServerContextMenu(more->mapToGlobal(QPoint(0, more->height())));
+    });
+    m_serverHeaderName->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_serverHeaderName, &QToolButton::customContextMenuRequested, this,
+            [this](const QPoint& pos) {
+                showServerContextMenu(m_serverHeaderName->mapToGlobal(pos));
+            });
 
     // O cabeçalho mostra somente o nome do servidor. A descrição e as
     // informações ficam no painel ao lado quando o nome é clicado.
@@ -962,6 +976,24 @@ void ServerTab::setSelfDescription() {
     self.description = desc;
     m_tree->rebuild();
     emit statusChanged();
+}
+
+void ServerTab::showServerContextMenu(const QPoint& globalPos) {
+    // Mesmo menu do servidor do clique direito na árvore (espaço vazio):
+    // Desconectar / Editar servidor virtual (nome, mensagem do dia e BANNER)
+    // / Adicionar aos favoritos. Compartilhado pelo botão "…" do cabeçalho,
+    // pelo botão direito no nome do servidor, pela aba e pelo botão do
+    // servidor na barra de status.
+    QMenu menu(this);
+    menu.addAction(HIcons::disconnectPlug(), tr("Desconectar"), this,
+                   [this] { emit disconnectRequested(); });
+    menu.addSeparator();
+    menu.addAction(HIcons::editPencil(), tr("Editar servidor virtual"), this,
+                   [this] { editVirtualServerName(); });
+    menu.addSeparator();
+    menu.addAction(HIcons::bookmarkStar(), tr("Adicionar aos favoritos"), this,
+                   [this] { emit addBookmarkRequested(); });
+    menu.exec(globalPos);
 }
 
 void ServerTab::editVirtualServerName() {

@@ -7,6 +7,7 @@
 #include <QContextMenuEvent>
 #include <QMouseEvent>
 #include <QMenu>
+#include <QGuiApplication>
 #include <QMimeData>
 #include <QDropEvent>
 #include <QPainter>
@@ -730,6 +731,20 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
     }
 
     menu.exec(e->globalPos());
+}
+
+void ServerTreeWidget::startDrag(Qt::DropActions actions) {
+    // O Qt inicia arraste de item com QUALQUER botão pressionado. Com o
+    // direito, no Windows o loop OLE do QDrag::exec() captura o mouse e
+    // consome o WM_RBUTTONUP — o WM_CONTEXTMENU nunca é gerado e o menu de
+    // contexto não abre (o item só ficava selecionado, "as listas não
+    // abriam"). Arrastar cliente/canal agora é exclusivo do botão esquerdo;
+    // o direito sempre entrega o menu de contexto.
+    if (QGuiApplication::mouseButtons() & Qt::LeftButton) {
+        QTreeWidget::startDrag(actions);
+        return;
+    }
+    setState(QAbstractItemView::NoState);
 }
 
 void ServerTreeWidget::mouseDoubleClickEvent(QMouseEvent* e) {

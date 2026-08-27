@@ -1087,6 +1087,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                 menu.addAction(HIcons::disconnectPlug(), tr("Desconectar"), this,
                                [this, t] { disconnectTab(t); });
                 menu.addSeparator();
+                menu.addAction(HIcons::editPencil(), tr("Editar servidor virtual"), this,
+                               [this, t] { t->editVirtualServerName(); });
+                menu.addSeparator();
                 menu.addAction(HIcons::bookmarkStar(), tr("Adicionar aos favoritos"), this,
                                [this, t] {
                                    openBookmarksDialog(t->data().name, t->data().address);
@@ -1710,6 +1713,25 @@ void MainWindow::rebuildServerButtons() {
                     publishPluginState();
                 }
             });
+            // Botão direito no servidor da barra de status: mesmo menu da
+            // aba (Desconectar / Editar servidor virtual / Favoritos) —
+            // captura a ABA (estável), não o índice (muda ao fechar abas).
+            button->setContextMenuPolicy(Qt::CustomContextMenu);
+            connect(button, &QToolButton::customContextMenuRequested, this,
+                    [this, tab, button](const QPoint& p) {
+                        QMenu menu(this);
+                        menu.addAction(HIcons::disconnectPlug(), tr("Desconectar"), this,
+                                       [this, tab] { disconnectTab(tab); });
+                        menu.addSeparator();
+                        menu.addAction(HIcons::editPencil(), tr("Editar servidor virtual"), this,
+                                       [this, tab] { tab->editVirtualServerName(); });
+                        menu.addSeparator();
+                        menu.addAction(HIcons::bookmarkStar(), tr("Adicionar aos favoritos"), this,
+                                       [this, tab] {
+                                           openBookmarksDialog(tab->data().name, tab->data().address);
+                                       });
+                        menu.exec(button->mapToGlobal(p));
+                    });
             m_serverBarLayout->addWidget(button);
         }
     } else {

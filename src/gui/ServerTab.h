@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QSet>
+#include <QPoint>
 #include "core/Models.h"
 #include "dialogs/AdminDialogs.h"
 
@@ -118,4 +119,5 @@ private:
     void playRemoteSpeechCue(const User& user, bool active);
     void systemMsgServer(const QString& msg);
     void systemMsgChannel(const QString& msg);
+    void showServerContextMenu(const QPoint& globalPos);
 };

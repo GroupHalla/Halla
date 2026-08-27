@@ -1488,6 +1488,10 @@ When you connect, the server recognizes the same ID: roles, permissions and hist
       <translation>Disconnect</translation>
     </message>
     <message>
+      <source>Editar servidor virtual</source>
+      <translation>Edit virtual server</translation>
+    </message>
+    <message>
       <location filename="../src/app/MainWindow.cpp" line="299" />
       <source>Desconectar de todos os servidores</source>
       <translation>Disconnect from all servers</translation>
@@ -5228,6 +5232,10 @@ The assignment is saved on the server (by unique ID).</translation>
       <location filename="../src/gui/ServerTab.cpp" line="121" />
       <source>Opções do servidor</source>
       <translation>Server Options</translation>
+    </message>
+    <message>
+      <source>Desconectar</source>
+      <translation>Disconnect</translation>
     </message>
     <message>
       <location filename="../src/gui/ServerTab.cpp" line="181" />

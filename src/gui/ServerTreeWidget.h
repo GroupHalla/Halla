@@ -108,6 +108,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* e) override;
     void leaveEvent(QEvent* e) override;
     void mouseDoubleClickEvent(QMouseEvent* e) override;
+    void startDrag(Qt::DropActions actions) override;
     QStringList mimeTypes() const override;
     QMimeData* mimeData(const QList<QTreeWidgetItem*>& items) const override;
     void dropEvent(QDropEvent* event) override;

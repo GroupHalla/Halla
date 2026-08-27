@@ -1478,6 +1478,9 @@ Ao conectar, o servidor reconhece o mesmo ID: cargos, permissões e histórico v
         <translation type="unfinished"></translation>
     </message>
     <message>
+      <source>Editar servidor virtual</source>
+    </message>
+    <message>
         <location filename="../src/app/MainWindow.cpp" line="299"/>
         <source>Desconectar de todos os servidores</source>
         <translation type="unfinished"></translation>
@@ -5166,6 +5169,9 @@ A atribuição fica salva no servidor (por ID único).</source>
         <location filename="../src/gui/ServerTab.cpp" line="121"/>
         <source>Opções do servidor</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+      <source>Desconectar</source>
     </message>
     <message>
         <location filename="../src/gui/ServerTab.cpp" line="181"/>
