@@ -68,6 +68,101 @@ static EVP_PKEY* keyFromSeed(const unsigned char* seed) {
     return d2i_AutoPrivateKey(nullptr, &p, sizeof(der));
 }
 
+// ---------------------------------------------------------------------------
+// PBKDF2-HMAC-SHA256 manual — espelho EXATO do IdentityDialog.cpp.
+//
+// NÃO usar PKCS5_PBKDF2_HMAC aqui nem no app: os headers do OpenSSL 3
+// declaram (int passlen, int saltlen, int iter, int keylen) e o BoringSSL
+// do webrtc.lib implementa (size_t password_len, size_t salt_len,
+// uint32_t iterations, size_t key_len). O build Windows compila contra os
+// headers do OpenSSL e LINKA o BoringSSL — passlen = -1 (convenção "strlen"
+// do OpenSSL) virava 4294967295 no size_t do BoringSSL e o processo morria
+// com ACCESS VIOLATION sem imprimir linha alguma (run 33026636018; o pwsh
+// engoliu o stderr do cl, diagnóstico capturado na run 33028370189).
+// Abaixo, somente primitivas de ABI idêntica nas duas bibliotecas
+// (EVP_MD_CTX_new/free, EVP_DigestInit_ex, EVP_DigestUpdate size_t,
+// EVP_DigestFinal_ex, EVP_sha256) — e o resultado é conferido contra
+// vetores públicos do RFC 8018.
+// ---------------------------------------------------------------------------
+static bool smokeHmacSha256(const unsigned char* key, int keyLen,
+                            const unsigned char* msg1, int msg1Len,
+                            const unsigned char* msg2, int msg2Len,
+                            unsigned char out[32]) {
+    unsigned char block[64];
+    std::memset(block, 0, sizeof(block));
+    if (keyLen > 64) {
+        EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+        if (!ctx) return false;
+        unsigned int kdLen = 0;
+        const bool ok = EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1
+            && EVP_DigestUpdate(ctx, key, size_t(keyLen)) == 1
+            && EVP_DigestFinal_ex(ctx, block, &kdLen) == 1;
+        EVP_MD_CTX_free(ctx);
+        if (!ok) return false;
+    } else {
+        std::memcpy(block, key, size_t(keyLen));
+    }
+    unsigned char ipad[64];
+    unsigned char opad[64];
+    for (int i = 0; i < 64; ++i) {
+        ipad[i] = block[i] ^ 0x36;
+        opad[i] = block[i] ^ 0x5c;
+    }
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) return false;
+    unsigned char inner[32];
+    unsigned int innerLen = 0;
+    bool ok = EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1
+        && EVP_DigestUpdate(ctx, ipad, sizeof(ipad)) == 1
+        && (msg1Len <= 0 || EVP_DigestUpdate(ctx, msg1, size_t(msg1Len)) == 1)
+        && (msg2Len <= 0 || EVP_DigestUpdate(ctx, msg2, size_t(msg2Len)) == 1)
+        && EVP_DigestFinal_ex(ctx, inner, &innerLen) == 1;
+    if (ok) {
+        ok = EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1
+            && EVP_DigestUpdate(ctx, opad, sizeof(opad)) == 1
+            && EVP_DigestUpdate(ctx, inner, sizeof(inner)) == 1
+            && EVP_DigestFinal_ex(ctx, out, &innerLen) == 1;
+    }
+    EVP_MD_CTX_free(ctx);
+    return ok;
+}
+
+// PBKDF2 (RFC 8018), um único bloco de 32 bytes — igual ao IdentityDialog.
+static bool smokePbkdf2(const unsigned char* pass, int passLen,
+                        const unsigned char* salt, int saltLen,
+                        int iterations, unsigned char out[32]) {
+    const unsigned char beOne[4] = {0, 0, 0, 1};
+    unsigned char u[32];
+    if (!smokeHmacSha256(pass, passLen, salt, saltLen, beOne, sizeof(beOne), u))
+        return false;
+    unsigned char t[32];
+    std::memcpy(t, u, sizeof(t));
+    for (int i = 1; i < iterations; ++i) {
+        if (!smokeHmacSha256(pass, passLen, u, sizeof(u), nullptr, 0, u))
+            return false;
+        for (int b = 0; b < 32; ++b) t[b] ^= u[b];
+    }
+    std::memcpy(out, t, 32);
+    return true;
+}
+
+static bool smokeHexEq(const unsigned char* got, const char* expectedHex) {
+    for (int i = 0; i < 32; ++i) {
+        int hi = 0, lo = 0;
+        if (std::sscanf(expectedHex + 2 * i, "%1x%1x", &hi, &lo) != 2) return false;
+        if (got[i] != (hi * 16 + lo)) return false;
+    }
+    return true;
+}
+
+// Vetores públicos do PBKDF2-HMAC-SHA256 (RFC 7914 §11 / suites padrão).
+static const char kPbkdf2Vec1[] =
+    "120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b"; // c=1
+static const char kPbkdf2Vec2[] =
+    "ae4d0c95af6b46d32d0adff928f06dd02a303f8ef3c251dfd6e2d85a95474c43"; // c=2
+static const char kPbkdf2Vec3[] =
+    "c5e478d59288c841aa530db6845c4c8d962893a001ce4e11a4963873aa98134a"; // c=4096
+
 int main() {
     std::printf("ed25519_identity_smoke: inicio (sequencia livre de NID)\n");
 
@@ -168,10 +263,30 @@ int main() {
     if (RAND_bytes(salt, sizeof(salt)) != 1) return fail(21, "RAND_bytes (salt)");
     if (RAND_bytes(iv, sizeof(iv)) != 1) return fail(22, "RAND_bytes (iv)");
     unsigned char backupKey[32];
-    if (PKCS5_PBKDF2_HMAC("senha-do-backup-123", -1, salt, sizeof(salt), 310000,
-                          EVP_sha256(), sizeof(backupKey), backupKey) != 1)
-        return fail(23, "PKCS5_PBKDF2_HMAC");
-    std::printf("[10] PBKDF2-HMAC-SHA256 (310000 iteracoes) ok\n");
+
+    // Vetores conhecidos ANTES do uso real: provam que o PBKDF2 manual é
+    // byte a byte o mesmo do PBKDF2WithHmacSHA256 do Java (Halla Mobile).
+    unsigned char vec[32];
+    if (!smokePbkdf2(reinterpret_cast<const unsigned char*>("password"), 8,
+                     reinterpret_cast<const unsigned char*>("salt"), 4, 1, vec)
+            || !smokeHexEq(vec, kPbkdf2Vec1))
+        return fail(23, "PBKDF2 vetor RFC c=1");
+    if (!smokePbkdf2(reinterpret_cast<const unsigned char*>("password"), 8,
+                     reinterpret_cast<const unsigned char*>("salt"), 4, 2, vec)
+            || !smokeHexEq(vec, kPbkdf2Vec2))
+        return fail(24, "PBKDF2 vetor RFC c=2");
+    if (!smokePbkdf2(reinterpret_cast<const unsigned char*>("password"), 8,
+                     reinterpret_cast<const unsigned char*>("salt"), 4, 4096, vec)
+            || !smokeHexEq(vec, kPbkdf2Vec3))
+        return fail(25, "PBKDF2 vetor RFC c=4096");
+    std::printf("[10] PBKDF2-HMAC-SHA256 manual ok (3 vetores RFC conferidos)\n");
+
+    // A sequência real do export: senha com tamanho EXPLÍCITO (nunca -1),
+    // salt aleatório, 310000 iterações.
+    if (!smokePbkdf2(reinterpret_cast<const unsigned char*>("senha-do-backup-123"), 19,
+                     salt, sizeof(salt), 310000, backupKey))
+        return fail(26, "PBKDF2 (310000 iteracoes)");
+    std::printf("[10b] PBKDF2 310000 iteracoes ok\n");
 
     // ---- [11] backup portátil: AES-256-GCM com AAD + tag ----
     // O plaintext é o PKCS#8 mínimo (cabeçalho + seed) — exatamente o que o
@@ -181,63 +296,63 @@ int main() {
     std::memcpy(pkcs8 + sizeof(kPkcs8SeedHeader), seedBack, 32);
     const char* aad = "halla-identity-backup|1|desktop|Ed25519|PublicKeyBase64==";
     EVP_CIPHER_CTX* ectx = EVP_CIPHER_CTX_new();
-    if (!ectx) return fail(24, "EVP_CIPHER_CTX_new (encrypt)");
+    if (!ectx) return fail(27, "EVP_CIPHER_CTX_new (encrypt)");
     unsigned char ct[64 + 16] = {0};
     int len = 0, total = 0;
     if (EVP_EncryptInit_ex(ectx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1)
-        return fail(25, "EVP_EncryptInit_ex (GCM)");
+        return fail(28, "EVP_EncryptInit_ex (GCM)");
     if (EVP_CIPHER_CTX_ctrl(ectx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1)
-        return fail(26, "EVP_CTRL_GCM_SET_IVLEN");
+        return fail(29, "EVP_CTRL_GCM_SET_IVLEN");
     if (EVP_EncryptInit_ex(ectx, nullptr, nullptr, backupKey, iv) != 1)
-        return fail(27, "EVP_EncryptInit_ex (chave/iv)");
+        return fail(30, "EVP_EncryptInit_ex (chave/iv)");
     if (EVP_EncryptUpdate(ectx, nullptr, &len,
                           reinterpret_cast<const unsigned char*>(aad),
                           static_cast<int>(std::strlen(aad))) != 1)
-        return fail(28, "EVP_EncryptUpdate (AAD)");
+        return fail(31, "EVP_EncryptUpdate (AAD)");
     if (EVP_EncryptUpdate(ectx, ct, &len, pkcs8, sizeof(pkcs8)) != 1)
-        return fail(29, "EVP_EncryptUpdate (plaintext)");
+        return fail(32, "EVP_EncryptUpdate (plaintext)");
     total = len;
     if (EVP_EncryptFinal_ex(ectx, ct + total, &len) != 1)
-        return fail(30, "EVP_EncryptFinal_ex");
+        return fail(33, "EVP_EncryptFinal_ex");
     total += len;
     if (EVP_CIPHER_CTX_ctrl(ectx, EVP_CTRL_GCM_GET_TAG, 16, ct + total) != 1)
-        return fail(31, "EVP_CTRL_GCM_GET_TAG");
+        return fail(34, "EVP_CTRL_GCM_GET_TAG");
     total += 16;
     EVP_CIPHER_CTX_free(ectx);
-    if (total != 48 + 16) return fail(32, "cifrado com tamanho inesperado");
+    if (total != 48 + 16) return fail(35, "cifrado com tamanho inesperado");
     std::printf("[11] AES-256-GCM cifrada com AAD e tag ok (%d bytes)\n", total);
 
     // ---- [12] backup portátil: decifra e confere o plaintext ----
     EVP_CIPHER_CTX* dctx = EVP_CIPHER_CTX_new();
-    if (!dctx) return fail(33, "EVP_CIPHER_CTX_new (decrypt)");
+    if (!dctx) return fail(36, "EVP_CIPHER_CTX_new (decrypt)");
     unsigned char pt[64] = {0};
     unsigned char tag[16];
     std::memcpy(tag, ct + 48, sizeof(tag));
     len = 0;
     if (EVP_DecryptInit_ex(dctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1)
-        return fail(34, "EVP_DecryptInit_ex (GCM)");
+        return fail(37, "EVP_DecryptInit_ex (GCM)");
     if (EVP_CIPHER_CTX_ctrl(dctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1)
-        return fail(35, "EVP_CTRL_GCM_SET_IVLEN (decrypt)");
+        return fail(38, "EVP_CTRL_GCM_SET_IVLEN (decrypt)");
     if (EVP_DecryptInit_ex(dctx, nullptr, nullptr, backupKey, iv) != 1)
-        return fail(36, "EVP_DecryptInit_ex (chave/iv)");
+        return fail(39, "EVP_DecryptInit_ex (chave/iv)");
     if (EVP_DecryptUpdate(dctx, nullptr, &len,
                           reinterpret_cast<const unsigned char*>(aad),
                           static_cast<int>(std::strlen(aad))) != 1)
-        return fail(37, "EVP_DecryptUpdate (AAD decrypt)");
+        return fail(40, "EVP_DecryptUpdate (AAD decrypt)");
     if (EVP_DecryptUpdate(dctx, pt, &len, ct, 48) != 1)
-        return fail(38, "EVP_DecryptUpdate (cifrado)");
+        return fail(41, "EVP_DecryptUpdate (cifrado)");
     if (EVP_CIPHER_CTX_ctrl(dctx, EVP_CTRL_GCM_SET_TAG, sizeof(tag), tag) != 1)
-        return fail(39, "EVP_CTRL_GCM_SET_TAG");
+        return fail(42, "EVP_CTRL_GCM_SET_TAG");
     if (EVP_DecryptFinal_ex(dctx, pt + len, &len) != 1)
-        return fail(40, "EVP_DecryptFinal_ex (tag ou senha errada)");
+        return fail(43, "EVP_DecryptFinal_ex (tag ou senha errada)");
     EVP_CIPHER_CTX_free(dctx);
     if (std::memcmp(pt, pkcs8, sizeof(pkcs8)) != 0)
-        return fail(41, "plaintext decifrado difere do original");
+        return fail(44, "plaintext decifrado difere do original");
     std::printf("[12] decifragem GCM confere com o PKCS#8 original\n");
 
     // ---- [13] AAD adulterada: a decifragem TEM que falhar ----
     EVP_CIPHER_CTX* wctx = EVP_CIPHER_CTX_new();
-    if (!wctx) return fail(42, "EVP_CIPHER_CTX_new (AAD errada)");
+    if (!wctx) return fail(45, "EVP_CIPHER_CTX_new (AAD errada)");
     const char* badAad = "halla-identity-backup|1|desktop|Ed25519|OutraChave==";
     len = 0;
     bool aadRejected = EVP_DecryptInit_ex(wctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) == 1
@@ -250,7 +365,7 @@ int main() {
         && EVP_CIPHER_CTX_ctrl(wctx, EVP_CTRL_GCM_SET_TAG, sizeof(tag), tag) == 1
         && EVP_DecryptFinal_ex(wctx, pt + len, &len) == 1;
     EVP_CIPHER_CTX_free(wctx);
-    if (aadRejected) return fail(43, "AAD adulterada foi aceita (inesperado)");
+    if (aadRejected) return fail(46, "AAD adulterada foi aceita (inesperado)");
     std::printf("[13] AAD adulterada rejeitada pela tag GCM (esperado)\n");
 
     EVP_PKEY_free(key);

@@ -100,12 +100,22 @@ jobs:
       - name: Ed25519 identity smoke (release gate)
         shell: pwsh
         run: |
-          $libs = Get-ChildItem "third_party\webrtc-sdk\lib\windows-x64" -Filter *.lib | ForEach-Object { $_.FullName }
-          cl /nologo /std:c++20 /MD /EHsc /DWEBRTC_WIN=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN `
-            /I "C:\vcpkg\installed\x64-windows\include" `
-            /I "third_party\webrtc-sdk\include" /I "third_party\webrtc-sdk\include\third_party\abseil-cpp" /I "third_party\webrtc-sdk\include\third_party\libyuv\include" `
-            tests\ed25519_identity_smoke.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib /out:ed25519_identity_smoke.exe
-          .\ed25519_identity_smoke.exe
+          # O pwsh engole o stderr do cl — a run 33026636018 falhou com exit 1
+          # SEM uma única linha de erro no log. Compila via cmd com
+          # redirecionamento em arquivo para capturar stdout E stderr, e
+          # mostra o exit code de cada etapa separadamente.
+          $libs = (Get-ChildItem "third_party\webrtc-sdk\lib\windows-x64" -Filter *.lib | ForEach-Object { $_.FullName }) -join ' '
+          $cl = "cl /nologo /std:c++20 /MD /EHsc /DWEBRTC_WIN=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN /I `"C:\vcpkg\installed\x64-windows\include`" /I `"third_party\webrtc-sdk\include`" /I `"third_party\webrtc-sdk\include\third_party\abseil-cpp`" /I `"third_party\webrtc-sdk\include\third_party\libyuv\include`" tests\ed25519_identity_smoke.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib /out:ed25519_identity_smoke.exe"
+          cmd /c "$cl > smoke_build.log 2>&1"
+          $buildCode = $LASTEXITCODE
+          Get-Content smoke_build.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== cl exit code: $buildCode"
+          if ($buildCode -ne 0) { exit $buildCode }
+          cmd /c ".\ed25519_identity_smoke.exe > smoke_run.log 2>&1"
+          $runCode = $LASTEXITCODE
+          Get-Content smoke_run.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== smoke exit code: $runCode"
+          exit $runCode
 
       - name: Prepare distribution
         shell: pwsh

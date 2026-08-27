@@ -1,0 +1,98 @@
+#include "GroupIconCache.h"
+
+#include <QCryptographicHash>
+#include <QDir>
+#include <QFile>
+#include <QImage>
+#include <QStandardPaths>
+
+GroupIconCache& GroupIconCache::instance() {
+    static GroupIconCache cache;
+    return cache;
+}
+
+QString GroupIconCache::safeName(const QString& name) {
+    // Espelha o sanitizeFileName do servidor: ícone com nome malicioso
+    // ("../../x") vira um nome inofensivo dentro do cache.
+    QString out;
+    for (const QChar& ch : name.left(60)) {
+        if (ch.isLetterOrNumber() || ch == QLatin1Char('.') || ch == QLatin1Char('_')
+                || ch == QLatin1Char('-') || ch == QLatin1Char(' ')) {
+            out += ch;
+        }
+    }
+    if (out.isEmpty() || out.startsWith(QLatin1Char('.'))) out.prepend(QLatin1Char('_'));
+    return out;
+}
+
+QString GroupIconCache::serverKey(const QString& serverAddress) {
+    // Memoizado: o delegado chama a cada repaint de cada linha.
+    static QHash<QString, QString> memo;
+    const auto it = memo.constFind(serverAddress);
+    if (it != memo.constEnd()) return it.value();
+    const QString key = QString::fromLatin1(QCryptographicHash::hash(
+        serverAddress.toUtf8(), QCryptographicHash::Sha1).toHex()).left(16);
+    memo.insert(serverAddress, key);
+    return key;
+}
+
+QString GroupIconCache::cacheDir() {
+    return QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+            + QStringLiteral("/role-icons");
+}
+
+QString GroupIconCache::diskPath(const QString& serverKey, const QString& safe) const {
+    return cacheDir() + QStringLiteral("/") + serverKey + QStringLiteral("/") + safe;
+}
+
+QPixmap GroupIconCache::pixmap(const QString& serverKey, const QString& name) {
+    const QString safe = safeName(name);
+    const QString memKey = serverKey + QLatin1Char('|') + safe;
+
+    // 1) memória — caminho quente do delegado (paint roda o tempo todo).
+    const auto it = m_pixmaps.constFind(memKey);
+    if (it != m_pixmaps.constEnd()) return it.value();
+
+    // 2) disco — sobrevive entre execuções; se a imagem estiver corrompida,
+    //    remove para que o re-request traga uma cópia boa.
+    QFile f(diskPath(serverKey, safe));
+    if (f.open(QIODevice::ReadOnly)) {
+        const QByteArray bytes = f.read(256 * 1024);
+        f.close();
+        QImage img = QImage::fromData(bytes);
+        if (!img.isNull()) {
+            const QPixmap pm = QPixmap::fromImage(img).scaled(
+                16, 14, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            if (!pm.isNull()) {
+                m_pixmaps.insert(memKey, pm);
+                return pm;
+            }
+        } else {
+            QFile::remove(diskPath(serverKey, safe));
+        }
+    }
+    return QPixmap();
+}
+
+void GroupIconCache::store(const QString& serverKey, const QString& name,
+                           const QByteArray& bytes) {
+    const QString safe = safeName(name);
+    const QString memKey = serverKey + QLatin1Char('|') + safe;
+
+    QImage img = QImage::fromData(bytes);
+    if (img.isNull()) return; // bytes inválidos: mantém o que já existe
+
+    const QPixmap pm = QPixmap::fromImage(img).scaled(
+        16, 14, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    if (pm.isNull()) return;
+    m_pixmaps.insert(memKey, pm);
+
+    // Disco é best effort: em dir só de leitura a memória já garantiu a
+    // exibição nesta sessão.
+    QDir().mkpath(cacheDir() + QStringLiteral("/") + serverKey);
+    QFile f(diskPath(serverKey, safe));
+    if (f.open(QIODevice::WriteOnly)) {
+        f.write(bytes);
+        f.close();
+    }
+}

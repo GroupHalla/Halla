@@ -224,11 +224,36 @@ assert 'uidForPublicDer(pub) != uid' in _identity_code
 # Backup portátil usa o MESMO formato do Halla Mobile ("halla-identity-backup"
 # v1: PBKDF2-HMAC-SHA256 + AES-256-GCM com AAD alias|algoritmo|chave pública)
 # — arquivos cruzam Desktop <-> Mobile em qualquer direção. A mesma política
-# do NID vale aqui: só APIs que existem iguais em OpenSSL e BoringSSL.
-for required in ('halla-identity-backup', 'PKCS5_PBKDF2_HMAC', 'EVP_aes_256_gcm',
+# do NID vale aqui: só APIs cuja ASSINATURA é idêntica em OpenSSL e BoringSSL.
+#
+# PKCS5_PBKDF2_HMAC e HMAC()/HMAC_Init_ex são PROIBIDOS: o OpenSSL 3 declara
+# (int passlen, int saltlen, int iter, int keylen / int key_len) e o
+# BoringSSL do webrtc.lib implementa (size_t, size_t, uint32_t, size_t).
+# Compilar contra os headers do OpenSSL e linkar o BoringSSL faz passlen=-1
+# (convenção "strlen" do OpenSSL) virar 4294967295 no size_t do BoringSSL —
+# access violation SEM saída alguma (run 33026636018; stderr do cl engolido
+# pelo pwsh, flagrado com captura via cmd na run 33028370189). O PBKDF2 é
+# implementado na mão sobre EVP_DigestInit_ex/EVP_DigestUpdate(size_t nas
+# duas)/EVP_DigestFinal_ex/EVP_sha256 — ABI idêntica nas duas bibliotecas —
+# e o smoke confere o resultado contra vetores públicos do RFC 8018.
+for required in ('halla-identity-backup', 'pbkdf2HmacSha256', 'hmacSha256',
+                 'EVP_DigestInit_ex', 'EVP_DigestUpdate', 'EVP_sha256',
+                 'EVP_aes_256_gcm',
                  'EVP_CTRL_GCM_GET_TAG', 'EVP_CTRL_GCM_SET_TAG',
                  'OPENSSL_cleanse'):
     assert required in _identity_code, required
+for forbidden in ('PKCS5_PBKDF2_HMAC', 'HMAC(', 'HMAC_Init_ex', 'HMAC_Update', 'HMAC_Final',
+                  'HMAC_CTX_new'):
+    assert forbidden not in _identity_code, forbidden
+# O smoke espelha o PBKDF2 manual e confere os vetores do RFC 8018 — é o que
+# garante que o backup continua byte a byte compatível com o Java do Mobile.
+smoke_src = (root / "tests/ed25519_identity_smoke.cpp").read_text(encoding="utf-8")
+_smoke_code = _re.sub(r"//[^\n]*", "", smoke_src)
+_smoke_code = _re.sub(r"/\*.*?\*/", "", _smoke_code, flags=_re.S)
+for required in ('smokePbkdf2', 'smokeHmacSha256', 'kPbkdf2Vec1', 'kPbkdf2Vec2',
+                 'kPbkdf2Vec3', 'smokeHexEq'):
+    assert required in _smoke_code, required
+assert 'PKCS5_PBKDF2_HMAC' not in _smoke_code, 'PKCS5_PBKDF2_HMAC proibida no smoke'
 runpy.run_path(str(root / "tests/icon_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/plugin_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")

@@ -140,17 +140,109 @@ static QByteArray backupAad(const QString& alias, const QString& algorithm,
                .toUtf8();
 }
 
+// ---------------------------------------------------------------------------
+// PBKDF2-HMAC-SHA256 SEM PKCS5_PBKDF2_HMAC.
+//
+// A assinatura dessa função DIVERGE entre as bibliotecas que o Halla usa:
+// OpenSSL 3 declara (const char*, int passlen, ..., int saltlen, int iter,
+// ..., int keylen, ...) e o BoringSSL do webrtc.lib implementa com
+// (const char*, size_t password_len, ..., size_t salt_len, uint32_t
+// iterations, ..., size_t key_len, ...). O build Windows compila contra os
+// headers do OpenSSL e LINKA o BoringSSL — um passlen = -1 (convenção
+// "conte a senha" do OpenSSL) virava 4294967295 no size_t do BoringSSL e o
+// processo morria com access violation (flagrado pelo smoke do CI, run
+// 33026636018). A família HMAC()/HMAC_Init_ex tem a mesma divergência em
+// key_len.
+//
+// A saída abaixo usa SOMENTE primitivas cuja ABI é idêntica nas duas
+// bibliotecas: EVP_MD_CTX_new/free, EVP_DigestInit_ex, EVP_DigestUpdate
+// (size_t nas duas), EVP_DigestFinal_ex e EVP_sha256. O algoritmo é o
+// RFC 8018 — byte a byte o mesmo PBKDF2 do PKCS5_PBKDF2_HMAC e do
+// PBKDF2WithHmacSHA256 do Java (Halla Mobile), então os backups cruzam
+// plataformas como antes.
+// ---------------------------------------------------------------------------
+static bool hmacSha256(const unsigned char* key, int keyLen,
+                       const unsigned char* msg1, int msg1Len,
+                       const unsigned char* msg2, int msg2Len,
+                       unsigned char out[32]) {
+    unsigned char block[64];
+    std::memset(block, 0, sizeof(block));
+    if (keyLen > int(sizeof(block))) {
+        // chave maior que o bloco: reduz primeiro (RFC 2104)
+        EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+        if (!ctx) return false;
+        unsigned int kdLen = 0;
+        const bool ok = EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1
+            && EVP_DigestUpdate(ctx, key, size_t(keyLen)) == 1
+            && EVP_DigestFinal_ex(ctx, block, &kdLen) == 1;
+        EVP_MD_CTX_free(ctx);
+        if (!ok) return false;
+    } else {
+        std::memcpy(block, key, size_t(keyLen));
+    }
+
+    unsigned char ipad[64];
+    unsigned char opad[64];
+    for (int i = 0; i < 64; ++i) {
+        ipad[i] = block[i] ^ 0x36;
+        opad[i] = block[i] ^ 0x5c;
+    }
+
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) return false;
+    unsigned char inner[32];
+    unsigned int innerLen = 0;
+    bool ok = EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1
+        && EVP_DigestUpdate(ctx, ipad, sizeof(ipad)) == 1
+        && (msg1Len <= 0 || EVP_DigestUpdate(ctx, msg1, size_t(msg1Len)) == 1)
+        && (msg2Len <= 0 || EVP_DigestUpdate(ctx, msg2, size_t(msg2Len)) == 1)
+        && EVP_DigestFinal_ex(ctx, inner, &innerLen) == 1;
+    if (ok) {
+        ok = EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1
+            && EVP_DigestUpdate(ctx, opad, sizeof(opad)) == 1
+            && EVP_DigestUpdate(ctx, inner, sizeof(inner)) == 1
+            && EVP_DigestFinal_ex(ctx, out, &innerLen) == 1;
+    }
+    EVP_MD_CTX_free(ctx);
+    OPENSSL_cleanse(ipad, sizeof(ipad));
+    OPENSSL_cleanse(opad, sizeof(opad));
+    OPENSSL_cleanse(inner, sizeof(inner));
+    return ok;
+}
+
+// PBKDF2 (RFC 8018) com HMAC-SHA256: dkLen é sempre 32 aqui (chave de
+// AES-256-GCM), um único bloco de saída.
+static bool pbkdf2HmacSha256(const QByteArray& password, const QByteArray& salt,
+                             int iterations, unsigned char out[32]) {
+    if (iterations < 1) return false;
+    const unsigned char beOne[4] = {0, 0, 0, 1};  // INT(1) big-endian
+    unsigned char u[32];
+    if (!hmacSha256(reinterpret_cast<const unsigned char*>(password.constData()),
+                    password.size(),
+                    reinterpret_cast<const unsigned char*>(salt.constData()),
+                    salt.size(), beOne, sizeof(beOne), u))
+        return false;
+    unsigned char t[32];
+    std::memcpy(t, u, sizeof(t));
+    for (int i = 1; i < iterations; ++i) {
+        if (!hmacSha256(reinterpret_cast<const unsigned char*>(password.constData()),
+                        password.size(), u, sizeof(u), nullptr, 0, u))
+            return false;
+        for (int b = 0; b < 32; ++b) t[b] ^= u[b];
+    }
+    std::memcpy(out, t, 32);
+    OPENSSL_cleanse(u, sizeof(u));
+    OPENSSL_cleanse(t, sizeof(t));
+    return true;
+}
+
 static bool deriveBackupKey(const QByteArray& password, const QByteArray& salt,
                             int iterations, QByteArray* out) {
     if (password.size() < kBackupMinPassword || salt.size() != 16
             || iterations < 100000 || iterations > 2000000)
         return false;
     unsigned char key[32];
-    const int ok = PKCS5_PBKDF2_HMAC(password.constData(), int(password.size()),
-                                     reinterpret_cast<const unsigned char*>(salt.constData()),
-                                     int(salt.size()), iterations,
-                                     EVP_sha256(), int(sizeof(key)), key);
-    if (ok != 1) return false;
+    if (!pbkdf2HmacSha256(password, salt, iterations, key)) return false;
     *out = QByteArray(reinterpret_cast<char*>(key), int(sizeof(key)));
     OPENSSL_cleanse(key, sizeof(key));
     return true;

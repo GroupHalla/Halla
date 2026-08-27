@@ -11,6 +11,7 @@
 #include "dialogs/ToolsDialogs.h"
 #include "InfoPanel.h"
 #include "RichTextBrowser.h"
+#include "core/GroupIconCache.h"
 #include "net/NetSession.h"
 #include "net/VoiceEngine.h"
 
@@ -212,13 +213,19 @@ void ServerTab::attachNetwork(NetSession* net) {
     m_myChan = m_data.channelOfUser(m_data.selfId);
 
     connect(net, &NetSession::iconDataReceived, this, [this](const QString& name, const QByteArray& bytes) {
-        QDir().mkpath(QStringLiteral("cache/icons"));
-        QFile f(QStringLiteral("cache/icons/") + name);
-        if (f.open(QIODevice::WriteOnly)) {
-            f.write(bytes);
-            f.close();
-            m_tree->viewport()->update();
-        }
+        // Guarda em memória + disco (QStandardPaths — nunca caminho
+        // relativo: com o app em Program Files o cwd não é gravável) e
+        // repinta a lista na hora. Escopo por servidor.
+        GroupIconCache::instance().store(GroupIconCache::serverKey(m_data.address), name, bytes);
+        m_tree->viewport()->update();
+    });
+
+    connect(net, &NetSession::iconUploaded, this, [this](const QString& name) {
+        // Um admin enviou (ou substituiu) um ícone: baixa IMEDIATAMENTE,
+        // mesmo que já exista cópia local — os bytes novos sobrescrevem o
+        // cache e iconDataReceived repinta a árvore. É isto que faz a
+        // imagem atualizar "na hora" para todos os conectados.
+        if (m_net) m_net->iconGet(name);
     });
 
     // estado vindo do servidor -> redesenha a árvore/informações

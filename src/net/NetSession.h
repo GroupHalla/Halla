@@ -137,6 +137,9 @@ signals:
     // ---- v3
     void avatarDataReceived(const QString& uid, const QByteArray& bytes);
     void iconDataReceived(const QString& name, const QByteArray& bytes);
+    // Administrador enviou (ou substituiu) um ícone de cargo: o servidor
+    // faz broadcast de icon_uploaded para todos os clientes conectados.
+    void iconUploaded(const QString& name);
     void userAvatarChanged(int userId, const QString& hash);
     void offlineMsgReceived(const QString& fromName, const QString& text, const QString& ts);
     void offlineSendConfirmed(const QString& uid);

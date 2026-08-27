@@ -2,6 +2,7 @@
 #include "Icons.h"
 #include "Settings.h"
 #include "core/BadgeRegistry.h"
+#include "core/GroupIconCache.h"
 
 #include <QContextMenuEvent>
 #include <QMouseEvent>
@@ -10,6 +11,8 @@
 #include <QDropEvent>
 #include <QPainter>
 #include <QLinearGradient>
+#include <QDateTime>
+#include <QHash>
 #include <QSet>
 #include <QStyle>
 #include <QRegularExpression>
@@ -17,33 +20,52 @@
 #include <QFile>
 #include <QDir>
 
-static QPixmap createGroupIconPixmap(const QString& iconText, ServerTreeWidget* tree) {
+static bool isImageIconName(const QString& iconText) {
+    return iconText.endsWith(".png", Qt::CaseInsensitive)
+        || iconText.endsWith(".jpg", Qt::CaseInsensitive)
+        || iconText.endsWith(".jpeg", Qt::CaseInsensitive)
+        || iconText.endsWith(".gif", Qt::CaseInsensitive);
+}
+
+// Decide se vale pedir o ícone ao servidor AGORA. O mecanismo antigo (um
+// QSet estático "já pedido") envenenava o nome para sempre: um pedido que
+// chegasse antes do upload (not_found) fazia a imagem nunca mais aparecer,
+// mesmo depois de enviada — só reiniciando o app.
+//
+// Regras (chave = servidor + nome — ícones de servidores diferentes são
+// independentes):
+//  - sem o ícone em mãos: re-tenta a cada 5 s (o upload pode estar a caminho);
+//  - com o ícone em mãos: um único re-fetch por execução — troca cópia
+//    antiga de disco pela versão atual do servidor sem spamear pedidos.
+static bool shouldRequestIcon(const QString& requestKey, bool haveIt) {
+    static QHash<QString, qint64> lastAsked;
+    static QSet<QString> refreshed;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (haveIt) {
+        if (refreshed.contains(requestKey)) return false;
+        refreshed.insert(requestKey);
+        lastAsked.insert(requestKey, now);
+        return true;
+    }
+    const auto it = lastAsked.constFind(requestKey);
+    if (it != lastAsked.constEnd() && now - it.value() < 5000) return false;
+    lastAsked.insert(requestKey, now);
+    return true;
+}
+
+static QPixmap createGroupIconPixmap(const QString& iconText, const QString& serverKey,
+                                     ServerTreeWidget* tree) {
     if (iconText.isEmpty()) return QPixmap();
-    
-    // Se o ícone for uma imagem (extensão de arquivo)
-    if (iconText.endsWith(".png", Qt::CaseInsensitive) || 
-        iconText.endsWith(".jpg", Qt::CaseInsensitive) || 
-        iconText.endsWith(".jpeg", Qt::CaseInsensitive) || 
-        iconText.endsWith(".gif", Qt::CaseInsensitive)) {
-        
-        QString path = QStringLiteral("cache/icons/") + iconText;
-        if (QFile::exists(path)) {
-            QPixmap pm;
-            pm.load(path);
-            if (!pm.isNull()) {
-                return pm.scaled(16, 14, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            }
-        } else {
-            // Solicita o ícone se ainda não foi solicitado nesta sessão
-            static QSet<QString> requested;
-            if (!requested.contains(iconText)) {
-                requested.insert(iconText);
-                if (tree) {
-                    emit tree->iconRequested(iconText);
-                }
-            }
-        }
-        return QPixmap();
+
+    // Se o ícone for uma imagem (extensão de arquivo): cache em memória +
+    // disco com escopo por servidor (GroupIconCache — QStandardPaths,
+    // gravável mesmo com o app instalado em Program Files; o antigo
+    // "cache/icons/" relativo nunca gravava e a imagem não aparecia).
+    if (isImageIconName(iconText)) {
+        const QPixmap pm = GroupIconCache::instance().pixmap(serverKey, iconText);
+        if (tree && shouldRequestIcon(serverKey + QLatin1Char('|') + iconText, !pm.isNull()))
+            emit tree->iconRequested(iconText);
+        return pm;
     }
     
     QPixmap pm(16, 14);
@@ -175,6 +197,9 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     const User& u = m_data->users[uid];
 
     ServerTreeWidget* tree = qobject_cast<ServerTreeWidget*>(const_cast<QObject*>(parent()));
+    // Escopo do cache por servidor: dois servidores podem ter ícones com o
+    // MESMO nome de arquivo e imagens diferentes.
+    const QString serverKey = GroupIconCache::serverKey(m_data->address);
 
     // Separamos e renderizamos múltiplos ícones/cargos se existirem (separados por vírgula ou ponto e vírgula)
     QStringList icons = u.groupIcon.split(QRegularExpression("[,;]"), Qt::SkipEmptyParts);
@@ -182,7 +207,7 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     for (const QString& ic : icons) {
         QString trimmed = ic.trimmed();
         if (!trimmed.isEmpty()) {
-            QPixmap pm = createGroupIconPixmap(trimmed, tree);
+            QPixmap pm = createGroupIconPixmap(trimmed, serverKey, tree);
             if (!pm.isNull()) iconPms << pm;
         }
     }

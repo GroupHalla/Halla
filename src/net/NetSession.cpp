@@ -1211,6 +1211,13 @@ void NetSession::handleMessage(const QJsonObject& obj) {
                               QByteArray::fromBase64(obj["data"].toString().toLatin1()));
         return;
     }
+    if (t == "icon_uploaded") {
+        // Broadcast do servidor quando um admin envia/substitui um ícone —
+        // sem isto o cliente jamais ficava sabendo que o ícone passou a
+        // existir (ou que a imagem mudou) durante a sessão.
+        emit iconUploaded(obj["name"].toString());
+        return;
+    }
     if (t == "offline_msg") {
         emit offlineMsgReceived(obj["fromName"].toString(), obj["text"].toString(),
                                 obj["ts"].toString());

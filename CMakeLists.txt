@@ -68,6 +68,8 @@ set(HALLA_SOURCES
     src/core/AppLog.cpp
     src/core/BadgeRegistry.cpp
     src/core/BadgeRegistry.h
+    src/core/GroupIconCache.cpp
+    src/core/GroupIconCache.h
     src/core/SecureStore.cpp
     src/plugins/PluginManager.cpp
     src/plugins/PluginManager.h
