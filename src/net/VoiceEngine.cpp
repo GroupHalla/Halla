@@ -426,11 +426,13 @@ void VoiceEngine::captureTick() {
 
         // O filtro oficial de rádio é propositalmente aplicado depois do VAD:
         // assim o chiado não abre o microfone sozinho, mas a voz já segue
-        // modificada para o encoder e para todos os destinatários.
+        // modificada para o encoder e para todos os destinatários. O estágio
+        // AFTER_VAD entrega o mesmo ponto do pipeline aos complementos em
+        // pacote (.halla-addon) sem que o AGC deles abra o VAD.
         if (voiceNow) {
-            PluginManager::instance().processOfficialRadio(
+            PluginManager::instance().processAudio(
                 m_pluginConnectionId, m_data ? m_data->selfId : 0,
-                HALLA_AUDIO_CAPTURE, flags, pcm, 960, 1, 48000);
+                HALLA_AUDIO_CAPTURE_AFTER_VAD, flags, pcm, 960, 1, 48000);
         }
 
         // Um pacote Opus pode chegar a 1275 bytes. O limite anterior de

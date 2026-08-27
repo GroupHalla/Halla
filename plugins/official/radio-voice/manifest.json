@@ -1,0 +1,82 @@
+{
+  "id": "official.radio-voice",
+  "name": "Voz de rádio policial",
+  "version": "1.1.1",
+  "author": "Halla-DEV",
+  "description": "Simula um comunicador policial no microfone e nas vozes recebidas, com regras separadas para fala normal e sussurros. Instalado pelo catálogo, substitui o complemento embutido no aplicativo — o filtro pode ser atualizado sem nova versão do Halla.",
+  "type": "native",
+  "apiVersion": 1,
+  "official": true,
+  "defaultEnabled": false,
+  "capabilities": [
+    "audio.capture",
+    "audio.playback"
+  ],
+  "platforms": {
+    "windows-x64": {
+      "library": "bin/windows-x64/radio_voice.dll"
+    },
+    "android-arm64": {
+      "library": "bin/android-arm64/libradio_voice.so"
+    },
+    "android-arm": {
+      "library": "bin/android-arm/libradio_voice.so"
+    },
+    "android-x86_64": {
+      "library": "bin/android-x86_64/libradio_voice.so"
+    },
+    "android-x86": {
+      "library": "bin/android-x86/libradio_voice.so"
+    }
+  },
+  "settings": [
+    {
+      "key": "sendMode",
+      "type": "choice",
+      "label": "Aplicar ao enviar minha voz",
+      "default": "whisper",
+      "options": [
+        { "value": "disabled", "label": "Não aplicar" },
+        { "value": "whisper", "label": "Somente sussurros" },
+        { "value": "normal", "label": "Somente voz normal" },
+        { "value": "both", "label": "Sussurros e voz normal" }
+      ]
+    },
+    {
+      "key": "receiveMode",
+      "type": "choice",
+      "label": "Aplicar às vozes que escuto",
+      "default": "whisper",
+      "options": [
+        { "value": "disabled", "label": "Não aplicar" },
+        { "value": "whisper", "label": "Somente sussurros" },
+        { "value": "normal", "label": "Somente voz normal" },
+        { "value": "both", "label": "Sussurros e voz normal" }
+      ]
+    },
+    {
+      "key": "intensity",
+      "type": "int",
+      "label": "Intensidade do efeito (%)",
+      "default": 90,
+      "min": 0,
+      "max": 100
+    },
+    {
+      "key": "noise",
+      "type": "int",
+      "label": "Chiado do rádio (%)",
+      "default": 10,
+      "min": 0,
+      "max": 100
+    },
+    {
+      "key": "gain",
+      "type": "int",
+      "label": "Volume após o efeito (%)",
+      "default": 105,
+      "min": 50,
+      "max": 150
+    }
+  ]
+}

@@ -174,8 +174,11 @@ processadas individualmente, espacializadas e depois mixadas com saturação.
 | Estágio | Formato |
 |---|---|
 | `HALLA_AUDIO_CAPTURE` | PCM S16 mono, usuário local, antes de VAD/Opus |
+| `HALLA_AUDIO_CAPTURE_AFTER_VAD` | PCM S16 mono do usuário local após a decisão de transmissão (VAD/PTT) — ponto correto para filtros com AGC, que de outra forma elevariam o ruído e abririam o detector de voz sozinhos |
 | `HALLA_AUDIO_REMOTE_BEFORE_SPATIAL` | PCM S16 mono de um participante após Opus |
 | `HALLA_AUDIO_MIXED_PLAYBACK` | PCM S16 estéreo da mixagem final |
+
+No Halla Mobile a decisão de transmissão ocorre antes da camada nativa, então a captura é reportada como `HALLA_AUDIO_CAPTURE` e o registro em `HALLA_AUDIO_CAPTURE_AFTER_VAD` é aceito como sinônimo.
 
 `HallaAudioFrame` contém conexão, usuário, amostras mutáveis, frames, canais,
 sample rate e flags. `HALLA_AUDIO_FLAG_WHISPER` informa que aquele quadro está
@@ -297,10 +300,10 @@ acionar anticheats. Prefira APIs de FiveM/Arma e IPC local autenticado.
 
 ## Catálogo
 
-A aba Complementos lê por HTTPS:
+A aba Complementos lê por HTTPS a central oficial de complementos:
 
 ```text
-https://raw.githubusercontent.com/GroupHalla/Halla/main/addons/catalog.json
+https://grouphalla.github.io/Halla-Addons/api/v1/addons.json
 ```
 
 Cada item informa URL HTTPS e SHA-256. O download é cancelado se o checksum não
@@ -335,8 +338,18 @@ se o efeito será aplicado, separadamente em cada direção, a:
 - sussurros e voz normal.
 
 Intensidade, chiado e volume depois do efeito são configuráveis. O DSP combina
-corte de graves, amortecimento de agudos, compressão/saturação e ruído de
-comunicador. Se o remetente filtrar o microfone, todos os destinatários recebem
-a voz já modificada; o filtro de escuta é local e só afeta quem o ativou. Se os
+AGC de pico, banda estreita de radiocomunicação, saturação, ressonância de
+alto-falante pequeno, squelch com limiar adaptativo e estática com estalos. Se
+o remetente filtrar o microfone, todos os destinatários recebem a voz já
+modificada; o filtro de escuta é local e só afeta quem o ativou. Se os
 dois lados aplicarem o efeito à mesma fala, ela será filtrada duas vezes; nesse
 caso, o destinatário pode deixar aquela direção em **Não aplicar**.
+
+O mesmo efeito também é distribuído em pacote `.halla-addon` pelo catálogo
+oficial ([Halla-Addons](https://grouphalla.github.io/Halla-Addons/)): instalado,
+o pacote **substitui** o complemento interno de mesmo id, e removido, o devolve
+ao estado anterior. É por esse caminho que o filtro de rádio é atualizado sem
+publicar uma nova versão do aplicativo — a fonte do pacote vive em
+`plugins/official/radio-voice/` e o CI publica a DLL `radio_voice.dll` como
+artefato de build (junto às bibliotecas Android do Halla Mobile, entra no
+pacote multiplataforma do catálogo).

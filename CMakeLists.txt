@@ -200,6 +200,22 @@ set_target_properties(Halla PROPERTIES
 
 install(TARGETS Halla RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 
+# Complemento oficial "Voz de rádio policial" distribuído em pacote
+# .halla-addon pelo catálogo (https://grouphalla.github.io/Halla-Addons/).
+# Mesmo DSP do complemento embutido; a DLL permite atualizar o efeito sem
+# publicar uma nova versão do aplicativo. Não é linkada ao Halla.exe — o
+# PluginManager carrega a biblioteca instalada pelo catálogo.
+add_library(radio_voice_plugin SHARED
+    plugins/official/radio-voice/radio_voice_plugin.cpp)
+target_include_directories(radio_voice_plugin PRIVATE
+    sdk
+    src/plugins
+)
+set_target_properties(radio_voice_plugin PROPERTIES
+    OUTPUT_NAME "radio_voice"
+    PREFIX ""
+)
+
 # Ícone e informações de versão embutidos no Halla.exe (Windows)
 if (WIN32)
     target_sources(Halla PRIVATE "${HALLA_GENERATED_DIR}/halla.rc")

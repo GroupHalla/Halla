@@ -95,4 +95,27 @@ assert manifest["type"] == "native"
 library = manifest["platforms"]["windows-x64"]["library"]
 assert not library.startswith(("/", "\\")) and ".." not in Path(library).parts
 
+# Pacote oficial "Voz de rádio policial" (.halla-addon do catálogo): mesmo
+# DSP do complemento interno, substituindo-o ao instalar — atualização do
+# efeito sem release do aplicativo.
+radio_pkg = (root / "plugins/official/radio-voice/radio_voice_plugin.cpp").read_text(encoding="utf-8")
+radio_pkg_manifest = json.loads(
+    (root / "plugins/official/radio-voice/manifest.json").read_text(encoding="utf-8"))
+assert "HALLA_AUDIO_CAPTURE_AFTER_VAD" in api
+assert "HALLA_AUDIO_CAPTURE_AFTER_VAD" in radio_pkg
+assert "RadioVoiceDsp" in radio_pkg and "halla_plugin_entry" in radio_pkg
+assert "HALLA_AUDIO_REMOTE_BEFORE_SPATIAL" in radio_pkg
+assert "plugins/official/radio-voice/radio_voice_plugin.cpp" in \
+    (root / "CMakeLists.txt").read_text(encoding="utf-8")
+assert radio_pkg_manifest["id"] == "official.radio-voice"
+assert radio_pkg_manifest["official"] is True and radio_pkg_manifest["apiVersion"] == 1
+assert radio_pkg_manifest["type"] == "native"
+for platform in ("windows-x64", "android-arm64", "android-arm",
+                 "android-x86_64", "android-x86"):
+    pkg_library = radio_pkg_manifest["platforms"][platform]["library"]
+    assert not pkg_library.startswith(("/", "\\")) and ".." not in Path(pkg_library).parts
+# O PluginManager substitui o complemento interno pelo pacote oficial e o
+# devolve quando o pacote é removido.
+assert 'id != QLatin1String("official.radio-voice")' in manager
+
 print("Plugin API/package audit OK")

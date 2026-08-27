@@ -953,7 +953,18 @@ void PluginManager::scanInstalled() {
             continue;
         }
         const QString id = manifest.value("id").toString();
-        if (m_records.contains(id)) continue;
+        if (m_records.contains(id)) {
+            // O pacote oficial "official.radio-voice" substitui o complemento
+            // interno de mesmo id: é assim que o filtro de rádio é atualizado
+            // pelo catálogo sem publicar uma nova versão do aplicativo.
+            Record* builtIn = m_records.value(id);
+            if (!builtIn || !builtIn->info.builtIn
+                    || id != QLatin1String("official.radio-voice"))
+                continue;
+            unload(builtIn);
+            m_records.remove(id);
+            delete builtIn;
+        }
         auto* item = new Record;
         item->manifest = manifest;
         item->info.id = id;
@@ -1405,10 +1416,12 @@ bool PluginManager::installPackage(const QString& packagePath, QWidget* parent,
     }
 
     if (Record* existing = record(id)) {
-        if (existing->info.builtIn) {
+        if (existing->info.builtIn && id != QLatin1String("official.radio-voice")) {
             if (error) *error = tr("O ID pertence a um complemento interno do Halla.");
             return false;
         }
+        // Instalar o pacote oficial de rádio substitui o complemento interno
+        // de mesmo id (atualização do efeito via catálogo).
         unload(existing);
         m_records.remove(id);
         delete existing;
@@ -1443,6 +1456,8 @@ bool PluginManager::removeAddon(const QString& id, QString* error) {
         if (error) *error = tr("Este complemento não pode ser removido.");
         return false;
     }
+    const bool wasEnabled = item->info.enabled;
+    const bool officialRadio = id == QLatin1String("official.radio-voice");
     unload(item);
     if (!QDir(item->info.installPath).removeRecursively()) {
         if (error) *error = tr("Não foi possível remover os arquivos do complemento.");
@@ -1451,6 +1466,12 @@ bool PluginManager::removeAddon(const QString& id, QString* error) {
     m_records.remove(id);
     delete item;
     S::set(QStringLiteral("addons/%1/enabled").arg(id), false);
+    // Remover o pacote oficial de rádio devolve o complemento interno ao
+    // mesmo estado de ativação que ele tinha antes da substituição.
+    if (officialRadio) {
+        addOfficialRadioVoice();
+        if (wasEnabled) setEnabled(id, true);
+    }
     emit addonsChanged();
     return true;
 }
@@ -1659,9 +1680,12 @@ void PluginManager::showCatalog(QWidget* parent) {
             if (const Record* installed = record(addon.value("id").toString())) {
                 if (!installed->info.builtIn) {
                     catalogRow.installed = true;
-                    catalogRow.updateAvailable = hallaCatalogIsNewer(
-                        addon.value("version").toString(), installed->info.version);
                 }
+                // Também para complementos internos (bundled): se o catálogo
+                // publica uma versão mais nova em pacote, oferecer a
+                // atualização que substitui o interno pelo baixável.
+                catalogRow.updateAvailable = hallaCatalogIsNewer(
+                    addon.value("version").toString(), installed->info.version);
             }
             entries->append(catalogRow);
         }
@@ -1933,7 +1957,10 @@ void PluginManager::processAudio(quint64 connectionIdValue, int userId, uint32_t
                                  uint32_t flags, int16_t* samples, uint32_t frames,
                                  uint32_t channels, uint32_t sampleRate) {
     if (!samples || !frames || !channels) return;
-    if (stage != HALLA_AUDIO_CAPTURE)
+    // O DSP oficial interno roda na captura pós-VAD e nas vozes recebidas.
+    // Complementos externos registrados nesses estágios processam em seguida.
+    if (stage == HALLA_AUDIO_CAPTURE_AFTER_VAD
+            || stage == HALLA_AUDIO_REMOTE_BEFORE_SPATIAL)
         processOfficialRadio(connectionIdValue, userId, stage, flags,
                              samples, frames, channels, sampleRate);
     for (Record* item : m_records) {

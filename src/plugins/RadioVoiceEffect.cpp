@@ -43,7 +43,10 @@ bool RadioVoiceEffect::process(quint64 connectionId, int userId, uint32_t stage,
                                uint32_t channels, uint32_t sampleRate) {
     if (!samples || frames == 0 || channels == 0 || channels > 8 || sampleRate != 48000)
         return false;
-    const bool capture = stage == HALLA_AUDIO_CAPTURE;
+    // AFTER_VAD é a captura após a decisão de transmissão — o mesmo efeito
+    // do envio, disparado pelo host depois do detector de voz.
+    const bool capture = stage == HALLA_AUDIO_CAPTURE
+        || stage == HALLA_AUDIO_CAPTURE_AFTER_VAD;
     const bool remote = stage == HALLA_AUDIO_REMOTE_BEFORE_SPATIAL;
     if ((!capture && !remote)
             || !modeMatches(capture ? m_sendMode : m_receiveMode, whisper))

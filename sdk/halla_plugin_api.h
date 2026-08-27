@@ -139,7 +139,17 @@ typedef struct HallaConnectionApiV1 {
 typedef enum HallaAudioStage {
     HALLA_AUDIO_CAPTURE = 1u << 0,
     HALLA_AUDIO_REMOTE_BEFORE_SPATIAL = 1u << 1,
-    HALLA_AUDIO_MIXED_PLAYBACK = 1u << 2
+    HALLA_AUDIO_MIXED_PLAYBACK = 1u << 2,
+    /*
+     * Aditivo (compatível com a ABI 1): captura do microfone local após a
+     * decisão de transmissão (VAD/PTT). Filtros com AGC podem elevar o ruído
+     * de fundo e abrir o detector de voz do host sozinho; neste estágio a
+     * decisão de transmitir já foi tomada, e o áudio já filtrado segue direto
+     * para o codificador. No Halla Mobile a decisão de transmissão acontece
+     * antes da camada nativa, então a captura é reportada como
+     * HALLA_AUDIO_CAPTURE e este estágio é aceito como sinônimo.
+     */
+    HALLA_AUDIO_CAPTURE_AFTER_VAD = 1u << 3
 } HallaAudioStage;
 
 typedef enum HallaAudioFrameFlag {
