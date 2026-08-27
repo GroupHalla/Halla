@@ -13,12 +13,24 @@
 #include <QFrame>
 
 static QPixmap serverBannerPixmap(const ServerData* data) {
-    if (data && !data->serverBanner.isEmpty()) {
-        const QImage image = QImage::fromData(data->serverBanner);
-        if (!image.isNull())
-            return QPixmap::fromImage(image);
+    // O refresh roda a cada segundo enquanto o servidor está selecionado —
+    // decodificar o banner (JPEG/PNG de até 512 KiB) a cada tick é CPU pura
+    // desperdiçada. O QByteArray é compartilhado (refcounted), guardar a
+    // última cópia custa nada; comparação de 512 KiB é memcpy rápido.
+    static QByteArray lastBytes(1, '\x01'); // nunca igual no primeiro uso
+    static QPixmap lastPixmap;
+    const QByteArray b = data ? data->serverBanner : QByteArray();
+    if (b == lastBytes && !lastPixmap.isNull()) return lastPixmap;
+    lastBytes = b;
+    if (!b.isEmpty()) {
+        const QImage image = QImage::fromData(b);
+        if (!image.isNull()) {
+            lastPixmap = QPixmap::fromImage(image);
+            return lastPixmap;
+        }
     }
-    return HIcons::banner(820, 210);
+    lastPixmap = HIcons::banner(820, 210);
+    return lastPixmap;
 }
 
 class InfoView : public RichTextBrowser {
@@ -48,6 +60,13 @@ InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
     m_banner->setScaledContents(true);
     m_banner->setMinimumHeight(210);
     m_banner->setMaximumHeight(210);
+    // QLabel com scaledContents usa o TAMANHO DO PIXMAP como minimumSizeHint:
+    // com banner personalizado (até 1600px de largura) o cartão de informações
+    // ficava com largura mínima de 1600px — o QSplitter recusava o arraste, o
+    // painel cobria a lista de canais e só o banner padrão (820px) "funcionava"
+    // (e ainda assim limitado). Largura mínima explícita pequena devolve o
+    // controle total do splitter; o pixmap é esticado para o espaço disponível.
+    m_banner->setMinimumWidth(1);
     lay->addWidget(m_banner);
 
     m_view = new InfoView(this);
@@ -180,21 +199,12 @@ QString InfoPanel::userHtml(const User& u) {
 
 QString InfoPanel::roleHtml(const QString& roleLine, const QString& serverKey) {
     // O servidor concatena "<icone> <nome>" (applyGroup) sem separador
-    // explícito. Ícones de IMAGEM terminam em extensão conhecida: varremos os
-    // espaços da esquerda para a direita e a PRIMEIRA quebra cujo lado
-    // esquerdo é um nome de imagem delimita o ícone — cobre também nomes de
-    // arquivo com espaços ("meu cargo.png ROTA"). Ícones de emoji/letra/sigla
-    // e cargos sem ícone continuam como texto (o emoji renderiza
-    // nativamente no HTML).
-    QString iconName;
-    int sp = -1;
-    while ((sp = roleLine.indexOf(QLatin1Char(' '), sp + 1)) > 0) {
-        if (GroupIconCache::isImageName(roleLine.left(sp))) {
-            iconName = roleLine.left(sp);
-            break;
-        }
-    }
-    const QString label = iconName.isEmpty() ? QString() : roleLine.mid(sp + 1).trimmed();
+    // explícito. A separação ícone/nome vive no GroupIconCache (compartilhada
+    // com o tooltip da árvore): ícone de IMAGEM termina em extensão conhecida;
+    // emoji/letra/sigla e cargo sem ícone continuam como texto (o emoji
+    // renderiza nativamente no HTML).
+    QString iconName, label;
+    GroupIconCache::splitRoleLine(roleLine, &iconName, &label);
     if (!iconName.isEmpty() && !label.isEmpty()) {
         const QPixmap pm = GroupIconCache::instance().pixmap(serverKey, iconName);
         if (!pm.isNull()) {
@@ -208,10 +218,14 @@ QString InfoPanel::roleHtml(const QString& roleLine, const QString& serverKey) {
                                + GroupIconCache::safeName(iconName)
                                      .replace(QLatin1Char(' '), QLatin1Char('_')));
             m_view->document()->addResource(QTextDocument::ImageResource, url, pm.toImage());
+            // Tamanho real do pixmap do cache (KeepAspectRatio): o ícone não
+            // estica — quadrado fica quadrado.
             return QStringLiteral(
-                       "<img src=\"%1\" width=\"16\" height=\"14\" "
-                       "style=\"vertical-align:middle\"/> %2")
-                .arg(url.toString(), label.toHtmlEscaped());
+                       "<img src=\"%1\" width=\"%2\" height=\"%3\" "
+                       "style=\"vertical-align:middle\"/> %4")
+                .arg(url.toString())
+                .arg(pm.width()).arg(pm.height())
+                .arg(label.toHtmlEscaped());
         }
         // Ainda não temos os bytes (ex.: primeira exibição antes do
         // icon_data chegar): pede ao servidor e mostra só o nome do

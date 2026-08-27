@@ -38,17 +38,20 @@ static QPixmap createGroupIconPixmap(const QString& iconText, const QString& ser
         return pm;
     }
     
-    QPixmap pm(16, 14);
+    // Ícones de cargo maiores (24x21): em 16x14 ficavam minúsculos ao lado
+    // do nome — mesmo tamanho do cache de imagens (GroupIconCache) para a
+    // linha ficar uniforme entre ícone de imagem e ícone de letra/emoji.
+    QPixmap pm(24, 21);
     pm.fill(Qt::transparent);
     QPainter painter(&pm);
     painter.setRenderHint(QPainter::TextAntialiasing);
-    
+
     if (iconText.length() <= 2) {
         QFont font = painter.font();
-        font.setPixelSize(11);
+        font.setPixelSize(15);
         painter.setFont(font);
         painter.setPen(Qt::black);
-        painter.drawText(QRect(0, 0, 16, 14), Qt::AlignCenter, iconText);
+        painter.drawText(QRect(0, 0, 24, 21), Qt::AlignCenter, iconText);
     } else {
         int hash = 0;
         for (QChar c : iconText) {
@@ -63,14 +66,14 @@ static QPixmap createGroupIconPixmap(const QString& iconText, const QString& ser
         
         painter.setPen(Qt::NoPen);
         painter.setBrush(bgColor);
-        painter.drawRoundedRect(QRectF(1, 1, 14, 12), 3, 3);
+        painter.drawRoundedRect(QRectF(1, 1, 22, 19), 4, 4);
         
         painter.setPen(Qt::white);
         QFont font = painter.font();
-        font.setPixelSize(9);
+        font.setPixelSize(12);
         font.setBold(true);
         painter.setFont(font);
-        painter.drawText(QRect(0, 0, 16, 14), Qt::AlignCenter, iconText.left(1).toUpper());
+        painter.drawText(QRect(0, 0, 24, 21), Qt::AlignCenter, iconText.left(1).toUpper());
     }
     
     return pm;
@@ -335,7 +338,36 @@ QString ServerTreeWidget::userTooltip(const User& u) const {
     if (u.outputMuted) tip += QStringLiteral("Alto-falantes mudos<br>");
     if (u.recording)   tip += QStringLiteral("Gravando<br>");
     if (u.commander)   tip += QStringLiteral("Comandante do canal<br>");
-    tip += QStringLiteral("Grupos: %1").arg(u.serverGroups.toHtmlEscaped());
+    // Cada cargo chega como "<icone> <nome>" (ex.: "rota.png ROTA") — aqui
+    // mostramos o ícone de IMAGEM real (via file:// do cache em disco; o
+    // rich text do QToolTip renderiza <img> de arquivo) seguido do NOME do
+    // cargo. Antes a linha inteira era impressa e o tooltip exibia
+    // literalmente "rota.png ROTA". Ícone ainda sem bytes: só o nome (o
+    // delegado da linha visível já pediu o icon_get; o próximo hover mostra
+    // a imagem).
+    const QString serverKey = GroupIconCache::serverKey(m_data->address);
+    QStringList roles;
+    const QStringList lines = u.serverGroups.split(QStringLiteral("\n"));
+    for (const QString& line : lines) {
+        const QString trimmed = line.trimmed();
+        if (trimmed.isEmpty()) continue;
+        QString iconName, label;
+        GroupIconCache::splitRoleLine(trimmed, &iconName, &label);
+        if (iconName.isEmpty()) {
+            roles << trimmed.toHtmlEscaped();
+            continue;
+        }
+        const QString path = GroupIconCache::iconFilePath(serverKey, iconName);
+        if (!path.isEmpty()) {
+            roles << QStringLiteral("<img src=\"file:///%1\" width=\"24\" height=\"21\" "
+                                    "style=\"vertical-align:middle\"/> %2")
+                         .arg(path, label.toHtmlEscaped());
+        } else {
+            roles << label.toHtmlEscaped();
+        }
+    }
+    if (!roles.isEmpty())
+        tip += QStringLiteral("Grupos: %1").arg(roles.join(QStringLiteral(", ")));
     const QStringList globalBadges = BadgeRegistry::instance().badgeNamesForUid(u.uniqueId);
     if (!globalBadges.isEmpty())
         tip += QStringLiteral("<br>Emblemas oficiais: %1")

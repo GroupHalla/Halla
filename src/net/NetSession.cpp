@@ -887,9 +887,16 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     if (usr.id == d.selfId) {
         usr.talking = d.users.value(d.selfId).talking; // preserva estado de fala local ultra responsivo
         usr.whispering = d.users.value(d.selfId).whispering; // preserva estado de sussurro local
+        usr.screensharing = d.users.value(d.selfId).screensharing; // transmissão local iniciada pelo usuário
     } else {
         usr.talking = u["talking"].toBool();
         usr.whispering = u["whispering"].toBool();
+        // Sem isto, quem conectasse DEPOIS de alguém começar a transmitir não
+        // via o selo LIVE dessa pessoa: o welcome/user_joined trazem o campo
+        // "screensharing" de cada usuário (toJson), mas ele era ignorado
+        // aqui — só o broadcast user_screenshare_state (ao INICIAR/PARAR a
+        // transmissão) atualizava o estado.
+        usr.screensharing = u["screensharing"].toBool();
     }
     d.users[usr.id] = usr;
     refreshOperators();                                // recalcula ops por canal

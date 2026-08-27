@@ -297,6 +297,30 @@ for required in ('smokePbkdf2', 'smokeHmacSha256', 'kPbkdf2Vec1', 'kPbkdf2Vec2',
                  'kPbkdf2Vec3', 'smokeHexEq'):
     assert required in _smoke_code, required
 assert 'PKCS5_PBKDF2_HMAC' not in _smoke_code, 'PKCS5_PBKDF2_HMAC proibida no smoke'
+# v1.1.9 — banner personalizado não pode travar o arraste do splitter: QLabel
+# com scaledContents usa o tamanho do PIXMAP como minimumSizeHint (banner de
+# 1600px = cartão de informações com largura mínima de 1600px — o QSplitter
+# recusava o arraste e o painel cobria a lista de canais; até o banner padrão
+# de 820px limitava o arraste).
+info_panel = (root / "src/gui/InfoPanel.cpp").read_text(encoding="utf-8")
+assert "m_banner->setMinimumWidth(1);" in info_panel
+# Quem conecta DEPOIS de alguém iniciar uma transmissão precisa ver o selo
+# LIVE: o welcome/user_joined já trazem "screensharing" (toJson) — o campo só
+# não era lido aqui; só o broadcast ao iniciar/parar atualizava o estado.
+assert 'usr.screensharing = u["screensharing"].toBool();' in net_session
+# Nome de arquivo de ícone é detalhe interno: o tooltip mostra a IMAGEM
+# (file:// do cache em disco) + nome do cargo, e o parse "<icone> <nome>"
+# vive no GroupIconCache — compartilhado com o painel de informações.
+group_icon_cache = (root / "src/core/GroupIconCache.cpp").read_text(encoding="utf-8")
+group_icon_header = (root / "src/core/GroupIconCache.h").read_text(encoding="utf-8")
+assert "splitRoleLine" in group_icon_cache and "splitRoleLine" in group_icon_header
+assert "iconFilePath" in group_icon_cache and "iconFilePath" in group_icon_header
+assert "u.serverGroups.toHtmlEscaped()" not in tree_widget, \
+    "tooltip deve usar splitRoleLine (nunca imprimir a linha crua do servidor)"
+# Ícones de cargo maiores: 16x14 -> 24x21 (cache de imagens + fallback de
+# letra/emoji da árvore com o mesmo tamanho).
+assert group_icon_cache.count("24, 21, Qt::KeepAspectRatio") == 2
+assert "QPixmap pm(24, 21);" in tree_widget
 runpy.run_path(str(root / "tests/icon_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/plugin_audit.py"), run_name="__main__")
 runpy.run_path(str(root / "tests/translation_audit.py"), run_name="__main__")

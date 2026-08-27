@@ -35,7 +35,8 @@ public:
     // Windows). Memoizada internamente: paint roda o tempo todo.
     static QString serverKey(const QString& serverAddress);
 
-    // Pixmap pronto para a lista (16x14). Null quando não conhecemos o
+    // Pixmap pronto para a lista (24x21, KeepAspectRatio — o chamador usa
+    // as dimensões reais para não esticar). Null quando não conhecemos o
     // ícone — o chamador então dispara iconRequested para buscá-lo.
     QPixmap pixmap(const QString& serverKey, const QString& name);
 
@@ -54,6 +55,20 @@ public:
     // regra do que é imagem (emoji/letra/sigla renderizam como texto).
     static bool isImageName(const QString& name);
 
+    // Divide uma linha de cargo "<icone> <nome>" enviada pelo servidor
+    // (applyGroup concatena sem separador explícito). Varre os espaços da
+    // esquerda para a direita: a PRIMEIRA quebra cujo lado esquerdo é nome
+    // de imagem delimita o ícone — cobre nomes de arquivo COM espaço
+    // ("meu cargo.png ROTA"). Sem ícone de imagem: iconName fica vazio e o
+    // label também (a linha inteira é o cargo). Compartilhado entre painel
+    // de informações e tooltip da árvore — uma única regra de parse.
+    static void splitRoleLine(const QString& roleLine, QString* iconName, QString* label);
+
+    // Caminho absoluto do ícone no disco quando ele já está em cache
+    // (para renderizar <img src="file:///..."> em rich text de tooltip).
+    // Vazio quando não há arquivo — o chamador mostra só o nome do cargo.
+    static QString iconFilePath(const QString& serverKey, const QString& name);
+
     // Porta de requisição COMPARTILHADA (árvore + painel de informações):
     // sem o ícone em mãos, re-tenta a cada 5 s (o upload pode estar a
     // caminho); com o ícone, um único re-fetch por execução — troca cópia
@@ -70,5 +85,5 @@ private:
 
     QString diskPath(const QString& serverKey, const QString& safe) const;
 
-    QHash<QString, QPixmap> m_pixmaps;   // "serverKey|safeName" -> pixmap 16x14
+    QHash<QString, QPixmap> m_pixmaps;   // "serverKey|safeName" -> pixmap 24x21
 };

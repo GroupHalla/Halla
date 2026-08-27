@@ -54,6 +54,32 @@ bool GroupIconCache::isImageName(const QString& name) {
         || name.endsWith(QStringLiteral(".gif"), Qt::CaseInsensitive);
 }
 
+void GroupIconCache::splitRoleLine(const QString& roleLine, QString* iconName, QString* label) {
+    // O servidor concatena "<icone> <nome>" (applyGroup) sem separador
+    // explícito. Ícones de IMAGEM terminam em extensão conhecida: varremos os
+    // espaços da esquerda para a direita e a PRIMEIRA quebra cujo lado
+    // esquerdo é um nome de imagem delimita o ícone — cobre também nomes de
+    // arquivo com espaços ("meu cargo.png ROTA"). Emoji/letra/sigla e cargo
+    // sem ícone não casam com extensão: a linha inteira é o nome do cargo.
+    QString icon;
+    int sp = -1;
+    while ((sp = roleLine.indexOf(QLatin1Char(' '), sp + 1)) > 0) {
+        if (isImageName(roleLine.left(sp))) {
+            icon = roleLine.left(sp);
+            break;
+        }
+    }
+    if (iconName) *iconName = icon;
+    if (label) *label = icon.isEmpty() ? QString() : roleLine.mid(sp + 1).trimmed();
+}
+
+QString GroupIconCache::iconFilePath(const QString& serverKey, const QString& name) {
+    const QString safe = safeName(name);
+    if (safe.isEmpty()) return QString();
+    const QString path = GroupIconCache::instance().diskPath(serverKey, safe);
+    return QFile::exists(path) ? path : QString();
+}
+
 bool GroupIconCache::shouldRequest(const QString& requestKey, bool haveIt) {
     // Estado compartilhado por processo: a árvore e o painel de informações
     // pedem os MESMOS ícones — quem chegar primeiro consome a cota.
@@ -89,7 +115,7 @@ QPixmap GroupIconCache::pixmap(const QString& serverKey, const QString& name) {
         QImage img = QImage::fromData(bytes);
         if (!img.isNull()) {
             const QPixmap pm = QPixmap::fromImage(img).scaled(
-                16, 14, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                24, 21, Qt::KeepAspectRatio, Qt::SmoothTransformation);
             if (!pm.isNull()) {
                 m_pixmaps.insert(memKey, pm);
                 return pm;
@@ -110,7 +136,7 @@ void GroupIconCache::store(const QString& serverKey, const QString& name,
     if (img.isNull()) return; // bytes inválidos: mantém o que já existe
 
     const QPixmap pm = QPixmap::fromImage(img).scaled(
-        16, 14, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        24, 21, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     if (pm.isNull()) return;
     m_pixmaps.insert(memKey, pm);
 
