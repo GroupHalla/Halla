@@ -347,6 +347,18 @@ void ServerTab::attachNetwork(NetSession* net) {
     // sussurro. Apenas a tecla de sussurro ativa esse roteamento.
     m_voice = new VoiceEngine(net, &m_data, this);
     m_voice->setWhisperTargetsConfigured(!m_whisperUids.isEmpty());
+    // Indicador "falando" orientado a pacotes: o VoiceEngine acende/apaga o
+    // anel pelo áudio que realmente chega (UDP) e avisa aqui. Reusa a mesma
+    // coalescência do stateChanged — rajadas de pacotes de voz (20 ms) não
+    // podem reconstruir a árvore a cada quadro.
+    connect(m_voice, &VoiceEngine::remoteVoiceActivityChanged, this, [this] {
+        if (m_stateRefreshPending) return;
+        m_stateRefreshPending = true;
+        QTimer::singleShot(120, this, [this] {
+            m_stateRefreshPending = false;
+            refreshServerState();
+        });
+    });
     if (m_voice->isActive()) {
         connect(m_voice, &VoiceEngine::talkingChanged, this, [this](bool on) {
             m_data.users[m_data.selfId].talking = on;

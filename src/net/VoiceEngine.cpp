@@ -137,12 +137,37 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
             opus_decoder_destroy(m_decoders.take(userId));
             m_remoteQueues.remove(userId);
             m_radioStates.remove(userId);
+            m_remoteLastVoiceMs.remove(userId);
         }
     });
+
+    // Varredura periódica do indicador "falando" orientado a pacotes: apaga
+    // o anel de usuários cujo áudio parou de chegar (mantém um atraso de
+    // segurança que cobre a histerese de 350 ms do transmissor e o DTX).
+    m_remoteVoiceClock.start();
+    m_remoteTalkingTimer = new QTimer(this);
+    m_remoteTalkingTimer->setInterval(200);
+    connect(m_remoteTalkingTimer, &QTimer::timeout, this, &VoiceEngine::sweepRemoteTalking);
+    m_remoteTalkingTimer->start();
 
     connect(m_net, &NetSession::voicePacketReceived, this,
             [this](int fromId, quint16, const QByteArray& payload) {
                 if (payload.isEmpty()) return;
+                // Indicador "falando" orientado a pacotes: o anel acende pelo
+                // áudio que realmente chega. A mensagem user_state (TCP)
+                // continua válida, mas qualquer atraso/perda nesse caminho
+                // — ou estado preso no servidor — não esconde mais o símbolo
+                // de quem está transmitindo de fato. Registra ANTES do mudo
+                // local: quem está com o alto-falante individual desligado
+                // continua sendo exibido como falando.
+                if (m_data && m_data->users.contains(fromId)) {
+                    m_remoteLastVoiceMs[fromId] = m_remoteVoiceClock.elapsed();
+                    User& speaking = m_data->users[fromId];
+                    if (!speaking.talking) {
+                        speaking.talking = true;
+                        emit remoteVoiceActivityChanged();
+                    }
+                }
                 OpusDecoder* decoder = decoderFor(fromId);
                 if (!decoder) return;
                 int16_t pcm[960];
@@ -551,6 +576,34 @@ void VoiceEngine::stopRecording() {
 }
 
 // ------------------------------------------------------------------ reprodução
+// Apaga o indicador "falando" de usuários cujos pacotes de voz pararam de
+// chegar. O atraso de segurança (600 ms) cobre integralmente a histerese de
+// 350 ms do transmissor (durante a qual o DTX não envia quadros) e o jitter
+// da rede; após isso, sem áudio não há anel. Isto também autocura qualquer
+// estado preso: se o servidor ficou com talking=true (app do falante
+// congelado no meio da fala), o anel some 600 ms após o último pacote em
+// vez de ficar aceso para sempre.
+void VoiceEngine::sweepRemoteTalking() {
+    if (!m_data || m_remoteLastVoiceMs.isEmpty()) return;
+    const qint64 now = m_remoteVoiceClock.elapsed();
+    bool changed = false;
+    QList<int> stale;
+    for (auto it = m_remoteLastVoiceMs.constBegin();
+         it != m_remoteLastVoiceMs.constEnd(); ++it) {
+        const int userId = it.key();
+        if (!m_data->users.contains(userId)) {
+            stale << userId; // saiu do servidor: limpa o registro
+            continue;
+        }
+        if (m_data->users[userId].talking && now - it.value() > 600) {
+            m_data->users[userId].talking = false;
+            changed = true;
+        }
+    }
+    for (int userId : stale) m_remoteLastVoiceMs.remove(userId);
+    if (changed) emit remoteVoiceActivityChanged();
+}
+
 void VoiceEngine::playbackTick() {
     if (!m_sinkDev) return;
     if (!m_spkEnabled) {

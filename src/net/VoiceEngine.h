@@ -55,12 +55,16 @@ public:
 signals:
     void talkingChanged(bool talking);
     void recordingChanged(bool on);
+    // Um usuário remoto começou (ou parou) de falar segundo os pacotes de
+    // voz recebidos — não segundo a mensagem "user_state" do servidor.
+    void remoteVoiceActivityChanged();
 
 private:
     void captureTick();
     void updateCodecSettings();
     void sendEndpointRegistration();
     void playbackTick();
+    void sweepRemoteTalking();
     OpusDecoder* decoderFor(int userId);
     QByteArray spatializeFrame(int userId, int16_t* mono, int frames);
     void applyRadioEffect(int userId, int16_t* mono, int frames,
@@ -88,6 +92,15 @@ private:
     QMap<int, std::deque<QByteArray>> m_streamQueues;
     QSet<int> m_primedStreams;
     QMap<int, qint64> m_streamLastPacketMs;
+    // Último instante (m_remoteVoiceClock) em que chegou um pacote de voz de
+    // cada usuário remoto. Alimenta o indicador "falando" orientado a
+    // pacotes: o anel na árvore acende pelo áudio que realmente chega, não
+    // apenas pela mensagem user_state (que pode atrasar ou nunca chegar —
+    // ex.: estado preso no servidor após o app do falante congelar no meio
+    // de uma fala).
+    QMap<int, qint64> m_remoteLastVoiceMs;
+    class QTimer* m_remoteTalkingTimer = nullptr;
+    QElapsedTimer m_remoteVoiceClock;
     QMap<int, RadioVoiceDsp> m_radioStates;
     QByteArray m_captureBuf;
     quint16 m_seq = 0;
