@@ -65,6 +65,7 @@ private:
     void sendEndpointRegistration();
     void playbackTick();
     void sweepRemoteTalking();
+    void adaptVoiceTarget();
     OpusDecoder* decoderFor(int userId);
     QByteArray spatializeFrame(int userId, int16_t* mono, int frames);
     void applyRadioEffect(int userId, int16_t* mono, int frames,
@@ -87,6 +88,17 @@ private:
     class QTimer* m_playTimer = nullptr;
     class QTimer* m_endpointTimer = nullptr;
     QMap<int, std::deque<QByteArray>> m_remoteQueues; // PCM S16 estéreo por usuário
+    // Jitter buffer de voz: quadros ficam retidos por usuário até acumular
+    // m_voiceTargetFrames (20 ms cada) antes de começar a tocar. Sem isso,
+    // qualquer atraso de rede/UI estourava o buffer do QAudioSink e a voz
+    // "pipocava". O alvo é adaptativo: cresce a cada underrun real (máx. 6
+    // quadros = 120 ms) e decai devagar quando a rede está estável.
+    QSet<int> m_voicePrimed;
+    int m_voiceTargetFrames = 3;
+    quint64 m_voiceUnderruns = 0;
+    quint64 m_voiceSheds = 0;
+    quint64 m_voiceUnderrunsAtAdapt = 0;
+    class QTimer* m_voiceAdaptTimer = nullptr;
     // Áudio WebRTC das lives fica separado da voz/plugins: permite mudo por
     // transmissão e um pequeno prebuffer contra jitter sem atrasar a chamada.
     QMap<int, std::deque<QByteArray>> m_streamQueues;

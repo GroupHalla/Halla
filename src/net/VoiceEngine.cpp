@@ -121,6 +121,14 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         m_playTimer->setInterval(5);
         connect(m_playTimer, &QTimer::timeout, this, &VoiceEngine::playbackTick);
         m_playTimer->start();
+
+        // Decai o alvo do jitter buffer quando a rede está estável: underruns
+        // sobem o alvo na hora (em playbackTick); sem este decaimento lento a
+        // latência adquirida num momento ruim de rede ficaria para sempre.
+        m_voiceAdaptTimer = new QTimer(this);
+        m_voiceAdaptTimer->setInterval(15000);
+        connect(m_voiceAdaptTimer, &QTimer::timeout, this, &VoiceEngine::adaptVoiceTarget);
+        m_voiceAdaptTimer->start();
     } else {
         AppLog::warn(tr("Nenhum dispositivo de reprodução de áudio encontrado"));
     }
@@ -211,6 +219,10 @@ QJsonObject VoiceEngine::diagnostics() const {
     d["playbackQueue"] = queued;
     d["streamPlaybackQueue"] = streamQueued;
     d["primedStreams"] = m_primedStreams.size();
+    d["voiceJitterTarget"] = m_voiceTargetFrames;
+    d["voiceUnderruns"] = qint64(m_voiceUnderruns);
+    d["voiceSheds"] = qint64(m_voiceSheds);
+    d["primedVoices"] = m_voicePrimed.size();
     d["remoteDecoders"] = m_decoders.size();
     return d;
 }
@@ -604,10 +616,19 @@ void VoiceEngine::sweepRemoteTalking() {
     if (changed) emit remoteVoiceActivityChanged();
 }
 
+void VoiceEngine::adaptVoiceTarget() {
+    if (m_voiceUnderruns == m_voiceUnderrunsAtAdapt && m_voiceTargetFrames > 2) {
+        // 15 s sem um único underrun: a rede aguenta um alvo menor.
+        --m_voiceTargetFrames;
+    }
+    m_voiceUnderrunsAtAdapt = m_voiceUnderruns;
+}
+
 void VoiceEngine::playbackTick() {
     if (!m_sinkDev) return;
     if (!m_spkEnabled) {
         m_remoteQueues.clear();
+        m_voicePrimed.clear();
         m_streamQueues.clear();
         m_primedStreams.clear();
         m_streamLastPacketMs.clear();
@@ -615,8 +636,18 @@ void VoiceEngine::playbackTick() {
     }
     // Se o dispositivo realmente ficou sem dados, volte a pré-carregar cada
     // live. A chamada de voz continua sem esse atraso adicional.
-    if (m_sink && m_sink->state() == QAudio::IdleState)
+    if (m_sink && m_sink->state() == QAudio::IdleState) {
         m_primedStreams.clear();
+        // Underrun REAL de voz: o dispositivo secou enquanto havia usuários
+        // primados tocando. O jitter atual é maior que o alvo — cresce o alvo
+        // e reconstrói o prebuffer de todos em vez de picotar o próximo
+        // trecho também.
+        if (!m_voicePrimed.isEmpty()) {
+            ++m_voiceUnderruns;
+            if (m_voiceTargetFrames < 6) ++m_voiceTargetFrames;
+            m_voicePrimed.clear();
+        }
+    }
     constexpr int kFrames = 960;
     constexpr int kChannels = 2;
     constexpr int kBytes = kFrames * kChannels * int(sizeof(int16_t));
@@ -626,16 +657,51 @@ void VoiceEngine::playbackTick() {
         int32_t mix[kFrames * kChannels] = {};
         QList<int> emptyUsers;
         for (auto it = m_remoteQueues.begin(); it != m_remoteQueues.end(); ++it) {
-            if (it.value().empty()) { emptyUsers << it.key(); continue; }
-            const QByteArray frame = it.value().front();
-            it.value().pop_front();
+            const int uid = it.key();
+            if (uid == std::numeric_limits<int>::min()) {
+                // Sons de complementos: fila local, latência mínima, sem
+                // prebuffer — não participa do jitter buffer de voz.
+                if (it.value().empty()) { emptyUsers << uid; continue; }
+                const QByteArray frame = it.value().front();
+                it.value().pop_front();
+                if (frame.size() != kBytes) continue;
+                hasFrame = true;
+                const int16_t* samples = reinterpret_cast<const int16_t*>(frame.constData());
+                for (int i = 0; i < kFrames * kChannels; ++i) mix[i] += samples[i];
+                if (it.value().empty()) emptyUsers << uid;
+                continue;
+            }
+            auto& queue = it.value();
+            // Jitter buffer por usuário: segura os primeiros quadros até
+            // acumular o alvo e só então começa a tocar. Um usuário que
+            // ficou sem quadros (DTX, silêncio) volta a acumular na próxima
+            // fala — o reinício de fala reconstrói o prebuffer.
+            if (!m_voicePrimed.contains(uid)) {
+                if (int(queue.size()) < m_voiceTargetFrames) continue;
+                m_voicePrimed.insert(uid);
+            }
+            // Controle de latência: se os quadros se acumularam além do alvo
+            // + tolerância (rajada depois de um travamento), descarta os mais
+            // antigos em vez de tocar tudo atrasado.
+            if (int(queue.size()) > m_voiceTargetFrames + 5) {
+                while (int(queue.size()) > m_voiceTargetFrames) {
+                    queue.pop_front();
+                    ++m_voiceSheds;
+                }
+            }
+            if (queue.empty()) { emptyUsers << uid; continue; }
+            const QByteArray frame = queue.front();
+            queue.pop_front();
             if (frame.size() != kBytes) continue;
             hasFrame = true;
             const int16_t* samples = reinterpret_cast<const int16_t*>(frame.constData());
             for (int i = 0; i < kFrames * kChannels; ++i) mix[i] += samples[i];
-            if (it.value().empty()) emptyUsers << it.key();
+            if (queue.empty()) emptyUsers << uid;
         }
-        for (int userId : emptyUsers) m_remoteQueues.remove(userId);
+        for (int userId : emptyUsers) {
+            m_remoteQueues.remove(userId);
+            m_voicePrimed.remove(userId);
+        }
 
         // 40 ms absorvem variações curtas sem deixar o áudio perceptivelmente
         // atrás do vídeo, que já é sincronizado pelo jitter buffer WebRTC.
