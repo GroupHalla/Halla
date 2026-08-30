@@ -646,7 +646,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
             break;
         }
         if (m_cur.value("id").toInt() == gid)
-            refreshMembers(members);
+            this->refreshMembers(members); // this-> desambigua do botão local
     });
     connect(m_net, &NetSession::errorOccurred, this,
             [this](const QString&, const QString&) {
