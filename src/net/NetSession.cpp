@@ -826,6 +826,12 @@ void NetSession::groupSet(int id, const QString& name, const QJsonObject& perms,
     send(m);
 }
 
+void NetSession::groupReorder(const QJsonArray& entries) {
+    QJsonObject m = HProto::msg("group_reorder");
+    m["list"] = entries;
+    send(m);
+}
+
 void NetSession::groupDelete(int id) {
     QJsonObject m = HProto::msg("group_delete");
     m["id"] = id;
@@ -1254,8 +1260,40 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "group_list") {
-        m_groups = obj["groups"].toArray();
+        // A resposta ao nosso pedido traz "members" em cada cargo; o
+        // broadcast de mudança NÃO traz. Sem o merge, qualquer broadcast
+        // apagaria a lista de membros dos painéis abertos.
+        QJsonArray incoming = obj["groups"].toArray();
+        for (int i = 0; i < incoming.size(); ++i) {
+            QJsonObject g = incoming.at(i).toObject();
+            if (g.contains(QStringLiteral("members"))) continue;
+            const int gid = g["id"].toInt();
+            for (int j = 0; j < m_groups.size(); ++j) {
+                const QJsonObject cached = m_groups.at(j).toObject();
+                if (cached["id"].toInt() != gid) continue;
+                if (cached.contains(QStringLiteral("members")))
+                    g["members"] = cached["members"];
+                break;
+            }
+            incoming[i] = g;
+        }
+        m_groups = incoming;
         emit groupListReceived(m_groups);
+        return;
+    }
+    if (t == "group_member_update") {
+        // Atribuição/remoção de membro: atualiza o cargo afetado em cache e
+        // avisa os painéis abertos — sem fechar e reabrir a aba de grupos.
+        const int gid = obj["gid"].toInt();
+        const QJsonArray members = obj["members"].toArray();
+        for (int i = 0; i < m_groups.size(); ++i) {
+            QJsonObject cached = m_groups.at(i).toObject();
+            if (cached["id"].toInt() != gid) continue;
+            cached["members"] = members;
+            m_groups[i] = cached;
+            break;
+        }
+        emit groupMembersUpdated(gid, members);
         return;
     }
     if (t == "group_set_ok") {

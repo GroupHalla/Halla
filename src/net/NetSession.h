@@ -84,6 +84,9 @@ public:
                   const QString& sigla = QString(), int order = 0,
                   const QString& icon = QString(), int position = -1,
                   bool siglaAfter = false, bool orderEnabled = true); // id 0 = criar, position=-1 = não alterar
+    // Reordenação em lote: uma única mensagem com {id, order, position} de
+    // cada cargo — o servidor grava e transmite UMA vez em vez de N.
+    void groupReorder(const QJsonArray& entries);
     void groupDelete(int id);
     void clientSetGroup(int userId, int gid, bool remove = false);
     void clientSetGroupUid(const QString& uid, int gid, bool remove = false);
@@ -150,6 +153,9 @@ signals:
     void banListReceived(const QJsonArray& bans);
     void groupListReceived(const QJsonArray& groups);
     void groupSetConfirmed(const QJsonObject& group);
+    // Lista de membros de um cargo mudou no servidor (atribuição/remoção):
+    // atualiza os painéis de grupos abertos em tempo real.
+    void groupMembersUpdated(int gid, const QJsonArray& members);
     void ftListReceived(int channel, const QJsonArray& files);
     void ftDataReceived(int channel, const QString& name, const QByteArray& bytes);
     void ftUploadConfirmed(int channel, const QString& name);

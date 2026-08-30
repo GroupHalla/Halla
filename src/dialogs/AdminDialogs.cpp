@@ -263,30 +263,41 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     m_groups->setSortingEnabled(false);
     
     dragTree->onDropCallback = [this]() {
-        int count = m_groups->topLevelItemCount();
+        // Arrastar um cargo renumera a hierarquia inteira. Enviar um
+        // group_set por cargo fazia o servidor regravar o banco e fazer
+        // broadcast N vezes de uma vez (travava o event loop e cortava a
+        // voz). Agora: UMA mensagem de reordenação em lote.
+        QJsonArray entries;
+        const int count = m_groups->topLevelItemCount();
         for (int i = 0; i < count; ++i) {
             QTreeWidgetItem* it = m_groups->topLevelItem(i);
-            int id = it->data(0, Qt::UserRole).toInt();
-            QString name = it->text(1);
-            QJsonObject perms = QJsonDocument::fromJson(it->data(0, Qt::UserRole + 1).toString().toUtf8()).object();
-            QString sigla = it->data(0, Qt::UserRole + 2).toString();
-            QString icon = it->data(0, Qt::UserRole + 4).toString();
-            const bool siglaAfter = it->data(0, Qt::UserRole + 7).toBool();
-            const bool orderEnabled = it->data(0, Qt::UserRole + 8).toBool();
-            
+            const int id = it->data(0, Qt::UserRole).toInt();
+
             int newOrder = i * 10;
             int newPosition = (count - 1 - i) * 10;
-            
-            if (id == 3) {
+            if (id == 3)
                 newPosition = qMax(newPosition, 100);
-            }
-            
+
             it->setData(0, Qt::UserRole + 3, newOrder);
             it->setData(0, Qt::UserRole + 6, newPosition);
-            
-            m_net->groupSet(id, name, perms, sigla, newOrder, icon, newPosition,
-                            siglaAfter, orderEnabled);
+
+            QJsonObject entry;
+            entry["id"] = id;
+            entry["order"] = newOrder;
+            entry["position"] = newPosition;
+            entries << entry;
+
+            // O cargo selecionado ganha os valores novos na hora: sem isso,
+            // os spinboxes ficam com a ordem/posição de ANTES do arrasto e o
+            // próximo "Aplicar permissões" devolveria o cargo ao lugar velho.
+            if (m_groups->currentItem() == it) {
+                m_cur["order"] = newOrder;
+                m_cur["position"] = newPosition;
+                m_order->setValue(newOrder);
+                m_position->setValue(newPosition);
+            }
         }
+        m_net->groupReorder(entries);
         m_net->requestGroupList();
     };
     ll->addWidget(m_groups, 1);
@@ -337,7 +348,11 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     m_siglaPlacement->addItem(tr("Depois do nome"), true);
     m_siglaPlacement->setToolTip(tr("Define se a sigla deste cargo aparece no início ou no fim do nome do usuário."));
     m_order = new QSpinBox(propBox);
-    m_order->setRange(0, 100);
+    // Arrastar um cargo renumera TODAS as ordens (índice × 10): com 20+
+    // cargos os valores passam de 100. O clamp antigo nesse limite fazia o
+    // "Aplicar permissões" reenviar a ordem errada — e o cargo "pulava"
+    // de posição sozinho.
+    m_order->setRange(0, 9999);
     m_order->setToolTip(tr("Ordem deste cargo na lista de nomes (menor número aparece primeiro)."));
     m_orderEnabled = new QCheckBox(tr("Usar a ordem deste cargo na lista de nomes"), propBox);
     m_orderEnabled->setChecked(true);
@@ -345,7 +360,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     
     // Pilar 1: posição hierárquica dos cargos
     m_position = new QSpinBox(propBox);
-    m_position->setRange(0, 1000);
+    m_position->setRange(0, 99999);
     m_position->setToolTip(tr("Quanto maior o número, maior a autoridade. Cargo com position maior vence."));
     
     QHBoxLayout* iconRow = new QHBoxLayout;
@@ -617,6 +632,22 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     connect(m_net, &NetSession::groupListReceived, this, &ServerGroupsDialog::fillGroups);
     connect(m_net, &NetSession::groupSetConfirmed,
             this, &ServerGroupsDialog::applyConfirmedGroup);
+    // Atribuição/remoção de membro chega em tempo real (group_member_update):
+    // atualiza o item da árvore e a lista exibida quando o cargo tocado está
+    // selecionado — sem precisar fechar e reabrir a janela de grupos.
+    connect(m_net, &NetSession::groupMembersUpdated, this,
+            [this](int gid, const QJsonArray& members) {
+        const QString raw = QString::fromUtf8(
+            QJsonDocument(members).toJson(QJsonDocument::Compact));
+        for (int i = 0; i < m_groups->topLevelItemCount(); ++i) {
+            QTreeWidgetItem* it = m_groups->topLevelItem(i);
+            if (it->data(0, Qt::UserRole).toInt() != gid) continue;
+            it->setData(0, Qt::UserRole + 5, raw);
+            break;
+        }
+        if (m_cur.value("id").toInt() == gid)
+            refreshMembers(members);
+    });
     connect(m_net, &NetSession::errorOccurred, this,
             [this](const QString&, const QString&) {
                 if (m_pendingGroup.isEmpty()) return;
