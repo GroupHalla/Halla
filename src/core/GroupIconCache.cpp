@@ -73,6 +73,23 @@ void GroupIconCache::splitRoleLine(const QString& roleLine, QString* iconName, Q
     if (label) *label = icon.isEmpty() ? QString() : roleLine.mid(sp + 1).trimmed();
 }
 
+QStringList GroupIconCache::cleanRoleNames(const QString& serverGroups) {
+    // O campo "group" do servidor é uma lista de linhas "<icone> <nome>"
+    // (ex.: "rota.png ROTA"). Aqui interessa só o TEXTO: devolvemos os
+    // nomes dos cargos sem os nomes de arquivo dos ícones, preservando a
+    // ordem. Cargo sem ícone de imagem (emoji/sigla/nada) entra inteiro.
+    QStringList names;
+    const QStringList lines = serverGroups.split(QStringLiteral("\n"));
+    for (const QString& line : lines) {
+        const QString trimmed = line.trimmed();
+        if (trimmed.isEmpty()) continue;
+        QString icon, label;
+        splitRoleLine(trimmed, &icon, &label);
+        names << (icon.isEmpty() ? trimmed : label);
+    }
+    return names;
+}
+
 QString GroupIconCache::iconFilePath(const QString& serverKey, const QString& name) {
     const QString safe = safeName(name);
     if (safe.isEmpty()) return QString();

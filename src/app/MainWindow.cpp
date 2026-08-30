@@ -8,6 +8,7 @@
 #include "gui/Icons.h"
 #include "net/NetSession.h"
 #include "core/Settings.h"
+#include "core/GroupIconCache.h"
 #include "core/AppLog.h"
 #include "plugins/PluginManager.h"
 #include "dialogs/ConnectDialog.h"
@@ -710,9 +711,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                          if (!t) return;
                          if (t->isNetworked()) {
                              const ServerData& d = t->data();
+                             // O campo "group" vem como linhas "<icone> <nome>"
+                             // (ex.: "rota.png ROTA"): o banner mostra só os
+                             // NOMES dos cargos, sem nomes de arquivo.
                              PermissionsOverviewDialog dlg(
                                  t->net()->myPerms(),
-                                 d.users.value(d.selfId).serverGroups, this);
+                                 GroupIconCache::cleanRoleNames(
+                                     d.users.value(d.selfId).serverGroups)
+                                     .join(QStringLiteral(", ")), this);
                              dlg.exec();
                          } else {
                              GroupsDialog dlg(&t->data(), this);

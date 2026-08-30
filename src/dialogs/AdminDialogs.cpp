@@ -817,8 +817,17 @@ QJsonObject ServerGroupsDialog::collectPerms() const {
 void ServerGroupsDialog::refreshUsers() {
     m_userCombo->clear();
     if (!m_data) return;
-    for (const User& u : m_data->users)
-        m_userCombo->addItem(QStringLiteral("%1  [%2]").arg(u.name, u.serverGroups), u.id);
+    // Só o nome do usuário. O campo "group" do servidor guarda linhas
+    // "<ícone> <nome>" (ex.: "rota.png ROTA"), e embutir isso no item fazia
+    // o combo listar os nomes de arquivo .png dos ícones e quebrar o texto
+    // em várias linhas cortadas (quebra de linha real dentro do item).
+    for (const User& u : m_data->users) {
+        m_userCombo->addItem(u.name, u.id);
+        // Nome muito longo para a largura do combo fica elided; o tooltip
+        // mostra o nome completo.
+        m_userCombo->setItemData(m_userCombo->count() - 1, u.name,
+                                 Qt::ToolTipRole);
+    }
 }
 
 // ============================================================== Minhas permissões

@@ -3,6 +3,7 @@
 #include <QHash>
 #include <QPixmap>
 #include <QString>
+#include <QStringList>
 
 // ============================================================================
 // Cache dos ícones de cargo enviados pelos administradores (icon_set /
@@ -63,6 +64,12 @@ public:
     // label também (a linha inteira é o cargo). Compartilhado entre painel
     // de informações e tooltip da árvore — uma única regra de parse.
     static void splitRoleLine(const QString& roleLine, QString* iconName, QString* label);
+
+    // Converte o campo "group" do servidor (linhas "<icone> <nome>"
+    // separadas por \n) em uma lista de NOMES de cargos, sem nomes de
+    // arquivo de ícone (ex.: "rota.png ROTA" -> "ROTA"). Usado onde só
+    // interessa o texto limpo: combo de atribuição, banner de permissões.
+    static QStringList cleanRoleNames(const QString& serverGroups);
 
     // Caminho absoluto do ícone no disco quando ele já está em cache
     // (para renderizar <img src="file:///..."> em rich text de tooltip).
