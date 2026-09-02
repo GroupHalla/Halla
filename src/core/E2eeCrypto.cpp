@@ -7,6 +7,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
+#include <openssl/x509.h> // d2i_PUBKEY (Ed25519 pública SPKI DER)
 
 // Os headers do BoringSSL (SDK WebRTC, build Windows) e do OpenSSL real
 // (Linux/MinGW) expõem exatamente as funções usadas abaixo com a mesma
