@@ -466,9 +466,9 @@ static bool exportIdentityBackupFile(QWidget* parent, const QString& uid,
     // poke e mensagens offline de quem restaurar o arquivo. A mesma senha e
     // os mesmos parâmetros de KDF do blob da identidade protegem os dois.
     QJsonObject dhField;
-    if (ensureDhKeyPair(uid)) {
-        const QByteArray dhPriv = dhPrivateKeyForUid(uid);
-        const QByteArray dhPub = dhPublicKeyForUid(uid);
+    if (IdentityDialog::ensureDhKeyPair(uid)) {
+        const QByteArray dhPriv = IdentityDialog::dhPrivateKeyForUid(uid);
+        const QByteArray dhPub = IdentityDialog::dhPublicKeyForUid(uid);
         if (dhPriv.size() == 32 && dhPub.size() == 32) {
             QByteArray dhPlain;
             dhPlain.append(dhPriv);
@@ -476,7 +476,8 @@ static bool exportIdentityBackupFile(QWidget* parent, const QString& uid,
             QByteArray dhIv(12, 0), dhCt;
             const bool dhOk = RAND_bytes(reinterpret_cast<unsigned char*>(dhIv.data()), int(dhIv.size())) == 1
                 && aesGcmEncrypt(derived, dhIv,
-                                 backupAad(alias, algorithm, publicB64) + QStringLiteral("|dh"),
+                                 (backupAad(alias, algorithm, publicB64)
+                                  + QStringLiteral("|dh")).toUtf8(),
                                  dhPlain, &dhCt);
             dhPlain.fill(0);
             if (dhOk) {
@@ -598,7 +599,8 @@ static bool importIdentityBackupFile(QWidget* parent, QString* outUid,
         const QByteArray dhCt = QByteArray::fromBase64(dhField[QStringLiteral("ct")].toString().toLatin1());
         if (dhIv.size() == 12 && dhCt.size() == 64 + 16)
             aesGcmDecrypt(derived, dhIv,
-                          backupAad(alias, algorithm, publicB64) + QStringLiteral("|dh"),
+                          (backupAad(alias, algorithm, publicB64)
+                           + QStringLiteral("|dh")).toUtf8(),
                           dhCt, &dhPlain);
     }
     derived.fill(0);
@@ -816,7 +818,7 @@ bool IdentityDialog::ensureDhKeyPair(const QString& uid) {
 QByteArray IdentityDialog::dhSignatureForUid(const QString& uid) {
     const QByteArray dhPub = dhPublicKeyForUid(uid);
     if (dhPub.size() != 32) return QByteArray();
-    const QByteArray idPriv = privateMaterialForUid(uid);
+    QByteArray idPriv = privateMaterialForUid(uid);
     const QByteArray sig = E2ee::ed25519Sign(idPriv, E2ee::dhBindingMessage(dhPub));
     idPriv.fill(0); // material da identidade não permanece em cópia local
     return sig;
