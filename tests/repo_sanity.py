@@ -13,7 +13,8 @@ assert "@PROJECT_VERSION_MAJOR@" in resource_template
 cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8")
 assert "file(STRINGS" in cmake and "VERSION" in cmake
 protocol = (root / "src/net/HallaProtocol.h").read_text(encoding="utf-8")
-assert "kProtoVersion = 5" in protocol
+assert "kProtoVersion = 6" in protocol
+assert "kProtoMin = 6" in protocol  # v6: transição dura — clientes v1-v5 recusados
 assert "kVoiceTokenBytes = 16" in protocol
 updater = (root / "src/app/MainWindowUpdates.cpp").read_text(encoding="utf-8")
 for required in ("QCryptographicHash::Sha256", "verifyAuthenticode", "kMaxInstallerBytes"):
@@ -211,8 +212,33 @@ assert 't == "privilege_granted"' in net_session
 assert 'm_myPerms[QStringLiteral("*")] = true' in net_session
 assert 'o["tempParent"]' in server_tab
 assert 'contains("tempParent")' in net_session
+# v6 E2EE — o servidor NÃO conhece mais chave de canal: quem gera/embrulha
+# são os clientes. Regredir qualquer um destes pontos devolve ao modelo da
+# "falsa promessa" de E2EE (servidor no modelo de confiança).
+for required in ("e2eeBootstrap", "e2eeIsMasterOfComponent", "e2eeRotateComponentKey",
+                 "e2eeHandleKeyEnvelope", "e2eeHandleKeyRequest", "e2eeRequestKey",
+                 "e2eeOnUserLeft", "e2eeOnUserMoved", "e2eeOnTopologyChanged",
+                 "e2eeDistributeWhisperKey", "e2eeClearState", "onE2eeHousekeeping"):
+    assert required in net_session, required
+# welcome não pode voltar a aceitar channelKeys; channel_key do servidor é
+# recusado com aviso de segurança (v6: impossível — servidor não tem chaves).
+assert 'obj["channelKeys"].toObject()' not in net_session
+assert 't == "channel_key"' in net_session
+assert 'e2eeSecurityNotice' in net_session
+# Primitivas E2EE consolidadas em um único módulo (nada de EVP disperso).
+e2ee_crypto = (root / "src/core/E2eeCrypto.cpp").read_text(encoding="utf-8")
+for required in ('envelopeWrap', 'envelopeUnwrap', 'pairwiseEncrypt',
+                 'pairwiseDecrypt', 'hkdfSha256', 'sasCode', 'verifyDhBinding',
+                 'dhBindingMessage', 'dhPublicFromPrivate'):
+    assert required in e2ee_crypto, required
 assert "halla-app-icon.png" in (root / "src/gui/Icons.cpp").read_text(encoding="utf-8")
 identity_dialog = (root / "src/dialogs/IdentityDialog.cpp").read_text(encoding="utf-8")
+# v6 E2EE: o par X25519 por identidade é OBRIGATÓRIO (login v6 recusa sem
+# dhPub/dhSig) — cofre com fallback local, backup com campo "dh" cifrado
+# e migração automática de identidades v5.
+for required in ('ensureDhKeyPair', 'dhPrivateKeyForUid', 'dhPublicKeyForUid',
+                 'dhSignatureForUid', 'QStringLiteral("dhPrivate")'):
+    assert required in identity_dialog, required
 # Versão sem comentários: as proibições abaixo valem para CÓDIGO — os
 # comentários documentam justamente as funções proibidas, e citar o nome
 # delas na explicação não pode violar a política.
