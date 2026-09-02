@@ -9,9 +9,11 @@
 //   X25519 (ECDH) + HKDF-SHA256 + AES-256-GCM + Ed25519 (assinatura/binding)
 //
 // Compatibilidade de backends: o código compila contra OpenSSL real (Linux,
-// MinGW) e contra o BoringSSL embutido no SDK WebRTC (Windows) — ambos
-// expõem EVP_PKEY_new_raw_private_key/EVP_PKEY_derive/HMAC/EVP_aes_256_gcm
-// com a mesma semântica usada aqui.
+// MinGW) e contra o BoringSSL embutido no SDK WebRTC (Windows). O caminho é
+// 100% livre de NID (chaves via envelopes DER do RFC 8410: d2i_AutoPrivateKey/
+// d2i_PUBKEY/i2d_PUBKEY) porque as CONSTANTES EVP_PKEY_X25519/ED25519 divergem
+// entre os headers do OpenSSL 3 (usados no build Windows) e o BoringSSL
+// linkado — ver o comentário no topo do E2eeCrypto.cpp.
 //
 // Invariantes de segurança:
 //   * voz, tela, chat, sussurro, poke e offline NUNCA saem em claro;
