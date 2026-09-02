@@ -53,7 +53,7 @@ int main() {
     // ---------------------------------------------------------------- 1
     stage(1, "X25519 — vetor RFC 7748");
     const QByteArray alicePriv = B("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a");
-    const QByteArray bobPub    = B("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78652dadfbed2e2b2f1d1a");
+    const QByteArray bobPub    = B("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f");
     const QByteArray expectShared = B("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742");
     if (E2ee::x25519SharedSecret(alicePriv, bobPub) != expectShared)
         return fail(11, "segredo X25519 divergiu do RFC 7748");
