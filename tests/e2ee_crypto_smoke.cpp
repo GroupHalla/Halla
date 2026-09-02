@@ -88,8 +88,9 @@ int main() {
         QByteArray ct;
         if (!E2ee::aeadSeal(key, nonce, QByteArray(), QByteArray(), ct))
             return fail(41, "seal de plaintext vazio falhou");
-        // ct = || tag; esperado tag: cea7403d4d606b6e074ec5d3baf39d18
-        if (ct.size() != 16 || ct != B("cea7403d4d606b6e074ec5d3baf39d18"))
+        // NIST GCM Test Case 15 (AES-256, chave/IV zerados, texto vazio):
+        // tag esperada 530f8afbc74536b9a963b4f1c4cb738b.
+        if (ct.size() != 16 || ct != B("530f8afbc74536b9a963b4f1c4cb738b"))
             return fail(42, "tag AES-256-GCM divergiu do vetor NIST");
     }
 
