@@ -25,6 +25,17 @@
 
 #include "core/E2eeCrypto.h"
 
+// Declarações OpenSSL mínimas para o teste 9 (SPKI DER via i2d_PUBKEY sem
+// expor OpenSSL no header do E2ee). DEVEM ficar em escopo global: o MSVC
+// rejeita linkage specification dentro de função (C2598) — o GCC aceita
+// como extensão, o que mascarava o erro nos builds MinGW (run 33686799303).
+struct evp_pkey_st; typedef struct evp_pkey_st EVP_PKEY;
+extern "C" {
+EVP_PKEY* d2i_AutoPrivateKey(EVP_PKEY** a, const unsigned char** pp, long length);
+int i2d_PUBKEY(EVP_PKEY* a, unsigned char** pp);
+void EVP_PKEY_free(EVP_PKEY* key);
+}
+
 static int g_stage = 0;
 static int fail(int code, const char* what) {
     std::printf("E2EE-SMOKE-FALHA %d (etapa %d): %s\n", code, g_stage, what);
@@ -206,15 +217,8 @@ int main() {
         if (sigSeed.isEmpty() || sigSeed != sigPkcs8)
             return fail(91, "assinatura por seed e por PKCS#8 divergiram");
 
-        // pública SPKI DER via o caminho OpenSSL comum (declaração mínima).
-        // O E2ee::ed25519Verify precisa da SPKI DER: usa i2d_PUBKEY aqui.
-        // (declarações locais para não expor OpenSSL no header do E2ee)
-        struct evp_pkey_st; typedef struct evp_pkey_st EVP_PKEY;
-        extern "C" {
-        EVP_PKEY* d2i_AutoPrivateKey(EVP_PKEY** a, const unsigned char** pp, long length);
-        int i2d_PUBKEY(EVP_PKEY* a, unsigned char** pp);
-        void EVP_PKEY_free(EVP_PKEY* key);
-        }
+        // pública SPKI DER via o caminho OpenSSL comum (declarações no topo
+        // do arquivo — escopo global, exigência do MSVC; ver comentário lá).
         const unsigned char* p = reinterpret_cast<const unsigned char*>(pkcs8.constData());
         EVP_PKEY* key = d2i_AutoPrivateKey(nullptr, &p, pkcs8.size());
         if (!key) return fail(92, "reconstrução da chave Ed25519 falhou");
