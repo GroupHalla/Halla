@@ -204,6 +204,9 @@ private:
     void refreshOperators();
     void scheduleChannelStateChanged();
     ServerData& target() { return m_target ? *m_target : m_data; }
+    // v6 E2EE: as consultas de topo (componente/mestre/SAS) rodam em métodos
+    // const — a leitura do modelo não pode exigir mutabilidade.
+    const ServerData& target() const { return m_target ? *m_target : m_data; }
 
     // ============================ v6 E2EE — motor local
     struct E2eeGroupKey {
