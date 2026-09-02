@@ -67,6 +67,7 @@ set(HALLA_SOURCES
     src/halla.qrc
     src/core/AppLog.cpp
     src/core/BadgeRegistry.cpp
+    src/core/E2eeCrypto.cpp
     src/core/BadgeRegistry.h
     src/core/GroupIconCache.cpp
     src/core/GroupIconCache.h

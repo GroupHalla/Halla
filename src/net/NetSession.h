@@ -9,10 +9,15 @@
 #include <QJsonArray>
 #include <QElapsedTimer>
 #include <QHostAddress>
+#include <QSet>
 #include "core/Models.h"
 
 // Sessão de rede do cliente Halla: TCP (controle) + UDP (voz) com o Halla Server.
 // Mantém um ServerData sempre sincronizado com o que o servidor manda.
+//
+// v6 E2EE: chaves de grupo nascem AQUI (mestre = menor UID do componente),
+// viajam embrulhadas em e2e_key (X25519+HKDF+AES-GCM), e o servidor é só um
+// relay opaco. Chat/sussurro/poke/offline/voz/tela nunca saem em claro.
 class NetSession : public QObject {
     Q_OBJECT
 public:
@@ -114,6 +119,19 @@ public:
                         const QList<int>& targetUserIds, const QString& topic,
                         const QByteArray& data);
 
+    // ---- v6 E2EE (público para a UI)
+    // Chaves de grupo disponíveis (escopo servidor + meu canal): usado pelo
+    // indicador de cadeado da barra de status.
+    bool e2eeKeysReady() const;
+    // Código SAS para verificação fora de banda com outro usuário (9 dígitos
+    // derivados das duas chaves públicas de identidade).
+    QString e2eeSasCodeFor(int userId) const;
+    // Estado de verificação persistido localmente (por UID).
+    bool e2eeUserVerified(int userId) const;
+    void e2eeMarkUserVerified(int userId);
+    // Minha chave pública de identidade (para diálogos de verificação).
+    QByteArray e2eeMyIdPub() const;
+
 signals:
     void welcomeReceived();                     // estado completo carregado
     void selfRenamed(const QString& name);      // servidor confirmou nosso novo apelido (user_nick)
@@ -162,6 +180,13 @@ signals:
     void ftDeleteConfirmed(int channel, const QString& name);
     void whisperConfirmed(int count);
 
+    // ---- v6 E2EE
+    // Aviso de segurança (identidade mudou, diretório inválido, servidor
+    // tentou enviar channel_key etc.). Exibido com destaque na UI.
+    void e2eeSecurityNotice(const QString& text);
+    // Disponibilidade de chaves mudou (indicador de cadeado na UI).
+    void e2eeStateChanged();
+
 private slots:
     void onConnected();
     void onReadyRead();
@@ -169,6 +194,7 @@ private slots:
     void onUdpReadyRead();
     void onPingTimer();
     void onSslErrors(const QList<QSslError>& errors);
+    void onE2eeHousekeeping();
 
 private:
     void send(const QJsonObject& obj);
@@ -179,6 +205,39 @@ private:
     void scheduleChannelStateChanged();
     ServerData& target() { return m_target ? *m_target : m_data; }
 
+    // ============================ v6 E2EE — motor local
+    struct E2eeGroupKey {
+        QByteArray key;     // 32 bytes
+        qint64 epoch = 0;   // monotônica (ms Unix) — maior vence
+    };
+    bool e2eeLoadMaterial();                       // carrega/gera o par X25519 e assina o hello
+    QSet<int> e2eeComponentOf(int channelId) const; // vínculos em ambos os sentidos
+    QStringList e2eeComponentMemberUids(const QSet<int>& comp) const;
+    bool e2eeIsMasterOfComponent(int channelId) const; // menor UID online do componente
+    bool e2eeIsServerScopeMaster() const;              // menor UID do servidor inteiro
+    QList<int> e2eeComponentMembers(const QSet<int>& comp) const; // ids de sessão
+    void e2eeBootstrap();                          // welcome: gera/pede chaves
+    void e2eeEnsureComponentKey(int channelId);    // gera se faltar + distribui (mestre)
+    void e2eeRotateComponentKey(int channelId);    // nova época + distribui (mestre)
+    void e2eeDistributeComponentKey(const QSet<int>& comp, const E2eeGroupKey& gk);
+    void e2eeShareKeyWith(int sessionId, const QSet<int>& comp, const E2eeGroupKey& gk);
+    void e2eeRequestKey(int channelId);
+    void e2eeHandleKeyEnvelope(const QJsonObject& obj);
+    void e2eeHandleKeyRequest(const QJsonObject& obj);
+    void e2eeHandleIdentityData(const QJsonObject& obj);
+    void e2eeApplyGroupKey(const QList<int>& channels, qint64 epoch, const QByteArray& key);
+    void e2eeDistributeWhisperKey();               // meu canal → alvos do sussurro
+    void e2eeOnUserJoined(const QJsonObject& user);
+    void e2eeOnUserLeft(int userId, int oldChannel);
+    void e2eeOnUserMoved(int userId, int newChannel, int oldChannel);
+    void e2eeOnTopologyChanged();                  // chan_update/chan_removed
+    void e2eeSecurityCheckUser(const User& u);     // marcador local + detecção de troca
+    void e2eeFlushPending();                       // chats/offlines à espera de chave
+    void e2eeClearState();                         // desconexão: chaves e filas somem
+    // Decifra/entrega mensagem offline recebida (fila se o remetente não
+    // estiver no diretório local — identity_data resolve e reaplica).
+    void e2eeDeliverOfflineMsg(const QJsonObject& obj, qint64 receivedAt = 0);
+
     QSslSocket* m_tcp = nullptr;
     QUdpSocket* m_udp = nullptr;
     QTimer* m_pingTimer = nullptr;
@@ -186,6 +245,7 @@ private:
     ServerData m_data;
     ServerData* m_target = nullptr;
     QMap<int, QByteArray> m_channelKeys; // channelId -> AEAD key (32 bytes)
+    QMap<int, qint64> m_channelEpochs;   // channelId -> época vigente (v6)
 
     QString m_host;
     QHostAddress m_udpHostAddress;
@@ -213,4 +273,24 @@ private:
     bool m_channelStateEmitPending = false;
     int m_pingMs = 0;
     QElapsedTimer m_pingClock;
+
+    // ============================ v6 E2EE — estado
+    QByteArray m_e2eeDhPriv;                 // X25519 privada da sessão
+    QByteArray m_e2eeMyIdPub;                // Ed25519 pública local (confere o self)
+    QTimer* m_e2eeHousekeeper = nullptr;     // re-pedidos, filas, re-wrap do sussurro
+    QList<int> m_whisperIds;                 // alvos do sussurro ativo (re-wrap)
+    bool m_e2eeWhisperNeedsRewrap = false;
+    // Diretório por UID (entradas online + identity_data de quem está offline):
+    // uid -> {idPub, dhPub, dhSig} em base64.
+    QHash<QString, QJsonObject> m_e2eeDirectory;
+    struct PendingChat { QString scope; int to; QString text; qint64 queuedAt; };
+    QList<PendingChat> m_pendingChats;
+    struct PendingOffline { QString uid; QString text; qint64 queuedAt; };
+    QList<PendingOffline> m_pendingOffline;
+    struct PendingOfflineInbox { QString fromUid; QString fromName;
+                                  QString blobB64; QString ts; qint64 receivedAt; };
+    QList<PendingOfflineInbox> m_pendingOfflineInbox;
+    QMap<int, int> m_e2eeKeyRequestTries;    // channelId -> tentativas
+    qint64 m_e2eeLastRequestAt = 0;
+    bool m_e2eeLoggedNoKeyVoice = false;     // aviso único de frame descartado
 };

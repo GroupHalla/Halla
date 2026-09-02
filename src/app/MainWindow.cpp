@@ -1128,6 +1128,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     statusBar()->addPermanentWidget(m_statusIcon, 0);
     m_statusText = new QLabel(tr("Desconectado"), this);
     statusBar()->addPermanentWidget(m_statusText, 0);
+    // v6 E2EE: cadeado — aceso quando as chaves de grupo do servidor atual
+    // estão disponíveis; “aguardando” enquanto o mestre embrulha.
+    m_e2eeLabel = new QLabel(this);
+    m_e2eeLabel->setToolTip(tr("Criptografia de ponta a ponta"));
+    statusBar()->addPermanentWidget(m_e2eeLabel, 0);
     m_pingLabel = new QLabel(QString(), this);
     statusBar()->addPermanentWidget(m_pingLabel, 0);
 
@@ -1286,6 +1291,13 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         // ping real -> barra de status
         connect(net, &NetSession::pingUpdated, this,
                 [this, net](int) { updateStatusBar(); });
+        // v6 E2EE: cadeado na barra acompanha a chegada/rotação de chaves;
+        // avisos de segurança (identidade trocada, channel_key forjado) são
+        // sempre visíveis — nunca só no log.
+        connect(net, &NetSession::e2eeStateChanged, this, [this] { updateStatusBar(); });
+        connect(net, &NetSession::e2eeSecurityNotice, this, [this](const QString& text) {
+            QMessageBox::warning(this, tr("Segurança da criptografia"), text);
+        });
         connect(net, &NetSession::disconnectedUnexpected, this, [this, tab, net] {
             if (!net->serverTerminatedSession())
                 HSound::play(QStringLiteral("connection_lost"));
@@ -1654,17 +1666,30 @@ void MainWindow::updateStatusBar() {
         if (NetSession* net = t->net()) {
             m_pingLabel->setText(tr("Ping: %1 ms   Perda de pacotes: %2%")
                                      .arg(net->pingMs()).arg(QStringLiteral("0,00")));
+            // v6 E2EE: estado das chaves de grupo da sessão atual
+            m_e2eeLabel->setText(net->e2eeKeysReady()
+                                     ? QStringLiteral("\u{1F512} E2EE")
+                                     : QStringLiteral("\u{1F512} …"));
+            m_e2eeLabel->setToolTip(net->e2eeKeysReady()
+                ? tr("Criptografia de ponta a ponta ativa: chaves geradas no seu "
+                     "cliente, o servidor não consegue ler voz, chat, sussurros ou "
+                     "tela.")
+                : tr("Chaves de criptografia em negociação… (chegam em instantes; "
+                     "nada sai em claro enquanto isso)"));
         } else {
             m_pingLabel->setText(tr("Ping: --"));
+            m_e2eeLabel->clear();
         }
     } else if (m_tabs->count() > 0) {
         m_statusIcon->setPixmap(HIcons::connectPlug().pixmap(14, 14));
         m_statusText->setText(tr("%1 conexões abertas").arg(m_tabs->count()));
         m_pingLabel->clear();
+        m_e2eeLabel->clear();
     } else {
         m_statusIcon->setPixmap(HIcons::disconnectPlug().pixmap(14, 14));
         m_statusText->setText(tr("Desconectado"));
         m_pingLabel->clear();
+        m_e2eeLabel->clear();
     }
 }
 

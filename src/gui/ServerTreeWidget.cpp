@@ -3,10 +3,14 @@
 #include "Settings.h"
 #include "core/BadgeRegistry.h"
 #include "core/GroupIconCache.h"
+#include "core/E2eeCrypto.h"
 
 #include <QContextMenuEvent>
 #include <QMouseEvent>
 #include <QMenu>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QSettings>
 #include <QScrollBar>
 #include <QGuiApplication>
 #include <QMimeData>
@@ -644,6 +648,64 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
 }
 
 // ------------------------------------------------------------------ menus de contexto
+
+// v6 E2EE — diálogo de verificação de identidade (SAS). O código deriva das
+// duas chaves públicas Ed25519 de forma canônica: a outra pessoa abre o mesmo
+// diálogo no cliente dela e OS DOIS vêem o mesmo número. Combinar fora de
+// banda (de viva voz, pela própria chamada) detecta um servidor que trocou
+// chaves no diretório.
+void ServerTreeWidget::showE2eeVerifyDialog(int userId) {
+    if (!m_data) return;
+    const User me = m_data->users.value(m_data->selfId);
+    const User u = m_data->users.value(userId);
+    if (u.uniqueId.isEmpty()) return;
+
+    QSettings settings;
+    const QString markerKey = QStringLiteral("e2ee/verified/%1").arg(u.uniqueId);
+    const QString marker = settings.value(markerKey).toString();
+    const QString current = QString::fromLatin1(
+        E2ee::sha256(u.idPub).toBase64());
+
+    QString code = E2ee::sasCode(me.idPub, u.idPub);
+    QString body;
+    if (!u.e2eeValid) {
+        body = tr("<b>A entrada de criptografia de %1 no servidor NÃO passou na "
+                  "verificação local.</b><br>Chave pública ausente ou assinatura "
+                  "inválida — converse com cuidado e peça para a pessoa reconectar.")
+                   .arg(u.name.toHtmlEscaped());
+    } else if (code.isEmpty()) {
+        body = tr("Não foi possível calcular o código (chave de identidade "
+                  "ausente).");
+    } else {
+        const bool verified = (marker == current);
+        body = tr("<h2 style='font-family:monospace; letter-spacing:2px'>%1</h2>"
+                  "Peça para <b>%2</b> abrir <i>“Verificar criptografia...”</i> no "
+                  "seu cliente e compare os números de viva voz (ou por um canal "
+                  "que você já confia).<br><br>"
+                  "Iguais: ninguém — nem o servidor — trocou as chaves entre "
+                  "vocês. Diferentes: há uma chave intermediária sendo "
+                  "substituída; não confie na conversa até resolver.<br><br>%3")
+                   .arg(code, u.name.toHtmlEscaped(),
+                        verified ? tr("<b>Já marcado como verificado.</b>")
+                                 : tr("Ainda não verificado."));
+    }
+
+    QMessageBox box(this);
+    box.setWindowTitle(tr("Verificar criptografia — %1").arg(u.name));
+    box.setTextFormat(Qt::RichText);
+    box.setText(body);
+    QPushButton* markBtn = nullptr;
+    if (u.e2eeValid && !code.isEmpty() && marker != current)
+        markBtn = box.addButton(tr("Marcar como verificado"), QMessageBox::AcceptRole);
+    box.addButton(QMessageBox::Close);
+    box.exec();
+    if (markBtn && box.clickedButton() == markBtn) {
+        settings.setValue(markerKey, current);
+        // Feedback imediato: o item da lista usa o marcador para exibir selo.
+        rebuild();
+    }
+}
+
 void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
     QTreeWidgetItem* it = itemAt(e->pos());
     // Guarda a seleção antes de chamar setCurrentItem(): em algumas versões
@@ -727,6 +789,12 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
                        [this, id] { emit viewAvatarRequested(id); });
         menu.addAction(tr("Ver informações do cliente"), this,
                        [this, id] { emit userInfoRequested(id); });
+        // v6 E2EE: verificação de identidade por código SAS (fora de banda).
+        if (!self) {
+            menu.addAction(tr("Verificar criptografia..."), this, [this, id] {
+                showE2eeVerifyDialog(id);
+            });
+        }
         menu.addSeparator();
 
         if (self) {

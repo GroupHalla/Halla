@@ -63,6 +63,17 @@ struct User {
     bool    whispering = false;      // sussurrando (sinal laranja)
     bool    screensharing = false;   // compartilhando tela (🔴 LIVE)
     QDateTime connectedAt = QDateTime::currentDateTime();
+    // v6 E2EE — diretório de chaves públicas desta sessão (bytes crus):
+    //   idPub  = Ed25519 pública em SPKI DER (uid = base64(SHA-256(idPub)))
+    //   dhPub  = X25519 pública (32 bytes)
+    //   dhSig  = Ed25519(idPriv, "HALLA-DH-V1" || dhPub) — liga a X25519 à identidade
+    // e2eeValid: a entrada do diretório passou na verificação LOCAL (uid
+    // confere e a assinatura do binding abre). Conteúdo de quem está sem
+    // e2eeValid não é confiado para cifrar nem para decifrar.
+    QByteArray idPub;
+    QByteArray dhPub;
+    QByteArray dhSig;
+    bool    e2eeValid = false;
 };
 
 struct Channel {

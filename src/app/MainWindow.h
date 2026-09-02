@@ -131,6 +131,7 @@ private:
     QLabel* m_statusIcon = nullptr;
     QLabel* m_statusText = nullptr;
     QLabel* m_pingLabel = nullptr;
+    QLabel* m_e2eeLabel = nullptr;   // v6: cadeado (chaves de grupo prontas)
 
     QSet<ServerTab*> m_disconnectingTabs;
     bool m_closeDelayPending = false;

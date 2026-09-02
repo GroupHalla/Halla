@@ -3,6 +3,7 @@
 #include "Icons.h"
 #include "Settings.h"
 #include "core/SecureStore.h"
+#include "core/E2eeCrypto.h"
 #include "AppLog.h"
 
 #include <QVBoxLayout>
@@ -460,6 +461,32 @@ static bool exportIdentityBackupFile(QWidget* parent, const QString& uid,
         return false;
     }
 
+    // v6 E2EE: o par X25519 (estático) acompanha o backup em um blob CIFRADO
+    // próprio — em claro ele entregaria a chave que decifra chat privado,
+    // poke e mensagens offline de quem restaurar o arquivo. A mesma senha e
+    // os mesmos parâmetros de KDF do blob da identidade protegem os dois.
+    QJsonObject dhField;
+    if (ensureDhKeyPair(uid)) {
+        const QByteArray dhPriv = dhPrivateKeyForUid(uid);
+        const QByteArray dhPub = dhPublicKeyForUid(uid);
+        if (dhPriv.size() == 32 && dhPub.size() == 32) {
+            QByteArray dhPlain;
+            dhPlain.append(dhPriv);
+            dhPlain.append(dhPub);
+            QByteArray dhIv(12, 0), dhCt;
+            const bool dhOk = RAND_bytes(reinterpret_cast<unsigned char*>(dhIv.data()), int(dhIv.size())) == 1
+                && aesGcmEncrypt(derived, dhIv,
+                                 backupAad(alias, algorithm, publicB64) + QStringLiteral("|dh"),
+                                 dhPlain, &dhCt);
+            dhPlain.fill(0);
+            if (dhOk) {
+                dhField[QStringLiteral("iv")] = QString::fromLatin1(dhIv.toBase64());
+                dhField[QStringLiteral("ct")] = QString::fromLatin1(dhCt.toBase64());
+            }
+        }
+    }
+    derived.fill(0);
+
     QJsonObject o;
     o[QStringLiteral("format")] = QStringLiteral("halla-identity-backup");
     o[QStringLiteral("version")] = 1;
@@ -473,6 +500,7 @@ static bool exportIdentityBackupFile(QWidget* parent, const QString& uid,
     o[QStringLiteral("salt")] = QString::fromLatin1(salt.toBase64());
     o[QStringLiteral("iv")] = QString::fromLatin1(iv.toBase64());
     o[QStringLiteral("private")] = QString::fromLatin1(ciphertext.toBase64());
+    if (!dhField.isEmpty()) o[QStringLiteral("dh")] = dhField;
     derived.fill(0);
 
     const QString path = QFileDialog::getSaveFileName(
@@ -560,6 +588,19 @@ static bool importIdentityBackupFile(QWidget* parent, QString* outUid,
                               QObject::tr("Senha incorreta."));
         return false;
     }
+    // v6 E2EE: decifra o par X25519 AINDA com a chave derivada válida — o
+    // blob opcional "dh" acompanha o backup com a mesma senha. Backups sem
+    // o campo (gerados antes do v6) deixam dhPlain vazio e seguem válidos.
+    QByteArray dhPlain;
+    const QJsonObject dhField = o[QStringLiteral("dh")].toObject();
+    if (!dhField.isEmpty()) {
+        const QByteArray dhIv = QByteArray::fromBase64(dhField[QStringLiteral("iv")].toString().toLatin1());
+        const QByteArray dhCt = QByteArray::fromBase64(dhField[QStringLiteral("ct")].toString().toLatin1());
+        if (dhIv.size() == 12 && dhCt.size() == 64 + 16)
+            aesGcmDecrypt(derived, dhIv,
+                          backupAad(alias, algorithm, publicB64) + QStringLiteral("|dh"),
+                          dhCt, &dhPlain);
+    }
     derived.fill(0);
 
     EVP_PKEY* key = keyFromMaterial(pkcs8);
@@ -609,6 +650,30 @@ static bool importIdentityBackupFile(QWidget* parent, QString* outUid,
     seedBytes.fill(0);
     S::set(keyBase(uid, QStringLiteral("publicDer")), publicB64);
     S::store().sync();
+
+    // v6 E2EE: guarda o par X25519 restaurado. O par só é aceito se a
+    // pública declarada derivar exatamente da privada restaurada — blob
+    // adulterado não entra no cofre.
+    if (dhPlain.size() == 64) {
+        const QByteArray dhPriv = dhPlain.left(32);
+        const QByteArray dhPub = dhPlain.right(32);
+        if (E2ee::dhPublicFromPrivate(dhPriv) == dhPub) {
+            const QString dhPrivName = keyBase(uid, QStringLiteral("dhPrivate"));
+            if (!SecureStore::write(dhPrivName, dhPriv, &secureError)) {
+                AppLog::error(QObject::tr(
+                                  "Não foi possível salvar a chave E2EE no cofre do sistema: %1 — "
+                                  "será guardada apenas no perfil local (menos seguro).")
+                                  .arg(secureError));
+                S::set(dhPrivName, QString::fromLatin1(dhPriv.toBase64()));
+            } else {
+                S::store().remove(dhPrivName);
+            }
+            S::set(keyBase(uid, QStringLiteral("dhPublic")),
+                   QString::fromLatin1(dhPub.toBase64()));
+            S::store().sync();
+        }
+    }
+    dhPlain.fill(0);
     *outUid = uid;
     *outNick = o[QStringLiteral("name")].toString().left(80);
     return true;
@@ -690,6 +755,73 @@ QByteArray IdentityDialog::publicKeyForUid(const QString& uid) {
     return QByteArray::fromBase64(S::str(keyBase(uid, QStringLiteral("publicDer"))).toLatin1());
 }
 
+// ================================================================== v6 E2EE
+// Par X25519 persistente da identidade — a chave estática que alimenta os
+// acordos par-a-par (chat privado, poke, offline) e o recebimento de
+// envelopes de chave de canal. Privada no cofre do sistema (mesma política
+// e fallback da Ed25519); pública no perfil. Sem dhPub/dhPub válido o login
+// v6 é recusado pelo servidor — por isso ensureDhKeyPair existe: identidades
+// criadas antes do v6 ganham o par automaticamente na primeira listagem.
+QByteArray IdentityDialog::dhPrivateKeyForUid(const QString& uid) {
+    const QString privateKeyName = keyBase(uid, QStringLiteral("dhPrivate"));
+    QByteArray priv = SecureStore::read(privateKeyName);
+    if (priv.isEmpty()) {
+        // Fallback legado/local — igual ao da Ed25519, com migração de volta
+        // ao cofre quando ele volta a aceitar escritas.
+        const QByteArray legacy = QByteArray::fromBase64(S::str(privateKeyName).toLatin1());
+        if (!legacy.isEmpty()) {
+            priv = legacy;
+            if (SecureStore::write(privateKeyName, legacy)) {
+                S::store().remove(privateKeyName);
+                S::store().sync();
+            }
+        }
+    }
+    return priv;
+}
+
+QByteArray IdentityDialog::dhPublicKeyForUid(const QString& uid) {
+    return QByteArray::fromBase64(S::str(keyBase(uid, QStringLiteral("dhPublic"))).toLatin1());
+}
+
+bool IdentityDialog::ensureDhKeyPair(const QString& uid) {
+    if (uid.isEmpty()) return false;
+    const QByteArray priv = dhPrivateKeyForUid(uid);
+    const QByteArray storedPub = dhPublicKeyForUid(uid);
+    // Par existente só é aceito se a pública derivar exatamente da privada —
+    // par truncado/corrompido pelo cofre é regenerado, nunca reutilizado.
+    if (priv.size() == 32 && storedPub == E2ee::dhPublicFromPrivate(priv))
+        return true;
+    E2ee::DhKeyPair kp;
+    if (!E2ee::generateDhKeyPair(kp)) {
+        AppLog::error(QObject::tr("Não foi possível gerar a chave E2EE da identidade (X25519)."));
+        return false;
+    }
+    const QString privateKeyName = keyBase(uid, QStringLiteral("dhPrivate"));
+    QString secureError;
+    if (!SecureStore::write(privateKeyName, kp.priv, &secureError)) {
+        AppLog::error(QObject::tr(
+                          "Não foi possível salvar a chave E2EE no cofre do sistema: %1 — "
+                          "será guardada apenas no perfil local (menos seguro).")
+                          .arg(secureError));
+        S::set(privateKeyName, QString::fromLatin1(kp.priv.toBase64()));
+    } else {
+        S::store().remove(privateKeyName);
+    }
+    S::set(keyBase(uid, QStringLiteral("dhPublic")), QString::fromLatin1(kp.pub.toBase64()));
+    S::store().sync();
+    return true;
+}
+
+QByteArray IdentityDialog::dhSignatureForUid(const QString& uid) {
+    const QByteArray dhPub = dhPublicKeyForUid(uid);
+    if (dhPub.size() != 32) return QByteArray();
+    const QByteArray idPriv = privateMaterialForUid(uid);
+    const QByteArray sig = E2ee::ed25519Sign(idPriv, E2ee::dhBindingMessage(dhPub));
+    idPriv.fill(0); // material da identidade não permanece em cópia local
+    return sig;
+}
+
 QByteArray IdentityDialog::signNonce(const QString& uid, const QByteArray& nonce) {
     const QString privateKeyName = keyBase(uid, QStringLiteral("privateDer"));
     QByteArray priv = SecureStore::read(privateKeyName);
@@ -711,31 +843,11 @@ QByteArray IdentityDialog::signNonce(const QString& uid, const QByteArray& nonce
         }
     }
     if (priv.isEmpty() || nonce.isEmpty()) return QByteArray();
-    EVP_PKEY* key = nullptr;
-    if (priv.size() == 32) {
-        // Formato cru (seed Ed25519 de 32 bytes) gravado por
-        // storeIdentityKey(): no BoringSSL do SDK WebRTC o i2d_PrivateKey
-        // não suporta Ed25519, então a chave é persistida como seed crua.
-        // keyFromSeed() embrulha no PKCS#8 mínimo e reconstrói por OID —
-        // sem NID (o do header OpenSSL difere do BoringSSL linkado).
-        key = keyFromSeed(reinterpret_cast<const unsigned char*>(priv.constData()));
-    } else {
-        // Material legado (PKCS#8 completo gravado por builds com OpenSSL
-        // de verdade): parse direto.
-        const unsigned char* p = reinterpret_cast<const unsigned char*>(priv.constData());
-        key = d2i_AutoPrivateKey(nullptr, &p, priv.size());
-    }
-    if (!key) return QByteArray();
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    QByteArray sig(64, 0);
-    size_t sigLen = sig.size();
-    bool ok = ctx && EVP_DigestSignInit(ctx, nullptr, nullptr, nullptr, key) == 1
-           && EVP_DigestSign(ctx, reinterpret_cast<unsigned char*>(sig.data()), &sigLen,
-                             reinterpret_cast<const unsigned char*>(nonce.constData()), nonce.size()) == 1;
-    EVP_MD_CTX_free(ctx);
-    EVP_PKEY_free(key);
-    if (!ok) return QByteArray();
-    sig.resize(int(sigLen));
+    // A reconstrução da chave e a assinatura Ed25519 (determinística) vivem
+    // agora em E2ee::ed25519Sign — o mesmo caminho do binding E2EE, para
+    // nunca haver duas implementações de assinatura de identidade.
+    const QByteArray sig = E2ee::ed25519Sign(priv, nonce);
+    priv.fill(0);
     return sig;
 }
 
@@ -748,6 +860,9 @@ QList<QStringList> IdentityDialog::loadAll() {
             QJsonObject o = v.toObject();
             QString uid = o["uid"].toString();
             if (uid.isEmpty() || publicKeyForUid(uid).isEmpty()) { uid = generateUniqueId(); migrated = true; }
+            // v6: identidades criadas antes do E2EE ganham o par X25519 aqui
+            // — o login v6 recusa identidade sem chave de criptografia.
+            if (!uid.isEmpty()) ensureDhKeyPair(uid);
             rows << QStringList{ o["def"].toBool() ? "1" : "0",
                                  o["nick"].toString(), o["phon"].toString(),
                                  uid };

@@ -124,6 +124,8 @@ private:
     void addUserItem(QTreeWidgetItem* chanItem, const User& u);
     QString userTooltip(const User& u) const;
     QString channelTooltip(const Channel& c) const;
+    // v6 E2EE: diálogo de código SAS + marcador de verificação.
+    void showE2eeVerifyDialog(int userId);
 
     ServerData* m_data = nullptr;
     ServerRowDelegate* m_delegate = nullptr;
