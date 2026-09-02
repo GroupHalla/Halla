@@ -105,7 +105,7 @@ jobs:
           # redirecionamento em arquivo para capturar stdout E stderr, e
           # mostra o exit code de cada etapa separadamente.
           $libs = (Get-ChildItem "third_party\webrtc-sdk\lib\windows-x64" -Filter *.lib | ForEach-Object { $_.FullName }) -join ' '
-          $cl = "cl /nologo /std:c++20 /MD /EHsc /DWEBRTC_WIN=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN /I `"C:\vcpkg\installed\x64-windows\include`" /I `"third_party\webrtc-sdk\include`" /I `"third_party\webrtc-sdk\include\third_party\abseil-cpp`" /I `"third_party\webrtc-sdk\include\third_party\libyuv\include`" tests\ed25519_identity_smoke.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib /out:ed25519_identity_smoke.exe"
+          $cl = "cl /nologo /std:c++20 /Zc:__cplusplus /MD /EHsc /DWEBRTC_WIN=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN /I `"C:\vcpkg\installed\x64-windows\include`" /I `"third_party\webrtc-sdk\include`" /I `"third_party\webrtc-sdk\include\third_party\abseil-cpp`" /I `"third_party\webrtc-sdk\include\third_party\libyuv\include`" tests\ed25519_identity_smoke.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib /out:ed25519_identity_smoke.exe"
           cmd /c "$cl > smoke_build.log 2>&1"
           $buildCode = $LASTEXITCODE
           Get-Content smoke_build.log | ForEach-Object { Write-Host $_ }
@@ -129,7 +129,10 @@ jobs:
           $qt = "$env:QT_ROOT_DIR"
           if (!(Test-Path "$qt\lib\Qt6Core.lib")) { throw "Qt6Core.lib nao encontrado em $qt" }
           $libs = (Get-ChildItem "third_party\webrtc-sdk\lib\windows-x64" -Filter *.lib | ForEach-Object { $_.FullName }) -join ' '
-          $cl = "cl /nologo /std:c++20 /MD /EHsc /DWEBRTC_WIN=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN /I `"C:\vcpkg\installed\x64-windows\include`" /I `"$qt\include`" /I `"$qt\include\QtCore`" /I `"src`" /I `"third_party\webrtc-sdk\include`" /I `"third_party\webrtc-sdk\include\third_party\abseil-cpp`" /I `"third_party\webrtc-sdk\include\third_party\libyuv\include`" tests\e2ee_crypto_smoke.cpp src\core\E2eeCrypto.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib Qt6Core.lib /LIBPATH:`"$qt\lib`" /out:e2ee_crypto_smoke.exe"
+          # /Zc:__cplusplus: sem ele o MSVC reporta __cplusplus=199711L mesmo
+          # com /std:c++20, e o qcompilerdetection.h do Qt 6.8 aborta com C1189
+          # (a run 33685399864 do release v1.1.18 morreu exatamente aqui).
+          $cl = "cl /nologo /std:c++20 /Zc:__cplusplus /MD /EHsc /DWEBRTC_WIN=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN /I `"C:\vcpkg\installed\x64-windows\include`" /I `"$qt\include`" /I `"$qt\include\QtCore`" /I `"src`" /I `"third_party\webrtc-sdk\include`" /I `"third_party\webrtc-sdk\include\third_party\abseil-cpp`" /I `"third_party\webrtc-sdk\include\third_party\libyuv\include`" tests\e2ee_crypto_smoke.cpp src\core\E2eeCrypto.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib Qt6Core.lib /LIBPATH:`"$qt\lib`" /out:e2ee_crypto_smoke.exe"
           cmd /c "$cl > e2ee_smoke_build.log 2>&1"
           $buildCode = $LASTEXITCODE
           Get-Content e2ee_smoke_build.log | ForEach-Object { Write-Host $_ }
