@@ -178,8 +178,17 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
 - Chave privada guardada no **cofre nativo do sistema operacional**
   (Credential Manager/Keychain/Secret Service, via QtKeychain) — não em texto
   puro nas configurações.
-- Voz e transmissão de tela cifradas com **ChaCha20-Poly1305** (AEAD),
-  chave por canal, rotacionada quando a composição do canal muda.
+- **E2EE real (protocolo v6)**: além do par Ed25519 da identidade, cada
+  sessão usa um par X25519 (binding assinado validado no login). Chaves de
+  voz/chat/poke/offline são geradas e distribuídas pelos próprios clientes
+  (`src/core/E2eeCrypto` + o motor v6 no `NetSession`): envelopes `e2e_key`
+  com X25519 efêmera + HKDF-SHA256 + AES-256-GCM, conteúdo par-a-par
+  estático-estático e verificação de identidade por **código SAS de 9
+  dígitos** no diálogo de informações do usuário. O servidor nunca vê chave
+  de conteúdo.
+- Voz e transmissão de tela legado cifradas com **ChaCha20-Poly1305** (AEAD)
+  usando as chaves de grupo E2EE, rotacionadas quando a composição do canal
+  muda.
 - Atualizações verificadas por checksum SHA-256 e domínio de download
   fixado antes de instalar qualquer coisa automaticamente.
 
@@ -238,8 +247,9 @@ do `HallaServer`, e implementado aqui em `src/net/HallaProtocol.h`:
   desafio (nonce) do servidor — o UID vem do hash da chave pública, não do
   que o cliente diz que é.
 - Porta padrão: **9987/tcp+udp**.
-- Protocolo versionado (`kProtoVersion` / `kProtoMin`, atualmente **v5**): o
-  servidor mantém compatibilidade com clientes antigos onde possível, mas a
+- Protocolo versionado (`kProtoVersion` / `kProtoMin`, atualmente **v6**):
+  o servidor aceita exclusivamente v6. O v6 exige **E2EE** — chaves de
+  conteúdo geradas e distribuídas pelos clientes (`e2e_key`, SAS), e a
   camada de segurança (TLS, identidade Ed25519, voz cifrada) é obrigatória
   independente da versão.
 
@@ -263,8 +273,10 @@ src/
 │                   SoundPack (sons), Speech (TTS)
 ├── core/           Models.h (dados de sessão), Settings.h (config
 │                   persistente), SecureStore (cofre do SO via QtKeychain),
-│                   AppLog (registro de eventos)
-├── net/            NetSession (TCP/controle, TLS+TOFU), VoiceEngine
+│                   E2eeCrypto (X25519/Ed25519 + HKDF + AES-256-GCM do
+│                   E2EE v6), BadgeRegistry, AppLog (registro de eventos)
+├── net/            NetSession (TCP/controle, TLS+TOFU, motor E2EE v6 —
+│                   chaves de grupo, envelopes e2e_key, SAS), VoiceEngine
 │                   (UDP/áudio, AEAD), HallaProtocol.h (protocolo
 │                   compartilhado com o servidor)
 ├── webrtc/         HallaWebRtcSession (transmissão de tela via WebRTC,
