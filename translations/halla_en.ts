@@ -2825,6 +2825,18 @@ Offline messages can only be sent to users registered on this server.</translati
       <translation>Voice volume adjustment:</translation>
     </message>
     <message>
+      <source>Extremo (+30 dB)</source>
+      <translation>Extreme (+30 dB)</translation>
+    </message>
+    <message>
+      <source>Normal (0 dB)</source>
+      <translation>Normal (0 dB)</translation>
+    </message>
+    <message>
+      <source>Aumentar volume do microfone:</source>
+      <translation>Boost microphone volume:</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="844" />
       <location filename="../src/dialogs/OptionsDialog.cpp" line="847" />
       <source>Baixo</source>

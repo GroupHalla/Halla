@@ -969,6 +969,15 @@ QWidget* OptionsDialog::pageCapture() {
     });
     form->addRow(tr("Dispositivo de captura:"), dev);
 
+    // Amplificação de microfone por software, além do limite do dispositivo:
+    // o Windows/microfone param no "100%" — o ganho aqui vai até +30 dB
+    // (~31x), aplicado após a limpeza de ruído/eco e antes da detecção de
+    // voz. No extremo a curva satura suavemente (compressão) em vez de
+    // estalar, mantendo o áudio utilizável para quem tem microfone muito baixo.
+    form->addRow(tr("Aumentar volume do microfone:"),
+                 dbSliderRow(w, QStringLiteral("capture/micGainDb"), 0, 0, 30,
+                             tr("Normal (0 dB)"), tr("Extremo (+30 dB)")));
+
     right->addLayout(form);
 
     // ==================== grupo "Ativação de voz" ====================

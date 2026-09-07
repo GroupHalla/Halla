@@ -2797,6 +2797,15 @@ Mensagens offline podem ser enviadas apenas a usuários registrados neste servid
         <translation type="unfinished"></translation>
     </message>
     <message>
+      <source>Extremo (+30 dB)</source>
+    </message>
+    <message>
+      <source>Normal (0 dB)</source>
+    </message>
+    <message>
+      <source>Aumentar volume do microfone:</source>
+    </message>
+    <message>
         <location filename="../src/dialogs/OptionsDialog.cpp" line="844"/>
         <location filename="../src/dialogs/OptionsDialog.cpp" line="847"/>
         <source>Baixo</source>

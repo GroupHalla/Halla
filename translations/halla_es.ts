@@ -2825,6 +2825,18 @@ Los mensajes sin conexión solo se pueden enviar a usuarios registrados en este 
       <translation>Ajuste del volumen de voz:</translation>
     </message>
     <message>
+      <source>Extremo (+30 dB)</source>
+      <translation>Extremo (+30 dB)</translation>
+    </message>
+    <message>
+      <source>Normal (0 dB)</source>
+      <translation>Normal (0 dB)</translation>
+    </message>
+    <message>
+      <source>Aumentar volume do microfone:</source>
+      <translation>Aumentar volumen del micrófono:</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="844" />
       <location filename="../src/dialogs/OptionsDialog.cpp" line="847" />
       <source>Baixo</source>

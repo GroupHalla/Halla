@@ -152,7 +152,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
     // Varredura periódica do indicador "falando" orientado a pacotes: apaga
     // o anel de usuários cujo áudio parou de chegar (mantém um atraso de
-    // segurança que cobre a histerese de 350 ms do transmissor e o DTX).
+    // segurança que cobre a histerese de 500 ms do transmissor e o DTX).
     m_remoteVoiceClock.start();
     m_remoteTalkingTimer = new QTimer(this);
     m_remoteTalkingTimer->setInterval(200);
@@ -254,6 +254,7 @@ VoiceEngine::~VoiceEngine() {
 void VoiceEngine::setTransmitEnabled(bool on) {
     if (m_txEnabled == on) return;
     m_txEnabled = on;
+    m_fadeInLeft = m_fadeOutLeft = 0; // corte limpo: sem transmissão não há rampa
     if (!on && m_talking) {
         m_talking = false;
         m_net->sendTalking(false);
@@ -428,18 +429,103 @@ void VoiceEngine::updateSpeechDetection(double rms) {
     }
 }
 
+// Ganho de microfone "além do limite do dispositivo" (Opções > Captura >
+// Aumentar volume do microfone): 0 a +30 dB de amplificação por software.
+// Aplicado DEPOIS do APM (AEC3/supressão neural) e ANTES do VAD — microfone
+// mais alto também abre a detecção de voz mais fácil, que é o comportamento
+// esperado. A saturação é suave (soft-clip acima de ~-3 dBFS): o sinal
+// comprime em vez de estalar, para manter o áudio utilizável no extremo.
+static void applyMicGain(int16_t* pcm, int frames, double gainLin) {
+    if (!pcm || frames <= 0) return;
+    constexpr double kKnee = 4096.0;                 // ~-18 dBFS abaixo do teto
+    constexpr double kHead = 32767.0 - kKnee;
+    for (int i = 0; i < frames; ++i) {
+        double v = double(pcm[i]) * gainLin;
+        if (v > kKnee)
+            v = kKnee + kHead * std::tanh((v - kKnee) / kHead);
+        else if (v < -kKnee)
+            v = -kKnee - kHead * std::tanh((-v - kKnee) / kHead);
+        pcm[i] = int16_t(qBound(-32768.0, v, 32767.0));
+    }
+}
+
 void VoiceEngine::analyzeCapturedSpeech() {
     // Microfone drenado (voz fechada ou PTT solto): a transmissão está
     // desligada, mas o sinal sonoro "ao falar" precisa refletir o usuário
     // FALANDO — não a transmissão estar aberta. Processa e descarta.
     m_captureBuf.append(m_srcDev->readAll());
+    const double micGain = micGainLinear();
     while (m_captureBuf.size() >= 960 * 2) {
         int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
         m_apm.processCaptureFrame(pcm);
         m_apm.processCaptureFrame(pcm + 480);
+        if (micGain > 1.0) applyMicGain(pcm, 960, micGain);
         double sum = 0;
         for (int i = 0; i < 960; ++i) sum += double(pcm[i]) * double(pcm[i]);
         updateSpeechDetection(qSqrt(sum / 960.0));
+        m_captureBuf.remove(0, 960 * 2);
+    }
+    if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // segurança
+}
+
+double VoiceEngine::micGainLinear() const {
+    // "capture/micGainDb" é gravado em DÉCIMOS de dB (padrão dos sliders de
+    // dB das Opções): 300 = +30 dB = ~31x. Default 0 = sem amplificação.
+    const int gainX10 = S::num("capture/micGainDb", 0);
+    if (gainX10 <= 0) return 1.0;
+    return qPow(10.0, (qMin(gainX10, 300) / 10.0) / 20.0);
+}
+
+void VoiceEngine::applyGateFades(int16_t* pcm, int frames) {
+    if (!pcm || frames <= 0) return;
+    if (m_fadeInLeft <= 0 && m_fadeOutLeft <= 0) return;
+    for (int i = 0; i < frames; ++i) {
+        double scale = 1.0;
+        if (m_fadeOutLeft > 0) {
+            scale = double(m_fadeOutLeft) / double(kFadeOutSamples);
+            --m_fadeOutLeft;
+        } else if (m_fadeInLeft > 0) {
+            scale = 1.0 - double(m_fadeInLeft) / double(kFadeInSamples);
+            --m_fadeInLeft;
+        }
+        if (scale < 1.0)
+            pcm[i] = int16_t(qBound(-32768.0, double(pcm[i]) * scale, 32767.0));
+    }
+}
+
+void VoiceEngine::closeTransmissionGate() {
+    // Tecla solta / sussurro desligado: arma a rampa de fechamento. O corte
+    // seco no último quadro transmitido era audível como "clique" na outra
+    // ponta; com a rampa o áudio desce suavemente para zero em 60 ms.
+    m_fadeOutLeft = kFadeOutSamples;
+    if (m_talking) {
+        m_talking = false;
+        m_net->sendTalking(false);
+        emit talkingChanged(false);
+    }
+}
+
+void VoiceEngine::flushGateFade() {
+    // A transmissão acabou de calar por tecla (PTT solto): envia os até 60 ms
+    // da rampa de fechamento antes de o silêncio assumir. Sem isto, o último
+    // quadro transmitido terminaria em nível arbitrário (clique seco).
+    if (m_fadeOutLeft <= 0 || !m_encoder || !m_txEnabled) return;
+    m_captureBuf.append(m_srcDev->readAll());
+    const double micGain = micGainLinear();
+    while (m_captureBuf.size() >= 960 * 2 && m_fadeOutLeft > 0) {
+        int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
+        m_apm.processCaptureFrame(pcm);
+        m_apm.processCaptureFrame(pcm + 480);
+        if (micGain > 1.0) applyMicGain(pcm, 960, micGain);
+        applyGateFades(pcm, 960);
+        unsigned char out[1276];
+        const int n = opus_encode(m_encoder, pcm, 960, out, sizeof(out));
+        if (n > 0) {
+            m_net->sendVoiceFrame(
+                QByteArray(reinterpret_cast<char*>(out), n), ++m_seq);
+            ++m_opusSent;
+            m_opusSentBytes += quint64(n);
+        }
         m_captureBuf.remove(0, 960 * 2);
     }
     if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // segurança
@@ -492,16 +578,14 @@ void VoiceEngine::captureTick() {
     // (obs.: "capture/mode" é o backend de áudio — não confundir)
     const int mode = S::num("capture/pttMode", 1);
     if (mode == 0 && !m_pttHeld && !m_whisperHeld) {
+        if (m_talking) closeTransmissionGate(); // tecla solta sem flush prévio
+        flushGateFade();       // envia a rampa de fechamento, se pendente
         analyzeCapturedSpeech();
-        if (m_talking) {
-            m_talking = false;
-            m_net->sendTalking(false);
-            emit talkingChanged(false);
-        }
         return;
     }
 
     m_captureBuf.append(m_srcDev->readAll());
+    const double micGain = micGainLinear();
 
     while (m_captureBuf.size() >= 960 * 2) {
         int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
@@ -512,6 +596,7 @@ void VoiceEngine::captureTick() {
         // o limiar de detecção de voz (menos falsos positivos com ventoinha).
         m_apm.processCaptureFrame(pcm);
         m_apm.processCaptureFrame(pcm + 480);
+        if (micGain > 1.0) applyMicGain(pcm, 960, micGain);
 
         const uint32_t flags = (m_whisperHeld || m_whisperTargetsConfigured)
             ? uint32_t(HALLA_AUDIO_FLAG_WHISPER) : 0u;
@@ -541,16 +626,23 @@ void VoiceEngine::captureTick() {
                 m_talking = true;
                 m_net->sendTalking(true);
                 emit talkingChanged(true);
-            } else if (m_silenceClock.elapsed() > 350) { // histerese
+                m_fadeInLeft = kFadeInSamples;   // abertura suave (sem "pop")
+            } else if (m_silenceClock.elapsed() > 500) { // histerese de ÁUDIO
                 m_talking = false;
                 m_net->sendTalking(false);
                 emit talkingChanged(false);
+                m_fadeOutLeft = kFadeOutSamples; // fechamento em rampa de 60 ms
             }
         }
         if (voiceNow) m_silenceClock.restart();
 
-        // codifica e envia somente quando há voz (DTX barato: silêncio não gasta pacotes)
-        if (!voiceNow && m_captureBuf.size() < 960 * 2 * 4) {
+        // Gate de transmissão com histerese de ÁUDIO: enquanto o gate está
+        // ABERTO (m_talking), todo quadro é codificado e enviado — o RMS de
+        // um quadro de 20 ms oscila o tempo todo durante a fala normal
+        // (consoantes fracas entre vogais fortes); descartar quadro a quadro
+        // pelo limiar picotava a voz e comia o fim das palavras. O descarte
+        // só volta com o gate fechado E a rampa de fechamento concluída.
+        if (!m_talking && m_fadeOutLeft == 0 && m_captureBuf.size() < 960 * 2 * 4) {
             m_captureBuf.remove(0, 960 * 2);
             continue;
         }
@@ -560,7 +652,8 @@ void VoiceEngine::captureTick() {
         // modificada para o encoder e para todos os destinatários. O estágio
         // AFTER_VAD entrega o mesmo ponto do pipeline aos complementos em
         // pacote (.halla-addon) sem que o AGC deles abra o VAD.
-        if (voiceNow) {
+        if (m_talking || m_fadeOutLeft > 0) {
+            applyGateFades(pcm, 960);
             PluginManager::instance().processAudio(
                 m_pluginConnectionId, m_data ? m_data->selfId : 0,
                 HALLA_AUDIO_CAPTURE_AFTER_VAD, flags, pcm, 960, 1, 48000);
@@ -601,22 +694,16 @@ void VoiceEngine::setPttHeld(bool held) {
             QTimer::singleShot(ms, this, [this, gen] {
                 if (gen != m_pttGen) return; // o usuário pressionou de novo
                 m_pttHeld = false;
-                if (m_talking) {
-                    m_talking = false;
-                    m_net->sendTalking(false);
-                    emit talkingChanged(false);
-                }
+                if (m_talking) closeTransmissionGate();
+                flushGateFade();
             });
             return; // continua "segurado" até o timer disparar
         }
     }
 
     m_pttHeld = false;
-    if (m_talking) { // soltou a tecla: para de transmitir
-        m_talking = false;
-        m_net->sendTalking(false);
-        emit talkingChanged(false);
-    }
+    if (m_talking) closeTransmissionGate(); // soltou a tecla: para de transmitir
+    flushGateFade();
 }
 
 void VoiceEngine::setWhisperHeld(bool held) {
@@ -628,9 +715,8 @@ void VoiceEngine::setWhisperHeld(bool held) {
     if (held && changed && m_talking)
         emit talkingChanged(true);
     if (!held && m_talking && !m_pttHeld) {
-        m_talking = false;
-        m_net->sendTalking(false);
-        emit talkingChanged(false);
+        closeTransmissionGate();
+        flushGateFade();
     }
 }
 
@@ -683,11 +769,11 @@ void VoiceEngine::stopRecording() {
 
 // ------------------------------------------------------------------ reprodução
 // Apaga o indicador "falando" de usuários cujos pacotes de voz pararam de
-// chegar. O atraso de segurança (600 ms) cobre integralmente a histerese de
-// 350 ms do transmissor (durante a qual o DTX não envia quadros) e o jitter
+// chegar. O atraso de segurança (700 ms) cobre integralmente a histerese de
+// 500 ms do transmissor (durante a qual o DTX não envia quadros) e o jitter
 // da rede; após isso, sem áudio não há anel. Isto também autocura qualquer
 // estado preso: se o servidor ficou com talking=true (app do falante
-// congelado no meio da fala), o anel some 600 ms após o último pacote em
+// congelado no meio da fala), o anel some 700 ms após o último pacote em
 // vez de ficar aceso para sempre.
 void VoiceEngine::sweepRemoteTalking() {
     if (!m_data || m_remoteLastVoiceMs.isEmpty()) return;
@@ -701,7 +787,7 @@ void VoiceEngine::sweepRemoteTalking() {
             stale << userId; // saiu do servidor: limpa o registro
             continue;
         }
-        if (m_data->users[userId].talking && now - it.value() > 600) {
+        if (m_data->users[userId].talking && now - it.value() > 700) {
             m_data->users[userId].talking = false;
             changed = true;
         }
@@ -734,12 +820,15 @@ void VoiceEngine::playbackTick() {
         m_primedStreams.clear();
         // Underrun REAL de voz: o dispositivo secou enquanto havia usuários
         // primados tocando. O jitter atual é maior que o alvo — cresce o alvo
-        // (até 8 quadros = 160 ms) e reconstrói o prebuffer de todos em vez
-        // de picotar o próximo trecho também.
+        // (até 8 quadros = 160 ms).
         if (!m_voicePrimed.isEmpty()) {
             ++m_voiceUnderruns;
             if (m_voiceTargetFrames < 8) ++m_voiceTargetFrames;
-            m_voicePrimed.clear();
+            // Sem re-prime forçado: o antigo clear() punia também quem
+            // ainda tinha fila — cortava ~80 ms de áudio de TODOS os
+            // falantes a cada underrun (a "pipocada" residual). Quem secou
+            // retoma no próximo quadro que chegar; o alvo maior reconstrói
+            // a folga para os próximos.
         }
     }
     constexpr int kFrames = 960;

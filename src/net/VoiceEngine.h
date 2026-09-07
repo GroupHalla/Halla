@@ -72,6 +72,19 @@ private:
     void playbackTick();
     void sweepRemoteTalking();
     void adaptVoiceTarget();
+    // Ramps suaves do gate de transmissão: abertura em 4 ms (sem "pop") e
+    // fechamento em 60 ms (o último quadro transmitido desce para zero —
+    // sem clique e sem corte seco no meio da palavra).
+    void applyGateFades(int16_t* pcm, int frames);
+    // Fator linear do "Aumentar volume do microfone" (Opções > Captura),
+    // lido por quadro (as Opções gravam direto no QSettings).
+    double micGainLinear() const;
+    // Fecha o gate de transmissão (tecla solta/voz fechada) armando a rampa
+    // de fechamento — o corte seco no meio de uma palavra dava "clique".
+    void closeTransmissionGate();
+    // Envia os quadros da rampa de fechamento quando a transmissão já calou
+    // por tecla (PTT solto): sem isso o último quadro terminaria abrupto.
+    void flushGateFade();
     // Detecção de fala (para o cue) com o microfone drenado: a voz está
     // "fechada"/PTT solto, mas o sinal sonoro precisa soar quando o usuário
     // fala — a detecção não pode depender da transmissão.
@@ -144,6 +157,14 @@ private:
     bool m_whisperHeld = false;
     bool m_whisperTargetsConfigured = false;
     quint32 m_pttGen = 0;
+    // Gate de transmissão com histerese de ÁUDIO: quadros seguem para o
+    // Opus enquanto o gate está aberto (m_talking), independentemente do
+    // RMS do quadro individual. Sem isso, qualquer ruído oscilando em
+    // torno da sensibilidade picotava a voz frame a frame.
+    static constexpr int kFadeInSamples = 192;    // 4 ms @ 48 kHz
+    static constexpr int kFadeOutSamples = 2880;  // 60 ms @ 48 kHz
+    int m_fadeInLeft = 0;
+    int m_fadeOutLeft = 0;
     QElapsedTimer m_silenceClock;
     quint64 m_opusSent = 0, m_opusReceived = 0;
     quint64 m_opusSentBytes = 0, m_opusReceivedBytes = 0;

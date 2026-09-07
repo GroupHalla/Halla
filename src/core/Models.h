@@ -42,7 +42,10 @@ struct User {
     QString platform = "Windows";
     QString description;
     QString serverGroups = "Normal";
-    int     volumeDb = 0;            // -40 .. +12 dB
+    // Volume individual de reprodução: -60 .. +30 dB. Persistido por uniqueId
+    // ("userVolume/<uid>" no QSettings) e restaurado quando a pessoa
+    // reconecta; entre mensagens user_state o valor é preservado (NetSession).
+    int     volumeDb = 0;
     bool    locallyMuted = false;
     bool    inputMuted = false;      // microfone mudo
     bool    outputMuted = false;     // alto-falantes mudos

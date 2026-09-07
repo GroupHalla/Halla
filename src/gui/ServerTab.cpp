@@ -612,9 +612,17 @@ void ServerTab::hookSignals() {
         if (!m_data.users.contains(uid)) return;
         VolumeDialog dlg(m_data.users[uid].name, m_data.users[uid].volumeDb, this);
         if (dlg.exec() == QDialog::Accepted) {
-            m_data.users[uid].volumeDb = dlg.volume();
+            const int db = qBound(-60, dlg.volume(), 30);
+            m_data.users[uid].volumeDb = db;
+            // Persiste por uniqueId (estável entre reconexões): "definir
+            // volume" agora sobrevive a reiniciar o app e a pessoa sair/entrar
+            // — antes o valor vivia só em memória e ainda era zerado pelo
+            // user_state do servidor a cada transição de fala.
+            const QString uniqueId = m_data.users[uid].uniqueId;
+            if (!uniqueId.isEmpty() && uniqueId != m_data.users.value(m_data.selfId).uniqueId)
+                S::set(QStringLiteral("userVolume/%1").arg(uniqueId), db);
             systemMsgChannel(tr("Volume de \"%1\" definido para %2 dB.")
-                                 .arg(m_data.users[uid].name).arg(dlg.volume()));
+                                 .arg(m_data.users[uid].name).arg(db));
             emit statusChanged();
         }
     });
@@ -1516,7 +1524,11 @@ bool ServerTab::setUserLocallyMuted(int userId, bool muted) {
 
 bool ServerTab::setUserVolumeDb(int userId, int volumeDb) {
     if (!m_data.users.contains(userId) || userId == m_data.selfId) return false;
-    m_data.users[userId].volumeDb = qBound(-40, volumeDb, 12);
+    const int db = qBound(-60, volumeDb, 30);
+    m_data.users[userId].volumeDb = db;
+    const QString uniqueId = m_data.users[userId].uniqueId;
+    if (!uniqueId.isEmpty() && uniqueId != m_data.users.value(m_data.selfId).uniqueId)
+        S::set(QStringLiteral("userVolume/%1").arg(uniqueId), db);
     m_info->refresh();
     emit statusChanged();
     return true;

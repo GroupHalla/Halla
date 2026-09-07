@@ -117,7 +117,10 @@ VolumeDialog::VolumeDialog(const QString& target, int currentDb, QWidget* parent
 
     QHBoxLayout* row = new QHBoxLayout;
     m_slider = new QSlider(Qt::Horizontal, this);
-    m_slider->setRange(-40, 12);
+    // -60 a +30 dB: o antigo teto de +12 dB não dava para amplificar alguém
+    // com microfone fraco; +30 dB (~31x) cobre "extremamente alto" com
+    // saturação controlada no mix. O piso desce para -60 dB (quase mudo).
+    m_slider->setRange(-60, 30);
     m_slider->setValue(currentDb);
     m_label = new QLabel(QStringLiteral("%1 dB").arg(currentDb), this);
     row->addWidget(m_slider, 1);

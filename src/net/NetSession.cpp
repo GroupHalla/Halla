@@ -1150,10 +1150,25 @@ void NetSession::applyUserJson(const QJsonObject& u) {
                 || usr.dhPub != E2ee::dhPublicFromPrivate(m_e2eeDhPriv))) {
         emit e2eeSecurityNotice(
             tr("O servidor publicou chaves de criptografia diferentes das suas "
-               "locais. Mensagens privadas podem não decifrar; verifique o código "
-               "de segurança e o certificado TLS do servidor."));
+               "locais. Mensagens privadas podem não decifrar; confira o "
+               "certificado TLS do servidor e reconecte."));
     }
     usr.op = d.users.value(usr.id).op;                 // preserva flag de operador
+    // Volume individual e mudo local sobrevivem ao user_state: o servidor
+    // reenvia a ficha do usuário a cada transição de fala (VAD liga/desliga),
+    // e o objeto reconstruído aqui zerava volumeDb/locallyMuted — o volume
+    // "não ficava salvo" segundos depois de definir. Preserva em memória e,
+    // na primeira aparição da pessoa, restaura o valor persistido por
+    // uniqueId (o que o usuário definiu em sessões anteriores).
+    if (!d.users.contains(usr.id) && !usr.uniqueId.isEmpty()
+            && usr.uniqueId != d.users.value(d.selfId).uniqueId) {
+        QSettings settings;
+        usr.volumeDb = qBound(-60, settings.value(
+            QStringLiteral("userVolume/%1").arg(usr.uniqueId), 0).toInt(), 30);
+    } else {
+        usr.volumeDb = d.users.value(usr.id).volumeDb;
+    }
+    usr.locallyMuted = d.users.value(usr.id).locallyMuted;
     if (usr.id == d.selfId) {
         usr.talking = d.users.value(d.selfId).talking; // preserva estado de fala local ultra responsivo
         usr.whispering = d.users.value(d.selfId).whispering; // preserva estado de sussurro local
@@ -1397,7 +1412,16 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             QByteArray plain;
             bool ok = false;
             if (scope == QLatin1String("private")) {
-                const User& u = d.users.value(fromId);
+                // Eco da própria mensagem: o servidor devolve o chat privado
+                // ao remetente para ela aparecer na conversa. O par de chaves
+                // correto é o DESTINATÁRIO ("to"), não o remetente — o
+                // X25519 estático-estático é simétrico, então a própria ponta
+                // decifra o que ela mesma cifrou. Antes o eco usava o dhPub
+                // de "from" (o próprio remetente) e virava "[mensagem cifrada
+                // que não pôde ser decifrada]" para os DOIS lados da conversa.
+                const bool selfEcho = (fromId == d.selfId);
+                const int peerId = selfEcho ? obj["to"].toInt(0) : fromId;
+                const User& u = d.users.value(peerId);
                 if (u.e2eeValid && u.dhPub.size() == 32)
                     plain = E2ee::pairwiseDecrypt(m_e2eeDhPriv, u.dhPub, aad, blob);
                 ok = !plain.isEmpty();
@@ -2265,16 +2289,26 @@ void NetSession::e2eeSecurityCheckUser(const User& u) {
     QSettings settings;
     const QString key = QStringLiteral("e2ee/verified/%1").arg(u.uniqueId);
     const QString marker = settings.value(key).toString();
-    if (marker.isEmpty()) return; // nunca verificado: sem alerta
     const QString current = QString::fromLatin1(E2ee::sha256(u.idPub).toBase64());
+    if (marker.isEmpty()) {
+        // Confiança automática (TOFU — trust on first use): a primeira chave
+        // da pessoa que passa na verificação local (uid + assinatura Ed25519
+        // da binding X25519) já é marcada como confiável. Ninguém precisa
+        // clicar em nada; a criptografia continua íntegra de ponta a ponta.
+        settings.setValue(key, current);
+        return;
+    }
     if (marker != current) {
-        const QString text = tr("ATENÇÃO: a identidade de %1 MUDOU desde a última "
-                                "verificação. Confirme o novo código de segurança antes de "
-                                "confiar em mensagens desta pessoa.")
+        // Troca de identidade desde a última vez: o único alerta que sobra
+        // (e é o que importa). A conversa permanece cifrada; a nova chave é
+        // re-confiada automaticamente (TOFU) no próximo contato.
+        const QString text = tr("A identidade de criptografia de %1 mudou "
+                                "(novo aparelho ou chave reinstalada). Se você "
+                                "não esperava isso, redobre cuidado com esta pessoa.")
                                  .arg(u.name);
         emit e2eeSecurityNotice(text);
         emit systemEvent(text);
-        settings.remove(key); // exige nova verificação explícita
+        settings.remove(key); // TOFU re-confia na nova chave no próximo contato
     }
 }
 
