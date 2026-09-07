@@ -3069,7 +3069,7 @@ Mensagens offline podem ser enviadas apenas a usuários registrados neste servid
     </message>
     <message>
         <location filename="../src/dialogs/OptionsDialog.cpp" line="1220"/>
-        <source>Os sinais locais acompanham o modo escolhido. Marque &quot;Outros usuários&quot; para ouvir o mesmo sinal quando outra pessoa falar.</source>
+        <source>Os sinais locais acompanham o modo escolhido; o de sussurro toca ao apertar a tecla/botão de sussurro mesmo no modo Atividade de Voz. Marque &quot;Outros usuários&quot; para ouvir o mesmo sinal quando outra pessoa falar.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

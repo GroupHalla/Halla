@@ -3100,8 +3100,8 @@ Los mensajes sin conexión solo se pueden enviar a usuarios registrados en este 
     </message>
     <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1220" />
-      <source>Os sinais locais acompanham o modo escolhido. Marque "Outros usuários" para ouvir o mesmo sinal quando outra pessoa falar.</source>
-      <translation>Las señales locales siguen el modo elegido. Marque "Otros usuarios" para escuchar la misma señal cuando alguien más habla.</translation>
+      <source>Os sinais locais acompanham o modo escolhido; o de sussurro toca ao apertar a tecla/botão de sussurro mesmo no modo Atividade de Voz. Marque "Outros usuários" para ouvir o mesmo sinal quando outra pessoa falar.</source>
+      <translation>Las señales locales siguen el modo elegido; la de susurro suena al pulsar la tecla/botón de susurro incluso en el modo Actividad de Voz. Marca "Otros usuarios" para oír la misma señal cuando hable otra persona.</translation>
     </message>
     <message>
       <source>Encoder da transmissão de tela</source>

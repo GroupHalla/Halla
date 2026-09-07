@@ -1262,8 +1262,10 @@ QWidget* OptionsDialog::pageCapture() {
                QStringLiteral("capture/speechCueRemoteWhisper"));
 
     QLabel* cueHint = new QLabel(
-        tr("Os sinais locais acompanham o modo escolhido. Marque \"Outros usuários\" "
-           "para ouvir o mesmo sinal quando outra pessoa falar."), gbSpeechCue);
+        tr("Os sinais locais acompanham o modo escolhido; o de sussurro toca "
+           "ao apertar a tecla/botão de sussurro mesmo no modo Atividade de "
+           "Voz. Marque \"Outros usuários\" para ouvir o mesmo sinal quando "
+           "outra pessoa falar."), gbSpeechCue);
     cueHint->setObjectName(QStringLiteral("captionLabel"));
     cueHint->setWordWrap(true);
     cueLayout->addWidget(cueHint);

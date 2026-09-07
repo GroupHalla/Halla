@@ -825,6 +825,10 @@ void ServerTab::playSpeechCueOnSpeech(bool active) {
     if (!S::flag("capture/speechCueEnabled", false)) return;
     if (S::num("capture/pttMode", 1) == 0) return;   // PTT: cue vem da tecla
     if (S::num("capture/speechCueMode", 1) != 1) return; // "Emitir ao" = PTT
+    // O sussurro já tocou o próprio som ao APERTAR o botão (hold): enquanto o
+    // hold estiver aberto, a fala detectada não re-dispara o mesmo cue — o
+    // sussurro segue a tecla, o resto segue a fala.
+    if (active && m_whisperHold && m_whisperHoldCuePlayed) return;
 
     QString path;
     if (!active) {
@@ -835,6 +839,20 @@ void ServerTab::playSpeechCueOnSpeech(bool active) {
     } else {
         path = S::str("capture/speechCueActive");
     }
+    HSound::playFile(path);
+}
+
+void ServerTab::playWhisperHoldCue() {
+    // Sussurro "por tecla": em modos por voz/contínuo o hold de sussurro
+    // funciona como o PTT dele (apertar = a voz passa a ir para os alvos do
+    // sussurro) — então o som de sussurro toca AO APERTAR, mesmo que a
+    // detecção por voz ainda não tenha aberto (ou nem abra). Não depende do
+    // "Emitir ao" selecionado: só o sussurro tem tecla própria nesses modos;
+    // o cue normal continua vindo da fala. Em PTT nada muda (o cue segue a
+    // tecla de transmissão e o path de sussurro já é aplicado lá).
+    if (!S::flag("capture/speechCueEnabled", false)) return;
+    QString path = S::str("capture/speechCueWhisper");
+    if (path.isEmpty()) path = S::str("capture/speechCueActive");
     HSound::playFile(path);
 }
 
@@ -1396,10 +1414,14 @@ void ServerTab::setWhisperHold(bool on, int scope) {
     if (m_voice) {
         m_voice->setWhisperHeld(on);
     }
-    // Ativou o sussurro no meio de uma fala (modo por voz): troca para o
-    // cue de sussurro na hora — a detecção de fala não vai re-disparar.
-    if (on && m_voice && m_voice->speechActive())
-        playSpeechCueOnSpeech(true);
+    // Cue de sussurro "por tecla" (modos por voz/contínuo): o som de sussurro
+    // toca AO APERTAR o botão — mesmo em Atividade de Voz e mesmo que a fala
+    // ainda não tenha aberto. Só o sussurro se comporta assim; a abertura do
+    // VAD durante o hold não re-dispara (m_whisperHoldCuePlayed).
+    if (S::num("capture/pttMode", 1) != 0) {
+        m_whisperHoldCuePlayed = on;
+        if (on) playWhisperHoldCue();
+    }
 
     if (on) {
         const QList<int> ids = whisperTargetIds(scope);
@@ -1449,6 +1471,12 @@ void ServerTab::setWhisperReplyHold(bool on) {
     }
     if (m_voice) m_voice->setWhisperHeld(true);
     m_whisperHold = true;
+    // Mesma regra do hold comum: cue de sussurro ao apertar a tecla de
+    // resposta (modos por voz/contínuo).
+    if (S::num("capture/pttMode", 1) != 0) {
+        m_whisperHoldCuePlayed = true;
+        playWhisperHoldCue();
+    }
     if (m_net) {
         m_lastSentWhisperIds = QList<int>{ from };
         m_net->setWhisperIds(m_lastSentWhisperIds);

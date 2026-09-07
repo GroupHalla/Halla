@@ -3100,8 +3100,8 @@ Offline messages can only be sent to users registered on this server.</translati
     </message>
     <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1220" />
-      <source>Os sinais locais acompanham o modo escolhido. Marque "Outros usuários" para ouvir o mesmo sinal quando outra pessoa falar.</source>
-      <translation>Local signals follow the chosen mode. Check "Other users" to hear the same signal when someone else speaks.</translation>
+      <source>Os sinais locais acompanham o modo escolhido; o de sussurro toca ao apertar a tecla/botão de sussurro mesmo no modo Atividade de Voz. Marque "Outros usuários" para ouvir o mesmo sinal quando outra pessoa falar.</source>
+      <translation>Local signals follow the chosen mode; the whisper signal plays when you press the whisper key/button even in Voice Activity mode. Check "Other users" to hear the same signal when someone else speaks.</translation>
     </message>
     <message>
       <source>Encoder da transmissão de tela</source>

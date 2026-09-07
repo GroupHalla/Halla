@@ -110,6 +110,7 @@ private:
     bool m_whisperHold = false;           // atalho de sussurro pressionado agora
     int m_lastWhisperFromId = -1;         // último usuário que sussurrou (tecla de resposta)
     QList<int> m_lastSentWhisperIds;      // último conjunto whisper efetivamente enviado
+    bool m_whisperHoldCuePlayed = false;  // cue de sussurro já tocou neste hold (não re-dispara com o VAD)
     bool m_stateRefreshPending = false;   // coalesce rajadas de user_state
 
     void hookSignals();
@@ -122,6 +123,10 @@ private:
     // Cue dirigido pela detecção REAL de fala (modos voz/contínuo), não pelo
     // estado de transmissão — o som só toca quando o usuário fala.
     void playSpeechCueOnSpeech(bool active);
+    // Cue de sussurro "por tecla": o hold de sussurro tem botão próprio — o
+    // som toca AO APERTAR em qualquer modo de voz/contínuo (não depende do
+    // limiar de detecção abrir nem do "Emitir ao" selecionado).
+    void playWhisperHoldCue();
     void playRemoteSpeechCue(const User& user, bool active);
     void systemMsgServer(const QString& msg);
     void systemMsgChannel(const QString& msg);
