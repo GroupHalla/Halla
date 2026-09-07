@@ -56,5 +56,5 @@ jobs:
           g++ -O2 -std=c++17 \
               -I /mingw64/include/qt6 -I /mingw64/include/qt6/QtCore \
               -I src tests/dsp_fallback_smoke.cpp src/audio/HallaAudioProcessing.cpp \
-              build/dsp/*.o -lm -o build/dsp_smoke.exe
+              build/dsp/*.o -L /mingw64/lib -lQt6Core -lm -o build/dsp_smoke.exe
           ./build/dsp_smoke.exe
