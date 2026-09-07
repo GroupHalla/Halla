@@ -104,7 +104,10 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
   protocolo), com controle de bitrate e qualidade por canal.
 - Processamento de sinal: cancelamento de eco, remoção de ruído de fundo,
   atenuação de digitação, redução de eco ("ducking") ao ouvir outros falarem,
-  e medidor de volume em tempo real com limiar visual.
+  e medidor de volume em tempo real com limiar visual. O DSP está embutido no
+  binário distribuído (supressão de ruído neural via RNNoise + cancelador de
+  eco AUMDF do speexdsp, ambos Xiph/BSD) e sobe para AEC3/NS neural do
+  WebRTC nos builds com SDK nativo.
 - **Sussurro**: fale só para um canal específico, canal + subcanais, ou uma
   lista fixa de usuários — com indicador visual próprio (círculo laranja no
   avatar) distinto do indicador normal de fala (verde).

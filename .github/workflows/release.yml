@@ -38,3 +38,23 @@ jobs:
       - name: Build fallback client
         shell: msys2 {0}
         run: cmake --build build --verbose
+      # O binário distribuído é exatamente este build "fallback": sem SDK do
+      # libwebrtc, o DSP de voz vem do código embutido (RNNoise + AEC do
+      # speex). Este gate garante que o processamento de sinal REALMENTE
+      # funciona — os checkboxes de redução de ruído/eco já foram no-op no
+      # passado e ninguém notou até chegar no usuário.
+      - name: DSP fallback smoke (RNNoise + speex AEC)
+        shell: msys2 {0}
+        run: |
+          set -e
+          mkdir -p build/dsp
+          for f in denoise kiss_fft pitch celt_lpc rnn rnn_data; do
+            gcc -O2 -c -I src/audio/rnnoise "src/audio/rnnoise/$f.c" -o "build/dsp/$f.o"
+          done
+          gcc -O2 -c -I src/audio/rnnoise -I src/audio/speex_aec \
+              src/audio/speex_aec/speex_aec.c -o build/dsp/speex_aec.o
+          g++ -O2 -std=c++17 \
+              -I /mingw64/include/qt6 -I /mingw64/include/qt6/QtCore \
+              -I src tests/dsp_fallback_smoke.cpp src/audio/HallaAudioProcessing.cpp \
+              build/dsp/*.o -lm -o build/dsp_smoke.exe
+          ./build/dsp_smoke.exe

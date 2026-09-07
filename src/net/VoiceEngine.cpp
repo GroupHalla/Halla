@@ -256,10 +256,20 @@ void VoiceEngine::setTransmitEnabled(bool on) {
     m_txEnabled = on;
     m_fadeInLeft = m_fadeOutLeft = 0; // corte limpo: sem transmissão não há rampa
     m_echoPending.clear();            // quadros retidos não valem para outra sessão
-    if (!on && m_talking) {
-        m_talking = false;
-        m_net->sendTalking(false);
-        emit talkingChanged(false);
+    if (!on) {
+        if (m_talking) {
+            m_talking = false;
+            m_net->sendTalking(false);
+            emit talkingChanged(false);
+        }
+        // Microfone MUTADO: a detecção de fala do cue "ao falar" também
+        // desliga na hora. O analyzeCapturedSpeech() continua drenando o
+        // dispositivo (referência do EchoGuard), mas sem ele nenhum som de
+        // fala pode disparar — mutado é mutado.
+        if (m_speechActive) {
+            m_speechActive = false;
+            emit speechActivityChanged(false);
+        }
     }
 }
 
@@ -398,12 +408,20 @@ void VoiceEngine::refreshDspSettings() {
         m_lastDspDenoise = denoise;
         m_lastDspEcho = echo;
         if (denoise || echo) {
+#ifdef HALLA_WEBRTC_NATIVE
             AppLog::info(tr("DSP de voz (WebRTC APM): supressão de ruído %1, cancelamento de eco %2")
                              .arg(denoise ? tr("ligada") : tr("desligada"))
                              .arg(echo ? tr("ligado") : tr("desligado")));
+#else
+            AppLog::info(tr("DSP de voz embutido (RNNoise + AEC do speex): supressão de ruído %1, cancelamento de eco %2")
+                             .arg(denoise ? tr("ligada") : tr("desligada"))
+                             .arg(echo ? tr("ligado") : tr("desligado")));
+#endif
         }
+        // Apenas quando o usuário pediu processamento e NADA está ativo é
+        // que existe algo para reclamar (falha de alocação do DSP).
         if ((denoise || echo) && !m_apm.denoiseActive() && !m_apm.echoActive()) {
-            AppLog::warn(tr("Este build não contém o WebRTC nativo: redução de ruído/eco indisponível."));
+            AppLog::warn(tr("Não foi possível iniciar o processamento de voz."));
         }
     }
 }
@@ -454,6 +472,10 @@ void VoiceEngine::analyzeCapturedSpeech() {
     // Microfone drenado (voz fechada ou PTT solto): a transmissão está
     // desligada, mas o sinal sonoro "ao falar" precisa refletir o usuário
     // FALANDO — não a transmissão estar aberta. Processa e descarta.
+    // Exceção: com o microfone MUTADO (transmissão desativada pelo mute) o
+    // cue não toca de jeito nenhum — o usuário calou o microfone de
+    // propósito; o beep "ao falar" a cada frase seria só incômodo.
+    const bool cueAllowed = m_txEnabled;
     m_captureBuf.append(m_srcDev->readAll());
     const double micGain = micGainLinear();
     const int levelDb = S::num("capture/voiceLevel", -45);
@@ -465,6 +487,18 @@ void VoiceEngine::analyzeCapturedSpeech() {
         m_apm.processCaptureFrame(pcm);
         m_apm.processCaptureFrame(pcm + 480);
         if (micGain > 1.0) applyMicGain(pcm, 960, micGain);
+        if (!cueAllowed) {
+            // Mutado: mantém o anel de referência do EchoGuard alimentado
+            // (trocar de modo/mudo no meio da call não deixa buracos), mas a
+            // fala detectada não emite cue e não transmite nada.
+            m_echoGuard.noteCapture(rawPcm, 960, false, false);
+            if (m_speechActive) {
+                m_speechActive = false;
+                emit speechActivityChanged(false);
+            }
+            m_captureBuf.remove(0, 960 * 2);
+            continue;
+        }
         double sum = 0;
         for (int i = 0; i < 960; ++i) sum += double(pcm[i]) * double(pcm[i]);
         const double rms = qSqrt(sum / 960.0);

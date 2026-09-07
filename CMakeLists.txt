@@ -76,6 +76,18 @@ set(HALLA_SOURCES
     src/audio/HallaAudioProcessing.h
     src/audio/EchoGuard.cpp
     src/audio/EchoGuard.h
+    # DSP embutido (funciona mesmo sem o SDK do libwebrtc): RNNoise (Xiph,
+    # supressão de ruído por rede neural) + cancelador de eco AUMDF do
+    # speexdsp (Xiph). O wrapper speex_aec.c compila os .c do vendor numa
+    # única unidade C com os símbolos kiss renomeados para não colidir com
+    # o kiss do RNNoise. Licenças e créditos nos COPYING de cada diretório.
+    src/audio/rnnoise/denoise.c
+    src/audio/rnnoise/kiss_fft.c
+    src/audio/rnnoise/pitch.c
+    src/audio/rnnoise/celt_lpc.c
+    src/audio/rnnoise/rnn.c
+    src/audio/rnnoise/rnn_data.c
+    src/audio/speex_aec/speex_aec.c
     src/plugins/PluginManager.cpp
     src/plugins/PluginManager.h
     src/plugins/RadioVoiceEffect.cpp
