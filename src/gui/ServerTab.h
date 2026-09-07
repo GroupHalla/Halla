@@ -119,6 +119,9 @@ private:
     void applyWhisper();                  // mapeia uids -> ids e envia ao servidor
     void viewAvatar(int userId);
     void playSpeechCue(bool active);
+    // Cue dirigido pela detecção REAL de fala (modos voz/contínuo), não pelo
+    // estado de transmissão — o som só toca quando o usuário fala.
+    void playSpeechCueOnSpeech(bool active);
     void playRemoteSpeechCue(const User& user, bool active);
     void systemMsgServer(const QString& msg);
     void systemMsgChannel(const QString& msg);

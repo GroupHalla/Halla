@@ -66,6 +66,7 @@ using nullptr_t = std::nullptr_t;
 #include "modules/video_coding/codecs/vp8/include/vp8.h"
 #include "libyuv/convert.h"
 #include "libyuv/convert_from.h"
+#include "libyuv/scale.h"
 #include "rtc_base/ref_counted_object.h"
 #include "rtc_base/ssl_adapter.h"
 #include "rtc_base/thread.h"
@@ -974,6 +975,29 @@ public:
         if (!m_owner) return;
         auto i420 = frame.video_frame_buffer() ? frame.video_frame_buffer()->ToI420() : nullptr;
         if (!i420) return;
+        // Teto de conversão (v1.1.20): streams 2K/4K são reduzidos ANTES de
+        // virar QImage ARGB32 (33 MB/frame no 4K). Cada frame era convertido
+        // em resolução cheia a 60 FPS — churn de memória que fazia o app
+        // inchar e a call pipocar. 1920 preserva nitidez de texto em janela
+        // cheia e corta o custo do 4K em ~4x.
+        constexpr int kMaxDecodeWidth = 1920;
+        if (i420->width() > kMaxDecodeWidth) {
+            const int scaledWidth = kMaxDecodeWidth & ~1;
+            const int scaledHeight = qMax(2, int(qRound(
+                double(i420->height()) * kMaxDecodeWidth / i420->width()))) & ~1;
+            auto scaled = webrtc::I420Buffer::Create(scaledWidth, scaledHeight);
+            if (libyuv::I420Scale(
+                    i420->DataY(), i420->StrideY(),
+                    i420->DataU(), i420->StrideU(),
+                    i420->DataV(), i420->StrideV(),
+                    i420->width(), i420->height(),
+                    scaled->MutableDataY(), scaled->StrideY(),
+                    scaled->MutableDataU(), scaled->StrideU(),
+                    scaled->MutableDataV(), scaled->StrideV(),
+                    scaledWidth, scaledHeight, libyuv::kFilterBox) == 0) {
+                i420 = scaled;
+            }
+        }
         QImage image(i420->width(), i420->height(), QImage::Format_ARGB32);
         const int ret = libyuv::I420ToARGB(
             i420->DataY(), i420->StrideY(),
@@ -1309,11 +1333,18 @@ void HallaWebRtcSession::setCaptureSystemAudio(bool enabled) {
     }
 }
 
+void HallaWebRtcSession::setLocalPreviewEnabled(bool enabled) {
+    // Sem consumidores de preview (janela própria fechada), o caminho de
+    // cópia GPU->CPU + redução é desligado na hora — transmitir com a janela
+    // fechada não pode continuar custando CPU/memória no escuro.
+    m_previewEnabled.store(enabled);
+}
+
 #ifdef HALLA_WEBRTC_NATIVE
 void HallaWebRtcSession::resetNativeFactoryForEncoderSetting() {
     if (!m_native || !m_native->factory || !m_native->factoryConfigurationKnown)
         return;
-    const bool requested = S::flag("screenshare/hardwareEncoder", false);
+    const bool requested = S::flag("screenshare/hardwareEncoder", true);
     if (requested == m_native->factoryHardwareConfigured) return;
 
     AppLog::info(QStringLiteral(
@@ -1362,7 +1393,7 @@ bool HallaWebRtcSession::ensureNativeFactory() {
         m_native->loopbackAdm = webrtc::make_ref_counted<SystemLoopbackAudioDeviceModule>();
     }
 #endif
-    const bool hardwareEncoderRequested = S::flag("screenshare/hardwareEncoder", false);
+    const bool hardwareEncoderRequested = S::flag("screenshare/hardwareEncoder", true);
     m_native->gpuCaptureFrames = hardwareEncoderRequested && HallaMfH264::encoderAvailable();
     m_native->factory = webrtc::CreatePeerConnectionFactory(
         m_native->networkThread.get(), m_native->workerThread.get(), m_native->signalingThread.get(),
@@ -1756,10 +1787,14 @@ void HallaWebRtcSession::captureFrame() {
         const int screenIndex = int(m_captureSourceId);
         if (!m_native->dxgiCapturer)
             m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
-        // Preview em ~1/20 dos frames (~20 FPS num stream de 60 FPS) para ficar
-        // visível e suave, mantendo o custo de cópia CPU baixo.
-        const uint64_t previewInterval = uint64_t(std::max(1, m_captureFps / 20));
-        const bool makePreview = (m_native->captureFrameNumber++ % previewInterval) == 0;
+        // Preview em ~1/10 dos frames (~10 FPS num stream de 60 FPS) e SOMENTE
+        // quando existe janela para exibi-lo (setLocalPreviewEnabled): a cópia
+        // GPU->CPU em resolução cheia + redução suave é o maior custo do caminho
+        // de preview e não pode rodar no escuro — era isso que fazia o app
+        // pesar e comer memória com a transmissão rodando sem ninguém assistindo.
+        const uint64_t previewInterval = uint64_t(std::max(1, m_captureFps / 10));
+        const bool makePreview = m_previewEnabled.load()
+            && (m_native->captureFrameNumber++ % previewInterval) == 0;
         QImage preview;
         auto native = m_native->dxgiCapturer->grabGpu(
             screenIndex, m_captureWidth, m_captureHeight, m_captureFps,
@@ -1840,7 +1875,8 @@ void HallaWebRtcSession::captureFrame() {
     } else {
         img = frameImage.scaled(m_captureWidth, m_captureHeight, Qt::KeepAspectRatio, Qt::FastTransformation);
     }
-    emit localPreviewFrame(downscaleForPreview(img, m_previewMaxWidth));
+    if (m_previewEnabled.load())
+        emit localPreviewFrame(downscaleForPreview(img, m_previewMaxWidth));
     m_native->videoSource->PushImage(img);
 }
 #endif

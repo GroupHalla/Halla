@@ -73,6 +73,7 @@ private:
     void applyHotkeys();
     void updateConnectionUi();
     void updateStatusBar();
+    void updateWebRtcPreviewState(); // preview da transmissão só com janela aberta
     void publishPluginState();
     void saveSession();
     void openLogDialog();  // abre o "Registro do cliente" (log) — de Ajuda e Ferramentas

@@ -109,11 +109,12 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
     if (!outDev.isNull()) {
         m_sink = new QAudioSink(outDev, outputFmt, this);
-        // Buffer de ~120 ms: o antigo de 400 ms deixava o áudio de transmissões
-        // (WebRTC) muito atrás do vídeo no visualizador, porque o vídeo era
-        // mostrado no último frame disponível enquanto o áudio ficava guardado
-        // no dispositivo. 120 ms mantém folga para a rede sem atraso perceptível.
-        m_sink->setBufferSize(960 * 2 * 2 * 6); // ~120 ms estéreo
+        // Buffer de ~160 ms: o antigo de 120 ms secava em rajadas curtas de
+        // trabalho da GUI (rebuild da árvore, pintura de frames de live) e
+        // era a causa da voz "pipocar" nas calls. 160 ms mantém folga sem
+        // atraso perceptível — o áudio das lives tem sincronização própria
+        // do WebRTC e o prebuffer delas continua enxuto.
+        m_sink->setBufferSize(960 * 2 * 2 * 8); // ~160 ms estéreo
         m_sinkDev = m_sink->start();
 
         m_playTimer = new QTimer(this);
@@ -157,6 +158,17 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     m_remoteTalkingTimer->setInterval(200);
     connect(m_remoteTalkingTimer, &QTimer::timeout, this, &VoiceEngine::sweepRemoteTalking);
     m_remoteTalkingTimer->start();
+
+    // DSP de voz (AEC3 + supressão de ruído neural do WebRTC): as Opções
+    // gravam direto no QSettings, então re-lemos periodicamente para as
+    // mudanças pegarem sem reiniciar a call. Aplicar configuração igual é
+    // barato (ApplyConfig curto-circuita o que não mudou).
+    m_speechClock.start();
+    refreshDspSettings();
+    m_dspTimer = new QTimer(this);
+    m_dspTimer->setInterval(2000);
+    connect(m_dspTimer, &QTimer::timeout, this, &VoiceEngine::refreshDspSettings);
+    m_dspTimer->start();
 
     connect(m_net, &NetSession::voicePacketReceived, this,
             [this](int fromId, quint16, const QByteArray& payload) {
@@ -205,6 +217,9 @@ QJsonObject VoiceEngine::diagnostics() const {
     QJsonObject d;
     d["active"] = m_active;
     d["talking"] = m_talking;
+    d["speechActive"] = m_speechActive;
+    d["dspDenoise"] = m_apm.denoiseActive();
+    d["dspEchoCancel"] = m_apm.echoActive();
     d["ptt"] = m_pttHeld;
     d["whisper"] = m_whisperHeld;
     d["inputRms"] = m_inputRms;
@@ -365,6 +380,55 @@ QByteArray VoiceEngine::spatializeFrame(int userId, int16_t* mono, int frames) {
     return stereo;
 }
 
+// ------------------------------------------------- DSP + detecção de fala
+void VoiceEngine::refreshDspSettings() {
+    // Opções > Captura > Processamento digital de sinal. Antes do v1.1.20
+    // estas chaves existiam na UI mas NÃO eram aplicadas em lugar nenhum —
+    // a "redução de ruído" era literalmente um checkbox sem efeito.
+    m_apm.configure(S::flag("capture/denoise", true),
+                    S::num("capture/denoiseLevel", 50),
+                    S::flag("capture/echoCancellation", true));
+}
+
+void VoiceEngine::updateSpeechDetection(double rms) {
+    // Detecção de fala para o sinal sonoro "ao falar": o MESMO limiar do VAD
+    // (Opções > Captura > Atividade de voz), com histerese para não tremolar.
+    // Roda no sinal JÁ processado (ruído/eco removidos): com alto-falantes, a
+    // voz do outro lado captada pelo microfone não abre mais o cue.
+    const int levelDb = S::num("capture/voiceLevel", -45);
+    const double onThreshold = qPow(10.0, levelDb / 20.0) * 32767.0;
+    const double offThreshold = onThreshold * 0.45; // ~-7 dB de histerese
+    const qint64 now = m_speechClock.elapsed();
+    if (rms > onThreshold) {
+        m_lastSpeechAboveMs = now;
+        if (!m_speechActive) {
+            m_speechActive = true;
+            emit speechActivityChanged(true);
+        }
+    } else if (m_speechActive && rms < offThreshold
+               && now - m_lastSpeechAboveMs > 300) {
+        m_speechActive = false;
+        emit speechActivityChanged(false);
+    }
+}
+
+void VoiceEngine::analyzeCapturedSpeech() {
+    // Microfone drenado (voz fechada ou PTT solto): a transmissão está
+    // desligada, mas o sinal sonoro "ao falar" precisa refletir o usuário
+    // FALANDO — não a transmissão estar aberta. Processa e descarta.
+    m_captureBuf.append(m_srcDev->readAll());
+    while (m_captureBuf.size() >= 960 * 2) {
+        int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
+        m_apm.processCaptureFrame(pcm);
+        m_apm.processCaptureFrame(pcm + 480);
+        double sum = 0;
+        for (int i = 0; i < 960; ++i) sum += double(pcm[i]) * double(pcm[i]);
+        updateSpeechDetection(qSqrt(sum / 960.0));
+        m_captureBuf.remove(0, 960 * 2);
+    }
+    if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // segurança
+}
+
 // ------------------------------------------------------------------ captura
 void VoiceEngine::sendEndpointRegistration() {
     if (!m_encoder || !m_net) return;
@@ -382,15 +446,15 @@ void VoiceEngine::updateCodecSettings() {
     if (!m_encoder || !m_data) return;
     int myChanId = m_data->channelOfUser(m_data->selfId);
     if (!m_data->channels.contains(myChanId)) return;
-    
+
     const Channel& c = m_data->channels[myChanId];
     int bitrate = qBound(16, c.bitrate, 384) * 1000; // de 16kbps a 384kbps
-    
+
     int app = OPUS_APPLICATION_VOIP;
     if (c.codec == 5) { // Opus Music
         app = OPUS_APPLICATION_AUDIO;
     }
-    
+
     opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(bitrate));
     opus_encoder_ctl(m_encoder, OPUS_SET_VBR(1));
     opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1));
@@ -398,11 +462,13 @@ void VoiceEngine::updateCodecSettings() {
 }
 
 void VoiceEngine::captureTick() {
-    if (!m_srcDev || !m_txEnabled) {
-        if (m_srcDev) m_srcDev->readAll(); // drena p/ não estourar o buffer
+    if (!m_srcDev) return;
+    if (!m_txEnabled || !m_encoder) {
+        // Voz fechada: drena o microfone mantendo a detecção de fala viva —
+        // o cue "ao falar" é sobre o usuário falar, não sobre transmitir.
+        analyzeCapturedSpeech();
         return;
     }
-    if (!m_encoder) return;
 
     updateCodecSettings();
 
@@ -410,8 +476,7 @@ void VoiceEngine::captureTick() {
     // (obs.: "capture/mode" é o backend de áudio — não confundir)
     const int mode = S::num("capture/pttMode", 1);
     if (mode == 0 && !m_pttHeld && !m_whisperHeld) {
-        m_captureBuf.clear();
-        m_srcDev->readAll();
+        analyzeCapturedSpeech();
         if (m_talking) {
             m_talking = false;
             m_net->sendTalking(false);
@@ -424,6 +489,14 @@ void VoiceEngine::captureTick() {
 
     while (m_captureBuf.size() >= 960 * 2) {
         int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
+
+        // DSP de voz ANTES de tudo: o AEC3 subtrai o que está tocando no
+        // alto-falante e a supressão neural remove ruído de fundo. VAD,
+        // plugins e Opus passam a ver o sinal limpo — o que também melhora
+        // o limiar de detecção de voz (menos falsos positivos com ventoinha).
+        m_apm.processCaptureFrame(pcm);
+        m_apm.processCaptureFrame(pcm + 480);
+
         const uint32_t flags = (m_whisperHeld || m_whisperTargetsConfigured)
             ? uint32_t(HALLA_AUDIO_FLAG_WHISPER) : 0u;
         PluginManager::instance().processAudio(
@@ -442,6 +515,11 @@ void VoiceEngine::captureTick() {
         else if (mode == 2) voiceNow = true;  // contínuo
         if (m_whisperHeld) voiceNow = true;   // sussurro força transmissão também no VAD
 
+        // Cue "ao falar": detecta fala de verdade (independente do VAD
+        // transmitir), inclusive quando o sinal não passa do limiar no modo
+        // contínuo — e roda também no caminho de drenagem acima.
+        updateSpeechDetection(rms);
+
         if (voiceNow != m_talking) {
             if (voiceNow) {
                 m_talking = true;
@@ -455,7 +533,7 @@ void VoiceEngine::captureTick() {
         }
         if (voiceNow) m_silenceClock.restart();
 
-        // codifica e envia somente quando há voz (DTUX barato: silêncio não gasta pacotes)
+        // codifica e envia somente quando há voz (DTX barato: silêncio não gasta pacotes)
         if (!voiceNow && m_captureBuf.size() < 960 * 2 * 4) {
             m_captureBuf.remove(0, 960 * 2);
             continue;
@@ -640,11 +718,11 @@ void VoiceEngine::playbackTick() {
         m_primedStreams.clear();
         // Underrun REAL de voz: o dispositivo secou enquanto havia usuários
         // primados tocando. O jitter atual é maior que o alvo — cresce o alvo
-        // e reconstrói o prebuffer de todos em vez de picotar o próximo
-        // trecho também.
+        // (até 8 quadros = 160 ms) e reconstrói o prebuffer de todos em vez
+        // de picotar o próximo trecho também.
         if (!m_voicePrimed.isEmpty()) {
             ++m_voiceUnderruns;
-            if (m_voiceTargetFrames < 6) ++m_voiceTargetFrames;
+            if (m_voiceTargetFrames < 8) ++m_voiceTargetFrames;
             m_voicePrimed.clear();
         }
     }
@@ -729,8 +807,24 @@ void VoiceEngine::playbackTick() {
             m_pluginConnectionId, 0, HALLA_AUDIO_MIXED_PLAYBACK, 0,
             samples, kFrames, kChannels, 48000);
 
+        // Referência far-end do cancelador de eco: exatamente o mix que vai
+        // para o alto-falante AGORA. O AEC3 do WebRTC usa isto para subtrair
+        // do microfone o que o alto-falante reproduzir — é o que faz a call
+        // funcionar sem fone de ouvido.
+        int16_t farEnd[kFrames];
+        for (int i = 0; i < kFrames; ++i)
+            farEnd[i] = int16_t((int(samples[i * 2]) + int(samples[i * 2 + 1])) / 2);
+        m_apm.processReverseFrame(farEnd);
+        m_apm.processReverseFrame(farEnd + 480);
+
         const qint64 written = m_sinkDev->write(output.constData(), output.size());
         if (written != output.size()) break;
+        // Atraso de playout (far-end -> alto-falante) para o AEC: nível real
+        // do buffer do sink + folga fixa para a latência do dispositivo.
+        if (m_sink) {
+            const int buffered = int(m_sink->bufferSize()) - int(m_sink->bytesFree());
+            m_apm.setPlayoutDelayMs(buffered * 20 / kBytes + 40);
+        }
         if (m_recFile) {
             int16_t mono[kFrames];
             for (int i = 0; i < kFrames; ++i)

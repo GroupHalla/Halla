@@ -20,6 +20,14 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
         with:
           arch: x64
+      - name: Install Qt (for the app voice DSP module)
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: 6.8.3
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          cache: true
       - name: Download and verify SDK
         shell: pwsh
         env:
@@ -40,6 +48,28 @@ jobs:
             /I "sdk\include" /I "sdk\include\third_party\abseil-cpp" /I "sdk\include\third_party\libyuv\include" `
             tests\webrtc_factory_smoke.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib /out:webrtc_factory_smoke.exe
           .\webrtc_factory_smoke.exe
+
+      # Gate do DSP de voz (v1.1.20): o APM (AEC3 + supressão de ruído
+      # neural) precisa existir E atenuar eco/ruído de verdade no SDK —
+      # sem isso a "redução de ruído" do app é um checkbox morto.
+      - name: Compile and run APM smoke
+        shell: pwsh
+        run: |
+          $qt = "$env:QT_ROOT_DIR"
+          if (!(Test-Path "$qt\lib\Qt6Core.lib")) { throw "Qt6Core.lib nao encontrado em $qt" }
+          $libs = (Get-ChildItem "sdk\lib\windows-x64" -Filter *.lib | ForEach-Object { $_.FullName }) -join ' '
+          $cl = "cl /nologo /std:c++20 /Zc:__cplusplus /MD /EHsc /DWEBRTC_WIN=1 /DHALLA_WEBRTC_NATIVE=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN /I `"$qt\include`" /I `"$qt\include\QtCore`" /I `"src`" /I `"sdk\include`" /I `"sdk\include\third_party\abseil-cpp`" /I `"sdk\include\third_party\libyuv\include`" tests\webrtc_apm_smoke.cpp src\audio\HallaAudioProcessing.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib Qt6Core.lib /LIBPATH:`"$qt\lib`" /out:apm_smoke.exe"
+          cmd /c "$cl > apm_smoke_build.log 2>&1"
+          $buildCode = $LASTEXITCODE
+          Get-Content apm_smoke_build.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== cl exit code: $buildCode"
+          if ($buildCode -ne 0) { exit $buildCode }
+          $env:PATH = "$qt\bin;$env:PATH"
+          cmd /c ".\apm_smoke.exe > apm_smoke_run.log 2>&1"
+          $runCode = $LASTEXITCODE
+          Get-Content apm_smoke_run.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== apm smoke exit code: $runCode"
+          exit $runCode
 
       # Reproduz o ambiente misto do build de release: headers do OpenSSL 3
       # (vcpkg) + implementação BoringSSL do webrtc.lib. Sem este teste de

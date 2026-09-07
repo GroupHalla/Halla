@@ -145,6 +145,30 @@ jobs:
           Write-Host "=== e2ee smoke exit code: $runCode"
           exit $runCode
 
+      # Gate de release para o DSP de voz (v1.1.20): compila o módulo REAL
+      # (src/audio/HallaAudioProcessing.cpp) no mesmo ambiente misto do app
+      # (Qt 6.8 + webrtc.lib) e prova em runtime que AEC3 e supressão de
+      # ruído neural atenuam eco/ruído de verdade. Falhou aqui = instalador
+      # NÃO publicado (redução de ruído/eco regressou a checkbox morto).
+      - name: Voice DSP APM smoke (release gate)
+        shell: pwsh
+        run: |
+          $qt = "$env:QT_ROOT_DIR"
+          if (!(Test-Path "$qt\lib\Qt6Core.lib")) { throw "Qt6Core.lib nao encontrado em $qt" }
+          $libs = (Get-ChildItem "third_party\webrtc-sdk\lib\windows-x64" -Filter *.lib | ForEach-Object { $_.FullName }) -join ' '
+          $cl = "cl /nologo /std:c++20 /Zc:__cplusplus /MD /EHsc /DWEBRTC_WIN=1 /DHALLA_WEBRTC_NATIVE=1 /DNOMINMAX /DWIN32_LEAN_AND_MEAN /I `"C:\vcpkg\installed\x64-windows\include`" /I `"$qt\include`" /I `"$qt\include\QtCore`" /I `"src`" /I `"third_party\webrtc-sdk\include`" /I `"third_party\webrtc-sdk\include\third_party\abseil-cpp`" /I `"third_party\webrtc-sdk\include\third_party\libyuv\include`" tests\webrtc_apm_smoke.cpp src\audio\HallaAudioProcessing.cpp /link $libs ws2_32.lib winmm.lib secur32.lib crypt32.lib iphlpapi.lib dmoguids.lib strmiids.lib msdmo.lib wmcodecdspuuid.lib ole32.lib oleaut32.lib user32.lib advapi32.lib Qt6Core.lib /LIBPATH:`"$qt\lib`" /out:apm_smoke.exe"
+          cmd /c "$cl > apm_smoke_build.log 2>&1"
+          $buildCode = $LASTEXITCODE
+          Get-Content apm_smoke_build.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== cl exit code: $buildCode"
+          if ($buildCode -ne 0) { exit $buildCode }
+          $env:PATH = "$qt\bin;$env:PATH"
+          cmd /c ".\apm_smoke.exe > apm_smoke_run.log 2>&1"
+          $runCode = $LASTEXITCODE
+          Get-Content apm_smoke_run.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== apm smoke exit code: $runCode"
+          exit $runCode
+
       - name: Prepare distribution
         shell: pwsh
         run: |

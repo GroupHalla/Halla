@@ -2469,9 +2469,13 @@ void MainWindow::toggleScreenShare() {
                     ScreenShareWindow* win = new ScreenShareWindow(
                         selfId, userName, false, ScreenShareWindow::AudioMuteCallback(), this);
                     m_screenShareWindows[selfId] = win;
-                    connect(win, &QDialog::finished, this, [this, selfId]() { m_screenShareWindows.remove(selfId); });
+                    connect(win, &QDialog::finished, this, [this, selfId]() {
+                        m_screenShareWindows.remove(selfId);
+                        updateWebRtcPreviewState();
+                    });
                     win->show();
                 }
+                updateWebRtcPreviewState();
                 t->data().users[t->data().selfId].screensharing = true;
                 emit t->net()->stateChanged();
                 return;
@@ -2492,6 +2496,7 @@ void MainWindow::toggleScreenShare() {
     } else {
         if (m_webrtcSession && m_webrtcSession->isBroadcasting()) {
             m_webrtcSession->stopBroadcast();
+            updateWebRtcPreviewState();
         }
         if (m_screenShareTimer) {
             m_screenShareTimer->stop();
@@ -2570,6 +2575,19 @@ void MainWindow::captureAndSendScreen() {
     }
 }
 
+void MainWindow::updateWebRtcPreviewState() {
+    // O pipeline de preview da transmissão (cópia GPU->CPU + redução suave)
+    // só pode rodar quando existe uma janela "Minha transmissão" para
+    // consumi-lo. Antes do v1.1.20, fechar a janela deixava o Halla gerando
+    // ~20 previews/segundo em resolução cheia no escuro — app pesado e
+    // comendo memória durante toda a transmissão, mesmo sem ninguém
+    // (nem o próprio usuário) assistindo.
+    if (!m_webrtcSession) return;
+    ServerTab* tab = currentTab();
+    const int selfId = tab ? tab->data().selfId : 0;
+    m_webrtcSession->setLocalPreviewEnabled(m_screenShareWindows.contains(selfId));
+}
+
 void MainWindow::openScreenShareWindow(int userId) {
     ServerTab* tab = currentTab();
     if (!tab || userId <= 0 || m_screenShareWindows.contains(userId)) return;
@@ -2587,9 +2605,11 @@ void MainWindow::openScreenShareWindow(int userId) {
     connect(window, &QDialog::finished, this, [this, screenTab, userId] {
         if (screenTab && screenTab->voice()) screenTab->voice()->clearStreamPcm(userId);
         m_screenShareWindows.remove(userId);
+        updateWebRtcPreviewState();
         if (m_webrtcSession) m_webrtcSession->stopWatching(userId);
     });
     window->show();
+    updateWebRtcPreviewState();
 }
 
 void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
@@ -2727,13 +2747,17 @@ void MainWindow::watchStream(int userId, int channelId) {
             ScreenShareWindow* win = new ScreenShareWindow(
                 selfId, userName, false, ScreenShareWindow::AudioMuteCallback(), this);
             m_screenShareWindows[selfId] = win;
-            connect(win, &QDialog::finished, this, [this, selfId]() { m_screenShareWindows.remove(selfId); });
+            connect(win, &QDialog::finished, this, [this, selfId]() {
+                m_screenShareWindows.remove(selfId);
+                updateWebRtcPreviewState();
+            });
             win->show();
         } else {
             m_screenShareWindows[selfId]->show();
             m_screenShareWindows[selfId]->raise();
             m_screenShareWindows[selfId]->activateWindow();
         }
+        updateWebRtcPreviewState();
         return;
     }
 

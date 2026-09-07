@@ -261,7 +261,14 @@ void ScreenShareDialog::populateResolutionOptions(int maxWidth, int maxHeight) {
         m_resolutionOptions.push_back({maxWidth, maxHeight, label});
         m_qualityCombo->addItem(label, 0);
     }
-    m_qualityCombo->setCurrentIndex(m_qualityCombo->count() - 1);
+    // 1080p é o padrão (v1.1.20): o antigo selecionava sempre o MAIOR item
+    // — 4K de cara em servidores que permitem, com encoder e bitrate para
+    // acompanhar. 2K e 4K continuam listados para quem escolher.
+    int defaultIndex = m_resolutionOptions.size() - 1;
+    for (int i = 0; i < m_resolutionOptions.size(); ++i) {
+        if (m_resolutionOptions[i].height <= 1080) defaultIndex = i;
+    }
+    m_qualityCombo->setCurrentIndex(defaultIndex);
 }
 
 void ScreenShareDialog::populateFpsOptions(int maxFps) {

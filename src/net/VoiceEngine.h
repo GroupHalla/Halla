@@ -10,6 +10,7 @@
 #include <deque>
 
 #include "plugins/RadioVoiceDsp.h"
+#include "audio/HallaAudioProcessing.h"
 
 class NetSession;
 class QAudioSource;
@@ -45,6 +46,7 @@ public:
     void setWhisperHeld(bool held);
     bool whisperHeld() const { return m_whisperHeld; }
     bool isTalking() const { return m_talking; }
+    bool speechActive() const { return m_speechActive; }
     QJsonObject diagnostics() const;
 
     // WAV 48 kHz mono: mixagem recebida + próprio microfone.
@@ -55,6 +57,10 @@ public:
 signals:
     void talkingChanged(bool talking);
     void recordingChanged(bool on);
+    // O usuário REALMENTE falou (detecção de voz no sinal do microfone,
+    // independente da transmissão estar aberta/fechada e do modo PTT).
+    // Alimenta o sinal sonoro "ao falar" nos modos por voz/contínuo.
+    void speechActivityChanged(bool active);
     // Um usuário remoto começou (ou parou) de falar segundo os pacotes de
     // voz recebidos — não segundo a mensagem "user_state" do servidor.
     void remoteVoiceActivityChanged();
@@ -66,6 +72,12 @@ private:
     void playbackTick();
     void sweepRemoteTalking();
     void adaptVoiceTarget();
+    // Detecção de fala (para o cue) com o microfone drenado: a voz está
+    // "fechada"/PTT solto, mas o sinal sonoro precisa soar quando o usuário
+    // fala — a detecção não pode depender da transmissão.
+    void analyzeCapturedSpeech();
+    void updateSpeechDetection(double rms);
+    void refreshDspSettings();
     OpusDecoder* decoderFor(int userId);
     QByteArray spatializeFrame(int userId, int16_t* mono, int frames);
     void applyRadioEffect(int userId, int16_t* mono, int frames,
@@ -91,10 +103,12 @@ private:
     // Jitter buffer de voz: quadros ficam retidos por usuário até acumular
     // m_voiceTargetFrames (20 ms cada) antes de começar a tocar. Sem isso,
     // qualquer atraso de rede/UI estourava o buffer do QAudioSink e a voz
-    // "pipocava". O alvo é adaptativo: cresce a cada underrun real (máx. 6
-    // quadros = 120 ms) e decai devagar quando a rede está estável.
+    // "pipocava". O alvo é adaptativo e decai devagar quando estável.
     QSet<int> m_voicePrimed;
-    int m_voiceTargetFrames = 3;
+    // Alvo inicial de 4 quadros (80 ms) — o antigo 3 deixava a voz pipocar
+    // em qualquer rajada curta de trabalho da GUI — crescendo até 8 quadros
+    // (160 ms) em underruns reais.
+    int m_voiceTargetFrames = 4;
     quint64 m_voiceUnderruns = 0;
     quint64 m_voiceSheds = 0;
     quint64 m_voiceUnderrunsAtAdapt = 0;
@@ -117,6 +131,12 @@ private:
     QByteArray m_captureBuf;
     quint16 m_seq = 0;
     bool m_talking = false;
+    bool m_speechActive = false;      // detecção de fala para o cue "ao falar"
+    qint64 m_lastSpeechAboveMs = 0;
+    QElapsedTimer m_speechClock;
+    // DSP de voz do microfone: eco (AEC3) + ruído (neural) via WebRTC APM.
+    HallaAudioProcessing m_apm;
+    class QTimer* m_dspTimer = nullptr;
     bool m_pttHeld = false;
     bool m_whisperHeld = false;
     bool m_whisperTargetsConfigured = false;

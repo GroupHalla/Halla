@@ -46,6 +46,10 @@ public:
     void setCaptureSource(int sourceType, quintptr sourceId);
     void setCaptureQuality(int width, int height, int fps, int bitrateKbps);
     void setCaptureSystemAudio(bool enabled);
+    // Liga/desliga o pipeline de preview local (cópia GPU->CPU + redução).
+    // A MainWindow chama ao abrir/fechar a janela "Minha transmissão": sem
+    // janela, gerar preview é CPU/memória desperdiçados no escuro.
+    void setLocalPreviewEnabled(bool enabled);
     void startWatching(int userId);
     void stopWatching(int userId);
     // A sessão WebRTC sobrevive às abas (uma por janela); ao reconectar, o
@@ -128,4 +132,6 @@ private:
     QMutex m_remoteFrameMutex;
     QMap<int, QImage> m_pendingRemoteFrames;
     QSet<int> m_remoteFrameDispatchPosted;
+    // Preview local só é gerado enquanto existe janela para exibi-lo.
+    std::atomic<bool> m_previewEnabled{true};
 };

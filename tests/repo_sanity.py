@@ -110,7 +110,7 @@ assert "is_hardware_accelerated = true" in mf_h264
 assert "CreateVideoProcessor" in webrtc and "DXGI_FORMAT_NV12" in webrtc
 assert "PushBuffer(native)" in webrtc
 assert "resetNativeFactoryForEncoderSetting" in webrtc
-assert 'S::flag("screenshare/hardwareEncoder", false)' in webrtc
+assert 'S::flag("screenshare/hardwareEncoder", true)' in webrtc
 options_source = (root / "src/dialogs/OptionsDialog.cpp").read_text(encoding="utf-8")
 assert "screenshare/hardwareEncoder" in options_source
 application_page = options_source[

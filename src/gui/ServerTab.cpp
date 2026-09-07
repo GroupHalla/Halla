@@ -363,9 +363,18 @@ void ServerTab::attachNetwork(NetSession* net) {
         connect(m_voice, &VoiceEngine::talkingChanged, this, [this](bool on) {
             m_data.users[m_data.selfId].talking = on;
             m_data.users[m_data.selfId].whispering = on && (m_whisperHold || !m_whisperUids.isEmpty());
-            playSpeechCue(on);
+            // PTT: o cue segue a TECLA (pressionar/soltar = falar começar/
+            // terminar). Nos modos por voz/contínuo o cue vem da detecção
+            // real de fala (speechActivityChanged) — tocar aqui faria o som
+            // disparar ao ABRIR a transmissão, não quando o usuário fala.
+            if (S::num("capture/pttMode", 1) == 0) playSpeechCue(on);
             m_tree->rebuild();
         });
+        // Cue "ao falar" dirigido por fala real: vale para detecção por voz
+        // E transmissão contínua, com a voz aberta ou fechada — o detector
+        // do VoiceEngine continua rodando mesmo com o microfone drenado.
+        connect(m_voice, &VoiceEngine::speechActivityChanged, this,
+                [this](bool active) { playSpeechCueOnSpeech(active); });
         emit statusChanged();
     }
 }
@@ -778,6 +787,27 @@ void ServerTab::playSpeechCue(bool active) {
     const int selectedMode = S::num("capture/speechCueMode", 1);
     const int captureMode = S::num("capture/pttMode", 1);
     if (selectedMode != captureMode) return;
+
+    QString path;
+    if (!active) {
+        path = S::str("capture/speechCueInactive");
+    } else if (m_whisperHold || !m_whisperUids.isEmpty()) {
+        path = S::str("capture/speechCueWhisper");
+        if (path.isEmpty()) path = S::str("capture/speechCueActive");
+    } else {
+        path = S::str("capture/speechCueActive");
+    }
+    HSound::playFile(path);
+}
+
+void ServerTab::playSpeechCueOnSpeech(bool active) {
+    // Sinal sonoro baseado em FALA DETECTADA (não em estado de transmissão):
+    // "se o usuário estiver usando transmissão contínua ou detecção por voz,
+    // o sinal só pode tocar quando o usuário FALAR" — com a voz aberta ou
+    // fechada, porque o detector roda no microfone drenado também.
+    if (!S::flag("capture/speechCueEnabled", false)) return;
+    if (S::num("capture/pttMode", 1) == 0) return;   // PTT: cue vem da tecla
+    if (S::num("capture/speechCueMode", 1) != 1) return; // "Emitir ao" = PTT
 
     QString path;
     if (!active) {
@@ -1248,7 +1278,7 @@ void ServerTab::setWhisperUids(const QStringList& uids) {
         m_data.users[m_data.selfId].whispering = !uids.isEmpty();
     }
     if (!uids.isEmpty() && m_voice && m_voice->isTalking())
-        playSpeechCue(true);
+        playSpeechCueOnSpeech(true);
     if (!m_net) return;
     if (uids.isEmpty()) {
         m_lastSentWhisperIds.clear();
@@ -1349,6 +1379,10 @@ void ServerTab::setWhisperHold(bool on, int scope) {
     if (m_voice) {
         m_voice->setWhisperHeld(on);
     }
+    // Ativou o sussurro no meio de uma fala (modo por voz): troca para o
+    // cue de sussurro na hora — a detecção de fala não vai re-disparar.
+    if (on && m_voice && m_voice->speechActive())
+        playSpeechCueOnSpeech(true);
 
     if (on) {
         const QList<int> ids = whisperTargetIds(scope);

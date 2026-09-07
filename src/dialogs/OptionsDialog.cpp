@@ -508,7 +508,11 @@ QWidget* OptionsDialog::pageApplication() {
     QVBoxLayout* encoderLayout = new QVBoxLayout(streamEncoder);
     QCheckBox* hardwareEncoder = new QCheckBox(
         tr("Usar encoder H.264 por hardware quando disponível"), streamEncoder);
-    hardwareEncoder->setChecked(S::flag("screenshare/hardwareEncoder", false));
+    // H.264 ligado por padrão (v1.1.20): captura/escala/encode na GPU é o
+    // caminho leve — sem ele, transmissões 1080p+ viravam VP8 por software
+    // na CPU (app pesado + call pipocando). Fallback para VP8 continua
+    // automático quando não há GPU compatível.
+    hardwareEncoder->setChecked(S::flag("screenshare/hardwareEncoder", true));
     hardwareEncoder->setToolTip(tr(
         "Mantém captura, escala, conversão de cor e encode na GPU pelo Direct3D 11 e "
         "Windows Media Foundation. Se não houver GPU compatível, o Halla usa VP8 por software."));
@@ -1151,7 +1155,10 @@ QWidget* OptionsDialog::pageCapture() {
             [](int v) { S::set("capture/denoiseLevel", v); });
 
     QCheckBox* cancel = new QCheckBox(tr("Cancelamento do eco"), gbDsp);
-    cancel->setChecked(S::flag("capture/echoCancellation", false));
+    // AEC3 do WebRTC (v1.1.20) — o mesmo checkbox existia antes, mas não era
+    // aplicado em lugar nenhum. Agora cancela de verdade o que o alto-falante
+    // reproduz (a referência far-end vem do próprio mix de reprodução).
+    cancel->setChecked(S::flag("capture/echoCancellation", true));
     connect(cancel, &QCheckBox::toggled, this,
             [](bool v) { S::set("capture/echoCancellation", v); });
     vd->addWidget(cancel);
