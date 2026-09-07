@@ -1,23 +1,24 @@
-# Catálogo comunitário de complementos
+# Community add-on catalog
 
-> **O catálogo oficial mudou de casa.** Desde o Halla Desktop 1.1.11 o aplicativo
-> lê a central oficial de complementos em
-> **https://grouphalla.github.io/Halla-Addons/** (repositório
+> **The official catalog has moved.** Since Halla Desktop 1.1.11 the
+> application reads the official add-on hub at
+> **https://grouphalla.github.io/Halla-Addons/** (repository
 > [GroupHalla/Halla-Addons](https://github.com/GroupHalla/Halla-Addons)),
-> com etiquetas de plataforma (Desktop/Mobile), versões e atualizações.
-> Este arquivo permanece apenas para clientes antigos e como exemplo do
-> formato v1 — `catalog.json` segue válido, porém vazio.
+> with platform tags (Desktop/Mobile), versions and updates.
+> This file remains only for old clients and as an example of the
+> v1 format — `catalog.json` is still valid, but empty.
 
-A aba **Complementos** de versões antigas do Halla Desktop lê `catalog.json`
-diretamente deste diretório. Para sugerir um pacote comunitário:
+The **Add-ons** tab of old Halla Desktop versions reads `catalog.json`
+directly from this directory. To suggest a community package:
 
-1. publique o `.halla-addon` em uma URL HTTPS estável;
-2. publique também seu SHA-256;
-3. abra uma contribuição adicionando a entrada ao array `addons`;
-4. informe código-fonte, autor, licença e instruções para reproduzir a DLL.
+1. publish the `.halla-addon` at a stable HTTPS URL;
+2. also publish its SHA-256;
+3. submit a contribution adding the entry to the `addons` array;
+4. provide the source code, author, license and instructions to reproduce
+   the DLL.
 
-A inclusão no catálogo não transforma uma DLL comunitária em código oficial.
-O Halla sempre exibe o aviso de execução nativa e valida o SHA-256 antes da
-instalação.
+Inclusion in the catalog does not turn a community DLL into official code.
+Halla always shows the native execution warning and validates the SHA-256
+before installation.
 
-O formato completo está documentado em [`docs/PLUGINS.md`](../docs/PLUGINS.md).
+The complete format is documented in [`docs/PLUGINS.md`](../docs/PLUGINS.md).

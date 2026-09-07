@@ -6,205 +6,221 @@
 <h1 align="center">Halla</h1>
 
 <p align="center">
-  Cliente de comunicação por voz para desktop (Windows, Linux), escrito em
-  <b>C++17</b> e <b>Qt 6 Widgets</b>.
+  Desktop voice communication client (Windows, Linux), written in
+  <b>C++17</b> and <b>Qt 6 Widgets</b>.
 </p>
 
 <p align="center">
-  <img src="https://i.imgur.com/XAjDMvm.png" width="720" alt="Janela principal do Halla" />
+  <img src="https://i.imgur.com/XAjDMvm.png" width="720" alt="Halla main window" />
 </p>
 
 ---
 
-## Índice
+## Contents
 
-- [Visão geral](#visão-geral)
-- [Capturas de tela](#capturas-de-tela)
-- [Principais recursos](#principais-recursos)
-- [Arquitetura do projeto](#arquitetura-do-projeto)
-- [Protocolo de rede](#protocolo-de-rede)
-- [Áudio e voz](#áudio-e-voz)
-- [Estrutura de código](#estrutura-de-código)
-- [Compilando](#compilando)
-- [Projetos relacionados](#projetos-relacionados)
-- [Licença](#licença)
-
----
-
-## Teste agora!
-
-O primeiro servidor oficial do Halla já se encontra em operação contínua e aberto ao público. 
-O objetivo desta instância é fornecer um ambiente estável e acessível para que usuários e desenvolvedores 
-possam testar o desempenho do áudio de baixa latência, o compartilhamento de tela e os recursos do ecossistema.
-
-**Estrutura e Recursos do Servidor:**
-- Canais Permanentes: Salas abertas para interação geral, testes técnicos e alinhamento de projetos.
-- Canais Temporários Dinâmicos: Sistema que permite a qualquer usuário criar sua própria sala de voz sob demanda.
-- Acesso Multiplataforma: Totalmente integrado entre os clientes Desktop (Windows/Linux) e Mobile (Android).
-- Segurança: Conexões autenticadas via chaves criptográficas Ed25519 e tráfego de voz cifrado com ChaCha20-Poly1305.
-
-**Dados de Conexão:**
-- Endereço: 163.176.35.133
-- Porta: 9987
+- [Overview](#overview)
+- [Screenshots](#screenshots)
+- [Key features](#key-features)
+- [Project architecture](#project-architecture)
+- [Network protocol](#network-protocol)
+- [Audio and voice](#audio-and-voice)
+- [Code structure](#code-structure)
+- [Building](#building)
+- [Related projects](#related-projects)
+- [License](#license)
 
 ---
 
-### Programa de Feedback e Relato de Problemas —  Halla
-Com o avanço contínuo do ecossistema Halla (Desktop, Mobile e Server), nosso compromisso é garantir a máxima estabilidade, segurança e desempenho em transmissões de voz e tela.
-Para que possamos identificar e corrigir eventuais falhas com rapidez, abrimos um canal oficial e direto para coleta de relatórios de bugs, inconsistências e sugestões de melhorias técnicas.
+## Try it now!
 
-**O que você pode relatar:**
-- Problemas de conectividade, latência ou sincronização com o servidor.
-- Falhas de captura ou reprodução de áudio (ruídos, eco ou cortes).
-- Instabilidades na transmissão de tela (queda de FPS, resolução ou congelamento).
-- Bugs visuais e comportamentais na interface do Desktop (Windows/Linux) ou Mobile (Android).
-- Sugestões de novas funcionalidades e melhorias de usabilidade.
+Halla's first official server is already in continuous operation and open to
+the public.
+The goal of this instance is to provide a stable, accessible environment where
+users and developers can test low-latency audio performance, screen sharing
+and the ecosystem's features.
 
-Sua contribuição é fundamental para o aprimoramento contínuo deste projeto de código aberto.
-Envie seu relatório através do formulário oficial:
+**Server structure and features:**
+- Permanent channels: open rooms for general interaction, technical testing
+  and project alignment.
+- Dynamic temporary channels: a system that lets any user create their own
+  voice room on demand.
+- Cross-platform access: fully integrated across the Desktop (Windows/Linux)
+  and Mobile (Android) clients.
+- Security: connections authenticated via Ed25519 cryptographic keys and
+  voice traffic encrypted with ChaCha20-Poly1305.
+
+**Connection details:**
+- Address: 163.176.35.133
+- Port: 9987
+
+---
+
+### Feedback and Issue Reporting Program — Halla
+As the Halla ecosystem (Desktop, Mobile and Server) keeps advancing, our
+commitment is to guarantee maximum stability, security and performance in
+voice and screen transmissions.
+So that we can identify and fix any failures quickly, we have opened an
+official, direct channel for collecting bug reports, inconsistencies and
+technical improvement suggestions.
+
+**What you can report:**
+- Connectivity, latency or synchronization problems with the server.
+- Audio capture or playback failures (noise, echo or dropouts).
+- Instabilities in screen sharing (FPS drops, resolution or freezing).
+- Visual and behavioral bugs in the Desktop (Windows/Linux) or Mobile
+  (Android) interface.
+- Suggestions for new features and usability improvements.
+
+Your contribution is essential to the continuous improvement of this
+open-source project.
+Submit your report through the official form:
 https://docs.google.com/forms/d/e/1FAIpQLScwy7k_HyeNnl8kuNfMSs8H-pHUGfhuKijAxkYkzd7m_aX4NA/viewform
 
-Agradecemos a colaboração de todos no fortalecimento da plataforma.
+We thank everyone for their collaboration in strengthening the platform.
 
 ---
 
-## Visão geral
+## Overview
 
-O **Halla** é um cliente de VoIP para comunidades e servidores privado. 
-Você entra num servidor, navega por uma árvore de canais, conversa por voz
-e por texto, compartilha sua tela e tudo é administrável por um sistema de grupos e permissões 
-granulares.
+**Halla** is a VoIP client for communities and private servers.
+You join a server, browse a channel tree, talk over voice and text, share
+your screen, and everything is managed through a system of groups and
+granular permissions.
 
-Ele se conecta a um servidor da família **Halla Server** (protocolo próprio,
-não o protocolo proprietário do TeamSpeak) via **TCP** (controle/JSON) e
-**UDP** (voz, codec Opus).
+It connects to a server in the **Halla Server** family (its own protocol,
+not TeamSpeak's proprietary protocol) via **TCP** (control/JSON) and
+**UDP** (voice, Opus codec).
 
-O projeto **não depende de nenhum recurso visual externo** — todos os ícones
-da interface (avatares, símbolos de canal, cadeados, indicadores de fala, etc.)
-são desenhados em tempo de execução com `QPainter` (veja `src/gui/Icons.cpp`),
-o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI.
+The project **does not depend on any external visual assets** — every icon in
+the interface (avatars, channel symbols, padlocks, speaking indicators, etc.)
+is drawn at runtime with `QPainter` (see `src/gui/Icons.cpp`), which keeps
+the executable light and the icons crisp at any resolution/DPI.
 
-## Capturas de tela
+## Screenshots
 
-| Janela principal | Opções — Capturar | Opções — Teclas de atalho |
+| Main window | Options — Capture | Options — Hotkeys |
 |---|---|---|
 | ![main](https://i.imgur.com/XAjDMvm.png) | ![capture](https://i.imgur.com/JOIdczm.png) | ![hotkeys](https://i.imgur.com/POsrBRD.png) |
 
-| Conectar | Opções — Sussurro | - |
+| Connect | Options — Whisper | - |
 |---|---|---|
 | ![connect](https://i.imgur.com/pn5oL8q.png) | ![whisper](https://i.imgur.com/QBUwQCL.png) |
 
-## Principais recursos
+## Key features
 
-**Voz**
-- Push-to-talk (tecla **ou botão do mouse**, inclusive botões laterais/extras),
-  detecção de atividade de voz (VAD) com sensibilidade ajustável, ou
-  transmissão contínua.
-- Codecs: Opus Voice/Music, além dos legados Speex e CELT (compatibilidade de
-  protocolo), com controle de bitrate e qualidade por canal.
-- Processamento de sinal: cancelamento de eco, remoção de ruído de fundo,
-  atenuação de digitação, redução de eco ("ducking") ao ouvir outros falarem,
-  e medidor de volume em tempo real com limiar visual. O DSP está embutido no
-  binário distribuído (supressão de ruído neural via RNNoise + cancelador de
-  eco AUMDF do speexdsp, ambos Xiph/BSD) e sobe para AEC3/NS neural do
-  WebRTC nos builds com SDK nativo.
-- **Sussurro**: fale só para um canal específico, canal + subcanais, ou uma
-  lista fixa de usuários — com indicador visual próprio (círculo laranja no
-  avatar) distinto do indicador normal de fala (verde).
-- Gravação local (WAV) de chamadas, própria voz + participantes.
-- Compartilhamento de telas.
+**Voice**
+- Push-to-talk (key **or mouse button**, including side/extra buttons),
+  voice activity detection (VAD) with adjustable sensitivity, or
+  continuous transmission.
+- Codecs: Opus Voice/Music, plus the legacy Speex and CELT (for protocol
+  compatibility), with per-channel bitrate and quality control.
+- Signal processing: echo cancellation, background noise removal, typing
+  attenuation, echo ducking while listening to others speak, and a real-time
+  volume meter with a visual threshold. The DSP is embedded in the
+  distributed binary (neural noise suppression via RNNoise + the AUMDF echo
+  canceller from speexdsp, both Xiph/BSD) and upgrades to the WebRTC neural
+  AEC3/NS on builds with the native SDK.
+- **Whisper**: speak only to a specific channel, a channel + its
+  subchannels, or a fixed list of users — with its own visual indicator
+  (orange circle on the avatar), distinct from the normal speaking
+  indicator (green).
+- Local (WAV) recording of calls, your own voice + participants.
+- Screen sharing.
 
-**Canais e usuários**
-- Árvore de canais com subcanais, canais temporários/semi-permanentes/
-  permanentes, canais protegidos por senha, canais moderados e vinculados
-  (áudio compartilhado entre canais "linkados").
-- Grupos de servidor e de canal com permissões granulares (grade de
-  permissões com filtro e modo avançado de "conceder"), talk power,
-  operador de canal, comandante.
-- Avatares, descrições com BBCode/emoji, "cutucar" (poke), reclamações,
-  mensagens offline, transferência de arquivos, lista de banidos.
-- Emblemas globais oficiais vinculados à UID, obtidos de um registro Ed25519
-  assinado, verificado e mantido em cache para funcionamento offline.
+**Channels and users**
+- Channel tree with subchannels, temporary/semi-permanent/permanent
+  channels, password-protected channels, moderated and linked channels
+  (audio shared across "linked" channels).
+- Server and channel groups with granular permissions (permission grid with
+  filter and advanced "grant" mode), talk power, channel operator, channel
+  commander.
+- Avatars, BBCode/emoji descriptions, poke, complaints, offline messages,
+  file transfer, ban list.
+- Official global badges bound to the UID, fetched from a signed Ed25519
+  registry, verified and kept in cache for offline operation.
 
 **Interface**
-- Tema claro/escuro trocável em tempo real, sem precisar reiniciar.
-- Chat com abas por servidor/canal, BBCode (`[b] [i] [u] [color=] [size=] [url=]`)
-  e emojis.
-- Marcadores (bookmarks) de servidores, conexões recentes, múltiplas
-  identidades locais, perfis de captura/reprodução.
-- Bandeja do sistema, notificações sonoras com avisos de voz integrados
-  (conexão, entrada/saída do canal, permissões, microfone e reprodução) e
-  narração opcional por texto-para-voz (`QTextToSpeech`).
-- Teclas de atalho totalmente configuráveis — inclusive com botões de mouse,
-  capturados em múltiplas camadas para não depender só do evento clássico do
-  Windows (útil com softwares de mouse gamer que interceptam os botões
-  laterais).
+- Light/dark theme switchable in real time, with no restart needed.
+- Chat with tabs per server/channel, BBCode (`[b] [i] [u] [color=] [size=] [url=]`)
+  and emojis.
+- Server bookmarks, recent connections, multiple local identities,
+  capture/playback profiles.
+- System tray, sound notifications with built-in spoken alerts (connection,
+  channel join/leave, permissions, microphone and playback) and optional
+  text-to-speech narration (`QTextToSpeech`).
+- Fully configurable hotkeys — including mouse buttons, captured at multiple
+  layers so they don't depend only on the classic Windows event (useful with
+  gaming-mouse software that intercepts side buttons).
 
-**Transmissão de tela**
-- Modo **WebRTC** (recomendado): peça pra assistir a transmissão de alguém do
-  seu canal; o vídeo trafega P2P (DTLS-SRTP) e offer/answer/ICE passam pelo
-  servidor. O seletor de qualidade oferece 720p/1080p/1440p/2160p e 30/60 FPS
-  somente quando resolução, FPS e bitrate cabem nos máximos do HallaServer.
-  A resolução é escolhida no estilo YouTube (480p, 720p, 1080p, 2K e 4K),
-  preservando a proporção máxima do servidor; FPS e bitrate ficam em controles
-  separados e nunca ultrapassam o INI. Em **Opções → Capturar**, o encoder H.264
-  por hardware do Windows pode ser ativado para 1440p/4K e 60 FPS; se a GPU não
-  oferecer um MFT compatível, o cliente volta ao VP8 por software. Exige o SDK nativo do
+**Screen sharing**
+- **WebRTC** mode (recommended): ask to watch someone's stream from your
+  channel; the video travels P2P (DTLS-SRTP) while offer/answer/ICE go
+  through the server. The quality picker offers 720p/1080p/1440p/2160p and
+  30/60 FPS only when resolution, FPS and bitrate fit within the HallaServer
+  maximums. Resolution is chosen YouTube-style (480p, 720p, 1080p, 2K and
+  4K), preserving the server's maximum aspect ratio; FPS and bitrate live in
+  separate controls and never exceed the INI. Under **Options → Capture**,
+  the Windows hardware H.264 encoder can be enabled for 1440p/4K and 60 FPS;
+  if the GPU does not offer a compatible MFT, the client falls back to
+  software VP8. Requires the native
   [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds)
-  compilado junto (veja [Compilando](#compilando)).
-- Áudio opcional do PC via process loopback no Windows: captura os fluxos dos
-  demais aplicativos e exclui `Halla.exe` e seus processos-filhos, evitando
-  retransmitir as vozes e os avisos do próprio cliente (Windows build 20348+).
-  O mesmo PCM alimenta exclusivamente a track de áudio WebRTC para todos os
-  viewers. No Desktop, um playout interno de 10 ms mantém a decodificação ativa;
-  um prebuffer curto de 40 ms absorve jitter sem atrasar perceptivelmente o áudio
-  em relação ao vídeo, e o PCM é reproduzido pelo mixer/QAudioSink.
-- O botão compacto **Assistir Live** usa pill azul/roxa, indicador de live e play,
-  seguindo o visual do produto. O viewer mantém somente o frame WebRTC mais recente para não acumular
-  atraso. Ao mover o mouse sobre a live, uma barra animada permite mutar apenas
-  aquela transmissão ou parar de assistir; ela some ao sair ou ficar inativo.
-- Modo legado (JPEG por UDP), sempre disponível como alternativa, sem
-  depender do SDK do WebRTC.
-- A árvore de canais agrupa rajadas de atualização em um único redesenho,
-  rejeita movimentos cíclicos/duplicados e tolera dados antigos com pai inválido,
-  evitando travamentos ao reorganizar canais.
-- O criador de canal temporário recebe um editor limitado a senha, bitrate e
-  máximo de clientes, além de poder expulsar membros daquele canal.
+  SDK compiled in (see [Building](#building)).
+- Optional PC audio via process loopback on Windows: it captures the streams
+  of the other applications and excludes `Halla.exe` and its child processes,
+  avoiding re-transmitting the client's own voices and alerts (Windows build
+  20348+). The same PCM feeds exclusively the WebRTC audio track for all
+  viewers. On the Desktop, an internal 10 ms playout keeps decoding active;
+  a short 40 ms prebuffer absorbs jitter without perceptibly delaying the
+  audio relative to the video, and the PCM is played back through the
+  mixer/QAudioSink.
+- The compact **Watch Live** button uses a blue/purple pill with live and
+  play indicators, following the product's look. The viewer keeps only the
+  most recent WebRTC frame so latency does not accumulate. Hovering the mouse
+  over the stream reveals an animated bar that lets you mute just that
+  stream or stop watching; it hides when you leave or go idle.
+- Legacy mode (JPEG over UDP), always available as an alternative, with no
+  dependency on the WebRTC SDK.
+- The channel tree groups bursts of updates into a single repaint, rejects
+  cyclic/duplicate moves and tolerates stale data with an invalid parent,
+  avoiding freezes while channels are reorganized.
+- The creator of a temporary channel gets an editor limited to password,
+  bitrate and maximum clients, and can also kick members out of that
+  channel.
 
-**Segurança**
-- Canal de controle em **TLS**, com pinagem TOFU (confia no certificado na
-  primeira conexão do servidor; alerta se ele mudar depois — como o modelo do
-  SSH).
-- Identidade de cliente via par de chaves **Ed25519**: login prova posse da
-  chave privada respondendo a um desafio assinado; o UID é derivado da chave
-  pública, não é algo que o cliente possa simplesmente alegar.
-- Chave privada guardada no **cofre nativo do sistema operacional**
-  (Credential Manager/Keychain/Secret Service, via QtKeychain) — não em texto
-  puro nas configurações.
-- **E2EE real (protocolo v6)**: além do par Ed25519 da identidade, cada
-  sessão usa um par X25519 (binding assinado validado no login). Chaves de
-  voz/chat/poke/offline são geradas e distribuídas pelos próprios clientes
-  (`src/core/E2eeCrypto` + o motor v6 no `NetSession`): envelopes `e2e_key`
-  com X25519 efêmera + HKDF-SHA256 + AES-256-GCM, conteúdo par-a-par
-  estático-estático e verificação de identidade por **código SAS de 9
-  dígitos** no diálogo de informações do usuário. O servidor nunca vê chave
-  de conteúdo.
-- Voz e transmissão de tela legado cifradas com **ChaCha20-Poly1305** (AEAD)
-  usando as chaves de grupo E2EE, rotacionadas quando a composição do canal
-  muda.
-- Atualizações verificadas por checksum SHA-256 e domínio de download
-  fixado antes de instalar qualquer coisa automaticamente.
+**Security**
+- Control channel over **TLS**, with TOFU pinning (the certificate is
+  trusted on the first connection to the server; you are alerted if it
+  changes later — like the SSH model).
+- Client identity via an **Ed25519** key pair: login proves possession of
+  the private key by answering a signed challenge; the UID is derived from
+  the public key, not something the client can simply claim.
+- Private key kept in the **operating system's native vault**
+  (Credential Manager/Keychain/Secret Service, via QtKeychain) — not in
+  plain text in the settings.
+- **Real E2EE (protocol v6)**: in addition to the identity's Ed25519 pair,
+  each session uses an X25519 pair (signed binding validated at login).
+  Voice/chat/poke/offline keys are generated and distributed by the clients
+  themselves (`src/core/E2eeCrypto` + the v6 engine in `NetSession`):
+  `e2e_key` envelopes with ephemeral X25519 + HKDF-SHA256 + AES-256-GCM,
+  static-static pairwise content, and identity verification via a
+  **9-digit SAS code** in the user information dialog. The server never
+  sees a content key.
+- Voice and legacy screen sharing encrypted with **ChaCha20-Poly1305**
+  (AEAD) using the E2EE group keys, rotated whenever the channel's
+  composition changes.
+- Updates verified by SHA-256 checksum and pinned download domain before
+  anything is installed automatically.
 
-## Arquitetura do projeto
+## Project architecture
 
 ```
                      ┌───────────────────┐
-                     │     MainWindow    │  janela principal, menus, abas
+                     │     MainWindow    │  main window, menus, tabs
                      └─────────┬─────────┘
                                │
                  ┌─────────────┴─────────────┐
-                 │         ServerTab          │  uma aba = uma conexão
-                 │  (árvore + chat + info)    │
+                 │         ServerTab          │  one tab = one connection
+                 │  (tree + chat + info)      │
                  └───┬─────────────┬──────────┘
                      │             │
              ┌───────┴───┐   ┌─────┴──────┐
@@ -217,166 +233,165 @@ o que deixa o executável leve e os ícones nítidos em qualquer resolução/DPI
                      Halla Server (self-hosted)
 ```
 
-- **`NetSession`** mantém a conexão TCP de controle e um `ServerData`
-  (`src/core/Models.h`) sempre sincronizado com o estado que o servidor manda
-  — usuários, canais, permissões, etc. Toda mudança dispara sinais Qt que a
-  UI escuta para se redesenhar.
-- **`VoiceEngine`** cuida só do áudio: captura o microfone a cada 20 ms,
-  codifica em Opus e manda por UDP; do outro lado, decodifica, desenjitteriza
-  (fila por remetente) e mixa para os alto-falantes. Ele degrada graciosamente
-  se não houver dispositivo de áudio disponível.
-- **`ServerTab`** é a aba de uma conexão: junta a árvore de canais
-  (`ServerTreeWidget`), o chat (`ChatPanel`) e o painel de informações
-  (`InfoPanel`), e é quem liga os sinais do `NetSession`/`VoiceEngine` à
-  interface (inclusive a lógica de PTT/sussurro "segurar tecla").
-- **`OptionsDialog`** replica a janela de Opções clássica, com navegação
-  lateral por categoria (Aplicativo, Reprodução, Capturar, Aparência,
-  Notificações, Teclas de atalho, Sussurro, Segurança, Complementos).
+- **`NetSession`** keeps the TCP control connection and a `ServerData`
+  (`src/core/Models.h`) always in sync with the state the server sends
+  — users, channels, permissions, etc. Every change fires Qt signals that
+  the UI listens to in order to repaint.
+- **`VoiceEngine`** handles only audio: it captures the microphone every
+  20 ms, encodes it to Opus and sends it over UDP; on the other end, it
+  decodes, dejitters (a queue per sender) and mixes to the speakers. It
+  degrades gracefully when no audio device is available.
+- **`ServerTab`** is the tab of a connection: it brings together the channel
+  tree (`ServerTreeWidget`), the chat (`ChatPanel`) and the information panel
+  (`InfoPanel`), and it is what wires `NetSession`/`VoiceEngine` signals
+  into the interface (including the PTT/whisper "hold key" logic).
+- **`OptionsDialog`** recreates the classic Options window, with sidebar
+  navigation by category (Application, Playback, Capture, Appearance,
+  Notifications, Hotkeys, Whisper, Security, Add-ons).
 
-## Protocolo de rede
+## Network protocol
 
-Especificado por completo em
+Fully specified in
 [`PROTOCOL.md`](https://github.com/GroupHalla/HallaServer/blob/main/PROTOCOL.md)
-do `HallaServer`, e implementado aqui em `src/net/HallaProtocol.h`:
+of `HallaServer`, and implemented here in `src/net/HallaProtocol.h`:
 
-- **Controle**: TCP + **TLS 1.2+**, mensagens JSON compactadas, uma por linha
-  (`\n` como delimitador), até 2 MiB por mensagem. Cada mensagem tem um campo
-  `"t"` com o tipo (`"talking"`, `"whisper"`, `"user_state"`, sinalização
-  `"webrtc_*"`, etc.).
-- **Voz (UDP)**: pacotes Opus de 20 ms cifrados com **ChaCha20-Poly1305**
-  (AEAD), com um "magic" de 4 bytes, o ID de quem fala, número de sequência e
-  o payload autenticado — o servidor nunca decifra, só retransmite.
-- **Identidade**: par de chaves Ed25519 por cliente; login exige assinar um
-  desafio (nonce) do servidor — o UID vem do hash da chave pública, não do
-  que o cliente diz que é.
-- Porta padrão: **9987/tcp+udp**.
-- Protocolo versionado (`kProtoVersion` / `kProtoMin`, atualmente **v6**):
-  o servidor aceita exclusivamente v6. O v6 exige **E2EE** — chaves de
-  conteúdo geradas e distribuídas pelos clientes (`e2e_key`, SAS), e a
-  camada de segurança (TLS, identidade Ed25519, voz cifrada) é obrigatória
-  independente da versão.
+- **Control**: TCP + **TLS 1.2+**, compressed JSON messages, one per line
+  (`\n` as the delimiter), up to 2 MiB per message. Each message has a `"t"`
+  field with the type (`"talking"`, `"whisper"`, `"user_state"`, `"webrtc_*"`
+  signaling, etc.).
+- **Voice (UDP)**: 20 ms Opus packets encrypted with **ChaCha20-Poly1305**
+  (AEAD), with a 4-byte magic, the speaker's ID, a sequence number and the
+  authenticated payload — the server never decrypts, it only relays.
+- **Identity**: one Ed25519 key pair per client; login requires signing a
+  challenge (nonce) from the server — the UID comes from the hash of the
+  public key, not from whatever the client claims to be.
+- Default port: **9987/tcp+udp**.
+- Versioned protocol (`kProtoVersion` / `kProtoMin`, currently **v6**):
+  the server accepts only v6. v6 requires **E2EE** — content keys generated
+  and distributed by the clients (`e2e_key`, SAS) — and the security layer
+  (TLS, Ed25519 identity, encrypted voice) is mandatory regardless of the
+  version.
 
-## Áudio e voz
+## Audio and voice
 
-- Captura via `QAudioSource` a 48 kHz mono e reprodução estéreo via
-  `QAudioSink`, em quadros de 20 ms.
-- Codificação Opus e um decoder independente por remetente (`libopus`).
-- Fila por usuário, callbacks PCM do SDK, espacialização/rádio por participante
-  e mixagem estéreo com saturação antes do alto-falante.
-- PTT e sussurro são "hold keys": o app monitora periodicamente (tecla ou
-  botão do mouse) se a tecla configurada está fisicamente pressionada,
-  inclusive via captura global no Windows, para funcionar mesmo com o Halla
-  em segundo plano.
+- Capture via `QAudioSource` at 48 kHz mono and stereo playback via
+  `QAudioSink`, in 20 ms frames.
+- Opus encoding and one independent decoder per sender (`libopus`).
+- Queue per user, SDK PCM callbacks, per-participant spatialization/radio
+  and stereo mixing with saturation before the speaker.
+- PTT and whisper are "hold keys": the app periodically polls (key or mouse
+  button) whether the configured key is physically pressed, including via
+  global capture on Windows, so it works even when Halla is in the
+  background.
 
-## Estrutura de código
+## Code structure
 
 ```
 src/
-├── app/            MainWindow (janela/menus), Theme (claro/escuro),
-│                   SoundPack (sons), Speech (TTS)
-├── core/           Models.h (dados de sessão), Settings.h (config
-│                   persistente), SecureStore (cofre do SO via QtKeychain),
-│                   E2eeCrypto (X25519/Ed25519 + HKDF + AES-256-GCM do
-│                   E2EE v6), BadgeRegistry, AppLog (registro de eventos)
-├── net/            NetSession (TCP/controle, TLS+TOFU, motor E2EE v6 —
-│                   chaves de grupo, envelopes e2e_key, SAS), VoiceEngine
-│                   (UDP/áudio, AEAD), HallaProtocol.h (protocolo
-│                   compartilhado com o servidor)
-├── webrtc/         HallaWebRtcSession (transmissão de tela via WebRTC,
-│                   opcional — requer o SDK do Halla WebRTC Builds)
+├── app/            MainWindow (window/menus), Theme (light/dark),
+│                   SoundPack (sounds), Speech (TTS)
+├── core/           Models.h (session data), Settings.h (persistent
+│                   config), SecureStore (OS vault via QtKeychain),
+│                   E2eeCrypto (X25519/Ed25519 + HKDF + AES-256-GCM of
+│                   E2EE v6), BadgeRegistry, AppLog (event logging)
+├── net/            NetSession (TCP/control, TLS+TOFU, E2EE v6 engine —
+│                   group keys, e2e_key envelopes, SAS), VoiceEngine
+│                   (UDP/audio, AEAD), HallaProtocol.h (protocol
+│                   shared with the server)
+├── webrtc/         HallaWebRtcSession (WebRTC screen sharing,
+│                   optional — requires the Halla WebRTC Builds SDK)
 ├── gui/            ServerTab, ServerTreeWidget, ChatPanel, InfoPanel,
-│                   HotkeyEdit, Icons (ícones desenhados em código),
+│                   HotkeyEdit, Icons (icons drawn in code),
 │                   WelcomePage, TsBanner, RichTextBrowser
 ├── dialogs/        OptionsDialog, ConnectDialog, ChannelDialog,
-│                   GroupsDialog, IdentityDialog (chaves Ed25519),
-│                   BookmarksDialog, AdminDialogs (banlist/reclamações/
-│                   grupos/permissões), ToolsDialogs (sussurro/contatos/
-│                   transferência de arquivos), MiniDialogs
+│                   GroupsDialog, IdentityDialog (Ed25519 keys),
+│                   BookmarksDialog, AdminDialogs (banlist/complaints/
+│                   groups/permissions), ToolsDialogs (whisper/contacts/
+│                   file transfer), MiniDialogs
 │                   (poke/kick-ban/volume/etc.), LogDialog, AboutDialog
-├── assets/         logo e ícones vetoriais da árvore
-└── main.cpp        ponto de entrada (Qt Application, tema, argumentos)
+├── assets/         logo and vector icons for the tree
+└── main.cpp        entry point (Qt Application, theme, arguments)
 ```
 
-## Extensões e pacotes do cliente
+## Client extensions and packages
 
-A aba **Opções → Complementos** instala pacotes `.halla-addon`, ativa/desativa
-plugins, abre configurações declaradas pelo pacote e consulta o catálogo HTTPS.
-Plugins nativos para Windows usam `QLibrary` e a ABI C pública em
-[`sdk/halla_plugin_api.h`](sdk/halla_plugin_api.h). Além da API-base compatível,
-o SDK possui interfaces modulares de conexões, clientes/canais, PCM de captura
-e reprodução, áudio 3D, filtros de rádio, transporte de dados pelo protocolo v5,
-notificações, ações e atalhos. O transporte respeita isolamento de canal e a
-permissão `pluginData`; broadcasts globais exigem a permissão administrativa
-`pluginDataGlobal`. Há um exemplo mínimo em
-[`examples/plugins/hello_world`](examples/plugins/hello_world) e um consumidor
-avançado em [`examples/plugins/advanced_sdk`](examples/plugins/advanced_sdk).
+The **Options → Add-ons** tab installs `.halla-addon` packages, enables and
+disables plugins, opens settings declared by the package and browses the
+HTTPS catalog. Native Windows plugins use `QLibrary` and the public C ABI in
+[`sdk/halla_plugin_api.h`](sdk/halla_plugin_api.h). Beyond the compatible
+base API, the SDK has modular interfaces for connections, clients/channels,
+capture and playback PCM, 3D audio, radio filters, data transport over
+protocol v5, notifications, actions and shortcuts. The transport respects
+channel isolation and the `pluginData` permission; global broadcasts require
+the administrative permission `pluginDataGlobal`. There is a minimal example
+in [`examples/plugins/hello_world`](examples/plugins/hello_world) and an
+advanced consumer in [`examples/plugins/advanced_sdk`](examples/plugins/advanced_sdk).
 
-O Desktop também inclui o **Overlay oficial da call** e o complemento oficial
-**Voz de rádio policial**. O segundo filtra envio e escuta separadamente para
-sussurros, voz normal ou ambos, com intensidade e chiado configuráveis. Consulte
-[`docs/PLUGINS.md`](docs/PLUGINS.md) para manifesto, empacotamento, áudio,
-eventos e regras de segurança.
+The Desktop also ships the official **call overlay** and the official
+**police radio voice** add-on. The latter filters sending and listening
+separately for whispers, normal voice or both, with configurable intensity
+and static noise. See [`docs/PLUGINS.md`](docs/PLUGINS.md) for the manifest,
+packaging, audio, events and security rules.
 
-## Compilando
+## Building
 
-### Dependências
+### Dependencies
 
 - CMake ≥ 3.21
-- Compilador com C++17
-- Qt 6.2+ com os módulos **Widgets**, **Network**, **Multimedia** e
-  **TextToSpeech**
-- **OpenSSL** (identidade Ed25519, hash de senha, voz AEAD)
-- **libopus** (no Windows, uma build estática em `third_party/opus/`; no
-  Linux/macOS, a versão do sistema via `pkg-config`)
-- **QtKeychain** (armazenamento seguro da identidade no cofre do SO)
-- Opcional: o SDK nativo do
+- Compiler with C++17
+- Qt 6.2+ with the **Widgets**, **Network**, **Multimedia** and
+  **TextToSpeech** modules
+- **OpenSSL** (Ed25519 identity, password hashing, AEAD voice)
+- **libopus** (on Windows, a static build in `third_party/opus/`; on
+  Linux/macOS, the system version via `pkg-config`)
+- **QtKeychain** (secure storage of the identity in the OS vault)
+- Optional: the native SDK from
   [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds),
-  para transmissão de tela via WebRTC (sem ele, o app builda normalmente e
-  cai no modo legado de transmissão de tela)
+  for screen sharing over WebRTC (without it, the app builds normally and
+  falls back to the legacy screen-sharing mode)
 
 ### Linux
 
 ```bash
-./build-linux.sh        # instala cmake/ninja/qt6-base-dev se faltar
+./build-linux.sh        # installs cmake/ninja/qt6-base-dev if missing
 ./build/Halla
 ```
 
-### Windows / manual (qualquer plataforma)
+### Windows / manual (any platform)
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Para habilitar o WebRTC nativo (transmissão de tela P2P), baixe/compile o SDK
-do [Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds) e
-adicione:
+To enable native WebRTC (P2P screen sharing), download/build the SDK from
+[Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds) and
+add:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
   -DHALLA_ENABLE_WEBRTC_NATIVE=ON \
-  -DHALLA_WEBRTC_SDK_DIR=/caminho/para/halla-webrtc-sdk
+  -DHALLA_WEBRTC_SDK_DIR=/path/to/halla-webrtc-sdk
 ```
 
-No Windows, o CMake também embute o ícone e as informações de versão do
-executável (`src/halla.rc.in`) e monta o instalador NSIS (`packaging/halla-setup.nsi`).
+On Windows, CMake also embeds the executable's icon and version information
+(`src/halla.rc.in`) and builds the NSIS installer (`packaging/halla-setup.nsi`).
 
-## Projetos relacionados
+## Related projects
 
-- **[Halla Server](https://github.com/GroupHalla/HallaServer)** — servidor
-  auto-hospedável (C++/Qt) que fala o mesmo protocolo; veja
+- **[Halla Server](https://github.com/GroupHalla/HallaServer)** — a
+  self-hostable server (C++/Qt) that speaks the same protocol; see
   [`PROTOCOL.md`](https://github.com/GroupHalla/HallaServer/blob/main/PROTOCOL.md)
-  para a especificação completa.
-- **[Halla Mobile](https://github.com/GroupHalla/Halla-Mobile)** — cliente
-  Android nativo (Kotlin + núcleo C++/JNI), não Qt.
+  for the full specification.
+- **[Halla Mobile](https://github.com/GroupHalla/Halla-Mobile)** — native
+  Android client (Kotlin + C++/JNI core), not Qt.
 - **[Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds)**
-  — SDK nativo do WebRTC pré-compilado, usado pela transmissão de tela deste
-  cliente.
+  — prebuilt native WebRTC SDK, used by this client's screen sharing.
 
-## Licença
+## License
 
-Livre para uso não comercial ([`LICENSE`](LICENSE)): usar, estudar,
-modificar e redistribuir gratuitamente, sem pedir permissão. Vender,
-alugar ou embutir em produto comercial exige autorização escrita dos
-mantenedores. Componentes de terceiros (Qt, Opus, OpenSSL, libwebrtc,
-mbedTLS) seguem as respectivas licenças originais.
+Free for non-commercial use ([`LICENSE`](LICENSE)): use, study, modify and
+redistribute free of charge, without asking permission. Selling, renting or
+embedding it in a commercial product requires written authorization from the
+maintainers. Third-party components (Qt, Opus, OpenSSL, libwebrtc,
+mbedTLS) follow their respective original licenses.

@@ -1,21 +1,21 @@
-# SDK de complementos do Halla Desktop
+# Halla Desktop Add-on SDK
 
-O Halla Desktop carrega plugins nativos da comunidade por uma ABI C estável,
-Qt-free, declarada em [`sdk/halla_plugin_api.h`](../sdk/halla_plugin_api.h). No
-Windows, cada plugin é uma DLL carregada com `QLibrary`. O cabeçalho e os
-exemplos podem ser usados sob a licença permissiva de
+Halla Desktop loads community native plugins through a stable, Qt-free C ABI,
+declared in [`sdk/halla_plugin_api.h`](../sdk/halla_plugin_api.h). On
+Windows, each plugin is a DLL loaded with `QLibrary`. The header and the
+examples can be used under the permissive license of
 [`sdk/LICENSE.txt`](../sdk/LICENSE.txt).
 
-> **Segurança:** uma DLL executa no mesmo processo e com os mesmos privilégios
-> do Halla. Capacidades declaradas informam ao usuário o que o complemento
-> pretende fazer, mas não formam uma sandbox contra código nativo malicioso.
+> **Security:** a DLL runs in the same process and with the same privileges
+> as Halla. Declared capabilities tell the user what the add-on intends to
+> do, but they do not form a sandbox against malicious native code.
 
-## Compatibilidade da ABI
+## ABI compatibility
 
-A ABI-base continua sendo `HALLA_PLUGIN_ABI_VERSION 1`. Plugins produzidos com
-o SDK 1.0.63 permanecem binariamente compatíveis. Recursos extensos não foram
-acrescentados diretamente a uma estrutura gigante: o campo aditivo
-`HallaHostApi::query_interface` fornece módulos independentes e versionados:
+The base ABI remains `HALLA_PLUGIN_ABI_VERSION 1`. Plugins built with
+SDK 1.0.63 remain binary-compatible. Extensive features were not added
+directly to a giant struct: the additive field
+`HallaHostApi::query_interface` provides independent, versioned modules:
 
 ```text
 halla.core.v1
@@ -25,28 +25,28 @@ halla.data.v1
 halla.ui.v1
 ```
 
-Antes de usar `query_interface`, confira `host->struct_size`. Um plugin deve
-aceitar que uma interface ou função opcional não esteja disponível.
+Before using `query_interface`, check `host->struct_size`. A plugin must
+accept that an interface or optional function may be unavailable.
 
-## Pacote `.halla-addon`
+## The `.halla-addon` package
 
-O pacote é um ZIP comum renomeado para `.halla-addon`:
+The package is a regular ZIP renamed to `.halla-addon`:
 
 ```text
 manifest.json
-bin/windows-x64/meu_plugin.dll
+bin/windows-x64/my_plugin.dll
 assets/...
 ```
 
-Exemplo avançado de manifesto:
+Advanced manifest example:
 
 ```json
 {
-  "id": "com.exemplo.audio-posicional",
-  "name": "Áudio posicional",
+  "id": "com.example.positional-audio",
+  "name": "Positional audio",
   "version": "1.0.0",
-  "author": "Comunidade Halla",
-  "description": "Integra posição e rádio de um jogo.",
+  "author": "Halla Community",
+  "description": "Integrates position and radio from a game.",
   "type": "native",
   "apiVersion": 1,
   "defaultEnabled": false,
@@ -60,14 +60,14 @@ Exemplo avançado de manifesto:
   ],
   "platforms": {
     "windows-x64": {
-      "library": "bin/windows-x64/audio_posicional.dll"
+      "library": "bin/windows-x64/positional_audio.dll"
     }
   },
   "settings": [
     {
       "key": "maxDistance",
       "type": "int",
-      "label": "Distância máxima",
+      "label": "Maximum distance",
       "default": 60,
       "min": 5,
       "max": 1000
@@ -76,131 +76,135 @@ Exemplo avançado de manifesto:
 }
 ```
 
-IDs aceitam letras ASCII minúsculas, números, ponto, hífen e sublinhado. A
-biblioteca deve ter caminho relativo e permanecer dentro do pacote.
+IDs accept lowercase ASCII letters, numbers, dot, hyphen and underscore. The
+library must use a relative path and remain inside the package.
 
-O empacotador oficial cria ZIP reproduzível e checksum:
+The official packager creates a reproducible ZIP and checksum:
 
 ```bash
-python tools/package_plugin.py pasta-do-plugin meu-plugin.halla-addon
+python tools/package_plugin.py my-plugin-folder my-plugin.halla-addon
 ```
 
-## Capacidades
+## Capabilities
 
-| Capacidade | Acesso fornecido |
+| Capability | Access granted |
 |---|---|
-| `connection.read` | Snapshots de conexões, servidores, usuários, canais e permissões |
-| `connection.control` | Canal próprio, estados, apelido, chat, whisper, mute e volume locais |
-| `audio.capture` | PCM S16 do microfone antes da codificação Opus |
-| `audio.playback` | PCM de cada voz recebida e mixagem estéreo final |
-| `audio.spatial` | Posição 3D, ganho, pan e filtro de rádio por usuário |
-| `plugin.data` | Mensagens TLS entre instâncias do mesmo complemento |
-| `ui.notifications` | Notificações do cliente |
-| `ui.actions` | Ações no menu Complementos e atalhos de janela |
+| `connection.read` | Snapshots of connections, servers, users, channels and permissions |
+| `connection.control` | Own channel, states, nickname, chat, whisper, local mute and volume |
+| `audio.capture` | S16 PCM from the microphone before Opus encoding |
+| `audio.playback` | PCM of each received voice and the final stereo mix |
+| `audio.spatial` | 3D position, gain, pan and per-user radio filter |
+| `plugin.data` | TLS messages between instances of the same add-on |
+| `ui.notifications` | Client notifications |
+| `ui.actions` | Actions in the Add-ons menu and window shortcuts |
 
-O instalador mostra as capacidades solicitadas antes da confirmação final.
-Interfaces não declaradas retornam `NULL`; operações não autorizadas retornam
+The installer shows the requested capabilities before the final confirmation.
+Undeclared interfaces return `NULL`; unauthorized operations return
 `HALLA_RESULT_PERMISSION_DENIED`.
 
-## Entrada e ciclo de vida
+## Entry point and lifecycle
 
-A DLL exporta uma função C sem name mangling:
+The DLL exports a C function without name mangling:
 
 ```cpp
 extern "C" HALLA_PLUGIN_EXPORT
 const HallaPluginApi* halla_plugin_entry(void);
 ```
 
-O plugin fornece:
+The plugin provides:
 
-- metadados que devem corresponder ao manifesto;
-- `initialize` e `shutdown`;
-- `on_event` para eventos JSON;
-- `on_settings_changed` para configuração atualizada sem reinicialização.
+- metadata that must match the manifest;
+- `initialize` and `shutdown`;
+- `on_event` for JSON events;
+- `on_settings_changed` for updated settings without a restart.
 
-`shutdown()` deve cancelar trabalhos, remover callbacks e liberar recursos
-antes de retornar. O Halla também remove processadores, handlers, ações e
-estado espacial restantes antes de descarregar a biblioteca.
+`shutdown()` must cancel jobs, remove callbacks and release resources before
+returning. Halla also removes any remaining processors, handlers, actions and
+spatial state before unloading the library.
 
-## Interface Core
+## Core interface
 
-`HallaCoreApiV1` oferece:
+`HallaCoreApiV1` offers:
 
-- relógio monotônico em milissegundos;
-- informações JSON do aplicativo, plataforma e interfaces;
-- `post_to_ui`, para agendar trabalho curto na thread principal.
+- a monotonic clock in milliseconds;
+- JSON information about the application, platform and interfaces;
+- `post_to_ui`, to schedule short work on the main thread.
 
-`post_to_ui` pode ser chamado por uma thread própria do complemento. A função
-agendada não deve bloquear a interface.
+`post_to_ui` can be called from a thread owned by the add-on. The scheduled
+function must not block the interface.
 
-## Conexões, clientes e canais
+## Connections, clients and channels
 
-`HallaConnectionApiV1` trabalha com `connection_id`. O valor zero representa a
-conexão ativa. IDs permanecem estáveis durante a vida da aba.
+`HallaConnectionApiV1` works with `connection_id`. The zero value represents
+the active connection. IDs remain stable for the lifetime of the tab.
 
-`get_connections_json` lista todas as abas; `get_connection_json` fornece:
+`get_connections_json` lists all tabs; `get_connection_json` provides:
 
-- servidor, endereço, versão, plataforma e ping;
-- usuário local e canal atual;
-- permissões efetivas;
-- todos os usuários visíveis, UIDs, canais, estados de fala e mudo;
-- grupos, descrição, volume/mute local e screen share;
-- árvore completa de canais visíveis, codec, bitrate, vínculos e participantes.
+- server, address, version, platform and ping;
+- the local user and current channel;
+- effective permissions;
+- all visible users, UIDs, channels, speaking and mute states;
+- groups, description, local volume/mute and screen share;
+- the full tree of visible channels, codec, bitrate, links and participants.
 
-Operações de controle incluem:
+Control operations include:
 
-- mover o próprio usuário;
-- definir mudo de entrada/saída e ausência;
-- mudar apelido;
-- enviar chat de canal, servidor ou privado;
-- definir destinos de whisper;
-- silenciar e ajustar volume de um usuário localmente;
-- mover, cutucar, definir comandante, expulsar ou banir usuários;
-- criar, editar e excluir canais por objetos JSON do protocolo.
+- moving your own user;
+- setting input/output mute and away;
+- changing the nickname;
+- sending channel, server or private chat;
+- setting whisper targets;
+- locally muting and adjusting a user's volume;
+- moving, poking, setting channel commander, kicking or banning users;
+- creating, editing and deleting channels through the protocol's JSON
+  objects.
 
-O servidor continua sendo a autoridade. Permissões, hierarquia, senha e demais
-regras podem recusar uma ação solicitada pelo plugin.
+The server remains the authority. Permissions, hierarchy, password and other
+rules can refuse an action requested by the plugin.
 
-## Pipeline de áudio
+## Audio pipeline
 
-O motor de voz usa Opus mono, 48 kHz, quadros de 20 ms e reprodução estéreo.
-Cada remetente possui seu próprio decoder Opus e sua própria fila. As vozes são
-processadas individualmente, espacializadas e depois mixadas com saturação.
+The voice engine uses mono Opus, 48 kHz, 20 ms frames and stereo playback.
+Each sender has its own Opus decoder and its own queue. Voices are processed
+individually, spatialized and then mixed with saturation.
 
-### Callbacks PCM
+### PCM callbacks
 
-`register_processor` registra uma callback nos estágios:
+`register_processor` registers a callback at the stages:
 
-| Estágio | Formato |
+| Stage | Format |
 |---|---|
-| `HALLA_AUDIO_CAPTURE` | PCM S16 mono, usuário local, antes de VAD/Opus |
-| `HALLA_AUDIO_CAPTURE_AFTER_VAD` | PCM S16 mono do usuário local após a decisão de transmissão (VAD/PTT) — ponto correto para filtros com AGC, que de outra forma elevariam o ruído e abririam o detector de voz sozinhos |
-| `HALLA_AUDIO_REMOTE_BEFORE_SPATIAL` | PCM S16 mono de um participante após Opus |
-| `HALLA_AUDIO_MIXED_PLAYBACK` | PCM S16 estéreo da mixagem final |
+| `HALLA_AUDIO_CAPTURE` | Mono S16 PCM, local user, before VAD/Opus |
+| `HALLA_AUDIO_CAPTURE_AFTER_VAD` | Mono S16 PCM from the local user after the transmit decision (VAD/PTT) — the correct point for filters with AGC, which would otherwise raise the noise and open the voice detector on their own |
+| `HALLA_AUDIO_REMOTE_BEFORE_SPATIAL` | Mono S16 PCM from a participant after Opus |
+| `HALLA_AUDIO_MIXED_PLAYBACK` | Stereo S16 PCM from the final mix |
 
-No Halla Mobile a decisão de transmissão ocorre antes da camada nativa, então a captura é reportada como `HALLA_AUDIO_CAPTURE` e o registro em `HALLA_AUDIO_CAPTURE_AFTER_VAD` é aceito como sinônimo.
+On Halla Mobile the transmit decision happens before the native layer, so
+capture is reported as `HALLA_AUDIO_CAPTURE` and registering at
+`HALLA_AUDIO_CAPTURE_AFTER_VAD` is accepted as a synonym.
 
-`HallaAudioFrame` contém conexão, usuário, amostras mutáveis, frames, canais,
-sample rate e flags. `HALLA_AUDIO_FLAG_WHISPER` informa que aquele quadro está
-sendo enviado/recebido como sussurro. Teste `struct_size` antes de ler campos
-aditivos. Os buffers pertencem ao Halla e são válidos somente durante a callback.
+`HallaAudioFrame` contains the connection, user, mutable samples, frames,
+channels, sample rate and flags. `HALLA_AUDIO_FLAG_WHISPER` indicates that
+the frame is being sent/received as a whisper. Test `struct_size` before
+reading additive fields. The buffers belong to Halla and are valid only
+during the callback.
 
-### Regras de tempo real
+### Real-time rules
 
-Callbacks de áudio **não podem**:
+Audio callbacks **must not**:
 
-- bloquear em rede, arquivo, mutex demorado ou UI;
-- abrir diálogos;
-- esperar outra thread;
-- reter o ponteiro de amostras;
-- lançar exceções através da fronteira C.
+- block on network, files, a long-held mutex or the UI;
+- open dialogs;
+- wait on another thread;
+- retain the samples pointer;
+- throw exceptions across the C boundary.
 
-Pré-aloque buffers e envie trabalho não urgente para outra thread. Uma exceção
-capturada pelo host desativa o processador daquele complemento.
+Pre-allocate buffers and send non-urgent work to another thread. An exception
+caught by the host disables that add-on's processor.
 
-### Áudio espacial de alto nível
+### High-level spatial audio
 
-Para a maioria dos plugins, prefira as funções seguras de alto nível:
+For most plugins, prefer the safe high-level functions:
 
 ```cpp
 audio->set_listener_transform(ctx, connection, &listener);
@@ -211,145 +215,151 @@ audio->set_user_pan(ctx, connection, userId, -0.25f);
 audio->set_user_radio_effect(ctx, connection, userId, 1, 0.9f, 0.15f);
 ```
 
-O host calcula atenuação entre distância mínima/máxima, orientação esquerda e
-direita, pan estéreo e filtro de rádio. Vários plugins podem contribuir; ganhos
-são multiplicados e pans somados com clamp.
+The host computes attenuation between the minimum/maximum distance, left and
+right orientation, stereo pan and the radio filter. Multiple plugins can
+contribute; gains are multiplied and pans are summed with clamping.
 
-`reset_user` e `reset_connection` removem imediatamente o estado aplicado pelo
-plugin. `play_pcm` injeta efeitos PCM S16 mono/estéreo de 48 kHz, limitados a dez
-segundos por chamada — útil para cliques, bipes e ruído de rádio. O Halla também
-remove todo o estado ao desativar/descarregar o complemento.
+`reset_user` and `reset_connection` immediately remove the state applied by
+the plugin. `play_pcm` injects 48 kHz mono/stereo S16 PCM effects, limited to
+ten seconds per call — useful for clicks, beeps and radio noise. Halla also
+removes all state when the add-on is disabled/unloaded.
 
-## Transporte de dados do plugin — protocolo v5
+## Plugin data transport — protocol v5
 
-`HallaDataApiV1` envia payload binário pelo canal TCP/TLS do Halla Server.
-Mensagens são isoladas pelo ID do complemento e podem ter como destino:
+`HallaDataApiV1` sends binary payloads over the Halla Server TCP/TLS channel.
+Messages are isolated by add-on ID and can target:
 
-- usuários específicos **do mesmo canal**;
-- participantes do canal atual;
-- todos os clientes compatíveis no servidor, somente com `pluginDataGlobal`.
+- specific users **in the same channel**;
+- participants of the current channel;
+- all compatible clients on the server, only with `pluginDataGlobal`.
 
-O envio local exige `pluginData` e `listen` efetivos no canal. Destinatários
-explícitos fora do canal fazem a mensagem inteira ser recusada; o alcance global
-é administrativo e negado por padrão.
+Sending locally requires `pluginData` and `listen` in effect on the channel.
+Explicit recipients outside the channel cause the entire message to be
+refused; the global reach is administrative and denied by default.
 
-Limites:
+Limits:
 
-- payload de 8 KiB;
-- tópico UTF-8 de 64 bytes;
-- até 64 destinos explícitos;
-- rate limit de 200 mensagens por 10 segundos por cliente.
+- 8 KiB payload;
+- 64-byte UTF-8 topic;
+- up to 64 explicit recipients;
+- rate limit of 200 messages per 10 seconds per client.
 
-O servidor não persiste nem interpreta o payload. Ele valida, limita e encaminha
-somente a clientes com protocolo v5. A callback recebe conexão, remetente,
-tópico e bytes. Para coordenadas, use estruturas versionadas, endian definido e
-frequência moderada (normalmente 10–20 Hz).
+The server does not persist or interpret the payload. It validates,
+throttles and forwards only to clients with protocol v5. The callback
+receives the connection, sender, topic and bytes. For coordinates, use
+versioned structs, a defined endianness and a moderate frequency (usually
+10–20 Hz).
 
-## Interface e atalhos
+## UI and shortcuts
 
-`HallaUiApiV1` permite:
+`HallaUiApiV1` allows:
 
-- mostrar notificações;
-- registrar ações no menu **Complementos**;
-- atribuir um atalho de janela à ação;
-- remover a ação durante `shutdown`.
+- showing notifications;
+- registering actions in the **Add-ons** menu;
+- assigning a window shortcut to the action;
+- removing the action during `shutdown`.
 
-Callbacks de ações executam na thread principal. No Windows, sequências de
-teclado compatíveis são registradas com `RegisterHotKey` e funcionam mesmo com o
-jogo em foco; se o registro global estiver ocupado ou não for representável, o
-Halla mantém o atalho no contexto da janela. Nas outras plataformas, esta versão
-usa atalho de janela.
+Action callbacks run on the main thread. On Windows, compatible keyboard
+sequences are registered with `RegisterHotKey` and keep working even with
+the game in focus; if the global registration is taken or cannot be
+represented, Halla keeps the shortcut in the window context. On the other
+platforms, this version uses window shortcuts.
 
-## Eventos JSON
+## JSON events
 
-Eventos atuais:
+Current events:
 
-- `client_state`: snapshot compacto da conexão ativa, usado também pelo overlay;
+- `client_state`: compact snapshot of the active connection, also used by
+  the overlay;
 - `connection_opened` / `connection_closed`;
-- `connection_state`: snapshot detalhado de qualquer conexão atualizada;
-- `chat_message` e `poke_received`;
-- `server_error`: recusa assíncrona de uma ação pelo servidor;
-- `plugin_data`: cópia base64 para compatibilidade com plugins orientados a eventos;
+- `connection_state`: detailed snapshot of any updated connection;
+- `chat_message` and `poke_received`;
+- `server_error`: asynchronous refusal of an action by the server;
+- `plugin_data`: base64 copy for compatibility with event-driven plugins;
 - `application_shutdown`.
 
-Plugins que registram `HallaPluginDataFn` recebem também o payload binário direto,
-sem conversão base64.
+Plugins that register `HallaPluginDataFn` also receive the binary payload
+directly, with no base64 conversion.
 
-## Arquitetura para SaltyChat, TFAR e ACRE
+## Architecture for SaltyChat, TFAR and ACRE
 
-Uma integração recomendada possui três partes:
+A recommended integration has three parts:
 
-1. Um resource/mod do jogo obtém posição, orientação, veículo e rádio por API
-   oficial e entrega os dados à DLL por named pipe/socket local.
-2. A DLL envia metadados versionados por `HallaDataApiV1` e recebe os estados
-   dos outros participantes.
-3. A DLL atualiza listener/fontes por `HallaAudioApiV1`; o Halla executa
-   atenuação, pan e filtros dentro do pipeline de áudio.
+1. A game resource/mod obtains position, orientation, vehicle and radio
+   through the official API and delivers the data to the DLL via named
+   pipe/local socket.
+2. The DLL sends versioned metadata via `HallaDataApiV1` and receives the
+   states of the other participants.
+3. The DLL updates listener/sources via `HallaAudioApiV1`; Halla performs
+   the attenuation, pan and filters inside the audio pipeline.
 
-Ler memória do jogo com `ReadProcessMemory` é tecnicamente possível para uma DLL
-nativa, mas não é oferecido nem recomendado pelo Halla: pode quebrar em updates e
-acionar anticheats. Prefira APIs de FiveM/Arma e IPC local autenticado.
+Reading game memory with `ReadProcessMemory` is technically possible for a
+native DLL, but it is neither offered nor recommended by Halla: it can break
+on updates and trigger anticheats. Prefer FiveM/Arma APIs and authenticated
+local IPC.
 
-## Exemplos
+## Examples
 
-- [`examples/plugins/hello_world`](../examples/plugins/hello_world): ABI-base,
-  log, configurações e eventos.
-- [`examples/plugins/advanced_sdk`](../examples/plugins/advanced_sdk): descoberta
-  modular, snapshots de conexões, callback PCM, dados binários, notificação,
-  ação e atalho.
+- [`examples/plugins/hello_world`](../examples/plugins/hello_world): base
+  ABI, logging, settings and events.
+- [`examples/plugins/advanced_sdk`](../examples/plugins/advanced_sdk):
+  modular discovery, connection snapshots, PCM callback, binary data,
+  notification, action and shortcut.
 
-## Catálogo
+## Catalog
 
-A aba Complementos lê por HTTPS a central oficial de complementos:
+The Add-ons tab reads the official add-on hub over HTTPS:
 
 ```text
 https://grouphalla.github.io/Halla-Addons/api/v1/addons.json
 ```
 
-Cada item informa URL HTTPS e SHA-256. O download é cancelado se o checksum não
-corresponder.
+Each item provides an HTTPS URL and a SHA-256. The download is canceled if
+the checksum does not match.
 
-## Limites de segurança dos pacotes
+## Package security limits
 
-- 100 MiB compactados;
-- 2.000 entradas;
-- 250 MiB extraídos;
-- 256 KiB por manifesto;
-- bloqueio de caminhos absolutos, `..` e links simbólicos;
-- catálogo de no máximo 1 MiB e 500 entradas exibidas.
+- 100 MiB compressed;
+- 2,000 entries;
+- 250 MiB extracted;
+- 256 KiB per manifest;
+- blocking of absolute paths, `..` and symbolic links;
+- catalog of at most 1 MiB and 500 entries displayed.
 
-## Complementos oficiais
+## Official add-ons
 
-### Overlay da call
+### Call overlay
 
-`official.talking-overlay` é uma extensão interna, desativada por padrão. Usa
-janela transparente, click-through e sempre no topo, sem injeção ou hooking. É
-destinada a jogos em janela e tela cheia sem bordas.
+`official.talking-overlay` is an internal extension, disabled by default. It
+uses a transparent, click-through, always-on-top window, with no injection
+or hooking. It is aimed at windowed and borderless fullscreen games.
 
-### Voz de rádio policial
+### Police radio voice
 
-`official.radio-voice` também é interno e desativado por padrão. Processa PCM
-antes do Opus ao enviar e antes da espacialização ao escutar. O usuário escolhe
-se o efeito será aplicado, separadamente em cada direção, a:
+`official.radio-voice` is also internal and disabled by default. It
+processes PCM before Opus when sending and before spatialization when
+listening. The user chooses whether the effect is applied, separately in
+each direction, to:
 
-- nenhum áudio;
-- somente sussurros;
-- somente voz normal;
-- sussurros e voz normal.
+- no audio;
+- whispers only;
+- normal voice only;
+- whispers and normal voice.
 
-Intensidade, chiado e volume depois do efeito são configuráveis. O DSP combina
-AGC de pico, banda estreita de radiocomunicação, saturação, ressonância de
-alto-falante pequeno, squelch com limiar adaptativo e estática com estalos. Se
-o remetente filtrar o microfone, todos os destinatários recebem a voz já
-modificada; o filtro de escuta é local e só afeta quem o ativou. Se os
-dois lados aplicarem o efeito à mesma fala, ela será filtrada duas vezes; nesse
-caso, o destinatário pode deixar aquela direção em **Não aplicar**.
+Intensity, static noise and post-effect volume are configurable. The DSP
+combines peak AGC, a narrow radio-communication band, saturation,
+small-speaker resonance, squelch with an adaptive threshold and crackling
+static. If the sender filters the microphone, all recipients receive the
+already modified voice; the listening filter is local and only affects
+whoever enabled it. If both sides apply the effect to the same speech, it is
+filtered twice; in that case, the recipient can leave that direction at
+**Do not apply**.
 
-O mesmo efeito também é distribuído em pacote `.halla-addon` pelo catálogo
-oficial ([Halla-Addons](https://grouphalla.github.io/Halla-Addons/)): instalado,
-o pacote **substitui** o complemento interno de mesmo id, e removido, o devolve
-ao estado anterior. É por esse caminho que o filtro de rádio é atualizado sem
-publicar uma nova versão do aplicativo — a fonte do pacote vive em
-`plugins/official/radio-voice/` e o CI publica a DLL `radio_voice.dll` como
-artefato de build (junto às bibliotecas Android do Halla Mobile, entra no
-pacote multiplataforma do catálogo).
+The same effect is also distributed as a `.halla-addon` package through the
+official catalog ([Halla-Addons](https://grouphalla.github.io/Halla-Addons/)):
+installed, the package **replaces** the internal add-on with the same id;
+removed, it restores the previous state. This is the path through which the
+radio filter is updated without publishing a new application version — the
+package source lives in `plugins/official/radio-voice/` and CI publishes the
+`radio_voice.dll` as a build artifact (alongside Halla Mobile's Android
+libraries, it goes into the catalog's cross-platform package).
