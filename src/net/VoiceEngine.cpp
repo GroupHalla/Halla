@@ -385,9 +385,25 @@ void VoiceEngine::refreshDspSettings() {
     // Opções > Captura > Processamento digital de sinal. Antes do v1.1.20
     // estas chaves existiam na UI mas NÃO eram aplicadas em lugar nenhum —
     // a "redução de ruído" era literalmente um checkbox sem efeito.
-    m_apm.configure(S::flag("capture/denoise", true),
-                    S::num("capture/denoiseLevel", 50),
-                    S::flag("capture/echoCancellation", true));
+    const bool denoise = S::flag("capture/denoise", true);
+    const int level = S::num("capture/denoiseLevel", 50);
+    const bool echo = S::flag("capture/echoCancellation", true);
+    m_apm.configure(denoise, level, echo);
+    // Logging no lado do app: o módulo é moc-free para poder ser compilado
+    // standalone pelo gate de CI (tests/webrtc_apm_smoke.cpp).
+    if (!m_dspAnnounced || denoise != m_lastDspDenoise || echo != m_lastDspEcho) {
+        m_dspAnnounced = true;
+        m_lastDspDenoise = denoise;
+        m_lastDspEcho = echo;
+        if (denoise || echo) {
+            AppLog::info(tr("DSP de voz (WebRTC APM): supressão de ruído %1, cancelamento de eco %2")
+                             .arg(denoise ? tr("ligada") : tr("desligada"))
+                             .arg(echo ? tr("ligado") : tr("desligado")));
+        }
+        if ((denoise || echo) && !m_apm.denoiseActive() && !m_apm.echoActive()) {
+            AppLog::warn(tr("Este build não contém o WebRTC nativo: redução de ruído/eco indisponível."));
+        }
+    }
 }
 
 void VoiceEngine::updateSpeechDetection(double rms) {

@@ -2,7 +2,10 @@
 
 #include <QtGlobal>
 
-#include "core/AppLog.h"
+// Sem dependência de AppLog/Qt widgets aqui de propósito: o módulo é
+// compilado também pelo gate standalone de CI (tests/webrtc_apm_smoke.cpp
+// + este arquivo num único cl), que não tem moc nem o resto do app. Logging
+// de estado fica no VoiceEngine (lado do app).
 
 #ifdef HALLA_WEBRTC_NATIVE
 #include <cstddef>
@@ -21,7 +24,6 @@ struct HallaAudioProcessing::Impl {
     webrtc::StreamConfig streamConfig{48000, 1};
     bool denoiseEnabled = false;
     bool echoEnabled = false;
-    bool announced = false;
 #endif
 };
 
@@ -53,12 +55,7 @@ void HallaAudioProcessing::configure(bool denoiseEnabled, int denoiseLevel0to100
         // deixou de ser um checkbox sem efeito.
         m_impl->apm = webrtc::BuiltinAudioProcessingBuilder().Build(
             webrtc::CreateEnvironment());
-        if (!m_impl->apm) {
-            AppLog::warn(QStringLiteral(
-                "DSP de voz: AudioProcessing do WebRTC indisponivel neste build; "
-                "reducao de ruido/eco ficara inativa"));
-            return;
-        }
+        if (!m_impl->apm) return; // caller detecta via echoActive()/denoiseActive()
     }
 
     webrtc::AudioProcessing::Config config;
@@ -80,13 +77,6 @@ void HallaAudioProcessing::configure(bool denoiseEnabled, int denoiseLevel0to100
     m_impl->apm->ApplyConfig(config);
     m_impl->denoiseEnabled = denoiseEnabled;
     m_impl->echoEnabled = echoCancellation;
-    if (!m_impl->announced) {
-        m_impl->announced = true;
-        AppLog::info(QStringLiteral(
-            "DSP de voz ativo (WebRTC APM): supressao de ruido %1, cancelamento de eco %2")
-            .arg(denoiseEnabled ? QStringLiteral("ligado") : QStringLiteral("desligado"))
-            .arg(echoCancellation ? QStringLiteral("ligado") : QStringLiteral("desligado")));
-    }
 #else
     Q_UNUSED(denoiseEnabled)
     Q_UNUSED(denoiseLevel0to100)

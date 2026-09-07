@@ -137,6 +137,9 @@ private:
     // DSP de voz do microfone: eco (AEC3) + ruído (neural) via WebRTC APM.
     HallaAudioProcessing m_apm;
     class QTimer* m_dspTimer = nullptr;
+    bool m_dspAnnounced = false;
+    bool m_lastDspDenoise = true;
+    bool m_lastDspEcho = true;
     bool m_pttHeld = false;
     bool m_whisperHeld = false;
     bool m_whisperTargetsConfigured = false;
