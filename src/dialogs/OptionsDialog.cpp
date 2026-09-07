@@ -987,8 +987,15 @@ QWidget* OptionsDialog::pageCapture() {
     HotkeyEdit* pttKey = new HotkeyEdit(pttSub);
     pttKey->setSpec(S::str("capture/pttKey", "Space"));
     pttKey->setMaximumWidth(230);
+    // A tecla PTT é aplicada NA HORA: sem o hotkeysChanged abaixo, o
+    // RegisterHotKey/Raw Input da tecla nova só era (re)feito no próximo
+    // início do app — "seleciono a tecla e ela não aperta" era exatamente
+    // isto. O MainWindow reage com applyHotkeys() -> registerPttHotkey().
     connect(pttKey, &HotkeyEdit::specChanged, this,
-            [](const QString& s) { S::set("capture/pttKey", s); });
+            [this](const QString& s) {
+                S::set("capture/pttKey", s);
+                emit hotkeysChanged();
+            });
     QLabel* moreKeys = new QLabel(
         QStringLiteral("<a href=\"hotkeys\">%1</a>").arg(tr("Definir mais teclas de atalho")),
         pttSub);
@@ -1048,9 +1055,12 @@ QWidget* OptionsDialog::pageCapture() {
     if (curMode == 0)      rbPtt->setChecked(true);
     else if (curMode == 2) rbCont->setChecked(true);
     else                   rbVad->setChecked(true);
-    connect(rbPtt,  &QRadioButton::toggled, this, [](bool v) { if (v) S::set("capture/pttMode", 0); });
-    connect(rbVad,  &QRadioButton::toggled, this, [](bool v) { if (v) S::set("capture/pttMode", 1); });
-    connect(rbCont, &QRadioButton::toggled, this, [](bool v) { if (v) S::set("capture/pttMode", 2); });
+    // Trocar de modo também re-aplica na hora: saindo do PTT a tecla global
+    // é liberada do sistema; entrando no PTT ela é registrada — sem
+    // reiniciar o Halla (a detecção de soltura continua no polling de 50 ms).
+    connect(rbPtt,  &QRadioButton::toggled, this, [this](bool v) { if (v) { S::set("capture/pttMode", 0); emit hotkeysChanged(); } });
+    connect(rbVad,  &QRadioButton::toggled, this, [this](bool v) { if (v) { S::set("capture/pttMode", 1); emit hotkeysChanged(); } });
+    connect(rbCont, &QRadioButton::toggled, this, [this](bool v) { if (v) { S::set("capture/pttMode", 2); emit hotkeysChanged(); } });
 
     // sub-opções habilitadas apenas com o modo correspondente
     auto syncSubs = [=] {
@@ -1487,6 +1497,12 @@ QWidget* OptionsDialog::pageHotkeys() {
         tr("Alternar comandante do canal"),
         tr("Alternar gravação"),
         tr("Alternar transmissão contínua"),
+        // O sussurro voltou a ser oferecido aqui: a linha tinha sido mantida
+        // na UI (o diálogo de edição ainda exibia o seletor de alvo e o texto
+        // de ajuda), era salva no perfil — e silenciosamente descartada pelo
+        // applyHotkeys(). Para quem configurou por este caminho, o sussurro
+        // simplesmente nunca disparava.
+        whisperAction,
     };
 
     // IMPORTANTE: capturar por CÓPIA — esta lambda escapa para o connect()

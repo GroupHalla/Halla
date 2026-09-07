@@ -5791,6 +5791,14 @@ Introduzca la contraseña:</translation>
       <translation>Susurro desactivado. Tu voz continúa en el canal.</translation>
     </message>
     <message>
+      <source>Sussurro (resposta): ninguém sussurrou para você ainda, ou quem sussurrou saiu do servidor.</source>
+      <translation>Susurro (respuesta): nadie te ha susurrado todavía, o quien te susurró salió del servidor.</translation>
+    </message>
+    <message>
+      <source>Sussurro (resposta): sua voz vai para %1.</source>
+      <translation>Susurro (respuesta): tu voz va a %1.</translation>
+    </message>
+    <message>
       <location filename="../src/gui/ServerTab.cpp" line="1118" />
       <source>Sussurro ativado (nenhum destinatário está conectado no momento).</source>
       <translation>Susurro habilitado (ningún destinatario ha iniciado sesión actualmente).</translation>

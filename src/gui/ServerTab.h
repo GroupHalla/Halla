@@ -59,6 +59,8 @@ public:
     // ---- v3.11: sussurro por TECLA DE ATALHO (segurar para falar, como no Halla)
     // scope: 0 = canal atual | 1 = canal atual + subcanais | 2 = lista de usuários
     void setWhisperHold(bool on, int scope);
+    // Tecla de resposta (Listas de Sussurro): alvo = quem sussurrou por último
+    void setWhisperReplyHold(bool on);
     QList<int> whisperTargetIds(int scope) const;
     bool whisperHoldActive() const { return m_whisperHold; }
 
@@ -106,6 +108,7 @@ private:
     QVector<OfflineMsgItem> m_offlineInbox;
     QStringList m_whisperUids;
     bool m_whisperHold = false;           // atalho de sussurro pressionado agora
+    int m_lastWhisperFromId = -1;         // último usuário que sussurrou (tecla de resposta)
     QList<int> m_lastSentWhisperIds;      // último conjunto whisper efetivamente enviado
     bool m_stateRefreshPending = false;   // coalesce rajadas de user_state
 

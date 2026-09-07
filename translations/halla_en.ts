@@ -5791,6 +5791,14 @@ Enter password:</translation>
       <translation>Whisper disabled. Your voice carries on the channel.</translation>
     </message>
     <message>
+      <source>Sussurro (resposta): ninguém sussurrou para você ainda, ou quem sussurrou saiu do servidor.</source>
+      <translation>Whisper (reply): no one has whispered to you yet, or the person who did has left the server.</translation>
+    </message>
+    <message>
+      <source>Sussurro (resposta): sua voz vai para %1.</source>
+      <translation>Whisper (reply): your voice goes to %1.</translation>
+    </message>
+    <message>
       <location filename="../src/gui/ServerTab.cpp" line="1118" />
       <source>Sussurro ativado (nenhum destinatário está conectado no momento).</source>
       <translation>Whisper enabled (no recipients are currently logged in).</translation>

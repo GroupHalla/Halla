@@ -5723,6 +5723,14 @@ Digite a senha:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Sussurro (resposta): ninguém sussurrou para você ainda, ou quem sussurrou saiu do servidor.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sussurro (resposta): sua voz vai para %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/gui/ServerTab.cpp" line="1118"/>
         <source>Sussurro ativado (nenhum destinatário está conectado no momento).</source>
         <translation type="unfinished"></translation>

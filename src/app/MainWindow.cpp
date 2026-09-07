@@ -896,6 +896,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     // desabilitado quando nenhum plugin registrava ações, parecendo decorativo.
     m_pluginsMenu->addAction(HIcons::addons(), tr("Gerenciar complementos..."), this, [this] {
         OptionsDialog dlg(this, currentTab() ? &currentTab()->data() : nullptr);
+        connect(&dlg, &OptionsDialog::hotkeysChanged, this, &MainWindow::applyHotkeys);
         dlg.selectPage(tr("Complementos"));
         dlg.exec();
     });
@@ -1015,6 +1016,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     spkMenu->addAction(tr("Opções de reprodução..."), this, [this] {
         OptionsDialog dlg(this, currentTab() ? &currentTab()->data() : nullptr);
         connect(&dlg, &OptionsDialog::whisperListsChanged, this, &MainWindow::applyHotkeys);
+        connect(&dlg, &OptionsDialog::hotkeysChanged, this, &MainWindow::applyHotkeys);
         dlg.selectPage(tr("Reprodução"));
         dlg.exec();
     });
@@ -1862,19 +1864,52 @@ void MainWindow::applyHotkeys() {
             const QString keyStr = o["key"].toString();
             if (keyStr.isEmpty()) continue;
 
-            // ---- Sussurrar foi removido das Teclas de Atalho gerais e agora é lido exclusivamente das Listas de Sussurros
-            if (action.contains(QStringLiteral("ussurr"), Qt::CaseInsensitive)) {
+            // ---- Sussurro nas Teclas de Atalho: vira uma tecla de "segurar
+            // para sussurrar" com o alvo (escopo) escolhido na própria linha
+            // — o mesmo motor de polling das Listas de Sussurro. Regressão
+            // corrigida: a ação continuava sendo oferecida e salva pela UI,
+            // mas era descartada aqui em silêncio; para quem configurou o
+            // sussurro por este caminho, a tecla nunca disparava.
+            const bool isWhisperAction =
+                action.contains(QStringLiteral("ussurr"), Qt::CaseInsensitive);
+
+            int mouseBtn = 0;
+            if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         mouseBtn = 4;
+            else if (keyStr == QLatin1String(HotkeyEdit::kMouse5))    mouseBtn = 5;
+            else if (keyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) mouseBtn = 3;
+
+            if (isWhisperAction) {
+#ifdef Q_OS_WIN
+                HoldKey hk;
+                hk.scope = qBound(0, o.value("scope").toInt(1), 2);
+                hk.mouseBtn = mouseBtn;
+                if (mouseBtn == 0) {
+                    UINT vk = 0, mods = 0;
+                    if (!specToVk(QKeySequence::fromString(keyStr), vk, mods))
+                        continue; // tecla não mapeável para VK: sem hold
+                    hk.vk = vk;
+                    hk.mods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT);
+                }
+                m_whisperHolds << hk;
+#else
+                const QKeySequence wseq = QKeySequence::fromString(keyStr);
+                if (!wseq.isEmpty()) {
+                    const int wscope = qBound(0, o.value("scope").toInt(1), 2);
+                    QShortcut* sc = new QShortcut(wseq, this);
+                    sc->setContext(Qt::WindowShortcut);
+                    connect(sc, &QShortcut::activated, this, [this, wscope] {
+                        if (ServerTab* t = currentTab())
+                            t->setWhisperHold(!t->whisperHoldActive(), wscope);
+                    });
+                    m_hotkeyShortcuts << sc;
+                }
+#endif
                 continue;
             }
 
             const QKeySequence seq = QKeySequence::fromString(keyStr);
             if (seq.isEmpty()) continue;
 #ifdef Q_OS_WIN
-            int mouseBtn = 0;
-            if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         mouseBtn = 4;
-            else if (keyStr == QLatin1String(HotkeyEdit::kMouse5))    mouseBtn = 5;
-            else if (keyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) mouseBtn = 3;
-
             if (mouseBtn != 0) {
                 MouseHotkey mh;
                 mh.mouseBtn = mouseBtn;
@@ -1908,22 +1943,52 @@ void MainWindow::applyHotkeys() {
             QJsonObject o = v.toObject();
             const QString listName = o["name"].toString();
             const QString keyStr = o["key"].toString();
-            if (keyStr.isEmpty()) continue;
+            const QString replyStr = o["replyKey"].toString();
+            if (keyStr.isEmpty() && replyStr.isEmpty()) continue;
 
 #ifdef Q_OS_WIN
-            HoldKey hk;
-            hk.scope = 2; // Lista de usuários
-            hk.whisperListName = listName;
-            if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         hk.mouseBtn = 4;
-            else if (keyStr == QLatin1String(HotkeyEdit::kMouse5))    hk.mouseBtn = 5;
-            else if (keyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) hk.mouseBtn = 3;
-            else {
-                UINT vk = 0, mods = 0;
-                if (!specToVk(QKeySequence::fromString(keyStr), vk, mods)) continue;
-                hk.vk = vk;
-                hk.mods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN);
+            // tecla principal da lista ("segurar para sussurrar")
+            if (!keyStr.isEmpty()) {
+                HoldKey hk;
+                hk.scope = 2; // Lista de usuários
+                hk.whisperListName = listName;
+                bool okKey = true;
+                if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         hk.mouseBtn = 4;
+                else if (keyStr == QLatin1String(HotkeyEdit::kMouse5))    hk.mouseBtn = 5;
+                else if (keyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) hk.mouseBtn = 3;
+                else {
+                    UINT vk = 0, mods = 0;
+                    if (!specToVk(QKeySequence::fromString(keyStr), vk, mods)) {
+                        okKey = false; // tecla não mapeável: segue só com a resposta
+                    } else {
+                        hk.vk = vk;
+                        hk.mods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN);
+                    }
+                }
+                if (okKey) m_whisperHolds << hk;
             }
-            m_whisperHolds << hk;
+
+            // Tecla de resposta: segura para sussurrar de volta para quem
+            // sussurrou por último. O campo era salvo pelo diálogo de
+            // listas e nunca era lido — configurar a tecla de resposta
+            // não fazia nada (vale para tecla e botão de mouse).
+            if (!replyStr.isEmpty()) {
+                HoldKey rk;
+                rk.scope = 2;
+                rk.reply = true;
+                rk.whisperListName = listName;
+                if (replyStr == QLatin1String(HotkeyEdit::kMouse4))         rk.mouseBtn = 4;
+                else if (replyStr == QLatin1String(HotkeyEdit::kMouse5))    rk.mouseBtn = 5;
+                else if (replyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) rk.mouseBtn = 3;
+                else {
+                    UINT rvk = 0, rmods = 0;
+                    if (specToVk(QKeySequence::fromString(replyStr), rvk, rmods)) {
+                        rk.vk = rvk;
+                        rk.mods = rmods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT);
+                        m_whisperHolds << rk;
+                    }
+                }
+            }
 #else
             const QKeySequence seq = QKeySequence::fromString(keyStr);
             if (!seq.isEmpty()) {
@@ -2162,11 +2227,18 @@ void MainWindow::whisperSetHeld(int idx, bool held) {
     ServerTab* t = currentTab();
     if (!t) return;
 
-    if (held && !m_whisperHolds[idx].whisperListName.isEmpty()) {
-        S::set("whisper/activeList", m_whisperHolds[idx].whisperListName);
+    const HoldKey& h = m_whisperHolds.at(idx);
+    if (h.reply) {
+        // tecla de resposta: o alvo é quem sussurrou por último
+        t->setWhisperReplyHold(held);
+        return;
     }
 
-    t->setWhisperHold(held, m_whisperHolds[idx].scope);
+    if (held && !h.whisperListName.isEmpty()) {
+        S::set("whisper/activeList", h.whisperListName);
+    }
+
+    t->setWhisperHold(held, h.scope);
 }
 
 bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,

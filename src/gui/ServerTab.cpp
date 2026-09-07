@@ -709,6 +709,8 @@ void ServerTab::refreshServerState() {
         if (u.id != m_data.selfId) {
             const bool wasTalking = m_lastTalking.value(u.id, false);
             const bool wasWhispering = m_lastWhispering.value(u.id, false);
+            if (u.whispering && !wasWhispering)
+                m_lastWhisperFromId = u.id; // tecla de resposta: último sussurrador
             if (u.talking && (!wasTalking || (u.whispering && !wasWhispering))) {
                 playRemoteSpeechCue(u, true);
             } else if (!u.talking && wasTalking) {
@@ -1372,6 +1374,36 @@ void ServerTab::setWhisperHold(bool on, int scope) {
         }
         systemMsgChannel(tr("Sussurro desativado. Sua voz segue para o canal."));
     }
+    m_tree->rebuild();
+    emit statusChanged();
+}
+
+// Tecla de resposta das Listas de Sussurro: segure para sussurrar de volta
+// para o último usuário que sussurrou para você nesta sessão. Soltar segue
+// o mesmo caminho de restauração do hold comum (lista fixa ou canal).
+void ServerTab::setWhisperReplyHold(bool on) {
+    if (!on) {
+        setWhisperHold(false, 2); // restaura a lista fixa (se houver) ou o canal
+        return;
+    }
+    const int from = m_lastWhisperFromId;
+    if (from <= 0 || from == m_data.selfId || !m_data.users.contains(from)) {
+        systemMsgChannel(tr("Sussurro (resposta): ninguém sussurrou para você "
+                            "ainda, ou quem sussurrou saiu do servidor."));
+        return;
+    }
+    if (m_data.users.contains(m_data.selfId)) {
+        m_data.users[m_data.selfId].whispering = true;
+        m_data.users[m_data.selfId].talking = true;
+    }
+    if (m_voice) m_voice->setWhisperHeld(true);
+    m_whisperHold = true;
+    if (m_net) {
+        m_lastSentWhisperIds = QList<int>{ from };
+        m_net->setWhisperIds(m_lastSentWhisperIds);
+    }
+    systemMsgChannel(tr("Sussurro (resposta): sua voz vai para %1.")
+                         .arg(m_data.users.value(from).name));
     m_tree->rebuild();
     emit statusChanged();
 }
