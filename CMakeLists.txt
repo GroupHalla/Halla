@@ -5,7 +5,10 @@ string(STRIP "${HALLA_VERSION}" HALLA_VERSION)
 if (NOT HALLA_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
     message(FATAL_ERROR "VERSION inválida: '${HALLA_VERSION}'")
 endif()
-project(Halla VERSION ${HALLA_VERSION} LANGUAGES CXX)
+# C e CXX: o DSP de voz embutido (RNNoise + AEC do speex) é C puro — sem
+# "C" aqui os .c dos vendors ficam sem regra de compilação e o link falha
+# com undefined reference.
+project(Halla VERSION ${HALLA_VERSION} LANGUAGES C CXX)
 
 set(HALLA_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${HALLA_GENERATED_DIR}")
