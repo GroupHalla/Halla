@@ -35,25 +35,29 @@
 #include "x86/celt_lpc_sse.h"
 #endif
 
+/* Halla: as funções públicas deste arquivo (e do pitch.c) levam o prefixo
+ * rn_ para NÃO colidir com os símbolos C do Opus embutido no webrtc.lib
+ * (LNK2005/LNK1169 no MSVC: celt_lpc.obj e pitch.obj existem nos dois
+ * lados do link). Mesma política já usada para os símbolos kiss do speex. */
 #define LPC_ORDER 24
 
-void _celt_lpc(opus_val16 *_lpc, const opus_val32 *ac, int p);
+void rn_celt_lpc(opus_val16 *_lpc, const opus_val32 *ac, int p);
 
-void celt_fir(
+void rn_celt_fir(
          const opus_val16 *x,
          const opus_val16 *num,
          opus_val16 *y,
          int N,
          int ord);
 
-void celt_iir(const opus_val32 *x,
+void rn_celt_iir(const opus_val32 *x,
          const opus_val16 *den,
          opus_val32 *y,
          int N,
          int ord,
          opus_val16 *mem);
 
-int _celt_autocorr(const opus_val16 *x, opus_val32 *ac,
+int rn_celt_autocorr(const opus_val16 *x, opus_val32 *ac,
          const opus_val16 *window, int overlap, int lag, int n);
 
 #endif /* PLC_H */
