@@ -88,6 +88,9 @@ int          p
 }
 
 
+/* Halla: MSVC (C puro) não tem VLA — os arrays viram fixos nos limites que
+ * o rnnoise usa (ord <= LPC_ORDER; autocorr com n <= PITCH_BUF_SIZE/2 do
+ * denoise.c = 864; celt_iir não é chamado pelo rnnoise, tamanho folgado). */
 void celt_fir(
          const opus_val16 *x,
          const opus_val16 *num,
@@ -96,7 +99,8 @@ void celt_fir(
          int ord)
 {
    int i,j;
-   opus_val16 rnum[ord];
+   opus_val16 rnum[LPC_ORDER];
+   celt_assert(ord <= LPC_ORDER);
    for(i=0;i<ord;i++)
       rnum[i] = num[ord-i-1];
    for (i=0;i<N-3;i+=4)
@@ -146,9 +150,11 @@ void celt_iir(const opus_val32 *_x,
    }
 #else
    int i,j;
+   opus_val16 rden[LPC_ORDER];
+   opus_val16 y[LPC_ORDER+1728];
    celt_assert((ord&3)==0);
-   opus_val16 rden[ord];
-   opus_val16 y[N+ord];
+   celt_assert(ord <= LPC_ORDER);
+   celt_assert(N <= 1728);
    for(i=0;i<ord;i++)
       rden[i] = den[ord-i-1];
    for(i=0;i<ord;i++)
@@ -208,7 +214,8 @@ int _celt_autocorr(
    int fastN=n-lag;
    int shift;
    const opus_val16 *xptr;
-   opus_val16 xx[n];
+   opus_val16 xx[864]; /* PITCH_BUF_SIZE/2 (1728/2) do denoise.c */
+   celt_assert(n <= 864);
    celt_assert(n>0);
    celt_assert(overlap>=0);
    if (overlap == 0)
