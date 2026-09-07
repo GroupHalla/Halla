@@ -117,6 +117,29 @@ jobs:
           Write-Host "=== smoke exit code: $runCode"
           exit $runCode
 
+      # Gate de release do guarda de crosstalk/eco de rede (EchoGuard, v1.1.22):
+      # valida o detector que impede a voz do parceiro (alto-falante/mic
+      # compartilhado) de abrir a transmissão como fala do usuário local —
+      # o bug do anel de "falando" aceso em dois usuários ao mesmo tempo e
+      # do sinal sonoro "ao falar" duplicado. Cenários sintéticos: crosstalk
+      # puro (revoga ~200 ms), fala legítima por cima de canal ativo (abre
+      # após 400 ms e não é revogada), mistura 35% eco (não bloqueia) e
+      # canal silencioso (abertura instantânea). Sem Qt/WebRTC: C++ puro.
+      - name: EchoGuard crosstalk smoke (release gate)
+        shell: pwsh
+        run: |
+          $cl = "cl /nologo /std:c++20 /Zc:__cplusplus /MD /EHsc /I `"src`" tests\echo_guard_smoke.cpp src\audio\EchoGuard.cpp /out:echo_guard_smoke.exe"
+          cmd /c "$cl > echo_guard_build.log 2>&1"
+          $buildCode = $LASTEXITCODE
+          Get-Content echo_guard_build.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== cl exit code: $buildCode"
+          if ($buildCode -ne 0) { exit $buildCode }
+          cmd /c ".\echo_guard_smoke.exe > echo_guard_run.log 2>&1"
+          $runCode = $LASTEXITCODE
+          Get-Content echo_guard_run.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== smoke exit code: $runCode"
+          exit $runCode
+
       # Gate de release para a criptografia ponta a ponta v6: roda as
       # primitivas EXATAS de src/core/E2eeCrypto.cpp (X25519/HKDF/AES-GCM/
       # Ed25519/envelopes/par-a-par/SAS) com vetores do RFC 7748/5869 e do

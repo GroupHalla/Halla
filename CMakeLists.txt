@@ -74,6 +74,8 @@ set(HALLA_SOURCES
     src/core/SecureStore.cpp
     src/audio/HallaAudioProcessing.cpp
     src/audio/HallaAudioProcessing.h
+    src/audio/EchoGuard.cpp
+    src/audio/EchoGuard.h
     src/plugins/PluginManager.cpp
     src/plugins/PluginManager.h
     src/plugins/RadioVoiceEffect.cpp

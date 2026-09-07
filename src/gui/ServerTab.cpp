@@ -719,6 +719,15 @@ void ServerTab::refreshServerState() {
     // Usuários que entram em outros canais não disparam o aviso da call.
     QSet<int> now;
     QMap<int, int> currentChannels;
+    // Enquanto o PRÓPRIO usuário está falando, o sinal sonoro do parceiro
+    // não dispara: com alto-falantes, o começo da voz do parceiro "volta"
+    // pelo microfone dele como crosstalk e abria o indicador/talking dele
+    // junto com o do usuário — o som "ao falar" tocava duplicado (uma vez
+    // por quem falou, outra pelo eco do outro lado). O EchoGuard já corta
+    // o eco na origem; isto aqui é a rede de segurança para builds/peers
+    // antigos: enquanto eu falo, o cue remoto fica calado.
+    const bool selfSpeaking = m_data.users.value(m_data.selfId).talking
+        || (m_voice && m_voice->speechActive());
     for (const User& u : m_data.users) {
         now << u.id;
         currentChannels[u.id] = m_data.channelOfUser(u.id);
@@ -729,9 +738,9 @@ void ServerTab::refreshServerState() {
             if (u.whispering && !wasWhispering)
                 m_lastWhisperFromId = u.id; // tecla de resposta: último sussurrador
             if (u.talking && (!wasTalking || (u.whispering && !wasWhispering))) {
-                playRemoteSpeechCue(u, true);
+                if (!selfSpeaking) playRemoteSpeechCue(u, true);
             } else if (!u.talking && wasTalking) {
-                playRemoteSpeechCue(u, false);
+                if (!selfSpeaking) playRemoteSpeechCue(u, false);
             }
             m_lastTalking[u.id] = u.talking;
             m_lastWhispering[u.id] = u.whispering;

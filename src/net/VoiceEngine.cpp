@@ -255,6 +255,7 @@ void VoiceEngine::setTransmitEnabled(bool on) {
     if (m_txEnabled == on) return;
     m_txEnabled = on;
     m_fadeInLeft = m_fadeOutLeft = 0; // corte limpo: sem transmissão não há rampa
+    m_echoPending.clear();            // quadros retidos não valem para outra sessão
     if (!on && m_talking) {
         m_talking = false;
         m_net->sendTalking(false);
@@ -455,17 +456,57 @@ void VoiceEngine::analyzeCapturedSpeech() {
     // FALANDO — não a transmissão estar aberta. Processa e descarta.
     m_captureBuf.append(m_srcDev->readAll());
     const double micGain = micGainLinear();
+    const int levelDb = S::num("capture/voiceLevel", -45);
+    const double onThreshold = qPow(10.0, levelDb / 20.0) * 32767.0;
     while (m_captureBuf.size() >= 960 * 2) {
         int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
+        int16_t rawPcm[960];
+        std::memcpy(rawPcm, pcm, 960 * 2);
         m_apm.processCaptureFrame(pcm);
         m_apm.processCaptureFrame(pcm + 480);
         if (micGain > 1.0) applyMicGain(pcm, 960, micGain);
         double sum = 0;
         for (int i = 0; i < 960; ++i) sum += double(pcm[i]) * double(pcm[i]);
-        updateSpeechDetection(qSqrt(sum / 960.0));
+        const double rms = qSqrt(sum / 960.0);
+        // Crosstalk do EchoGuard também com a voz fechada: o cue "ao falar"
+        // não pode disparar com a voz do parceiro no modo VAD. Nos outros
+        // modos o quadro apenas alimenta o anel do guarda.
+        double cueRms = rms;
+        const bool guardActive = S::num("capture/pttMode", 1) == 1;
+        const EchoGuard::Decision d = m_echoGuard.noteCapture(
+            rawPcm, 960, guardActive && rms > onThreshold, false);
+        if (guardActive && d != EchoGuard::Decision::Open) cueRms = 0.0;
+        updateSpeechDetection(cueRms);
         m_captureBuf.remove(0, 960 * 2);
     }
     if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // segurança
+}
+
+// Quadros retidos pela validação do EchoGuard: transmitidos em rajada
+// quando a fala é confirmada legítima (o jitter buffer do receptor absorve
+// a rajada — o começo da frase chega inteiro, apenas 400 ms depois).
+void VoiceEngine::transmitHeldEchoFrames() {
+    if (m_echoPending.isEmpty() || !m_encoder) return;
+    const uint32_t flags = (m_whisperHeld || m_whisperTargetsConfigured)
+        ? uint32_t(HALLA_AUDIO_FLAG_WHISPER) : 0u;
+    for (const QByteArray& held : m_echoPending) {
+        int16_t heldPcm[960];
+        std::memcpy(heldPcm, held.constData(), 960 * 2);
+        applyGateFades(heldPcm, 960);
+        PluginManager::instance().processAudio(
+            m_pluginConnectionId, m_data ? m_data->selfId : 0,
+            HALLA_AUDIO_CAPTURE_AFTER_VAD, flags, heldPcm, 960, 1, 48000);
+        unsigned char out[1276];
+        const int n = opus_encode(m_encoder, heldPcm, 960, out, sizeof(out));
+        if (n > 0) {
+            m_net->sendVoiceFrame(
+                QByteArray(reinterpret_cast<char*>(out), n), ++m_seq);
+            ++m_opusSent;
+            m_opusSentBytes += quint64(n);
+        }
+        if (m_recFile) recWrite(reinterpret_cast<const char*>(heldPcm), 960 * 2);
+    }
+    m_echoPending.clear();
 }
 
 double VoiceEngine::micGainLinear() const {
@@ -590,6 +631,12 @@ void VoiceEngine::captureTick() {
     while (m_captureBuf.size() >= 960 * 2) {
         int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
 
+        // Cópia CRUA (pré-APM) para o EchoGuard: o AEC3 remove do sinal
+        // justamente a componente correlacionada com o playout — que é o
+        // que o guarda precisa enxergar para detectar crosstalk.
+        int16_t rawPcm[960];
+        std::memcpy(rawPcm, pcm, 960 * 2);
+
         // DSP de voz ANTES de tudo: o AEC3 subtrai o que está tocando no
         // alto-falante e a supressão neural remove ruído de fundo. VAD,
         // plugins e Opus passam a ver o sinal limpo — o que também melhora
@@ -616,6 +663,43 @@ void VoiceEngine::captureTick() {
         else if (mode == 2) voiceNow = true;  // contínuo
         if (m_whisperHeld) voiceNow = true;   // sussurro força transmissão também no VAD
 
+        // Guarda de crosstalk (v1.1.22): no modo VAD, a voz do PARCEIRO que
+        // toca no alto-falante (ou vaza no microfone compartilhado de um
+        // segundo cliente na mesma máquina) não pode abrir a transmissão
+        // como se fosse fala do usuário — era o anel de "falando" acendendo
+        // em dois usuários ao mesmo tempo, o sinal sonoro duplicado e o eco
+        // voltando audível. O guarda compara o microfone cru com o playout:
+        // cópia atrasada = crosstalk, não abre (e revoga se já abriu).
+        // PTT/contínuo são escolhas explícitas do usuário: sem decisão, mas
+        // o microfone continua alimentando o anel (trocar de modo no meio
+        // da call não deixa buracos na referência).
+        const bool guardActive = (mode == 1 && !m_whisperHeld);
+        EchoGuard::Decision echo = m_echoGuard.noteCapture(
+            rawPcm, 960, guardActive && voiceNow, guardActive && m_talking);
+        if (guardActive) {
+            if (echo == EchoGuard::Decision::Hold) {
+                // Validação em curso: retém o quadro processado — se a fala
+                // for confirmada legítima, o backfill devolve o começo.
+                m_echoPending.append(
+                    QByteArray(reinterpret_cast<const char*>(pcm), 960 * 2));
+                while (m_echoPending.size() > 20) m_echoPending.removeFirst();
+                updateSpeechDetection(0.0);
+                m_captureBuf.remove(0, 960 * 2);
+                continue;
+            }
+            if (echo == EchoGuard::Decision::Blocked) {
+                if (m_talking) closeTransmissionGate();
+                m_echoPending.clear();
+                m_captureBuf.clear();     // crosstalk acumulado: fora
+                updateSpeechDetection(0.0);
+                continue;
+            }
+            // Open: a validação terminou sem casar. Se o VAD não abrir o
+            // gate AGORA, a fala que gerou os quadros retidos já passou —
+            // descarta (nada de backfill de fala velha na próxima).
+            if (!voiceNow) m_echoPending.clear();
+        }
+
         // Cue "ao falar": detecta fala de verdade (independente do VAD
         // transmitir), inclusive quando o sinal não passa do limiar no modo
         // contínuo — e roda também no caminho de drenagem acima.
@@ -627,6 +711,10 @@ void VoiceEngine::captureTick() {
                 m_net->sendTalking(true);
                 emit talkingChanged(true);
                 m_fadeInLeft = kFadeInSamples;   // abertura suave (sem "pop")
+                // Backfill do EchoGuard: os quadros retidos durante a
+                // validação são transmitidos agora — a fala legítima não
+                // perde o começo nos 400 ms de confirmação.
+                if (echo == EchoGuard::Decision::Open) transmitHeldEchoFrames();
             } else if (m_silenceClock.elapsed() > 500) { // histerese de ÁUDIO
                 m_talking = false;
                 m_net->sendTalking(false);
@@ -921,6 +1009,10 @@ void VoiceEngine::playbackTick() {
             farEnd[i] = int16_t((int(samples[i * 2]) + int(samples[i * 2 + 1])) / 2);
         m_apm.processReverseFrame(farEnd);
         m_apm.processReverseFrame(farEnd + 480);
+        // Referência do guarda de crosstalk: o mesmo mix que vai para o
+        // alto-falante — o que o microfone captar de parecido com isto
+        // (atrasado) é eco da rede, não fala do usuário local.
+        m_echoGuard.notePlayout(farEnd, kFrames);
 
         const qint64 written = m_sinkDev->write(output.constData(), output.size());
         if (written != output.size()) break;

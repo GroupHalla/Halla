@@ -11,6 +11,7 @@
 
 #include "plugins/RadioVoiceDsp.h"
 #include "audio/HallaAudioProcessing.h"
+#include "audio/EchoGuard.h"
 
 class NetSession;
 class QAudioSource;
@@ -90,6 +91,10 @@ private:
     // fala — a detecção não pode depender da transmissão.
     void analyzeCapturedSpeech();
     void updateSpeechDetection(double rms);
+    // Quadros retidos pela validação do EchoGuard: quando a fala é
+    // confirmada como legítima, são transmitidos de uma vez para o início
+    // da frase não se perder no atraso de confirmação.
+    void transmitHeldEchoFrames();
     void refreshDspSettings();
     OpusDecoder* decoderFor(int userId);
     QByteArray spatializeFrame(int userId, int16_t* mono, int frames);
@@ -149,6 +154,11 @@ private:
     QElapsedTimer m_speechClock;
     // DSP de voz do microfone: eco (AEC3) + ruído (neural) via WebRTC APM.
     HallaAudioProcessing m_apm;
+    // Guarda de crosstalk: impede que a voz recebida (que toca no
+    // alto-falante / vaza no microfone compartilhado) abra a transmissão
+    // como se fosse fala do usuário — o "falando" duplicado na sala.
+    EchoGuard m_echoGuard;
+    QList<QByteArray> m_echoPending;   // quadros retidos na validação
     class QTimer* m_dspTimer = nullptr;
     bool m_dspAnnounced = false;
     bool m_lastDspDenoise = true;
