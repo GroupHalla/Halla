@@ -125,11 +125,19 @@ private:
     QSet<int> m_voicePrimed;
     // Alvo inicial de 4 quadros (80 ms) — o antigo 3 deixava a voz pipocar
     // em qualquer rajada curta de trabalho da GUI — crescendo até 8 quadros
-    // (160 ms) em underruns reais.
+    // (160 ms) em underruns reais e secagens além da graça.
     int m_voiceTargetFrames = 4;
     quint64 m_voiceUnderruns = 0;
     quint64 m_voiceSheds = 0;
     quint64 m_voiceUnderrunsAtAdapt = 0;
+    // Graça de re-prime: quando a fila de um usuário primado seca, o prime é
+    // mantido por ~300 ms para que o próximo quadro retome NA HORA em vez de
+    // esperar o prebuffer reconstruir (era o "para por milésimos"). Secagem
+    // que passa da graça vira re-prime normal e conta como sinal de jitter
+    // para o alvo crescer.
+    QMap<int, qint64> m_voiceDryMs;
+    quint64 m_voiceDries = 0;
+    quint64 m_voiceDriesAtAdapt = 0;
     class QTimer* m_voiceAdaptTimer = nullptr;
     // Áudio WebRTC das lives fica separado da voz/plugins: permite mudo por
     // transmissão e um pequeno prebuffer contra jitter sem atrasar a chamada.

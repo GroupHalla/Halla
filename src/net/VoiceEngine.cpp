@@ -109,12 +109,15 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
     if (!outDev.isNull()) {
         m_sink = new QAudioSink(outDev, outputFmt, this);
-        // Buffer de ~160 ms: o antigo de 120 ms secava em rajadas curtas de
-        // trabalho da GUI (rebuild da árvore, pintura de frames de live) e
-        // era a causa da voz "pipocar" nas calls. 160 ms mantém folga sem
-        // atraso perceptível — o áudio das lives tem sincronização própria
-        // do WebRTC e o prebuffer delas continua enxuto.
-        m_sink->setBufferSize(960 * 2 * 2 * 8); // ~160 ms estéreo
+        // Buffer de ~240 ms: a GUI compartilha a thread do playback (o Qt
+        // entrega pacotes, decodifica e alimenta o sink no mesmo event
+        // loop), então rajadas de trabalho da interface — rebuild da
+        // árvore, pintura de frames de live, antivirus — de 100-200 ms
+        // secavam o antigo de 160 ms e o som "parava por milésimos" (o
+        // usuário ouvia o sink esvaziar de verdade). 240 ms + a graça de
+        // re-prime seguram essas rajadas sem o corte; o atraso extra só
+        // aparece em rajada, nunca em regime.
+        m_sink->setBufferSize(960 * 2 * 2 * 12); // ~240 ms estéreo
         m_sinkDev = m_sink->start();
 
         m_playTimer = new QTimer(this);
@@ -145,6 +148,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
             if (m_data->users.contains(userId)) continue;
             opus_decoder_destroy(m_decoders.take(userId));
             m_remoteQueues.remove(userId);
+            m_voiceDryMs.remove(userId);
             m_radioStates.remove(userId);
             m_remoteLastVoiceMs.remove(userId);
         }
@@ -236,6 +240,7 @@ QJsonObject VoiceEngine::diagnostics() const {
     d["primedStreams"] = m_primedStreams.size();
     d["voiceJitterTarget"] = m_voiceTargetFrames;
     d["voiceUnderruns"] = qint64(m_voiceUnderruns);
+    d["voiceDries"] = qint64(m_voiceDries);
     d["voiceSheds"] = qint64(m_voiceSheds);
     d["primedVoices"] = m_voicePrimed.size();
     d["remoteDecoders"] = m_decoders.size();
@@ -919,11 +924,14 @@ void VoiceEngine::sweepRemoteTalking() {
 }
 
 void VoiceEngine::adaptVoiceTarget() {
-    if (m_voiceUnderruns == m_voiceUnderrunsAtAdapt && m_voiceTargetFrames > 2) {
-        // 15 s sem um único underrun: a rede aguenta um alvo menor.
+    if (m_voiceUnderruns == m_voiceUnderrunsAtAdapt && m_voiceDries == m_voiceDriesAtAdapt
+            && m_voiceTargetFrames > 2) {
+        // 15 s sem um único underrun nem secagem além da graça: a rede e a
+        // GUI aguentam um alvo menor.
         --m_voiceTargetFrames;
     }
     m_voiceUnderrunsAtAdapt = m_voiceUnderruns;
+    m_voiceDriesAtAdapt = m_voiceDries;
 }
 
 void VoiceEngine::playbackTick() {
@@ -931,6 +939,7 @@ void VoiceEngine::playbackTick() {
     if (!m_spkEnabled) {
         m_remoteQueues.clear();
         m_voicePrimed.clear();
+        m_voiceDryMs.clear();
         m_streamQueues.clear();
         m_primedStreams.clear();
         m_streamLastPacketMs.clear();
@@ -953,6 +962,22 @@ void VoiceEngine::playbackTick() {
             // a folga para os próximos.
         }
     }
+    // Graça de secagem: o pipeline de voz inteiro compartilha a thread da
+    // GUI, então soluços de dezenas de ms (interface, rede) são normais.
+    // Manter o prime durante a seca faz o áudio RETOMAR NA HORA quando o
+    // próximo quadro chega; desprimar na primeira fila vazia transformava
+    // cada soluço em "para por milésimos" (silêncio enquanto o prebuffer
+    // reconstruía). 300 ms cobre rajadas de GUI/rede sem segurar o prime
+    // por um silêncio/DTX real de fala (tipicamente >= 400 ms).
+    constexpr qint64 kVoiceDryGraceMs = 300;
+    // Shed PROFUNDO: descartar rajada acumulada só quando o atraso passa
+    // de ~400 ms, e então voltar para ~200 ms. O limiar antigo (alvo+5 =
+    // 7-13 quadros) jogava fora rajadas comuns de 100-200 ms — em música,
+    // TODO quadro descartado é audível (o "corte"); atraso que se acumula
+    // e some sozinho, não. 400 ms continua razão para conversa (o que o
+    // jitter buffer de referência usa em regime ruim).
+    constexpr int kVoiceShedCeilingFrames = 20;
+    constexpr int kVoiceShedFloorFrames = 10;
     constexpr int kFrames = 960;
     constexpr int kChannels = 2;
     constexpr int kBytes = kFrames * kChannels * int(sizeof(int16_t));
@@ -979,29 +1004,48 @@ void VoiceEngine::playbackTick() {
             auto& queue = it.value();
             // Jitter buffer por usuário: segura os primeiros quadros até
             // acumular o alvo e só então começa a tocar. Um usuário que
-            // ficou sem quadros (DTX, silêncio) volta a acumular na próxima
-            // fala — o reinício de fala reconstrói o prebuffer.
+            // ficou sem quadros por mais que a graça (DTX, silêncio) volta
+            // a acumular na próxima fala — o reinício de fala reconstrói o
+            // prebuffer.
             if (!m_voicePrimed.contains(uid)) {
                 if (int(queue.size()) < m_voiceTargetFrames) continue;
                 m_voicePrimed.insert(uid);
             }
-            // Controle de latência: se os quadros se acumularam além do alvo
-            // + tolerância (rajada depois de um travamento), descarta os mais
-            // antigos em vez de tocar tudo atrasado.
-            if (int(queue.size()) > m_voiceTargetFrames + 5) {
-                while (int(queue.size()) > m_voiceTargetFrames) {
+            if (queue.empty()) {
+                // GRAÇA: fila secou agora ou há menos de 300 ms — mantém o
+                // prime e espera o próximo quadro retomar na hora. Só
+                // depois da graça o prebuffer é reconstruído; a seca conta
+                // como sinal para o alvo crescer (o jitter existiu, mesmo
+                // que o buffer do sink tenha escondido o buraco).
+                const qint64 now = QDateTime::currentMSecsSinceEpoch();
+                const qint64 drySince = m_voiceDryMs.value(uid, 0);
+                if (drySince == 0) {
+                    m_voiceDryMs.insert(uid, now);
+                    continue;
+                }
+                if (now - drySince <= kVoiceDryGraceMs) continue;
+                m_voiceDryMs.remove(uid);
+                m_voicePrimed.remove(uid);
+                ++m_voiceDries;
+                if (m_voiceTargetFrames < 8) ++m_voiceTargetFrames;
+                continue;
+            }
+            m_voiceDryMs.remove(uid);
+            // Controle de latência (shed profundo): rajada acumulada acima
+            // de ~400 ms volta para ~200 ms em vez de tocar tudo atrasado
+            // — mas rajadas comuns de GUI/rede agora tocam inteiras.
+            if (int(queue.size()) > kVoiceShedCeilingFrames) {
+                while (int(queue.size()) > kVoiceShedFloorFrames) {
                     queue.pop_front();
                     ++m_voiceSheds;
                 }
             }
-            if (queue.empty()) { emptyUsers << uid; continue; }
             const QByteArray frame = queue.front();
             queue.pop_front();
             if (frame.size() != kBytes) continue;
             hasFrame = true;
             const int16_t* samples = reinterpret_cast<const int16_t*>(frame.constData());
             for (int i = 0; i < kFrames * kChannels; ++i) mix[i] += samples[i];
-            if (queue.empty()) emptyUsers << uid;
         }
         for (int userId : emptyUsers) {
             m_remoteQueues.remove(userId);
