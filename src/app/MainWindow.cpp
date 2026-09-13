@@ -1800,9 +1800,13 @@ void MainWindow::applyTheme() {
 // executa uma ação configurada em "Teclas de atalho" (independente da origem:
 // atalho local do Qt no Linux ou hotkey GLOBAL do sistema no Windows)
 void MainWindow::runConfiguredAction(const QString& action) {
-    if (action.contains(QStringLiteral("ussurr"), Qt::CaseInsensitive)) {
+    if (isWhisperHotkeyAction(action)) {
         // sussurro por TOGGLE (usado no Linux/atalhos de janela); no Windows
-        // o comportamento principal é "segurar para falar" (ver applyHotkeys)
+        // o comportamento principal é "segurar para falar" (ver applyHotkeys).
+        // Detecção por isWhisperHotkeyAction(): o valor salvo no perfil é a
+        // string TRADUZIDA (EN "Whisper (hold to speak)", ES "Susurrar ...")
+        // e o match antigo por "ussurr" (PT) fazia o aperto não disparar
+        // NADA em outros idiomas — como se o botão nem tivesse sido pressionado.
         ServerTab* t = currentTab();
         if (!t) return;
         t->setWhisperHold(!t->whisperHoldActive(), S::num("hotkeys/whisperScope", 1));
@@ -1870,8 +1874,14 @@ void MainWindow::applyHotkeys() {
             // corrigida: a ação continuava sendo oferecida e salva pela UI,
             // mas era descartada aqui em silêncio; para quem configurou o
             // sussurro por este caminho, a tecla nunca disparava.
+            // Segunda regressão corrigida (1.1.26): o match era só pelo
+            // substring PT "ussurr" — clientes em EN/ES salvavam a ação
+            // traduzida, o que não casa, e o aperto caía no caminho genérico
+            // sem disparar nada. Agora: id canônico ("whisper") OU qualquer
+            // grafia PT/EN/ES (isWhisperHotkeyAction).
             const bool isWhisperAction =
-                action.contains(QStringLiteral("ussurr"), Qt::CaseInsensitive);
+                o.value("id").toString() == QLatin1String("whisper")
+                || isWhisperHotkeyAction(action);
 
             int mouseBtn = 0;
             if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         mouseBtn = 4;

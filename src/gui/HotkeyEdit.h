@@ -51,3 +51,24 @@ private:
     bool m_armed = false;
     class NativeCapture* m_native = nullptr; // filtro nativo (Windows)
 };
+
+// "Esta ação de atalho é o sussurro?" — verdade ABSOLUTA, compartilhada
+// pelo diálogo de opções (gravação) e pelo dispatch (applyHotkeys /
+// runConfiguredAction).
+//
+// O perfil de hotkeys grava a ação como string TRADUZIDA ("Sussurrar ..."
+// em PT, "Whisper (hold to speak)" em EN, "Susurrar ..." em ES). O dispatch
+// antigo procurava só o substring PT "ussurr": em qualquer outro idioma a
+// tecla caía no caminho genérico de atalhos, que não casa com ação nenhuma
+// e ignora o aperto em silêncio — o usuário configurava tudo certo e o
+// sussurro "não disparava" (como se não apertasse o botão).
+//
+// A detecção aceita o id canônico novo ("whisper", campo "id" do JSON a
+// partir do 1.1.26) ou qualquer grafia vivível do nome em PT/EN/ES — imune
+// inclusive a trocar o idioma do cliente depois de configurar.
+inline bool isWhisperHotkeyAction(const QString& action) {
+    const QString a = action.toLower();
+    return a.contains(QLatin1String("ussurr"))   // PT: "Sussurrar ..."
+        || a.contains(QLatin1String("whisper"))  // EN + id canônico "whisper"
+        || a.contains(QLatin1String("susur"));   // ES: "Susurrar/Susurro ..."
+}

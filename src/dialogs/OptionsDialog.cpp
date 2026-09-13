@@ -1425,6 +1425,12 @@ QWidget* OptionsDialog::pageHotkeys() {
             QJsonObject o;
             o["key"]    = table->item(r, 0)->data(Qt::UserRole).toString();
             o["action"] = table->item(r, 1)->data(Qt::UserRole).toString();
+            // id canônico da ação de sussurro: o dispatch passa a casar por
+            // este campo e deixa de depender da string TRADUZIDA (em EN/ES o
+            // match antigo por "ussurr" falhava e a tecla não fazia nada).
+            // O match por texto continua valendo para perfis antigos.
+            if (isWhisperHotkeyAction(o["action"].toString()))
+                o["id"] = QStringLiteral("whisper");
             const int scope = table->item(r, 1)->data(Qt::UserRole + 1).toInt();
             if (scope >= 0) o["scope"] = scope;
             arr << o;
