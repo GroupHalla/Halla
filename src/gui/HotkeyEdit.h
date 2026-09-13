@@ -26,6 +26,15 @@ public:
     QString spec() const { return m_spec; }
     void setSpec(const QString& spec);
 
+    // monta a spec canônica "Mods+Tecla" a partir de um Qt::Key + mods Qt.
+    // Usada pelas duas camadas de captura (evento do widget e filtro nativo)
+    // para NÃO depender do QKeySequence::toString — que pode omitir os
+    // modificadores "Meta+" (tecla Windows) e "Num+" (teclado numérico).
+    // Formato idêntico ao que o toString sempre gerou ("Ctrl+F2", "Space",
+    // "\\"), apenas estendido. Devolve QString() para tecla sem spec
+    // (acentos mortos, teclas exóticas).
+    static QString specFromKey(int key, int qtMods);
+
     bool isArmed() const { return m_armed; }   // captura ativa (campo focado)
     void acceptSpec(const QString& spec);       // usado pelos filtros
 

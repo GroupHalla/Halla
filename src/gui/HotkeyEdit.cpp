@@ -37,7 +37,7 @@ public:
             return QString::fromLatin1(HotkeyEdit::kMouse5);
         case VK_MBUTTON:
             return QString::fromLatin1(HotkeyEdit::kMouseMiddle);
-        case VK_ESCAPE: case VK_BACK: case VK_DELETE:
+        case VK_ESCAPE:
             return QStringLiteral("!clear");
         case VK_TAB:
             return QStringLiteral("!ignore"); // preserva a navegação do diálogo
@@ -45,14 +45,23 @@ public:
         }
 
         int key = 0;
+        int extraMods = 0; // KeypadModifier (teclado numérico)
         if (vk >= 'A' && vk <= 'Z')      key = Qt::Key_A + int(vk - 'A');
         else if (vk >= '0' && vk <= '9') key = Qt::Key_0 + int(vk - '0');
         else if (vk >= VK_F1 && vk <= VK_F24) key = Qt::Key_F1 + int(vk - VK_F1);
-        else if (vk >= VK_NUMPAD0 && vk <= VK_NUMPAD9)
+        else if (vk >= VK_NUMPAD0 && vk <= VK_NUMPAD9) {
+            // v1.1.27: numpad deixa de colidir com a fileira de cima —
+            // "Num+5" resolve VK_NUMPAD5 no runtime (ver gui/HotkeyVk.h)
             key = Qt::Key_0 + int(vk - VK_NUMPAD0);
+            extraMods = int(Qt::KeypadModifier);
+        }
         else switch (vk) {
         case VK_SPACE:    key = Qt::Key_Space;     break;
         case VK_RETURN:   key = Qt::Key_Return;    break;
+        // v1.1.27: Backspace/Delete viraram TECLA configurável (o runtime
+        // sempre soube mapeá-las; só a captura descartava/limpava)
+        case VK_BACK:     key = Qt::Key_Backspace; break;
+        case VK_DELETE:   key = Qt::Key_Delete;    break;
         case VK_INSERT:   key = Qt::Key_Insert;    break;
         case VK_HOME:     key = Qt::Key_Home;      break;
         case VK_END:      key = Qt::Key_End;       break;
@@ -67,23 +76,43 @@ public:
         case VK_SCROLL:   key = Qt::Key_ScrollLock;break;
         case VK_SNAPSHOT: key = Qt::Key_Print;     break;
         case VK_PAUSE:    key = Qt::Key_Pause;     break;
-        case VK_ADD:      key = Qt::Key_Plus;      break;
-        case VK_SUBTRACT: key = Qt::Key_Minus;     break;
-        case VK_MULTIPLY: key = Qt::Key_Asterisk;  break;
-        case VK_DIVIDE:   key = Qt::Key_Slash;     break;
-        case VK_DECIMAL:  key = Qt::Key_Period;    break;
-        case VK_OEM_COMMA:  key = Qt::Key_Comma;     break;
-        case VK_OEM_PERIOD: key = Qt::Key_Period;    break;
-        case VK_OEM_MINUS:  key = Qt::Key_Minus;     break;
-        case VK_OEM_PLUS:   key = Qt::Key_Equal;     break;
-        default: return QStringLiteral("!ignore"); // tecla exótica não suportada
+        // operações do teclado numérico (só existem lá — levam "Num+")
+        case VK_ADD:      key = Qt::Key_Plus;     extraMods = int(Qt::KeypadModifier); break;
+        case VK_SUBTRACT: key = Qt::Key_Minus;    extraMods = int(Qt::KeypadModifier); break;
+        case VK_MULTIPLY: key = Qt::Key_Asterisk; extraMods = int(Qt::KeypadModifier); break;
+        case VK_DIVIDE:   key = Qt::Key_Slash;    extraMods = int(Qt::KeypadModifier); break;
+        case VK_DECIMAL:  key = Qt::Key_Period;   extraMods = int(Qt::KeypadModifier); break;
+        default: {
+            // v1.1.27: teclas OEM (pontuação/acentos — "\", ";", "ç", "'" ...)
+            // resolvem o CARACTERE no LAYOUT ATIVO em vez de uma tabela fixa
+            // US: a spec gravada é o caractere da tecla física CERTA em
+            // ABNT2 e afins, e o runtime re-resolve via VkKeyScanW
+            // (gui/HotkeyVk.h). Os cases OEM fixos da versão anterior cobriam
+            // só 4 teclas e ainda por cima na posição do layout americano.
+            const UINT mc = MapVirtualKeyW(UINT(vk), MAPVK_VK_TO_CHAR);
+            if (mc == 0 || (mc & 0x80008000u))
+                return QStringLiteral("!ignore"); // tecla morta ou exótica
+            const WCHAR ch = WCHAR(mc & 0xFFFF);
+            if (ch >= 0x20 && ch != 0x7F && ch <= 0xFF)
+                key = int(ch); // Qt::Key imprimível = código Latin-1 do caractere
+            else
+                return QStringLiteral("!ignore");
+            break;
+        }
         }
 
-        int mods = 0;
+        int mods = extraMods;
         if (GetAsyncKeyState(VK_SHIFT)   & 0x8000) mods |= int(Qt::ShiftModifier);
         if (GetAsyncKeyState(VK_CONTROL) & 0x8000) mods |= int(Qt::ControlModifier);
         if (GetAsyncKeyState(VK_MENU)    & 0x8000) mods |= int(Qt::AltModifier);
-        return QKeySequence(key | mods).toString();
+        // v1.1.27: a tecla Windows entra na spec — antes era descartada em
+        // silêncio aqui e "Win+X" era gravado como "X" puro
+        if ((GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000)
+            mods |= int(Qt::MetaModifier);
+
+        // monta a spec sem depender do toString do Qt (garante "Meta+"/"Num+")
+        const QString spec = HotkeyEdit::specFromKey(key, mods);
+        return spec.isEmpty() ? QStringLiteral("!ignore") : spec;
     }
 
     bool nativeEventFilter(const QByteArray& type, void* message,
@@ -209,6 +238,48 @@ void HotkeyEdit::setSpec(const QString& spec) {
     else                                           setText(spec);
 }
 
+// monta a spec canônica "Mods+Tecla" (formato do QKeySequence::toString,
+// estendido com "Meta+"/"Num+"). Ver declaração em HotkeyEdit.h.
+QString HotkeyEdit::specFromKey(int key, int qtMods) {
+    QString prefix;
+    if (qtMods & int(Qt::ControlModifier)) prefix += QStringLiteral("Ctrl+");
+    if (qtMods & int(Qt::AltModifier))     prefix += QStringLiteral("Alt+");
+    if (qtMods & int(Qt::ShiftModifier))   prefix += QStringLiteral("Shift+");
+    if (qtMods & int(Qt::MetaModifier))    prefix += QStringLiteral("Meta+");
+    if (qtMods & int(Qt::KeypadModifier))  prefix += QStringLiteral("Num+");
+    QString name;
+    if (key >= 0x21 && key <= 0xFF && key != 0x7F) {
+        name = QString(QChar(ushort(key))); // imprimível: o próprio caractere
+    } else switch (key) {
+    case Qt::Key_Space:     name = QStringLiteral("Space"); break;
+    case Qt::Key_Tab:       name = QStringLiteral("Tab"); break;
+    case Qt::Key_Backspace: name = QStringLiteral("Backspace"); break;
+    case Qt::Key_Return:    name = QStringLiteral("Return"); break;
+    case Qt::Key_Enter:     name = QStringLiteral("Enter"); break;
+    case Qt::Key_Insert:    name = QStringLiteral("Ins"); break;
+    case Qt::Key_Delete:    name = QStringLiteral("Del"); break;
+    case Qt::Key_Pause:     name = QStringLiteral("Pause"); break;
+    case Qt::Key_Print:     name = QStringLiteral("Print"); break;
+    case Qt::Key_Home:      name = QStringLiteral("Home"); break;
+    case Qt::Key_End:       name = QStringLiteral("End"); break;
+    case Qt::Key_Left:      name = QStringLiteral("Left"); break;
+    case Qt::Key_Up:        name = QStringLiteral("Up"); break;
+    case Qt::Key_Right:     name = QStringLiteral("Right"); break;
+    case Qt::Key_Down:      name = QStringLiteral("Down"); break;
+    case Qt::Key_PageUp:    name = QStringLiteral("PgUp"); break;
+    case Qt::Key_PageDown:  name = QStringLiteral("PgDown"); break;
+    case Qt::Key_CapsLock:  name = QStringLiteral("CapsLock"); break;
+    case Qt::Key_NumLock:   name = QStringLiteral("NumLock"); break;
+    case Qt::Key_ScrollLock:name = QStringLiteral("ScrollLock"); break;
+    default:
+        if (key >= Qt::Key_F1 && key <= Qt::Key_F24)
+            name = QStringLiteral("F") + QString::number(key - Qt::Key_F1 + 1);
+        break; // sem spec (acento morto, tecla exótica): vazio
+    }
+    if (name.isEmpty()) return QString();
+    return prefix + name;
+}
+
 void HotkeyEdit::acceptSpec(const QString& spec) {
     setSpec(spec);
     emit specChanged(m_spec);
@@ -269,7 +340,9 @@ bool HotkeyEdit::eventFilter(QObject* obj, QEvent* ev) {
 // ---- camada 1: eventos diretos do widget
 void HotkeyEdit::keyPressEvent(QKeyEvent* e) {
     const int key = e->key();
-    if (key == Qt::Key_Escape || key == Qt::Key_Backspace || key == Qt::Key_Delete) {
+    // v1.1.27: só Esc limpa — Backspace/Delete são teclas de PTT legítimas
+    // (o runtime sempre soube mapeá-las; a captura é que as devorava)
+    if (key == Qt::Key_Escape) {
         acceptSpec(QString());
         clearFocus(); // desarma imediatamente!
         e->accept();
@@ -285,10 +358,16 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* e) {
         e->accept();
         return;
     }
-    const int combined = key | int(e->modifiers() & (Qt::ShiftModifier |
-                                 Qt::ControlModifier | Qt::AltModifier |
-                                 Qt::MetaModifier));
-    acceptSpec(QKeySequence(combined).toString());
+    // v1.1.27: KeypadModifier entra na spec ("Num+5") e a montagem é manual
+    // (specFromKey) — o QKeySequence::toString pode omitir Num/Meta
+    const int mods = int(e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier |
+                     Qt::AltModifier | Qt::MetaModifier | Qt::KeypadModifier));
+    const QString spec = specFromKey(key, mods);
+    if (spec.isEmpty()) {
+        e->accept(); // tecla sem spec (acento morto, exótica): aguarda a próxima
+        return;
+    }
+    acceptSpec(spec);
     clearFocus(); // desarma imediatamente ao capturar!
     e->accept();
 }

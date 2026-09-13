@@ -1993,6 +1993,16 @@ Deseja realmente sair?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../src/app/MainWindow.cpp" line="1916"/>
+        <source>Tecla de atalho ignorada (não suportada): %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindow.cpp" line="2062"/>
+        <source>Atalho global não registrado (em uso por outro programa): %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/app/MainWindow.cpp" line="1800"/>
         <source>Canal padrão</source>
         <translation type="unfinished"></translation>

@@ -2005,6 +2005,16 @@ Do you really want to leave?</translation>
       <translation>Could not register the PTT key: %1</translation>
     </message>
     <message>
+      <location filename="../src/app/MainWindow.cpp" line="1916" />
+      <source>Tecla de atalho ignorada (não suportada): %1</source>
+      <translation>Shortcut key ignored (not supported): %1</translation>
+    </message>
+    <message>
+      <location filename="../src/app/MainWindow.cpp" line="2062" />
+      <source>Atalho global não registrado (em uso por outro programa): %1</source>
+      <translation>Global shortcut not registered (combination in use by another program): %1</translation>
+    </message>
+    <message>
       <location filename="../src/app/MainWindow.cpp" line="1800" />
       <source>Canal padrão</source>
       <translation>Default channel</translation>

@@ -2005,6 +2005,16 @@ Deseja realmente sair?</source>
       <translation>No se puede registrar la clave PTT: %1</translation>
     </message>
     <message>
+      <location filename="../src/app/MainWindow.cpp" line="1916" />
+      <source>Tecla de atalho ignorada (não suportada): %1</source>
+      <translation>Tecla de atalho ignorada (no compatible): %1</translation>
+    </message>
+    <message>
+      <location filename="../src/app/MainWindow.cpp" line="2062" />
+      <source>Atalho global não registrado (em uso por outro programa): %1</source>
+      <translation>Atajo global no registrado (combinación en uso por otro programa): %1</translation>
+    </message>
+    <message>
       <location filename="../src/app/MainWindow.cpp" line="1800" />
       <source>Canal padrão</source>
       <translation>Canal predeterminado</translation>

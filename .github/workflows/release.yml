@@ -58,3 +58,13 @@ jobs:
               -I src tests/dsp_fallback_smoke.cpp src/audio/HallaAudioProcessing.cpp \
               build/dsp/*.o -L /mingw64/lib -lQt6Core -lm -o build/dsp_smoke.exe
           ./build/dsp_smoke.exe
+
+      # Gate do mapeamento tecla<->VK (HotkeyVk, v1.1.27): teclas de
+      # pontuação/OEM ("\", ";", "ç"...) eram descartadas em silêncio pelo
+      # conversor antigo — PTT/sussurro/atalhos inertes. C++ puro, sem Qt.
+      - name: Hotkey VK mapping smoke
+        shell: msys2 {0}
+        run: |
+          set -e
+          g++ -O2 -std=c++17 -I src tests/hotkey_vk_smoke.cpp -o build/hotkey_vk_smoke.exe
+          ./build/hotkey_vk_smoke.exe

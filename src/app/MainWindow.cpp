@@ -69,6 +69,7 @@
 #include <QRandomGenerator>
 #include <functional>
 #include <utility>
+#include "gui/HotkeyVk.h" // núcleo portátil spec<->VK (v1.1.27)
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <QImage>
@@ -108,9 +109,27 @@ static QPixmap grabWindowsApp(HWND hwnd) {
 }
 #endif
 
+// spec de atalho ("Ctrl+F2", "\", "Num+5", "ç"...) -> QKeySequence.
+// Tenta o parser do QKeySequence; se ele rejeitar — pontuação solta,
+// acentos Latin-1, "Num+"/"Meta+" — cai no parser manual do HotkeyVk.
+// v1.1.27: sem isto, teclas como "\" não voltavam do perfil NUNCA.
+static QKeySequence hotkeySpecToSequence(const QString& spec) {
+    const QString s = spec.trimmed();
+    if (s.isEmpty()) return QKeySequence();
+    const QKeySequence ks = QKeySequence::fromString(s);
+    if (!ks.isEmpty() && ks[0].toCombined() != 0)
+        return ks;
+    const int combined = hvk::parseSpec(s.toUtf8().constData());
+    if (combined == 0) return QKeySequence();
+    return QKeySequence(QKeyCombination::fromCombined(combined));
+}
+
 #ifdef Q_OS_WIN
-// definida mais abaixo (mesmo arquivo)
+// definidas mais abaixo (mesmo arquivo)
 bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods);
+// v1.1.27: converte a SPEC salva ("\", "Ctrl+\", "Num+5", "ç"...) direto
+// em VK+mods — tolera o que o QKeySequence::fromString rejeita
+bool specToVkFromSpec(const QString& spec, UINT& vk, UINT& mods);
 #endif
 
 class ScreenShareWindow : public QDialog {
@@ -919,7 +938,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 #ifdef Q_OS_WIN
         if (!shortcut.isEmpty()) {
             UINT vk = 0, mods = 0;
-            if (specToVk(QKeySequence::fromString(shortcut), vk, mods)) {
+            if (specToVkFromSpec(shortcut, vk, mods)) {
                 const int hotkeyId = m_nextPluginHotkeyId++;
                 if (RegisterHotKey(HWND(winId()), hotkeyId, mods | MOD_NOREPEAT, vk)) {
                     m_pluginHotkeyIds.insert(key, hotkeyId);
@@ -1852,6 +1871,10 @@ void MainWindow::applyHotkeys() {
     m_globalHotkeyActions.clear();
     m_whisperHolds.clear();
     m_mouseHotkeys.clear();
+    // atalhos cujo RegisterHotKey falhou (outro programa já usa a combinação
+    // — antes era silêncio total: o usuário via a tecla configurada e ela
+    // simplesmente não fazia nada). v1.1.27: avisado na barra de status.
+    QStringList failedRegistrations;
 #endif
 
     // lista do PERFIL ativo (migração da chave legada "hotkeys/list")
@@ -1895,14 +1918,17 @@ void MainWindow::applyHotkeys() {
                 hk.mouseBtn = mouseBtn;
                 if (mouseBtn == 0) {
                     UINT vk = 0, mods = 0;
-                    if (!specToVk(QKeySequence::fromString(keyStr), vk, mods))
-                        continue; // tecla não mapeável para VK: sem hold
+                    if (!specToVkFromSpec(keyStr, vk, mods)) {
+                        AppLog::info(tr("Tecla de atalho ignorada (não suportada): %1")
+                                         .arg(keyStr));
+                        continue;
+                    }
                     hk.vk = vk;
-                    hk.mods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT);
+                    hk.mods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN);
                 }
                 m_whisperHolds << hk;
 #else
-                const QKeySequence wseq = QKeySequence::fromString(keyStr);
+                const QKeySequence wseq = hotkeySpecToSequence(keyStr);
                 if (!wseq.isEmpty()) {
                     const int wscope = qBound(0, o.value("scope").toInt(1), 2);
                     QShortcut* sc = new QShortcut(wseq, this);
@@ -1917,7 +1943,7 @@ void MainWindow::applyHotkeys() {
                 continue;
             }
 
-            const QKeySequence seq = QKeySequence::fromString(keyStr);
+            const QKeySequence seq = hotkeySpecToSequence(keyStr);
             if (seq.isEmpty()) continue;
 #ifdef Q_OS_WIN
             if (mouseBtn != 0) {
@@ -1929,10 +1955,15 @@ void MainWindow::applyHotkeys() {
             } else {
                 // GLOBAL: funciona em segundo plano, como no Halla
                 UINT vk = 0, mods = 0;
-                if (specToVk(seq, vk, mods)) {
+                if (specToVkFromSpec(keyStr, vk, mods)) {
                     const int id = 100 + idx;
                     if (RegisterHotKey(HWND(winId()), id, mods | MOD_NOREPEAT, vk))
                         m_globalHotkeyActions[id] = action;
+                    else
+                        failedRegistrations << keyStr; // conflito: outro app já usa
+                } else {
+                    AppLog::info(tr("Tecla de atalho ignorada (não suportada): %1")
+                                     .arg(keyStr));
                 }
             }
 #else
@@ -1968,7 +1999,7 @@ void MainWindow::applyHotkeys() {
                 else if (keyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) hk.mouseBtn = 3;
                 else {
                     UINT vk = 0, mods = 0;
-                    if (!specToVk(QKeySequence::fromString(keyStr), vk, mods)) {
+                    if (!specToVkFromSpec(keyStr, vk, mods)) {
                         okKey = false; // tecla não mapeável: segue só com a resposta
                     } else {
                         hk.vk = vk;
@@ -1992,15 +2023,15 @@ void MainWindow::applyHotkeys() {
                 else if (replyStr == QLatin1String(HotkeyEdit::kMouseMiddle)) rk.mouseBtn = 3;
                 else {
                     UINT rvk = 0, rmods = 0;
-                    if (specToVk(QKeySequence::fromString(replyStr), rvk, rmods)) {
+                    if (specToVkFromSpec(replyStr, rvk, rmods)) {
                         rk.vk = rvk;
-                        rk.mods = rmods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT);
+                        rk.mods = rmods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN);
                         m_whisperHolds << rk;
                     }
                 }
             }
 #else
-            const QKeySequence seq = QKeySequence::fromString(keyStr);
+            const QKeySequence seq = hotkeySpecToSequence(keyStr);
             if (!seq.isEmpty()) {
                 QShortcut* sc = new QShortcut(seq, this);
                 sc->setContext(Qt::WindowShortcut);
@@ -2026,6 +2057,15 @@ void MainWindow::applyHotkeys() {
         connect(m_pttPoll, &QTimer::timeout, this, &MainWindow::pollGlobalInputs);
     }
     m_pttPoll->start();
+
+    // v1.1.27: conflito de hotkey global deixa de ser invisível — o usuário
+    // fica sabendo POR QUE a tecla configurada não dispara
+    if (!failedRegistrations.isEmpty()) {
+        const QString msg = tr("Atalho global não registrado (em uso por outro programa): %1")
+                                .arg(failedRegistrations.join(QStringLiteral(", ")));
+        AppLog::info(msg);
+        statusBar()->showMessage(msg, 8000);
+    }
 #endif
 
     // (re)registra a tecla PTT global do sistema (Windows) — tecla OU mouse
@@ -2112,43 +2152,43 @@ void MainWindow::changeEvent(QEvent* e) {
 // funcionam com a janela EM SEGUNDO PLANO (PTT global de voz)
 // ======================================================================
 #ifdef Q_OS_WIN
-// converte QKeySequence (ex.: "Ctrl+F2", "Space") em VK + modificadores
+// adapta VkKeyScanW ao resolvedor do HotkeyVk: devolve o VK no byte baixo
+// com os bits 0x100/0x200/0x400 (shift/ctrl/alt que o LAYOUT ATUAL exige
+// para o caractere — inclui AltGr) ou -1 se o caractere não existe no layout
+static int vkScanAdapter(unsigned ch) {
+    const SHORT r = VkKeyScanW(static_cast<WCHAR>(ch));
+    if (r == SHORT(-1)) return -1;
+    return int(static_cast<unsigned short>(r));
+}
+
+// converte QKeySequence (ex.: "Ctrl+F2", "Space") em VK + modificadores.
+// O trabalho de verdade está em gui/HotkeyVk.h (núcleo portátil, testado
+// em tests/hotkey_vk_smoke.cpp).
 static bool specToVkImpl(const QKeySequence& ks, UINT& vk, UINT& mods) {
     if (ks.isEmpty()) return false;
-    const QKeyCombination comb = ks[0];
-    const int k = comb.toCombined();
-    const int key = k & ~int(Qt::KeyboardModifierMask);
-    vk = 0;
-    if (key >= Qt::Key_A && key <= Qt::Key_Z)      vk = UINT(key);
-    else if (key >= Qt::Key_0 && key <= Qt::Key_9) vk = UINT(key);
-    else if (key == Qt::Key_Space)     vk = VK_SPACE;
-    else if (key == Qt::Key_Tab)       vk = VK_TAB;
-    else if (key == Qt::Key_CapsLock)  vk = VK_CAPITAL;
-    else if (key == Qt::Key_Return)    vk = VK_RETURN;
-    else if (key == Qt::Key_Backspace) vk = VK_BACK;
-    else if (key == Qt::Key_Insert)    vk = VK_INSERT;
-    else if (key == Qt::Key_Delete)    vk = VK_DELETE;
-    else if (key == Qt::Key_Home)      vk = VK_HOME;
-    else if (key == Qt::Key_End)       vk = VK_END;
-    else if (key == Qt::Key_PageUp)    vk = VK_PRIOR;
-    else if (key == Qt::Key_PageDown)  vk = VK_NEXT;
-    else if (key == Qt::Key_Print)     vk = VK_SNAPSHOT;
-    else if (key == Qt::Key_Pause)     vk = VK_PAUSE;
-    else if (key == Qt::Key_Left)      vk = VK_LEFT;
-    else if (key == Qt::Key_Up)        vk = VK_UP;
-    else if (key == Qt::Key_Right)     vk = VK_RIGHT;
-    else if (key == Qt::Key_Down)      vk = VK_DOWN;
-    else if (key >= Qt::Key_F1 && key <= Qt::Key_F24)
-        vk = VK_F1 + UINT(key - Qt::Key_F1);
-    mods = MOD_NOREPEAT;
-    if (k & int(Qt::ShiftModifier))   mods |= MOD_SHIFT;
-    if (k & int(Qt::ControlModifier)) mods |= MOD_CONTROL;
-    if (k & int(Qt::AltModifier))     mods |= MOD_ALT;
-    return vk != 0;
+    unsigned v = 0, m = 0;
+    if (!hvk::specToVkCore(ks[0].toCombined(), &vkScanAdapter, v, m)) return false;
+    vk = v;
+    mods = m | MOD_NOREPEAT;
+    return true;
 }
 // visibilidade p/ applyHotkeys()
 bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods) {
     return specToVkImpl(ks, vk, mods);
+}
+
+// v1.1.27: o caminho principal — spec salva no perfil direto para VK+mods.
+// Cobre as teclas que o conversor antigo descartava em silêncio: pontuação
+// OEM ("\", ";", "'", "[", "]", ",", "/", "=", "`"...), acentos Latin-1
+// ("ç" em ABNT2), teclado numérico ("Num+5") e a tecla Windows ("Meta+X").
+bool specToVkFromSpec(const QString& spec, UINT& vk, UINT& mods) {
+    const QKeySequence seq = hotkeySpecToSequence(spec);
+    if (seq.isEmpty()) return false;
+    unsigned v = 0, m = 0;
+    if (!hvk::specToVkCore(seq[0].toCombined(), &vkScanAdapter, v, m)) return false;
+    vk = v;
+    mods = m | MOD_NOREPEAT;
+    return true;
 }
 #endif
 
@@ -2174,6 +2214,10 @@ static bool modsHeld(UINT mods) {
     if ((mods & MOD_CONTROL) && !(GetAsyncKeyState(VK_CONTROL) & 0x8000)) return false;
     if ((mods & MOD_SHIFT)   && !(GetAsyncKeyState(VK_SHIFT)   & 0x8000)) return false;
     if ((mods & MOD_ALT)     && !(GetAsyncKeyState(VK_MENU)    & 0x8000)) return false;
+    // v1.1.27: tecla Windows como modificador de sussurro/PTT ("Meta+X")
+    if ((mods & MOD_WIN) &&
+        !((GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000))
+        return false;
     return true;
 }
 #endif
@@ -2352,15 +2396,19 @@ void MainWindow::registerPttHotkey() {
 
     // ---- tecla: RegisterHotKey (caminho rápido) + polling de soltura/backup
     UINT vk = 0, mods = 0;
-    const QKeySequence ks = QKeySequence::fromString(spec);
-    if (!specToVkImpl(ks, vk, mods)) return;
+    if (!specToVkFromSpec(spec, vk, mods)) {
+        // v1.1.27: teclas de pontuação ("\", ";", "ç"...) passaram a valer
+        // como PTT — e uma tecla realmente incompatível é LOGADA, não silêncio
+        AppLog::info(tr("Não foi possível registrar a tecla PTT: %1").arg(spec));
+        return;
+    }
     m_pttVk = vk;
-    m_pttMods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT);
+    m_pttMods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN);
     if (RegisterHotKey(HWND(winId()), 1, mods, vk)) {
         m_pttRegistered = true;
-        AppLog::info(tr("Tecla PTT global registrada: %1").arg(ks.toString()));
+        AppLog::info(tr("Tecla PTT global registrada: %1").arg(spec));
     } else {
-        AppLog::info(tr("Não foi possível registrar a tecla PTT: %1").arg(ks.toString()));
+        AppLog::info(tr("Não foi possível registrar a tecla PTT: %1").arg(spec));
     }
 #endif
 }

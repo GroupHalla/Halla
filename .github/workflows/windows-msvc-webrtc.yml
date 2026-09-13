@@ -140,6 +140,27 @@ jobs:
           Write-Host "=== smoke exit code: $runCode"
           exit $runCode
 
+      # Gate de release do mapeamento tecla<->VK (HotkeyVk, v1.1.27): valida
+      # o conversor de specs de atalho para teclas virtuais do Windows. O bug
+      # original: teclas de pontuação/OEM ("\", ";", "ç"...) não constavam na
+      # tabela e o PTT/sussurro/atalho era descartado em silêncio — o usuário
+      # configurava tudo certo e "nada acontecia, como se não apertasse".
+      # Mocks de layout US/ABNT2/fallback; sem Qt/windows.h: C++ puro.
+      - name: Hotkey VK mapping smoke (release gate)
+        shell: pwsh
+        run: |
+          $cl = "cl /nologo /std:c++20 /Zc:__cplusplus /MD /EHsc /I `"src`" tests\hotkey_vk_smoke.cpp /link /out:hotkey_vk_smoke.exe"
+          cmd /c "$cl > hotkey_vk_build.log 2>&1"
+          $buildCode = $LASTEXITCODE
+          Get-Content hotkey_vk_build.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== cl exit code: $buildCode"
+          if ($buildCode -ne 0) { exit $buildCode }
+          cmd /c ".\hotkey_vk_smoke.exe > hotkey_vk_run.log 2>&1"
+          $runCode = $LASTEXITCODE
+          Get-Content hotkey_vk_run.log | ForEach-Object { Write-Host $_ }
+          Write-Host "=== smoke exit code: $runCode"
+          exit $runCode
+
       # Gate de release para a criptografia ponta a ponta v6: roda as
       # primitivas EXATAS de src/core/E2eeCrypto.cpp (X25519/HKDF/AES-GCM/
       # Ed25519/envelopes/par-a-par/SAS) com vetores do RFC 7748/5869 e do
