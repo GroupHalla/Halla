@@ -32,6 +32,90 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     list->append({hwnd, wTitle});
     return TRUE;
 }
+#elif defined(Q_OS_LINUX)
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/Xutil.h>
+
+namespace {
+
+// Equivalente X11 do EnumWindows do Windows: lista as janelas "de
+// aplicativo" (com título, mapeadas, sem override-redirect) para a aba
+// Aplicativos do diálogo de compartilhamento.
+struct LinuxWindowInfo {
+    WId window = 0;
+    QString title;
+};
+
+bool windowHasAcceptableType(Display* display, Window window)
+{
+    static const Atom typeAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE", True);
+    static const Atom normalAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", True);
+    static const Atom dialogAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DIALOG", True);
+    static const Atom utilityAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_UTILITY", True);
+    static const Atom toolbarAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_TOOLBAR", True);
+    if (typeAtom == None) return true;
+    Atom actualType = None;
+    int actualFormat = 0;
+    unsigned long itemCount = 0, bytesAfter = 0;
+    unsigned char* data = nullptr;
+    if (XGetWindowProperty(display, window, typeAtom, 0, 64, False, XA_ATOM,
+                           &actualType, &actualFormat, &itemCount, &bytesAfter,
+                           &data) != Success || !data)
+        return true; // sem a propriedade: janela antiga/gerenciador simples
+    const Atom* types = reinterpret_cast<const Atom*>(data);
+    bool acceptable = false;
+    for (unsigned long i = 0; i < itemCount && !acceptable; ++i) {
+        acceptable = types[i] == normalAtom || types[i] == dialogAtom
+            || types[i] == utilityAtom || types[i] == toolbarAtom;
+    }
+    XFree(data);
+    return acceptable;
+}
+
+QList<LinuxWindowInfo> enumerateLinuxWindows()
+{
+    QList<LinuxWindowInfo> windows;
+    Display* display = XOpenDisplay(nullptr);
+    if (!display) return windows;
+
+    Window root = DefaultRootWindow(display);
+    Window parent = None;
+    Window* children = nullptr;
+    unsigned int count = 0;
+    if (XQueryTree(display, root, &root, &parent, &children, &count) && children) {
+        for (unsigned int i = 0; i < count; ++i) {
+            const Window window = children[i];
+            XWindowAttributes attributes;
+            if (!XGetWindowAttributes(display, window, &attributes)) continue;
+            if (attributes.map_state != IsViewable || attributes.override_redirect)
+                continue;
+            if (attributes.width < 50 || attributes.height < 50) continue;
+            if (!windowHasAcceptableType(display, window)) continue;
+
+            // Título: XGetWMName cobre WM_NAME e _NET_WM_NAME.
+            XTextProperty textProperty;
+            if (!XGetWMName(display, window, &textProperty) || !textProperty.value)
+                continue;
+            QString title;
+            if (textProperty.encoding == XA_STRING) {
+                title = QString::fromLatin1(reinterpret_cast<const char*>(textProperty.value));
+            } else {
+                title = QString::fromUtf8(reinterpret_cast<const char*>(textProperty.value));
+            }
+            XFree(textProperty.value);
+            if (title.isEmpty() || title == QStringLiteral("Desktop")
+                    || title == QStringLiteral("desktop"))
+                continue;
+            windows.append({WId(window), title});
+        }
+        XFree(children);
+    }
+    XCloseDisplay(display);
+    return windows;
+}
+
+} // namespace
 #endif
 
 ScreenShareDialog::ScreenShareDialog(int maxWidth, int maxHeight, int maxFps,
@@ -186,7 +270,11 @@ ScreenShareDialog::ScreenShareDialog(int maxWidth, int maxHeight, int maxFps,
     m_audioCombo = new QComboBox(audioBox);
     m_audioCombo->addItem(tr("Sem áudio do PC"), 0);
     m_audioCombo->addItem(tr("Áudio de todo o PC"), 1);
+#ifdef Q_OS_WIN
     m_audioCombo->setToolTip(tr("Captura os outros aplicativos sem retransmitir vozes e avisos do Halla. Requer Windows build 20348 ou mais recente."));
+#else
+    m_audioCombo->setToolTip(tr("Captura os outros aplicativos sem retransmitir vozes e avisos do Halla. Requer PulseAudio ou PipeWire (com pipewire-pulse)."));
+#endif
     m_audioCombo->setCurrentIndex(0);
     m_audioCombo->setStyleSheet(m_qualityCombo->styleSheet());
     aLayout->addWidget(m_audioCombo, 1);
@@ -352,7 +440,7 @@ void ScreenShareDialog::populateScreens() {
 
 void ScreenShareDialog::populateWindows() {
     m_windowList->clear();
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
     QList<WindowInfo> windows;
     EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&windows));
     QScreen* screen = QGuiApplication::primaryScreen();
@@ -374,6 +462,36 @@ void ScreenShareDialog::populateWindows() {
             }
         }
         
+        m_windowList->addItem(item);
+    }
+#elif defined(Q_OS_LINUX)
+    // Enumeração X11 (XWayland incluso); Wayland nativo não expõe janelas
+    // de outros aplicativos sem o portal xdg-desktop-portal.
+    const QList<LinuxWindowInfo> windows = enumerateLinuxWindows();
+    QScreen* screen = QGuiApplication::primaryScreen();
+    for (const LinuxWindowInfo& win : windows) {
+        QListWidgetItem* item = new QListWidgetItem(m_windowList);
+
+        QString t = win.title;
+        if (t.length() > 28) {
+            t = t.left(25) + QStringLiteral("...");
+        }
+        item->setText(t);
+        item->setTextAlignment(Qt::AlignCenter);
+        item->setData(Qt::UserRole, qulonglong(win.window));
+
+        if (screen && win.window) {
+            QPixmap preview = screen->grabWindow(win.window).scaled(150, 85, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            if (!preview.isNull()) {
+                item->setIcon(QIcon(preview));
+            }
+        }
+
+        m_windowList->addItem(item);
+    }
+    if (m_windowList->count() == 0) {
+        QListWidgetItem* item = new QListWidgetItem(tr("Sem aplicativos detectados nesta plataforma"), m_windowList);
+        item->setData(Qt::UserRole, 0);
         m_windowList->addItem(item);
     }
 #else

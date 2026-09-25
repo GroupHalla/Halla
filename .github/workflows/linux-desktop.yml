@@ -3,6 +3,12 @@ name: Build Linux Desktop
 # Workflow reutilizável: roda sozinho em pushes no main (validação contínua
 # do build Linux) e é chamado pelo workflow de release (windows-msvc-webrtc)
 # na tag, anexando o AppImage à mesma release do instalador Windows.
+#
+# Desde a v1.1.30 o AppImage leva o WebRTC NATIVO: baixa o SDK pré-compilado
+# do Halla-WebRTC-Builds (mesma revisão do libwebrtc do SDK Windows, para
+# que clientes Linux e Windows negociem mídia entre si) e compila com
+# HALLA_ENABLE_WEBRTC_NATIVE=ON — captura X11 + loopback PulseAudio com
+# exclusão dos sons do próprio Halla + AEC3/RNNoise do APM do libwebrtc.
 on:
   workflow_call:
   workflow_dispatch:
@@ -12,10 +18,14 @@ on:
 permissions:
   contents: read
 
+env:
+  # Release do repo GroupHalla/Halla-WebRTC-Builds com o SDK linux-x64.
+  WEBRTC_SDK_TAG: linux-v0.1.14
+
 jobs:
   build-linux:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -51,15 +61,98 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libopus-dev libssl-dev \
-            libsecret-1-dev ffmpeg pkg-config libspeechd2
+            libsecret-1-dev ffmpeg pkg-config libspeechd2 \
+            libx11-dev libxext-dev libxrandr-dev libxfixes-dev libpulse-dev
 
-      - name: Configure
+      # Mesma cadeia de verificação do build Windows: checksum externo do
+      # ZIP + MANIFEST.sha256 de cada arquivo do SDK.
+      - name: Download and verify WebRTC SDK (linux-x64)
+        run: |
+          set -e
+          base="https://github.com/GroupHalla/Halla-WebRTC-Builds/releases/download/${WEBRTC_SDK_TAG}/halla-webrtc-linux-x64-v0.1.14.zip"
+          curl -fsSL -o webrtc-sdk.zip "$base"
+          curl -fsSL -o webrtc-sdk.zip.sha256 "$base.sha256"
+          expected=$(awk '{print $1}' webrtc-sdk.zip.sha256)
+          actual=$(sha256sum webrtc-sdk.zip | awk '{print $1}')
+          if [ "$actual" != "$expected" ]; then
+            echo "WebRTC SDK SHA-256 mismatch"; exit 1
+          fi
+          mkdir -p third_party/webrtc-sdk
+          unzip -q webrtc-sdk.zip -d third_party/webrtc-sdk
+          test -f third_party/webrtc-sdk/MANIFEST.sha256
+          (cd third_party/webrtc-sdk && sha256sum -c --quiet MANIFEST.sha256)
+
+      - name: Configure native WebRTC build
         run: >
           cmake -S . -B build-linux -G Ninja -DCMAKE_BUILD_TYPE=Release
-          -DHALLA_ENABLE_WEBRTC_NATIVE=OFF
+          -DHALLA_WEBRTC_SDK_DIR="$PWD/third_party/webrtc-sdk"
+          -DHALLA_ENABLE_WEBRTC_NATIVE=ON
 
       - name: Build
         run: cmake --build build-linux
+
+      # Gate do SDK em si (o mesmo smoke do build do SDK): prova que a
+      # PeerConnectionFactory do libwebrtc.a cria/destroi no g++ do runner —
+      # a ABI libstdc++ do SDK casa com a do app.
+      - name: WebRTC factory smoke (SDK)
+        run: |
+          set -e
+          g++ -std=c++20 -O1 -DWEBRTC_POSIX=1 \
+            -I third_party/webrtc-sdk/include \
+            -I third_party/webrtc-sdk/include/third_party/abseil-cpp \
+            -I third_party/webrtc-sdk/include/third_party/libyuv/include \
+            tests/webrtc_factory_smoke.cpp \
+            third_party/webrtc-sdk/lib/linux-x64/libwebrtc.a \
+            -lpthread -ldl -lm -o build-linux/webrtc_factory_smoke
+          ./build-linux/webrtc_factory_smoke
+
+      # Gate do DSP de voz NATIVO (AEC3 + supressão neural do APM do
+      # libwebrtc) no caminho exato do AppImage: HALLA_WEBRTC_NATIVE=1 +
+      # SDK. O dsp_fallback_smoke abaixo continua validando o caminho sem
+      # SDK usado pelo MinGW fallback.
+      - name: Voice DSP APM smoke (native SDK)
+        run: |
+          set -e
+          g++ -std=c++20 -O1 -DWEBRTC_POSIX=1 -DHALLA_WEBRTC_NATIVE=1 \
+            -I third_party/webrtc-sdk/include \
+            -I third_party/webrtc-sdk/include/third_party/abseil-cpp \
+            -I third_party/webrtc-sdk/include/third_party/libyuv/include \
+            -I "$QT_ROOT_DIR/include" -I "$QT_ROOT_DIR/include/QtCore" \
+            -I src tests/webrtc_apm_smoke.cpp src/audio/HallaAudioProcessing.cpp \
+            third_party/webrtc-sdk/lib/linux-x64/libwebrtc.a \
+            -L "$QT_ROOT_DIR/lib" -lQt6Core -lpthread -ldl -lm \
+            -o build-linux/apm_native_smoke
+          LD_LIBRARY_PATH="$QT_ROOT_DIR/lib" ./build-linux/apm_native_smoke
+
+      # Gate da identidade Ed25519 com o BoringSSL embutido no SDK (o
+      # binário nativo resolve E2eeCrypto pelo libwebrtc.a, não pelo
+      # OpenSSL do sistema): a sequência exata do IdentityDialog. O smoke é
+      # standalone — headers OpenSSL 3 do sistema + link do libwebrtc.a.
+      - name: Ed25519 identity smoke (SDK BoringSSL)
+        run: |
+          set -e
+          g++ -std=c++20 -O1 -DWEBRTC_POSIX=1 \
+            -I src tests/ed25519_identity_smoke.cpp \
+            third_party/webrtc-sdk/lib/linux-x64/libwebrtc.a \
+            -lpthread -ldl -lm -o build-linux/ed25519_sdk_smoke
+          ./build-linux/ed25519_sdk_smoke
+
+      # E2EE v6 completo (X25519/HKDF/AES-GCM/Ed25519/envelopes) contra os
+      # vetores do RFC 7748/5869 e do NIST, no mesmo ambiente misto do app
+      # nativo (Qt 6.8 + BoringSSL do SDK).
+      - name: E2EE crypto smoke (SDK BoringSSL)
+        run: |
+          set -e
+          g++ -std=c++20 -O1 -DWEBRTC_POSIX=1 -DHALLA_WEBRTC_NATIVE=1 \
+            -I third_party/webrtc-sdk/include \
+            -I third_party/webrtc-sdk/include/third_party/abseil-cpp \
+            -I third_party/webrtc-sdk/include/third_party/libyuv/include \
+            -I "$QT_ROOT_DIR/include" -I "$QT_ROOT_DIR/include/QtCore" \
+            -I src tests/e2ee_crypto_smoke.cpp src/core/E2eeCrypto.cpp \
+            third_party/webrtc-sdk/lib/linux-x64/libwebrtc.a \
+            -L "$QT_ROOT_DIR/lib" -lQt6Core -lpthread -ldl -lm \
+            -o build-linux/e2ee_sdk_smoke
+          LD_LIBRARY_PATH="$QT_ROOT_DIR/lib" ./build-linux/e2ee_sdk_smoke
 
       # Smokes de C++ puro (os mesmos gates do MinGW fallback, agora com gcc
       # no Linux): mapeamento tecla<->VK (v1.1.27) e guarda de crosstalk do
@@ -75,9 +168,9 @@ jobs:
             src/audio/EchoGuard.cpp -o build-linux/echo_guard_smoke
           ./build-linux/echo_guard_smoke
 
-      # DSP de voz embutido (RNNoise + AEC do speex): o build sem SDK do
-      # libwebrtc distribuído como AppImage usa EXATAMENTE este caminho —
-      # os checkboxes de redução de ruído/eco precisam funcionar de verdade.
+      # DSP de voz embutido (RNNoise + AEC do speex): o caminho do build sem
+      # SDK do libwebrtc (MinGW fallback / desenvolvimento local) — os
+      # checkboxes de redução de ruído/eco continuam funcionando lá também.
       - name: DSP fallback smoke (RNNoise + speex AEC)
         run: |
           set -e
@@ -92,18 +185,6 @@ jobs:
               -I src tests/dsp_fallback_smoke.cpp src/audio/HallaAudioProcessing.cpp \
               build-linux/dsp/*.o -L "$QT_ROOT_DIR/lib" -lQt6Core -lm -o build-linux/dsp_smoke
           LD_LIBRARY_PATH="$QT_ROOT_DIR/lib" ./build-linux/dsp_smoke
-
-      # E2EE v6 (X25519/HKDF/AES-GCM/Ed25519) contra os vetores do
-      # RFC 7748/5869 e do NIST, com o OpenSSL do sistema (o caminho que o
-      # build Linux sem BoringSSL embutido realmente usa).
-      - name: E2EE crypto smoke
-        run: |
-          set -e
-          g++ -O2 -std=c++17 \
-              -I "$QT_ROOT_DIR/include" -I "$QT_ROOT_DIR/include/QtCore" \
-              -I src tests/e2ee_crypto_smoke.cpp src/core/E2eeCrypto.cpp \
-              -L "$QT_ROOT_DIR/lib" -lQt6Core -lcrypto -o build-linux/e2ee_smoke
-          LD_LIBRARY_PATH="$QT_ROOT_DIR/lib" ./build-linux/e2ee_smoke
 
       - name: Package AppImage
         env:

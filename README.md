@@ -357,6 +357,15 @@ packaging, audio, events and security rules.
 ./build/Halla
 ```
 
+Without the WebRTC SDK this produces the fallback build (Qt Multimedia voice
+path with the built-in RNNoise/speex DSP, legacy JPEG screen sharing). To
+build the same native WebRTC variant shipped in the official AppImage
+(X11 screen capture, PC audio loopback over PulseAudio/PipeWire with the
+Halla's own audio excluded, AEC3/neural noise suppression from the APM),
+download the **linux-x64** SDK from
+[Halla WebRTC Builds](https://github.com/GroupHalla/Halla-WebRTC-Builds/releases)
+and follow the "Windows / manual" section below.
+
 ### Windows / manual (any platform)
 
 ```bash

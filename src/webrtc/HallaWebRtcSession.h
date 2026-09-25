@@ -126,6 +126,9 @@ private:
     QTimer* m_captureTimer = nullptr;
     int m_captureSourceType = 0;
     quintptr m_captureSourceId = 0;
+    // Linux: nome do output XRandR do monitor selecionado (X11ScreenCapturer
+    // resolve o monitor por nome — a ordem dos QScreens não é confiável).
+    QString m_captureScreenName;
     // Snapshot das geometrias lógicas das telas, coletado NA GUI THREAD
     // (setCaptureSource). QGuiApplication::screens()/geometry() não podem ser
     // lidos da thread de captura — o crop de janelas usa esta cópia.

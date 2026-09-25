@@ -4532,6 +4532,11 @@ Alternativas: importe un archivo de copia de seguridad de identidad (Halla Deskt
     </message>
     <message>
       <location filename="../src/dialogs/ScreenShareDialog.cpp" line="156" />
+      <source>Captura os outros aplicativos sem retransmitir vozes e avisos do Halla. Requer PulseAudio ou PipeWire (com pipewire-pulse).</source>
+      <translation>Captura las otras aplicaciones sin retransmitir voces y avisos de Halla. Requiere PulseAudio o PipeWire (con pipewire-pulse).</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/ScreenShareDialog.cpp" line="156" />
       <source>Captura os outros aplicativos sem retransmitir vozes e avisos do Halla. Requer Windows build 20348 ou mais recente.</source>
       <translation>Captura otras aplicaciones sin transmitir voces y advertencias de Halla. Requiere Windows build 20348 o posterior.</translation>
     </message>

@@ -4466,6 +4466,11 @@ Alternativas: importe um arquivo de backup de identidade (Halla Desktop ou Mobil
         <translation type="unfinished"></translation>
     </message>
     <message>
+      
+      <source>Captura os outros aplicativos sem retransmitir vozes e avisos do Halla. Requer PulseAudio ou PipeWire (com pipewire-pulse).</source>
+      <translation></translation>
+    </message>
+    <message>
         <location filename="../src/dialogs/ScreenShareDialog.cpp" line="156"/>
         <source>Captura os outros aplicativos sem retransmitir vozes e avisos do Halla. Requer Windows build 20348 ou mais recente.</source>
         <translation type="unfinished"></translation>

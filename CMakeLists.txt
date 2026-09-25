@@ -130,9 +130,25 @@ set(HALLA_SOURCES
     src/webrtc/HallaWebRtcSession.h
     src/webrtc/MediaFoundationH264.cpp
     src/webrtc/MediaFoundationH264.h
+    # Captura de tela/áudio do PC no Linux (X11/PulseAudio). Compilam vazios
+    # (stubs) fora de "Linux + WebRTC nativo" — mesmo padrão do
+    # MediaFoundationH264; a enumeração de janelas X11 do ScreenShareDialog
+    # não depende do SDK e funciona até no build fallback.
+    src/webrtc/X11ScreenCapturer.cpp
+    src/webrtc/X11ScreenCapturer.h
+    src/webrtc/PulseLoopbackAudio.cpp
+    src/webrtc/PulseLoopbackAudio.h
 )
 
 add_executable(Halla ${HALLA_SOURCES})
+
+# X11 é necessário no Linux mesmo sem o SDK WebRTC: a enumeração de
+# janelas do diálogo de compartilhamento (aba Aplicativos) usa Xlib direto
+# em qualquer build.
+if (UNIX AND NOT APPLE)
+    find_package(X11 REQUIRED COMPONENTS Xext Xrandr Xfixes)
+    target_link_libraries(Halla PRIVATE X11::X11 X11::Xext X11::Xrandr X11::Xfixes)
+endif()
 
 target_include_directories(Halla PRIVATE
     "${HALLA_GENERATED_DIR}"
@@ -187,6 +203,17 @@ if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
             target_link_libraries(Halla PRIVATE "${HALLA_WEBRTC_LIBRARY}")
             if (WIN32)
                 target_link_libraries(Halla PRIVATE winmm mmdevapi secur32 crypt32 iphlpapi dmoguids strmiids msdmo wmcodecdspuuid ole32 oleaut32 user32 advapi32 d3d11 dxgi mf mfplat mfuuid propsys)
+            endif()
+            if (UNIX AND NOT APPLE)
+                # Loopback do áudio do PC (PulseAudio/pipewire-pulse) +
+                # pthread/dl/m exigidos pelo libwebrtc.a no Linux.
+                find_package(Threads REQUIRED)
+                find_path(PULSE_INCLUDE_DIR pulse/pulseaudio.h REQUIRED)
+                find_library(PULSE_LIBRARY NAMES pulse REQUIRED)
+                target_include_directories(Halla PRIVATE ${PULSE_INCLUDE_DIR})
+                find_library(M_LIBRARY m REQUIRED)
+                target_link_libraries(Halla PRIVATE
+                    ${PULSE_LIBRARY} ${M_LIBRARY} Threads::Threads ${CMAKE_DL_LIBS})
             endif()
             message(STATUS "Halla: WebRTC nativo habilitado (${HALLA_WEBRTC_LIBRARY})")
         else()

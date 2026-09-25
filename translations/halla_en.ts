@@ -4532,6 +4532,11 @@ Alternatives: import an identity backup file (Halla Desktop or Mobile) or ask a 
     </message>
     <message>
       <location filename="../src/dialogs/ScreenShareDialog.cpp" line="156" />
+      <source>Captura os outros aplicativos sem retransmitir vozes e avisos do Halla. Requer PulseAudio ou PipeWire (com pipewire-pulse).</source>
+      <translation>Captures other applications without relaying Halla voices and warnings. Requires PulseAudio or PipeWire (with pipewire-pulse).</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/ScreenShareDialog.cpp" line="156" />
       <source>Captura os outros aplicativos sem retransmitir vozes e avisos do Halla. Requer Windows build 20348 ou mais recente.</source>
       <translation>Captures other applications without relaying Halla voices and warnings. Requires Windows build 20348 or newer.</translation>
     </message>

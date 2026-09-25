@@ -3,6 +3,10 @@
 #include "core/AppLog.h"
 #include "core/Settings.h"
 #include "MediaFoundationH264.h"
+#ifdef Q_OS_LINUX
+#include "X11ScreenCapturer.h"
+#include "PulseLoopbackAudio.h"
+#endif
 
 #include <QDateTime>
 #include <QJsonArray>
@@ -889,7 +893,8 @@ public:
         : m_hardware(requestHardware && HallaMfH264::encoderAvailable()) {
         if (requestHardware && !m_hardware)
             AppLog::warn(QStringLiteral(
-                "WebRTC: encoder de hardware solicitado, mas nenhum H264 MFT foi encontrado; usando VP8 por software"));
+                "WebRTC: encoder de hardware solicitado, mas nenhum encoder H264 de "
+                "hardware disponível nesta plataforma; usando VP8 por software"));
         else if (m_hardware)
             AppLog::info(QStringLiteral("WebRTC: H264 por hardware disponível e preferido"));
     }
@@ -1223,6 +1228,11 @@ struct HallaWebRtcSession::NativeState {
 #ifdef Q_OS_WIN
     std::unique_ptr<DxgiScreenCapturer> dxgiCapturer;
 #endif
+#ifdef Q_OS_LINUX
+    // Captura X11 (XShm/XRandR/XFixes) — vive na thread de captura com um
+    // Display* próprio, como o DxgiScreenCapturer no Windows.
+    std::unique_ptr<X11ScreenCapturer> x11Capturer;
+#endif
     std::map<int, std::unique_ptr<PeerContext>> peers;
     // Observers do libwebrtc (OnTrack/OnIceCandidate/OnSuccess de ofertas)
     // rodam na thread de signaling; handleSignal/closePeer rodam na GUI. O
@@ -1332,6 +1342,14 @@ void HallaWebRtcSession::setCaptureSource(int sourceType, quintptr sourceId) {
     const QList<QScreen*> screens = QGuiApplication::screens();
     for (QScreen* screen : screens)
         m_screenGeometries.push_back(screen ? screen->geometry() : QRect());
+    // Linux: o X11ScreenCapturer resolve o monitor pelo NOME do output XRandR
+    // (QScreen::name() devolve esse mesmo nome no X11) — a ordem dos QScreens
+    // não é garantidamente a ordem dos monitores do servidor X.
+    m_captureScreenName.clear();
+    if (sourceType == 0 && int(sourceId) >= 0 && int(sourceId) < screens.size()) {
+        QScreen* selected = screens[int(sourceId)];
+        if (selected) m_captureScreenName = selected->name();
+    }
     m_captureSourceType = sourceType;
     m_captureSourceId = sourceId;
 }
@@ -1411,16 +1429,22 @@ bool HallaWebRtcSession::ensureNativeFactory() {
         return false;
     if (!m_native->networkThread->Start() || !m_native->workerThread->Start() || !m_native->signalingThread->Start())
         return false;
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
     if (!m_native->loopbackAdm) {
         m_native->loopbackAdm = webrtc::make_ref_counted<SystemLoopbackAudioDeviceModule>();
+    }
+#elif defined(Q_OS_LINUX)
+    if (!m_native->loopbackAdm) {
+        // Loopback PulseAudio com exclusão dos sons do próprio Halla
+        // (sink virtual) — o equivalente Linux do process loopback WASAPI.
+        m_native->loopbackAdm = webrtc::make_ref_counted<LinuxLoopbackAudioDeviceModule>();
     }
 #endif
     const bool hardwareEncoderRequested = S::flag("screenshare/hardwareEncoder", true);
     m_native->gpuCaptureFrames = hardwareEncoderRequested && HallaMfH264::encoderAvailable();
     m_native->factory = webrtc::CreatePeerConnectionFactory(
         m_native->networkThread.get(), m_native->workerThread.get(), m_native->signalingThread.get(),
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_LINUX)
         m_native->loopbackAdm,
 #else
         nullptr,
@@ -1848,15 +1872,22 @@ void HallaWebRtcSession::captureFrame() {
 #ifdef Q_OS_WIN
         if (!m_native->dxgiCapturer) m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
         frameImage = m_native->dxgiCapturer->grab(screenIndex);
+#elif defined(Q_OS_LINUX)
+        // Captura X11 (XShm) na thread de trabalho: QScreen::grabWindow só
+        // roda na GUI. Monitor resolvido pelo nome do output XRandR guardado
+        // no setCaptureSource (snapshot da GUI thread).
+        Q_UNUSED(screenIndex);
+        if (!m_native->x11Capturer) m_native->x11Capturer = std::make_unique<X11ScreenCapturer>();
+        frameImage = m_native->x11Capturer->grabMonitor(m_captureScreenName);
 #else
         // QScreen::grabWindow() só pode rodar na thread da GUI; captureFrame
-        // roda na thread de captura. Builds nativos não-Windows (não
-        // publicados) apenas ignoram o frame neste caminho.
+        // roda na thread de captura. Builds nativos de outras plataformas
+        // apenas ignoram o frame neste caminho.
         Q_UNUSED(screenIndex);
         return;
 #endif
     } else {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN)
         if (m_captureSourceId > 0) {
             HWND hwnd = reinterpret_cast<HWND>(m_captureSourceId);
             RECT wr = {};
@@ -1894,8 +1925,16 @@ void HallaWebRtcSession::captureFrame() {
             }
             if (frameImage.isNull()) pix = grabWindowsAppForWebRtc(m_captureSourceId);
         }
+#elif defined(Q_OS_LINUX)
+        // Janela específica: região root da janela X11 (geometria traduzida
+        // no próprio servidor X). Janela coberta captura o que está por cima
+        // — limitação documentada do caminho sem XComposite redirect.
+        if (m_captureSourceId > 0) {
+            if (!m_native->x11Capturer) m_native->x11Capturer = std::make_unique<X11ScreenCapturer>();
+            frameImage = m_native->x11Capturer->grabWindowRegion(m_captureSourceId);
+        }
 #else
-        // Mesma restrição de thread: sem caminho nativo fora do Windows aqui.
+        // Mesma restrição de thread: sem caminho nativo em outras plataformas.
         Q_UNUSED(pix);
 #endif
     }
