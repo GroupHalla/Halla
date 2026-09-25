@@ -1789,8 +1789,8 @@ void MainWindow::updateStatusBar() {
                                      .arg(net->pingMs()).arg(QStringLiteral("0,00")));
             // v6 E2EE: estado das chaves de grupo da sessão atual
             m_e2eeLabel->setText(net->e2eeKeysReady()
-                                     ? QStringLiteral("\u{1F512} E2EE")
-                                     : QStringLiteral("\u{1F512} …"));
+                                     ? QStringLiteral("\U0001F512 E2EE")
+                                     : QStringLiteral("\U0001F512 …"));
             m_e2eeLabel->setToolTip(net->e2eeKeysReady()
                 ? tr("Criptografia de ponta a ponta ativa: chaves geradas no seu "
                      "cliente, o servidor não consegue ler voz, chat, sussurros ou "
