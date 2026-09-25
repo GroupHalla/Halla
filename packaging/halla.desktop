@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Halla
+GenericName=Halla Voice Chat
+Comment=Voz, chat e transmissão de tela da Halla
+Comment[en]=Halla voice, chat and screen sharing
+Exec=Halla
+Icon=halla
+Terminal=false
+Categories=Network;InstantMessaging;AudioVideo;Telephony;
+Keywords=voice;chat;halla;voip;screen;share;
+StartupWMClass=Halla

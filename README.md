@@ -390,8 +390,11 @@ On Windows, CMake also embeds the executable's icon and version information
 
 ## License
 
-Free for non-commercial use ([`LICENSE`](LICENSE)): use, study, modify and
-redistribute free of charge, without asking permission. Selling, renting or
-embedding it in a commercial product requires written authorization from the
-maintainers. Third-party components (Qt, Opus, OpenSSL, libwebrtc,
+Free for personal and commercial use ([`LICENSE`](LICENSE)): use, study,
+modify and redistribute free of charge, without asking permission. Hosting
+providers may deploy and offer Halla (server and client) to their customers,
+including paid hosting plans — no authorization required. Selling, renting
+or licensing the software itself (or a derivative) as your own product, or
+embedding it in a commercial product, requires written authorization from
+the maintainers. Third-party components (Qt, Opus, OpenSSL, libwebrtc,
 mbedTLS) follow their respective original licenses.

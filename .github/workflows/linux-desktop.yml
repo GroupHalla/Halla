@@ -1,0 +1,146 @@
+name: Build Linux Desktop
+
+# Workflow reutilizável: roda sozinho em pushes no main (validação contínua
+# do build Linux) e é chamado pelo workflow de release (windows-msvc-webrtc)
+# na tag, anexando o AppImage à mesma release do instalador Windows.
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Validate version/tag
+        run: |
+          version=$(cat VERSION)
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid VERSION=$version"; exit 1
+          fi
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match VERSION=$version"; exit 1
+          fi
+
+      - name: Validate repository policy
+        run: python3 tests/repo_sanity.py
+
+      # Mesma versão do build Windows (6.8.3) — o AppImage leva as libs do Qt
+      # dentro dele. ubuntu-22.04: glibc 2.35 + ffmpeg 4.4 (libavcodec58) que
+      # o plugin multimedia dos binários oficiais do Qt 6.8 requerem — o
+      # AppImage final roda de Ubuntu 22.04/Debian 12 em diante.
+      - name: Install Qt (linux gcc_64)
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: 6.8.3
+          host: linux
+          target: desktop
+          arch: gcc_64
+          modules: qtmultimedia qtspeech
+          cache: true
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libopus-dev libssl-dev \
+            libsecret-1-dev ffmpeg pkg-config
+
+      - name: Configure
+        run: >
+          cmake -S . -B build-linux -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DHALLA_ENABLE_WEBRTC_NATIVE=OFF
+
+      - name: Build
+        run: cmake --build build-linux
+
+      # Smokes de C++ puro (os mesmos gates do MinGW fallback, agora com gcc
+      # no Linux): mapeamento tecla<->VK (v1.1.27) e guarda de crosstalk do
+      # EchoGuard (v1.1.22).
+      - name: Hotkey VK mapping smoke
+        run: |
+          g++ -O2 -std=c++17 -I src tests/hotkey_vk_smoke.cpp -o build-linux/hotkey_vk_smoke
+          ./build-linux/hotkey_vk_smoke
+
+      - name: EchoGuard crosstalk smoke
+        run: |
+          g++ -O2 -std=c++17 -I src tests/echo_guard_smoke.cpp \
+            src/audio/EchoGuard.cpp -o build-linux/echo_guard_smoke
+          ./build-linux/echo_guard_smoke
+
+      # DSP de voz embutido (RNNoise + AEC do speex): o build sem SDK do
+      # libwebrtc distribuído como AppImage usa EXATAMENTE este caminho —
+      # os checkboxes de redução de ruído/eco precisam funcionar de verdade.
+      - name: DSP fallback smoke (RNNoise + speex AEC)
+        run: |
+          set -e
+          mkdir -p build-linux/dsp
+          for f in denoise kiss_fft pitch celt_lpc rnn rnn_data; do
+            gcc -O2 -c -I src/audio/rnnoise "src/audio/rnnoise/$f.c" -o "build-linux/dsp/$f.o"
+          done
+          gcc -O2 -c -I src/audio/rnnoise -I src/audio/speex_aec \
+              src/audio/speex_aec/speex_aec.c -o build-linux/dsp/speex_aec.o
+          g++ -O2 -std=c++17 \
+              -I "$QT_ROOT_DIR/include" -I "$QT_ROOT_DIR/include/QtCore" \
+              -I src tests/dsp_fallback_smoke.cpp src/audio/HallaAudioProcessing.cpp \
+              build-linux/dsp/*.o -L "$QT_ROOT_DIR/lib" -lQt6Core -lm -o build-linux/dsp_smoke
+          LD_LIBRARY_PATH="$QT_ROOT_DIR/lib" ./build-linux/dsp_smoke
+
+      # E2EE v6 (X25519/HKDF/AES-GCM/Ed25519) contra os vetores do
+      # RFC 7748/5869 e do NIST, com o OpenSSL do sistema (o caminho que o
+      # build Linux sem BoringSSL embutido realmente usa).
+      - name: E2EE crypto smoke
+        run: |
+          set -e
+          g++ -O2 -std=c++17 \
+              -I "$QT_ROOT_DIR/include" -I "$QT_ROOT_DIR/include/QtCore" \
+              -I src tests/e2ee_crypto_smoke.cpp src/core/E2eeCrypto.cpp \
+              -L "$QT_ROOT_DIR/lib" -lQt6Core -lcrypto -o build-linux/e2ee_smoke
+          LD_LIBRARY_PATH="$QT_ROOT_DIR/lib" ./build-linux/e2ee_smoke
+
+      - name: Package AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+          # plugin speech do TTS não é detectado sozinho pelo linuxdeploy
+          EXTRA_QT_PLUGINS: speechdispatcher
+        run: |
+          set -e
+          version=$(cat VERSION)
+          # Runners sem FUSE: os AppImages do linuxdeploy rodam extraídos.
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications \
+                   AppDir/usr/share/icons/hicolor/1024x1024/apps
+          install -m 755 build-linux/Halla AppDir/usr/bin/Halla
+          install -m 644 packaging/halla.desktop AppDir/usr/share/applications/halla.desktop
+          install -m 644 src/assets/halla-app-icon.png AppDir/usr/share/icons/hicolor/1024x1024/apps/halla.png
+          export OUTPUT="Halla-${version}-linux-x64.AppImage"
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
+          sha256sum "Halla-${version}-linux-x64.AppImage" > "Halla-${version}-linux-x64.AppImage.sha256"
+          ls -lh Halla-*.AppImage*
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: halla-desktop-linux-appimage
+          if-no-files-found: error
+          path: |
+            Halla-*-linux-x64.AppImage
+            Halla-*-linux-x64.AppImage.sha256
+
+      # Biblioteca do complemento oficial "Voz de rádio policial" para o
+      # catálogo (Halla-Addons) — espelha o artifact .dll do build Windows.
+      - name: Upload radio-voice plugin .so
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: halla-radio-voice-linux
+          if-no-files-found: error
+          path: build-linux/radio_voice.so

@@ -1,15 +1,26 @@
-LICENÇA — HALLA (LIVRE PARA USO NÃO COMERCIAL)
+LICENÇA — HALLA (USO LIVRE, INCLUSIVE HOSPEDAGEM)
 
-O Halla é software livre para uso pessoal, educacional e comunitário.
+O Halla é software livre para uso pessoal, educacional, comunitário e
+comercial.
 
-GRÁTIS E SEM PERMISSÃO: usar em quantos dispositivos quiser; estudar,
-modificar e criar versões derivadas; redistribuir cópias originais ou
-modificadas, gratuitamente; usar em comunidades, clãs, eventos e
-projetos sem fins lucrativos.
+GRÁTIS E SEM PERMISSÃO: usar em quantos dispositivos e servidores
+quiser; estudar, modificar e criar versões derivadas; redistribuir
+cópias originais ou modificadas, gratuitamente; usar em comunidades,
+clãs, eventos, streamers e projetos, com ou sem fins lucrativos.
+
+HOSPEDAGEM: donos de hospedagens (provedores de game hosting, VPS,
+painéis de controle) podem instalar, distribuir e oferecer o Halla
+(servidor e cliente) para seus clientes — inclusive cobrando pelo
+serviço de hospedagem. Nenhuma autorização dos mantenedores é
+necessária para ofertar "hospedagem Halla" em planos próprios.
 
 EXIGE AUTORIZAÇÃO ESCRITA DOS MANTENEDORES: vender, alugar, licenciar
-ou cobrar qualquer valor pelo software ou por versões derivadas;
-oferecê-lo como serviço pago ou embutido em produto comercial.
+ou cobrar qualquer valor pelo SOFTWARE EM SI ou por versões derivadas
+(por exemplo: revender o aplicativo como produto próprio, renomeá-lo e
+comercializá-lo como outro produto); embutir o software em produto
+comercial próprio. Hospedagem — fornecer o Halla como serviço — NÃO é
+um desses casos: é livre. Uso interno por empresas também continua
+livre.
 
 CONDIÇÕES: redistribuições devem manter este arquivo de licença. O
 software é fornecido "como está", sem garantia de qualquer tipo; os

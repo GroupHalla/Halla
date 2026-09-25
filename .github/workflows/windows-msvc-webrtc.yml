@@ -283,9 +283,15 @@ jobs:
             Halla-Setup-${{ steps.version.outputs.value }}.exe
             Halla-Setup-${{ steps.version.outputs.value }}.exe.sha256
 
+  # Build Linux (AppImage) do mesmo release — workflow reutilizável que
+  # também roda sozinho em pushes no main. No push da tag, o job abaixo
+  # anexa o AppImage à mesma release do instalador Windows.
+  linux:
+    uses: ./.github/workflows/linux-desktop.yml
+
   release:
     if: github.ref_type == 'tag'
-    needs: build
+    needs: [build, linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -294,6 +300,9 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: halla-desktop-webrtc-installer
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: halla-desktop-linux-appimage
       - name: Publish signed release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
@@ -305,3 +314,5 @@ jobs:
           files: |
             Halla-Setup-*.exe
             Halla-Setup-*.exe.sha256
+            Halla-*-linux-x64.AppImage
+            Halla-*-linux-x64.AppImage.sha256

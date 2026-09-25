@@ -4,9 +4,11 @@ set -e
 cd "$(dirname "$0")"
 
 if ! command -v cmake >/dev/null 2>&1 || ! pkg-config --exists Qt6Widgets 2>/dev/null; then
-    echo ">> Instalando dependências (cmake, ninja, qt6-base-dev)..."
+    echo ">> Instalando dependências (cmake, ninja, Qt 6, opus, openssl, libsecret)..."
     sudo apt-get update -qq
-    sudo apt-get install -y cmake ninja-build qt6-base-dev qt6-base-dev-tools
+    sudo apt-get install -y cmake ninja-build pkg-config \
+        qt6-base-dev qt6-base-dev-tools qt6-multimedia-dev qt6-speech-dev \
+        libopus-dev libssl-dev libsecret-1-dev
 fi
 
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release

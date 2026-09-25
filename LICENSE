@@ -1,25 +1,35 @@
-LICENÇA — HALLA (LIVRE PARA USO NÃO COMERCIAL)
-==============================================
+LICENÇA — HALLA (USO LIVRE, INCLUSIVE HOSPEDAGEM)
+==================================================
 
-O Halla é software livre para uso pessoal, educacional e comunitário.
+O Halla é software livre para uso pessoal, educacional, comunitário e
+comercial.
 
 O QUE VOCÊ PODE FAZER — GRÁTIS, SEM PEDIR PERMISSÃO
 ---------------------------------------------------
-  * usar em quantos dispositivos e servidores quiser;
+  * usar em quantos dispositivos e servidores quiser, para qualquer
+    finalidade;
   * estudar o código, modificar e criar versões derivadas;
   * redistribuir cópias originais ou modificadas, gratuitamente;
-  * usar em comunidades, clãs, eventos,_streamers e projetos sem fins
-    lucrativos.
+  * usar em comunidades, clãs, eventos, streamers e projetos, com ou sem
+    fins lucrativos;
+  * HOSPEDAGEM: donos de hospedagens (provedores de game hosting, VPS,
+    painéis de controle) podem instalar, distribuir e oferecer o Halla
+    (servidor e cliente) para seus clientes — inclusive cobrando pelo
+    serviço de hospedagem. Nenhuma autorização dos mantenedores é
+    necessária para ofertar "hospedagem Halla" em planos próprios.
 
 O QUE EXIGE AUTORIZAÇÃO ESCRITA DOS MANTENEDORES
 ------------------------------------------------
-  * vender, alugar, licenciar ou cobrar qualquer valor pelo software
-    ou por versões derivadas dele;
-  * oferecê-lo como serviço pago ou embutido em produto comercial.
+  * vender, alugar, licenciar ou cobrar qualquer valor pelo SOFTWARE EM
+    SI ou por versões derivadas dele (por exemplo: revender o aplicativo
+    como produto próprio, renomeá-lo e comercializá-lo como outro
+    produto);
+  * embutir o software em produto comercial próprio.
 
-Para esses casos comerciais, entre em contato com os mantenedores do
-projeto. Uso interno por empresas que não revenda o software continua
-sendo livre.
+Hospedagem — fornecer o Halla como serviço, cobrando pela
+infraestrutura/atendimento — NÃO é um desses casos: é livre, conforme a
+seção acima. Uso interno por empresas também continua livre. Para os
+casos comerciais acima, entre em contato com os mantenedores.
 
 CONDIÇÕES
 ---------
