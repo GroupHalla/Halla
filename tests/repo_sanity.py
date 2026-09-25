@@ -77,12 +77,34 @@ for required in ("std::recursive_mutex peersMutex",
     assert required in webrtc, required
 # sendNative* só podem tocar o NetSession dentro de um lambda enfileirado
 # para a GUI (a chamada direta m_net->sendWebRtc* fora de invokeMethod é a
-# corrida que crashava o app).
+# corrida que crashava o app). v1.1.28: a resposta sai pela conexão do peer
+# (netForPeer, multi-abas) com fallback para m_net — as DUAS formas são
+# permitidas, desde que DENTRO do invokeMethod(..., Qt::QueuedConnection).
+def _queued_spans(code):
+    """Intervalos [inicio, fim) dos corpos de lambdas enfileirados via
+    QMetaObject::invokeMethod(this, [...] { ... }, Qt::QueuedConnection),
+    com o balanceamento de chaves correto (funciona com blocos aninhados)."""
+    spans = []
+    for m in re.finditer(r"invokeMethod\(this, \[[^\]]*\] \{", code):
+        depth, i = 1, m.end()
+        while i < len(code) and depth:
+            if code[i] == '{':
+                depth += 1
+            elif code[i] == '}':
+                depth -= 1
+            i += 1
+        if re.match(r"\s*,\s*Qt::QueuedConnection", code[i:i + 60]):
+            spans.append((m.end() - 1, i - 1))
+    return spans
+
+_spans = _queued_spans(webrtc_code)
+assert _spans, "invokeMethod enfileirado ausente no HallaWebRtcSession"
 for call in ("sendWebRtcIce", "sendWebRtcOffer", "sendWebRtcAnswer"):
-    direct = re.compile(r"m_net->" + call + r"\(")
-    queued = re.compile(r"invokeMethod\(this, \[[^\]]*\] \{\s*if \(m_net\) m_net->" + call)
-    assert not direct.search(webrtc_code) or queued.search(webrtc_code), call
-    assert queued.search(webrtc_code), f"{call} deve ser enfileirado para a GUI"
+    hits = list(re.finditer(r"->" + call + r"\(", webrtc_code))
+    assert hits, f"{call} sumiu do HallaWebRtcSession"
+    for hit in hits:
+        assert any(a <= hit.start() < b for a, b in _spans), \
+            f"{call} fora de invokeMethod enfileirado (corrida GUI x signaling)"
 # O ADM de loopback precisa do mutex nas quatro transições de thread.
 assert webrtc_code.count("std::lock_guard<std::mutex> threadLock(m_threadMutex);") == 4, \
     "Start/StopPlayout/Recording do ADM precisam do mutex de thread"
