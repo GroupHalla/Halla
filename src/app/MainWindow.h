@@ -42,7 +42,7 @@ public:
     // ---- Compartilhamento de Tela (screenshare)
     void toggleScreenShare();
     void captureAndSendScreen();
-    void handleScreenshareStateChanged(int userId, bool on);
+    void handleScreenshareStateChanged(int userId, bool on, const QString& mode);
     void openScreenShareWindow(int userId);
     void handleScreenshareFrameReceived(int userId, const QByteArray& jpegData);
     void handleScreenshareHovered(int userId, int channelId, const QPoint& pos);
@@ -104,6 +104,29 @@ private:
     QMap<int, class ScreenShareWindow*> m_screenShareWindows;
     QMap<int, QByteArray> m_lastScreenshareFrames;
     HallaWebRtcSession* m_webrtcSession = nullptr;
+    // ---- v1.1.28: assistência a transmissões que não conectam --------------
+    // O pedido de assistir (webrtc_watch_request) só pode ser enviado DEPOIS
+    // de o servidor ter nos movido para o canal do transmissor — antes disso
+    // ele respondia "webrtc_channel" e a janela ficava eternamente em
+    // "Aguardando transmissão...". m_pendingWatch guarda o pedido enquanto o
+    // moveToChannel não confirma (poll local + timeout).
+    struct PendingWatch {
+        int userId = 0;
+        int channelId = 0;
+    };
+    PendingWatch m_pendingWatch;
+    QPointer<ServerTab> m_pendingWatchTab;  // aba onde o watch nasceu
+    QTimer* m_pendingWatchPoll = nullptr;   // 150 ms até entrar no canal (máx. 6 s)
+    int m_pendingWatchTicks = 0;            // voltas do poll (6 s / 150 ms)
+    // Watchdog por usuário: sem primeiro frame em 12 s => erro visível com
+    // botão "Tentar novamente" (ICE falho em CGNAT sem TURN, watch perdido
+    // etc. — antes era silêncio absoluto).
+    QMap<int, QTimer*> m_watchNoFrameTimers;
+    void beginWatching(ServerTab* t, int userId);  // abre janela + pede watch
+    void armWatchdog(int userId);                  // arma o watchdog de 12 s
+    void cancelWatchdog(int userId);               // 1º frame chegou — tudo bem
+    void markWatchAlive(int userId);               // frame: cancela + limpa erro
+    void handleWatchServerError(const QString& code, const QString& msg);
     QAction* m_actRecord = nullptr;
     QAction* m_actWhisper = nullptr;
     QAction* m_actBookmarkAdd = nullptr;

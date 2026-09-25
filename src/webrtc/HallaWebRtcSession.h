@@ -11,6 +11,7 @@
 #include <QImage>
 #include <QMap>
 #include <QMutex>
+#include <QPointer>
 #include <QSet>
 #include <QVector>
 #include <QRect>
@@ -52,6 +53,9 @@ public:
     void setLocalPreviewEnabled(bool enabled);
     void startWatching(int userId);
     void stopWatching(int userId);
+    // v1.1.28: re-tenta uma visualização que não conectou (ICE travado em
+    // CGNAT/firewall, oferta perdida): derruba o peer e pede de novo.
+    void restartWatch(int userId);
     // A sessão WebRTC sobrevive às abas (uma por janela); ao reconectar, o
     // NetSession antigo é destruído. Sem estes métodos, m_net ficaria pendente
     // (use-after-free no sendWebRtcStreamStart) e m_broadcasting preso em true
@@ -99,11 +103,23 @@ signals:
     void remoteFrameReceived(int userId, const QImage& image);
     void remoteAudioReceived(int userId, const QByteArray& pcm,
                              int sampleRate, int channels, int frames);
+    // v1.1.28: estado da conexão P2P de um peer ("new"/"connecting"/
+    // "connected"/"disconnected"/"failed"/"closed"). Antes o ICE falhava
+    // (NAT/CGNAT sem TURN) e a UI ficava eternamente em "Aguardando
+    // transmissão..." — agora a janela do viewer mostra o erro e oferece
+    // tentar de novo.
+    void peerStateChanged(int peerId, const QString& state);
 
 private:
     struct NativeState;
     std::unique_ptr<NativeState> m_native;
     NetSession* m_net = nullptr;
+    // v1.1.28: peerId -> conexão pela qual aquele peer negocia. Com duas ou
+    // mais abas de servidor, o m_net aponta para a ÚLTIMA aba conectada: sem
+    // este mapa, offer/answer/ICE de uma transmissão da aba A eram enviados
+    // pela aba B (servidor errado!) e o viewer nunca recebia vídeo.
+    QMap<int, QPointer<NetSession>> m_peerNet;
+    NetSession* netForPeer(int peerId) const;
     // A captura roda numa thread de trabalho (não na GUI) para que o DXGI,
     // a escala e o preview não travem a interface em transmissões 4K.
     QThread* m_captureThread = nullptr;

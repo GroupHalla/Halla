@@ -1173,6 +1173,7 @@ void NetSession::applyUserJson(const QJsonObject& u) {
         usr.talking = d.users.value(d.selfId).talking; // preserva estado de fala local ultra responsivo
         usr.whispering = d.users.value(d.selfId).whispering; // preserva estado de sussurro local
         usr.screensharing = d.users.value(d.selfId).screensharing; // transmissão local iniciada pelo usuário
+        usr.screenshareMode = d.users.value(d.selfId).screenshareMode; // idem: modo (v1.1.28)
     } else {
         usr.talking = u["talking"].toBool();
         usr.whispering = u["whispering"].toBool();
@@ -1182,6 +1183,11 @@ void NetSession::applyUserJson(const QJsonObject& u) {
         // aqui — só o broadcast user_screenshare_state (ao INICIAR/PARAR a
         // transmissão) atualizava o estado.
         usr.screensharing = u["screensharing"].toBool();
+        // v1.1.28: servidores novos também publicam o MODO da transmissão
+        // ("webrtc"/"jpeg"). Quem conecta depois do início continua sabendo
+        // como assistir; servidor antigo não manda o campo e o modo fica
+        // desconhecido (watchdog do viewer cobre esse caso).
+        usr.screenshareMode = u["ssmode"].toString();
     }
     d.users[usr.id] = usr;
     refreshOperators();                                // recalcula ops por canal
@@ -1710,10 +1716,16 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     if (t == "user_screenshare_state") {
         const int id = obj["id"].toInt();
         const bool on = obj["on"].toBool();
+        const QString mode = obj["mode"].toString();
         if (d.users.contains(id)) {
             d.users[id].screensharing = on;
+            // v1.1.28: guarda o modo reportado pelo servidor ("webrtc" do
+            // webrtc_stream_start; "jpeg" do screenshare_start em servidor
+            // novo; vazio = legado desconhecido).
+            if (on) d.users[id].screenshareMode = mode;
+            else d.users[id].screenshareMode.clear();
         }
-        emit screenshareStateChanged(id, on);
+        emit screenshareStateChanged(id, on, mode);
         emit stateChanged();
         return;
     }

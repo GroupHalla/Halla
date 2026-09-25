@@ -151,7 +151,9 @@ signals:
     void nickRejected(const QString& message);
     void disconnectedUnexpected();
     void voicePacketReceived(int fromId, quint16 seq, const QByteArray& payload);
-    void screenshareStateChanged(int userId, bool on);
+    // v1.1.28: mode = "webrtc" | "jpeg" | vazio (desconhecido/servidor antigo).
+    // O viewer decide COMO assistir com base no modo do transmissor.
+    void screenshareStateChanged(int userId, bool on, const QString& mode);
     void screenshareFrameReceived(int userId, const QByteArray& jpegData);
     void webRtcSignalReceived(const QJsonObject& signal);
     void pluginDataReceived(int senderUserId, const QString& pluginId,

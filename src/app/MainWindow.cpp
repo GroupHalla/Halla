@@ -167,12 +167,36 @@ public:
     int userId() const { return m_userId; }
     bool isAudioMuted() const { return m_audioMuted; }
 
+    // v1.1.28: a janela deixa de ser um poço "Aguardando transmissão..." sem
+    // fim. Erros de conexão/watch aparecem aqui, com opção de tentar de novo
+    // (reenvia o webrtc_watch_request e recria o peer).
+    void setStatusMessage(const QString& message, bool isError,
+                          std::function<void()> retry = {}) {
+        m_retryCallback = std::move(retry);
+        m_label->setText(message);
+        m_label->setStyleSheet(isError
+            ? QStringLiteral("font-size: 15px; font-weight: bold; color: #FF5C72;")
+            : QStringLiteral("font-size: 16px; font-weight: bold; color: #8A939B;"));
+        if (isError && m_retryCallback) showRetryButton();
+        else if (m_retryButton) m_retryButton->hide();
+    }
+
+    // Volta ao estado de espera (usado ao iniciar uma nova tentativa).
+    void resetWatchStatus() {
+        if (!m_currentPixmap.isNull()) return; // já há vídeo — nada a dizer
+        m_label->setText(tr("Aguardando transmissão..."));
+        m_label->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: bold; color: #8A939B;"));
+        if (m_retryButton) m_retryButton->hide();
+    }
+
     void updateFrame(const QByteArray& jpegData) {
+        if (m_retryButton) m_retryButton->hide();
         if (m_currentPixmap.loadFromData(jpegData)) scaleFrame();
     }
 
     void updateImage(const QImage& image) {
         if (image.isNull()) return;
+        if (m_retryButton) m_retryButton->hide();
         m_currentPixmap = QPixmap::fromImage(image);
         scaleFrame();
     }
@@ -182,6 +206,7 @@ protected:
         QDialog::resizeEvent(event);
         scaleFrame();
         layoutViewerControls();
+        layoutRetryButton();
     }
 
     void enterEvent(QEnterEvent* event) override {
@@ -367,12 +392,48 @@ private:
             m_label->size(), Qt::KeepAspectRatio, Qt::FastTransformation));
     }
 
+    void showRetryButton() {
+        if (!m_retryButton) {
+            m_retryButton = new QPushButton(tr("Tentar novamente"), m_label);
+            m_retryButton->setObjectName(QStringLiteral("retryWatch"));
+            m_retryButton->setCursor(Qt::PointingHandCursor);
+            m_retryButton->setStyleSheet(QStringLiteral(
+                "QPushButton#retryWatch { min-height: 34px; padding: 0 22px;"
+                " border: 1px solid rgba(255,92,114,140); border-radius: 10px;"
+                " color: #FFD7DD; font-size: 13px; font-weight: 800;"
+                " background: rgba(255,92,114,38); }"
+                "QPushButton#retryWatch:hover { background: rgba(255,92,114,70); }"));
+            connect(m_retryButton, &QPushButton::clicked, this, [this] {
+                if (m_retryCallback) {
+                    resetWatchStatus();
+                    auto cb = std::move(m_retryCallback);
+                    m_retryCallback = {};
+                    cb();
+                }
+            });
+        }
+        layoutRetryButton();
+        m_retryButton->show();
+        m_retryButton->raise();
+    }
+
+    void layoutRetryButton() {
+        if (!m_retryButton) return;
+        m_retryButton->adjustSize();
+        m_retryButton->setGeometry(
+            (m_label->width() - m_retryButton->width()) / 2,
+            m_label->height() / 2 + 46,
+            m_retryButton->width(), m_retryButton->height());
+    }
+
     int m_userId = 0;
     bool m_viewerControls = false;
     bool m_audioMuted = false;
     bool m_controlsShown = false;
     bool m_cursorHidden = false;
     AudioMuteCallback m_audioMuteChanged;
+    std::function<void()> m_retryCallback; // v1.1.28: retry de watch
+    QPushButton* m_retryButton = nullptr;
     QLabel* m_label = nullptr;
     QFrame* m_controls = nullptr;
     QPushButton* m_audioButton = nullptr;
@@ -1100,6 +1161,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         updateStatusBar();
         rebuildServerButtons();
         publishPluginState();
+        // v1.1.28: a sessão WebRTC é única e o m_net dela precisa seguir a
+        // aba ATIVA. Antes ele ficava preso à última aba CONECTADA: com dois
+        // servidores abertos, pedir para assistir numa aba mandava o
+        // webrtc_watch_request para o servidor da outra aba — nada acontecia
+        // e a janela ficava "Aguardando transmissão..." para sempre.
+        if (m_webrtcSession)
+            if (ServerTab* t = currentTab())
+                if (t->net()) m_webrtcSession->setNetSession(t->net());
     });
 
     // menu de contexto nas abas (como no Halla)
@@ -1366,8 +1435,17 @@ void MainWindow::wireTab(ServerTab* tab) {
             S::ServerNicks::set(tab->net()->hostPort(), 0, name);
             S::set("connect/nickname", name);
         });
-        connect(tab->net(), &NetSession::screenshareStateChanged, this, &MainWindow::handleScreenshareStateChanged);
+        connect(tab->net(), &NetSession::screenshareStateChanged, this,
+                &MainWindow::handleScreenshareStateChanged);
         connect(tab->net(), &NetSession::screenshareFrameReceived, this, &MainWindow::handleScreenshareFrameReceived);
+        // v1.1.28: erros do servidor relativos ao "Assistir" (canal errado,
+        // transmissão já encerrada, sem permissão, canal com senha...) tinham
+        // destino único: uma linha no chat do servidor, fácil de não ver.
+        // Agora alimentam a janela da transmissão/dialog com feedback real.
+        connect(tab->net(), &NetSession::errorOccurred, this,
+                [this](const QString& code, const QString& msg) {
+                    handleWatchServerError(code, msg);
+                });
         if (!m_webrtcSession) {
             m_webrtcSession = new HallaWebRtcSession(tab->net(), this);
             connect(m_webrtcSession, &HallaWebRtcSession::unavailable, this,
@@ -1381,7 +1459,29 @@ void MainWindow::wireTab(ServerTab* tab) {
                     });
             connect(m_webrtcSession, &HallaWebRtcSession::remoteFrameReceived, this,
                     [this](int userId, const QImage& image) {
+                        markWatchAlive(userId);
                         if (m_screenShareWindows.contains(userId)) m_screenShareWindows[userId]->updateImage(image);
+                    });
+            // v1.1.28: ICE/connection state do peer — "failed" vira mensagem
+            // de erro clara na janela do espectador (antes: silêncio eterno
+            // em "Aguardando transmissão..." quando o P2P não atravessava o
+            // NAT/CGNAT do par sem TURN).
+            connect(m_webrtcSession, &HallaWebRtcSession::peerStateChanged, this,
+                    [this](int peerId, const QString& state) {
+                        if (state != QLatin1String("failed")) return;
+                        cancelWatchdog(peerId);
+                        ScreenShareWindow* window = m_screenShareWindows.value(peerId, nullptr);
+                        if (window && window->isVisible()) {
+                            window->setStatusMessage(
+                                tr("Não foi possível conectar à transmissão.\n"
+                                   "Verifique sua conexão/firewall — se o problema persistir, "
+                                   "o servidor pode precisar de um servidor TURN configurado."),
+                                true,
+                                [this, peerId] {
+                                    if (m_webrtcSession) m_webrtcSession->restartWatch(peerId);
+                                    armWatchdog(peerId);
+                                });
+                        }
                     });
             connect(m_webrtcSession, &HallaWebRtcSession::remoteAudioReceived, this,
                     [this](int userId, const QByteArray& pcm, int sampleRate,
@@ -2515,6 +2615,9 @@ void MainWindow::toggleScreenShare() {
             m_screenShareSeq = 0;
 
             if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
+                // v1.1.28: transmite pela aba ATIVA — o m_net podia estar
+                // apontando para outra aba conectada (multi-servidor).
+                m_webrtcSession->setNetSession(t->net());
                 m_webrtcSession->setCaptureSource(m_screenShareSourceType, m_screenShareSourceId);
                 m_webrtcSession->setCaptureQuality(dlg.selectedWidth(), dlg.selectedHeight(),
                                                    dlg.selectedFps(), dlg.selectedBitrateKbps());
@@ -2562,7 +2665,7 @@ void MainWindow::toggleScreenShare() {
         t->net()->sendScreenShareStop();
         m_actScreenShare->setIcon(HIcons::screenShare(false));
 
-        handleScreenshareStateChanged(t->data().selfId, false);
+        handleScreenshareStateChanged(t->data().selfId, false, QString());
         t->data().users[t->data().selfId].screensharing = false;
         emit t->net()->stateChanged();
     }
@@ -2663,6 +2766,7 @@ void MainWindow::openScreenShareWindow(int userId) {
     connect(window, &QDialog::finished, this, [this, screenTab, userId] {
         if (screenTab && screenTab->voice()) screenTab->voice()->clearStreamPcm(userId);
         m_screenShareWindows.remove(userId);
+        cancelWatchdog(userId);
         updateWebRtcPreviewState();
         if (m_webrtcSession) m_webrtcSession->stopWatching(userId);
     });
@@ -2670,11 +2774,15 @@ void MainWindow::openScreenShareWindow(int userId) {
     updateWebRtcPreviewState();
 }
 
-void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
+void MainWindow::handleScreenshareStateChanged(int userId, bool on, const QString& mode) {
     ServerTab* tab = currentTab();
     if (!tab) return;
 
     if (on) {
+        // v1.1.28: o modo reportado pelo servidor ("webrtc"/"jpeg"/vazio)
+        // já chegou armazenado em users[userId].screenshareMode pelo
+        // NetSession; aqui não há o que fazer além do fluxo visual.
+        Q_UNUSED(mode);
         // Estado "ao vivo" atualiza apenas a árvore/ícone. Uma transmissão
         // remota só abre depois do clique explícito em Assistir.
         if (userId != tab->data().selfId) return;
@@ -2682,6 +2790,14 @@ void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
         if (m_webrtcSession && m_webrtcSession->isBroadcasting()) return;
         openScreenShareWindow(userId); // preview do modo JPEG legado
         return;
+    }
+
+    // Transmissão encerrou: solta watchdog e pendências daquele usuário.
+    cancelWatchdog(userId);
+    if (m_pendingWatch.userId == userId) {
+        m_pendingWatch = {};
+        m_pendingWatchTab = nullptr;
+        if (m_pendingWatchPoll) m_pendingWatchPoll->stop();
     }
 
     if (m_screenShareWindows.contains(userId)) {
@@ -2692,9 +2808,149 @@ void MainWindow::handleScreenshareStateChanged(int userId, bool on) {
 }
 
 void MainWindow::handleScreenshareFrameReceived(int userId, const QByteArray& jpegData) {
+    markWatchAlive(userId);
     m_lastScreenshareFrames[userId] = jpegData;
     if (m_screenShareWindows.contains(userId)) {
         m_screenShareWindows[userId]->updateFrame(jpegData);
+    }
+}
+
+// ---- v1.1.28: assistência a transmissões que não conectam ----------------
+
+void MainWindow::armWatchdog(int userId) {
+    if (userId <= 0) return;
+    cancelWatchdog(userId);
+    QTimer* timer = new QTimer(this);
+    timer->setSingleShot(true);
+    timer->setInterval(12000);
+    connect(timer, &QTimer::timeout, this, [this, userId] {
+        m_watchNoFrameTimers.remove(userId);
+        ScreenShareWindow* window = m_screenShareWindows.value(userId, nullptr);
+        if (!window || !window->isVisible()) return;
+        // Sem erro explícito do ICE e sem frame algum em 12 s: algo no
+        // caminho engoliu o pedido/oferta (transmissão legado sem resposta,
+        // relay perdido, P2P que nunca acordou). Antes: silêncio eterno.
+        window->setStatusMessage(
+            tr("A transmissão não chegou.\n"
+               "O transmissor pode estar em uma versão antiga do Halla ou a "
+               "conexão direta foi bloqueada pela rede."),
+            true,
+            [this, userId] {
+                // Retry: só renegocia se a transmissão for WebRTC — modo
+                // JPEG legado não responde a watch_request algum.
+                ServerTab* tab = currentTab();
+                const QString mode = tab && tab->data().users.contains(userId)
+                    ? tab->data().users[userId].screenshareMode : QString();
+                if (m_webrtcSession && m_webrtcSession->isNativeAvailable()
+                        && mode != QLatin1String("jpeg"))
+                    m_webrtcSession->restartWatch(userId);
+                armWatchdog(userId);
+            });
+    });
+    m_watchNoFrameTimers[userId] = timer;
+    timer->start();
+}
+
+void MainWindow::cancelWatchdog(int userId) {
+    QTimer* timer = m_watchNoFrameTimers.take(userId);
+    if (timer) {
+        timer->stop();
+        timer->deleteLater();
+    }
+}
+
+void MainWindow::markWatchAlive(int userId) {
+    cancelWatchdog(userId);
+    ScreenShareWindow* window = m_screenShareWindows.value(userId, nullptr);
+    if (window && !window->isVisible()) return;
+    if (window) window->resetWatchStatus();
+}
+
+void MainWindow::beginWatching(ServerTab* t, int userId) {
+    if (!t || !t->net() || userId <= 0) return;
+    // v1.1.28: garante que a sessão WebRTC responde por ESTA aba/servidor
+    // (o m_net pode estar apontando para outra aba conectada).
+    if (m_webrtcSession) m_webrtcSession->setNetSession(t->net());
+
+    const QString mode = t->data().users.contains(userId)
+        ? t->data().users[userId].screenshareMode : QString();
+    const bool native = m_webrtcSession && m_webrtcSession->isNativeAvailable();
+
+    openScreenShareWindow(userId);
+    if (native && mode != QLatin1String("jpeg")) {
+        // Transmissão WebRTC (ou modo desconhecido em servidor antigo):
+        // pede a negociação e arma o watchdog de 12 s.
+        m_webrtcSession->startWatching(userId);
+        armWatchdog(userId);
+    } else {
+        // Modo JPEG legado (transmissor em build antigo): os frames chegam
+        // por UDP do relay para quem está no canal — não há o que negociar.
+        // Pedir webrtc_watch_request aqui era inútil: o transmissor antigo
+        // nem respondia e a janela ficava "Aguardando..." para sempre.
+        armWatchdog(userId);
+    }
+}
+
+void MainWindow::handleWatchServerError(const QString& code, const QString& msg) {
+    // Só interessa quando há um "Assistir" em andamento; os demais erros
+    // seguem o fluxo normal (mensagem no chat do servidor).
+    const bool movePending = m_pendingWatch.userId > 0;
+    if (!movePending && m_watchNoFrameTimers.isEmpty()) return;
+    // Códigos de MOVE (canal) só são nossos quando há um move pendente —
+    // no_permission/channel_full de outra ação qualquer não devem aparecer
+    // como "falha ao assistir".
+    if (!movePending && (code == QLatin1String("no_permission")
+            || code == QLatin1String("invalid_channel")
+            || code == QLatin1String("bad_channel_pass")
+            || code == QLatin1String("channel_full"))) return;
+    static const QSet<QString> kWatchCodes = {
+        QStringLiteral("webrtc_channel"), QStringLiteral("webrtc_target"),
+        QStringLiteral("webrtc_not_streaming"), QStringLiteral("no_permission"),
+        QStringLiteral("bad_channel_pass"), QStringLiteral("channel_full"),
+        QStringLiteral("invalid_channel"), QStringLiteral("webrtc_sdp_too_big"),
+        QStringLiteral("webrtc_ice_too_big"),
+    };
+    if (!kWatchCodes.contains(code)) return;
+
+    // Canal com senha: pergunta a senha e tenta entrar de novo — antes o
+    // moveToChannel ia SEM senha, o servidor negava e ninguém dizia nada.
+    if (code == QLatin1String("bad_channel_pass") && m_pendingWatch.channelId > 0) {
+        ServerTab* watchTab = m_pendingWatchTab.data();
+        if (!watchTab || !watchTab->net()) {
+            m_pendingWatch = {};
+            m_pendingWatchTab = nullptr;
+            return;
+        }
+        bool ok = false;
+        const QString pass = QInputDialog::getText(
+            this, tr("Canal protegido por senha"),
+            tr("Este canal exige senha para entrar (necessária para assistir à transmissão):"),
+            QLineEdit::Password, QString(), &ok);
+        if (ok && !pass.isEmpty()) {
+            watchTab->net()->moveToChannel(m_pendingWatch.channelId, pass);
+            m_pendingWatchTicks = 0;
+            if (m_pendingWatchPoll) m_pendingWatchPoll->start(150);
+        } else {
+            m_pendingWatch = {};
+            m_pendingWatchTab = nullptr;
+            if (m_pendingWatchPoll) m_pendingWatchPoll->stop();
+        }
+        return;
+    }
+
+    // Demais causas: cancela o pendente e informa com clareza — na janela se
+    // ela já abriu, senão em diálogo.
+    const int userId = m_pendingWatch.userId;
+    m_pendingWatch = {};
+    m_pendingWatchTab = nullptr;
+    if (m_pendingWatchPoll) m_pendingWatchPoll->stop();
+    cancelWatchdog(userId);
+    ScreenShareWindow* window = userId > 0 ? m_screenShareWindows.value(userId, nullptr) : nullptr;
+    if (window && window->isVisible()) {
+        window->setStatusMessage(tr("Não foi possível assistir: %1").arg(msg), true);
+    } else {
+        QMessageBox::warning(this, tr("Assistir transmissão"),
+                             tr("Não foi possível assistir à transmissão:\n%1").arg(msg));
     }
 }
 
@@ -2819,15 +3075,67 @@ void MainWindow::watchStream(int userId, int channelId) {
         return;
     }
 
-    int myChan = t->data().channelOfUser(t->data().selfId);
-    if (myChan != channelId) {
-        t->net()->moveToChannel(channelId);
+    // v1.1.28: transmissão em modo WebRTC conhecido e este build sem WebRTC
+    // nativo? Aviso na hora — antes o pedido nem saía e a janela ficava
+    // "Aguardando transmissão..." para sempre (o transmissor WebRTC não
+    // envia frames JPEG legado).
+    const QString streamMode = t->data().users.contains(userId)
+        ? t->data().users[userId].screenshareMode : QString();
+    const bool nativeHere = m_webrtcSession && m_webrtcSession->isNativeAvailable();
+    if (streamMode == QLatin1String("webrtc") && !nativeHere) {
+        QMessageBox::warning(this, tr("Assistir transmissão"),
+            tr("Esta transmissão usa o novo protocolo WebRTC, mas esta versão "
+               "do Halla não o possui. Atualize o Halla para assisti-la."));
+        return;
     }
 
-    openScreenShareWindow(userId);
-    if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
-        m_webrtcSession->startWatching(userId);
+    int myChan = t->data().channelOfUser(t->data().selfId);
+    if (myChan != channelId) {
+        // v1.1.28: NÃO dispare o webrtc_watch_request ainda! O servidor só
+        // aceita sinalização WebRTC entre usuários do MESMO canal — o pedido
+        // imediato era respondido com "webrtc_channel" (que aparecia só no
+        // chat) e a janela ficava eternamente aguardando. Guarda o pedido e
+        // dispara quando o estado local confirmar a entrada no canal.
+        t->net()->moveToChannel(channelId);
+        m_pendingWatch = { userId, channelId };
+        m_pendingWatchTab = t;
+        m_pendingWatchTicks = 0;
+        if (!m_pendingWatchPoll) {
+            m_pendingWatchPoll = new QTimer(this);
+            m_pendingWatchPoll->setInterval(150);
+            connect(m_pendingWatchPoll, &QTimer::timeout, this, [this] {
+                ServerTab* tab = m_pendingWatchTab.data();
+                if (m_pendingWatch.userId <= 0 || !tab || !tab->net()) {
+                    m_pendingWatch = {};
+                    m_pendingWatchTab = nullptr;
+                    m_pendingWatchPoll->stop();
+                    return;
+                }
+                if (tab->data().channelOfUser(tab->data().selfId)
+                        == m_pendingWatch.channelId) {
+                    const PendingWatch w = m_pendingWatch;
+                    m_pendingWatch = {};
+                    m_pendingWatchTab = nullptr;
+                    m_pendingWatchPoll->stop();
+                    beginWatching(tab, w.userId);
+                    return;
+                }
+                if (++m_pendingWatchTicks > 40) { // ~6 s sem conseguir entrar
+                    m_pendingWatchTicks = 0;
+                    m_pendingWatch = {};
+                    m_pendingWatchTab = nullptr;
+                    m_pendingWatchPoll->stop();
+                    QMessageBox::warning(this, tr("Assistir transmissão"),
+                        tr("Não foi possível entrar no canal da transmissão.\n"
+                           "Verifique permissões, senha ou limite de usuários do canal."));
+                }
+            });
+        }
+        m_pendingWatchPoll->start(150);
+        return;
     }
+
+    beginWatching(t, userId);
 }
 
 // -- restauração de sessão usa a rede (já era) ---------------------------

@@ -65,6 +65,12 @@ struct User {
     bool    talking = false;
     bool    whispering = false;      // sussurrando (sinal laranja)
     bool    screensharing = false;   // compartilhando tela (🔴 LIVE)
+    // v1.1.28: modo da transmissão vista por último ("webrtc" | "jpeg" | vazio
+    // = desconhecido/servidor antigo). Quem assiste precisa saber ANTES de
+    // pedir: transmissão JPEG legado (build antigo) não responde a
+    // webrtc_watch_request — o viewer ficava "Aguardando transmissão..." para
+    // sempre. Vazio mantém o comportamento antigo (tentar WebRTC + watchdog).
+    QString screenshareMode;
     QDateTime connectedAt = QDateTime::currentDateTime();
     // v6 E2EE — diretório de chaves públicas desta sessão (bytes crus):
     //   idPub  = Ed25519 pública em SPKI DER (uid = base64(SHA-256(idPub)))

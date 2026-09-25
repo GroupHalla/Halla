@@ -831,9 +831,32 @@ public:
     void OnDataChannel(webrtc::scoped_refptr<webrtc::DataChannelInterface>) override {}
     void OnIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState state) override {
         AppLog::info(QStringLiteral("WebRTC ICE peer #%1: %2").arg(m_peerId).arg(int(state)));
+        // v1.1.28: ICE failed (CGNAT/firewall sem TURN) também precisa virar
+        // estado para a UI — alguns stack só reportam aqui, não no OnConnectionChange.
+        if (state == webrtc::PeerConnectionInterface::kIceConnectionFailed) {
+            QMetaObject::invokeMethod(m_owner, [owner = m_owner, id = m_peerId] {
+                emit owner->peerStateChanged(id, QStringLiteral("failed"));
+            }, Qt::QueuedConnection);
+        }
     }
     void OnConnectionChange(webrtc::PeerConnectionInterface::PeerConnectionState state) override {
         AppLog::info(QStringLiteral("WebRTC conexão peer #%1: %2").arg(m_peerId).arg(int(state)));
+        // v1.1.28: estado P2P encaminhado à GUI. Sem isto, ICE travado em
+        // NAT simétrico/CGNAT falhava em silêncio e a janela do espectador
+        // ficava eternamente "Aguardando transmissão...".
+        const char* name = "new";
+        switch (state) {
+        case webrtc::PeerConnectionInterface::PeerConnectionState::kConnecting: name = "connecting"; break;
+        case webrtc::PeerConnectionInterface::PeerConnectionState::kConnected: name = "connected"; break;
+        case webrtc::PeerConnectionInterface::PeerConnectionState::kDisconnected: name = "disconnected"; break;
+        case webrtc::PeerConnectionInterface::PeerConnectionState::kFailed: name = "failed"; break;
+        case webrtc::PeerConnectionInterface::PeerConnectionState::kClosed: name = "closed"; break;
+        default: break;
+        }
+        const QString text = QString::fromLatin1(name);
+        QMetaObject::invokeMethod(m_owner, [owner = m_owner, id = m_peerId, text] {
+            emit owner->peerStateChanged(id, text);
+        }, Qt::QueuedConnection);
     }
     void OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState state) override {
         AppLog::info(QStringLiteral("WebRTC ICE gathering peer #%1: %2").arg(m_peerId).arg(int(state)));
@@ -1487,7 +1510,9 @@ void HallaWebRtcSession::sendNativeIce(int peerId, const std::string& candidate,
     const QString candidateText = QString::fromStdString(candidate);
     const QString midText = QString::fromStdString(mid);
     QMetaObject::invokeMethod(this, [this, peerId, candidateText, midText, mline] {
-        if (m_net) m_net->sendWebRtcIce(peerId, candidateText, midText, mline);
+        // v1.1.28: resposta pela conexão do peer (multi-abas), não pela m_net.
+        if (NetSession* net = netForPeer(peerId)) net->sendWebRtcIce(peerId, candidateText, midText, mline);
+        else if (m_net) m_net->sendWebRtcIce(peerId, candidateText, midText, mline);
     }, Qt::QueuedConnection);
 }
 
@@ -1495,7 +1520,8 @@ void HallaWebRtcSession::sendNativeOffer(int peerId, const std::string& sdp) {
     // Thread de signaling -> GUI (mesmo motivo de sendNativeIce).
     const QString sdpText = QString::fromStdString(sdp);
     QMetaObject::invokeMethod(this, [this, peerId, sdpText] {
-        if (m_net) m_net->sendWebRtcOffer(peerId, sdpText);
+        if (NetSession* net = netForPeer(peerId)) net->sendWebRtcOffer(peerId, sdpText);
+        else if (m_net) m_net->sendWebRtcOffer(peerId, sdpText);
     }, Qt::QueuedConnection);
 }
 
@@ -1503,12 +1529,16 @@ void HallaWebRtcSession::sendNativeAnswer(int peerId, const std::string& sdp) {
     // Thread de signaling -> GUI (mesmo motivo de sendNativeIce).
     const QString sdpText = QString::fromStdString(sdp);
     QMetaObject::invokeMethod(this, [this, peerId, sdpText] {
-        if (m_net) m_net->sendWebRtcAnswer(peerId, sdpText);
+        if (NetSession* net = netForPeer(peerId)) net->sendWebRtcAnswer(peerId, sdpText);
+        else if (m_net) m_net->sendWebRtcAnswer(peerId, sdpText);
     }, Qt::QueuedConnection);
 }
 
 void HallaWebRtcSession::startWatching(int userId) {
     if (userId <= 0) return;
+    // v1.1.28: este peer negocia por ESTA conexão — guardado antes de tudo
+    // para que offer/answer/ICE saiam pela mesma aba/servidor.
+    m_peerNet[userId] = m_net;
     ensurePeer(userId);
     if (m_net) m_net->sendWebRtcWatchRequest(userId);
 }
@@ -1712,6 +1742,9 @@ void HallaWebRtcSession::closePeer(int peerId) {
             m_native->peers.erase(it);
         }
     }
+    // v1.1.28: peer encerrado solta o binding de conexão (watch_stop/
+    // restartWatch re-registram se voltarem a negociar).
+    m_peerNet.remove(peerId);
     // RemoveSink/Close fora do lock: podem demorar e disparar callbacks na
     // thread de signaling (que tentaria pegar o mesmo mutex — recursivo só
     // reentra na MESMA thread; travaria se mantido aqui).
@@ -1888,12 +1921,34 @@ void HallaWebRtcSession::startWatching(int userId) {
 }
 #endif
 
+NetSession* HallaWebRtcSession::netForPeer(int peerId) const {
+    // v1.1.28: respostas de sinalização saem pela MESMA conexão em que o peer
+    // negociou (ver m_peerNet). QPointer já volta nullptr se a aba morreu.
+    // Fora do #ifdef: stopWatching/restartWatch (que existem em qualquer
+    // build) também chamam.
+    return m_peerNet.value(peerId, nullptr);
+}
+
 void HallaWebRtcSession::stopWatching(int userId) {
     if (userId <= 0) return;
-    if (m_net) m_net->sendWebRtcWatchStop(userId);
+    if (NetSession* net = netForPeer(userId)) net->sendWebRtcWatchStop(userId);
+    else if (m_net) m_net->sendWebRtcWatchStop(userId);
+    m_peerNet.remove(userId);
 #ifdef HALLA_WEBRTC_NATIVE
     closePeer(userId);
 #endif
+}
+
+void HallaWebRtcSession::restartWatch(int userId) {
+    // v1.1.28: tentativa nova de uma visualização que não conectou. O peer
+    // antigo pode estar com o ICE morto (candidatos já descartados); derrubar
+    // e recriar é mais confiável que ICE restart no mesmo objeto.
+    if (userId <= 0) return;
+#ifdef HALLA_WEBRTC_NATIVE
+    closePeer(userId);
+#endif
+    m_peerNet.remove(userId);
+    startWatching(userId);
 }
 
 void HallaWebRtcSession::startBroadcast() {
@@ -1970,6 +2025,15 @@ void HallaWebRtcSession::handleSignal(const QJsonObject& signal) {
 #ifdef HALLA_WEBRTC_NATIVE
     const QString type = signal.value(QStringLiteral("t")).toString();
     const int from = signal.value(QStringLiteral("from")).toInt();
+    // v1.1.28: sinal chegou por ESTA conexão (aba/servidor). Fixa o peer a
+    // ela para que as respostas não saiam por outra aba (m_net errado) —
+    // com 2+ servidores abertos, a resposta ia para o servidor errado e o
+    // espectador ficava sem vídeo para sempre. (sender() só é NetSession no
+    // connect do wireTab; chamadas diretas mantêm o binding existente.)
+    if (from > 0) {
+        if (NetSession* src = qobject_cast<NetSession*>(sender()))
+            m_peerNet[from] = src;
+    }
     if (type == QLatin1String("webrtc_watch_request")) createOfferForPeer(from);
     else if (type == QLatin1String("webrtc_watch_stop")) closePeer(from);
     else if (type == QLatin1String("webrtc_offer")) setRemoteOffer(from, signal.value(QStringLiteral("sdp")).toString());
