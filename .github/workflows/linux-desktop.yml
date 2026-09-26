@@ -103,7 +103,7 @@ jobs:
             -I third_party/webrtc-sdk/include/third_party/libyuv/include \
             tests/webrtc_factory_smoke.cpp \
             third_party/webrtc-sdk/lib/linux-x64/libwebrtc.a \
-            -lpthread -ldl -lm -o build-linux/webrtc_factory_smoke
+            -lpthread -ldl -lm -lX11 -o build-linux/webrtc_factory_smoke
           ./build-linux/webrtc_factory_smoke
 
       # Gate do DSP de voz NATIVO (AEC3 + supressão neural do APM do
