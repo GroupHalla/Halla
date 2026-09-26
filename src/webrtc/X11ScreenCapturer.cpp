@@ -105,8 +105,9 @@ struct X11ScreenCapturer::Impl {
             return false;
         }
         root = DefaultRootWindow(display);
-        int shmEventBase = 0, shmErrorBase = 0;
-        shmUsable = XShmQueryExtension(display, &shmEventBase, &shmErrorBase) != False;
+        // MIT-SHM: a assinatura real é XShmQueryExtension(Display*) — a
+        // base de evento/erro não é necessária para XShmGetImage síncrono.
+        shmUsable = XShmQueryExtension(display) != False;
         if (!shmUsable)
             AppLog::warn(QStringLiteral("X11: extensão MIT-SHM ausente; captura indisponível"));
         int fixesEventBase = 0, fixesErrorBase = 0;
@@ -197,6 +198,10 @@ struct X11ScreenCapturer::Impl {
                                 true});
             return;
         }
+        // Resources buscados UMA vez por refresh: XRRGetOutputInfo exige
+        // (Display*, XRRScreenResources*, RROutput) — o nome do OUTPUT (que é
+        // o QScreen::name() do Qt), não o nome do monitor.
+        XRRScreenResources* resources = XRRGetScreenResources(display, root);
         for (int i = 0; i < count; ++i) {
             MonitorInfo info;
             info.x = infos[i].x;
@@ -206,13 +211,15 @@ struct X11ScreenCapturer::Impl {
             info.primary = infos[i].primary != 0;
             // Nome do primeiro output do monitor (é o nome que o QScreen::name()
             // do Qt expõe na GUI thread).
-            if (infos[i].noutput > 0) {
-                XRROutputInfo* output = XRRGetOutputInfo(display, infos[i].outputs[0], CurrentTime);
+            if (resources && infos[i].noutput > 0) {
+                XRROutputInfo* output = XRRGetOutputInfo(display, resources,
+                                                         infos[i].outputs[0]);
                 if (output && output->name) info.name = QByteArray(output->name);
                 if (output) XRRFreeOutputInfo(output);
             }
             monitors.push_back(std::move(info));
         }
+        if (resources) XRRFreeScreenResources(resources);
         XRRFreeMonitors(infos);
     }
 
@@ -245,7 +252,9 @@ struct X11ScreenCapturer::Impl {
 
         {
             XErrorGuard guard(display);
-            if (!XShmGetImage(display, root, image, x, y, AllPlanes, ZPixmap)) return {};
+            // Assinatura real: XShmGetImage(dpy, d, ximage, x, y, plane_mask)
+            // — o formato (ZPixmap) vem do XImage criado no ensureShm.
+            if (!XShmGetImage(display, root, image, x, y, AllPlanes)) return {};
         }
         if (image->depth < 24 || image->bits_per_pixel != 32) {
             AppLog::warn(QStringLiteral("X11: profundidade %1/%2 bpp não suportada para captura")
@@ -278,10 +287,10 @@ struct X11ScreenCapturer::Impl {
         if (cursorX + cursorW > 0 && cursorY + cursorH > 0
                 && cursorX < frame.width() && cursorY < frame.height()) {
             QImage cursorImage(cursorW, cursorH, QImage::Format_ARGB32);
-            // XFixesCursorImage::image é ARGB em unsigned long por pixel.
+            // XFixesCursorImage::pixels é ARGB em unsigned long por pixel.
             for (int row = 0; row < cursorH; ++row) {
                 QRgb* line = reinterpret_cast<QRgb*>(cursorImage.scanLine(row));
-                const unsigned long* source = cursor->image + row * cursorW;
+                const unsigned long* source = cursor->pixels + row * cursorW;
                 for (int col = 0; col < cursorW; ++col) {
                     const unsigned long pixel = source[col];
                     const unsigned int argb = unsigned(pixel & 0xffffffffUL);

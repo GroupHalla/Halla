@@ -8,6 +8,9 @@
 #include <QScopeGuard>
 #include <QString>
 
+// pa_simple_* (gravação bloqueante do monitor no setup e no fallback do
+// loopback) vive em pulse/simple.h, que NÃO é puxado por pulseaudio.h.
+#include <pulse/simple.h>
 #include <pulse/pulseaudio.h>
 #include <unistd.h>
 
@@ -105,6 +108,14 @@ struct LinuxLoopbackAudioDeviceModule::PulseExclusion {
 // ---------------------------------------------------------------------------
 // Ciclo de vida do ADM
 // ---------------------------------------------------------------------------
+
+// Construtor/destrutor out-of-line de propósito: o ADM nasce via
+// make_ref_counted<>, cujo RefCountedObject<T>::RefCountedObject() é um
+// template header-only do SDK — com o construtor implícito o GCC instancia,
+// no TU chamador, o caminho de cleanup de exceção que destrói o
+// unique_ptr<PulseExclusion> (sizeof de tipo incompleto lá). Fora de linha,
+// a instanciação fica só neste .cpp, onde PulseExclusion é completo.
+LinuxLoopbackAudioDeviceModule::LinuxLoopbackAudioDeviceModule() = default;
 
 LinuxLoopbackAudioDeviceModule::~LinuxLoopbackAudioDeviceModule()
 {
@@ -598,8 +609,11 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
     pa_buffer_attr attr{};
     attr.maxlength = uint32_t(frameBytes * 4);
     attr.fragsize = uint32_t(frameBytes);
+    // Assinatura real: (server, name, dir, dev, STREAM_NAME, ss, map, attr, error)
+    // — 9 parâmetros; o stream_name é obrigatório e distinto do nome do client.
     pa_simple* record = pa_simple_new(nullptr, "halla-screenshare",
                                       PA_STREAM_RECORD, monitorSource.constData(),
+                                      "halla-pc-audio",
                                       &spec, nullptr, &attr, &error);
     if (!record) {
         AppLog::warn(QStringLiteral("Áudio da transmissão indisponível: %1")

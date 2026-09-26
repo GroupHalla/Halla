@@ -36,6 +36,9 @@
 class LinuxLoopbackAudioDeviceModule
     : public webrtc::webrtc_impl::AudioDeviceModuleDefault<webrtc::AudioDeviceModuleForTest> {
 public:
+    // Out-of-line (definido no .cpp): necessário por causa do unique_ptr do
+    // PulseExclusion incomplete-type vs make_ref_counted/RefCountedObject.
+    LinuxLoopbackAudioDeviceModule();
     ~LinuxLoopbackAudioDeviceModule() override;
 
     int32_t RegisterAudioCallback(webrtc::AudioTransport* audioCallback) override;
