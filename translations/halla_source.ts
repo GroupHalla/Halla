@@ -2632,11 +2632,6 @@ Mensagens offline podem ser enviadas apenas a usuários registrados neste servid
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/dialogs/OptionsDialog.cpp" line="699"/>
-        <source>Exibir ícones do Overwolf nos clientes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../src/dialogs/OptionsDialog.cpp" line="700"/>
         <source>Exibir ícones de emblema nos clientes</source>
         <translation type="unfinished"></translation>

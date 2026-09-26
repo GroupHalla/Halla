@@ -1,4 +1,9 @@
-; Halla Desktop — instalador NSIS Windows x64
+﻿; Halla Desktop — instalador NSIS Windows x64
+; Multilíngue desde a v1.1.31: inglês, português (Brasil) e espanhol, com
+; diálogo de seleção na abertura e a escolha memorizada no registro.
+; IMPORTANTE: este arquivo é UTF-8 COM BOM — sem o BOM o makensis lê os
+; acentos na página de código ANSI e o instalador fica com caracteres
+; corrompidos ("InstalaÃ§Ã£o").
 Unicode true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
@@ -15,7 +20,6 @@ Unicode true
 !define UNINSTALL_KEY  "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 
 Name "${APP_DISPLAY} ${APP_VERSION}"
-Caption "Instalação do ${APP_DISPLAY} ${APP_VERSION}"
 BrandingText "Halla-DEV"
 OutFile "..\Halla-Setup-${APP_VERSION}.exe"
 InstallDir "$PROGRAMFILES64\${APP_NAME}"
@@ -27,6 +31,14 @@ ShowInstDetails show
 ShowUninstDetails show
 
 VIProductVersion "${APP_VERSION}.0"
+VIAddVersionKey /LANG=1033 "CompanyName" "${APP_PUBLISHER}"
+VIAddVersionKey /LANG=1033 "FileDescription" "Halla Desktop installer"
+VIAddVersionKey /LANG=1033 "FileVersion" "${APP_VERSION}.0"
+VIAddVersionKey /LANG=1033 "InternalName" "Halla-Setup"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright 2026 ${APP_PUBLISHER}"
+VIAddVersionKey /LANG=1033 "OriginalFilename" "Halla-Setup-${APP_VERSION}.exe"
+VIAddVersionKey /LANG=1033 "ProductName" "${APP_DISPLAY}"
+VIAddVersionKey /LANG=1033 "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=1046 "CompanyName" "${APP_PUBLISHER}"
 VIAddVersionKey /LANG=1046 "FileDescription" "Instalador do ${APP_DISPLAY}"
 VIAddVersionKey /LANG=1046 "FileVersion" "${APP_VERSION}.0"
@@ -41,7 +53,13 @@ VIAddVersionKey /LANG=1046 "ProductVersion" "${APP_VERSION}"
 !define MUI_UNICON "..\src\halla.ico"
 !define MUI_WELCOMEFINISHPAGE_BITMAP "..\src\installer-side.bmp"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
-!define MUI_FINISHPAGE_RUN_TEXT "Executar o ${APP_NAME} agora"
+!define MUI_FINISHPAGE_RUN_TEXT "$(RUN_TEXT)"
+
+; O idioma escolhido no diálogo fica salvo junto das informações de
+; desinstalação — atualizações e o desinstalador reutilizam a escolha.
+!define MUI_LANGDLL_REGISTRY_ROOT "HKLM"
+!define MUI_LANGDLL_REGISTRY_KEY "${UNINSTALL_KEY}"
+!define MUI_LANGDLL_REGISTRY_VALUENAME "InstallerLanguage"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
@@ -52,9 +70,42 @@ VIAddVersionKey /LANG=1046 "ProductVersion" "${APP_VERSION}"
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_UNPAGE_FINISH
-!insertmacro MUI_LANGUAGE "PortugueseBR"
 
-Section "Halla (obrigatório)" SEC_HALLA
+; Primeiro idioma = pré-selecionado quando o sistema não for EN/PT-BR/ES.
+!insertmacro MUI_LANGUAGE "English"
+!insertmacro MUI_LANGUAGE "PortugueseBR"
+!insertmacro MUI_LANGUAGE "Spanish"
+
+LangString SEC_HALLA_NAME ${LANG_ENGLISH} "Halla (required)"
+LangString SEC_HALLA_NAME ${LANG_PORTUGUESEBR} "Halla (obrigatório)"
+LangString SEC_HALLA_NAME ${LANG_SPANISH} "Halla (obligatorio)"
+
+LangString RUN_TEXT ${LANG_ENGLISH} "Run Halla now"
+LangString RUN_TEXT ${LANG_PORTUGUESEBR} "Executar o Halla agora"
+LangString RUN_TEXT ${LANG_SPANISH} "Ejecutar Halla ahora"
+
+LangString ADDON_DESC ${LANG_ENGLISH} "Halla add-on package"
+LangString ADDON_DESC ${LANG_PORTUGUESEBR} "Pacote de complemento do Halla"
+LangString ADDON_DESC ${LANG_SPANISH} "Paquete de complemento de Halla"
+
+LangString UNINST_SHORTCUT ${LANG_ENGLISH} "Uninstall Halla"
+LangString UNINST_SHORTCUT ${LANG_PORTUGUESEBR} "Desinstalar Halla"
+LangString UNINST_SHORTCUT ${LANG_SPANISH} "Desinstalar Halla"
+
+Function .onInit
+    SetRegView 64
+    ; Diálogo de idioma (inglês, português, espanhol) — suprimido em /S.
+    ${IfNot} ${Silent}
+        !insertmacro MUI_LANGDLL_DISPLAY
+    ${EndIf}
+FunctionEnd
+
+Function un.onInit
+    SetRegView 64
+    !insertmacro MUI_UNGETLANGUAGE
+FunctionEnd
+
+Section "$(SEC_HALLA_NAME)" SEC_HALLA
     SectionIn RO
     SetShellVarContext all
     SetRegView 64
@@ -88,7 +139,7 @@ Section "Halla (obrigatório)" SEC_HALLA
     WriteRegStr HKLM "${APP_DIR_REGKEY}" "Path" "$INSTDIR"
     ; Pacotes comunitários: duplo clique abre a confirmação segura no Halla.
     WriteRegStr HKCR ".halla-addon" "" "HallaAddonPackage"
-    WriteRegStr HKCR "HallaAddonPackage" "" "Pacote de complemento do Halla"
+    WriteRegStr HKCR "HallaAddonPackage" "" "$(ADDON_DESC)"
     WriteRegStr HKCR "HallaAddonPackage\DefaultIcon" "" "$INSTDIR\${APP_EXE},0"
     WriteRegStr HKCR "HallaAddonPackage\shell\open\command" "" '$\"$INSTDIR\${APP_EXE}$\" $\"%1$\"'
     WriteUninstaller "$INSTDIR\Desinstalar.exe"
@@ -105,7 +156,7 @@ Section "Halla (obrigatório)" SEC_HALLA
 
     CreateDirectory "$SMPROGRAMS\${APP_NAME}"
     CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_EXE}" 0
-    CreateShortcut "$SMPROGRAMS\${APP_NAME}\Desinstalar ${APP_NAME}.lnk" "$INSTDIR\Desinstalar.exe"
+    CreateShortcut "$SMPROGRAMS\${APP_NAME}\$(UNINST_SHORTCUT).lnk" "$INSTDIR\Desinstalar.exe"
     CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_EXE}" 0
 SectionEnd
 
@@ -113,7 +164,9 @@ Section "Uninstall"
     SetShellVarContext all
     SetRegView 64
     Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
-    Delete "$SMPROGRAMS\${APP_NAME}\Desinstalar ${APP_NAME}.lnk"
+    Delete "$SMPROGRAMS\${APP_NAME}\$(UNINST_SHORTCUT).lnk"
+    ; Atalho legado dos instaladores anteriores (sempre em português).
+    Delete "$SMPROGRAMS\${APP_NAME}\Desinstalar Halla.lnk"
     RMDir "$SMPROGRAMS\${APP_NAME}"
     Delete "$DESKTOP\${APP_NAME}.lnk"
     DeleteRegKey HKLM "${UNINSTALL_KEY}"

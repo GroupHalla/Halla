@@ -27,6 +27,7 @@ public:
     void setServerData(const ServerData* d) { m_data = d; }
     void setShowMinis(bool show) { m_showMinis = show; }
     bool showMinis() const { return m_showMinis; }
+    void setShowBadges(bool show) { m_showBadges = show; }
 
 protected:
     void paint(QPainter* p, const QStyleOptionViewItem& opt,
@@ -37,6 +38,7 @@ protected:
 private:
     const ServerData* m_data = nullptr;
     bool m_showMinis = true;
+    bool m_showBadges = true;   // v1.1.31: "Exibir ícones de emblema nos clientes"
 };
 
 // Árvore de canais/usuários de uma conexão (visual e comportamento do Halla)
@@ -49,6 +51,8 @@ public:
     void rebuild();
     void setShowCounts(bool on)  { m_showCounts = on; }
     void setShowMinis(bool on);
+    void setShowBadges(bool on);          // v1.1.31: emblemas globais na árvore
+    bool showBadges() const { return m_showBadges; }
     void setSortClientsBelow(bool on) { m_sortClientsBelow = on; }
     void setCanMoveOthers(bool on) { m_canMoveOthers = on; }
     void setCanRenameOthers(bool on) { m_canRenameOthers = on; }
@@ -128,6 +132,7 @@ private:
     ServerData* m_data = nullptr;
     ServerRowDelegate* m_delegate = nullptr;
     bool m_showCounts = true;
+    bool m_showBadges = true;   // v1.1.31: padrão LIGADO (design/showBadgeIcons)
     bool m_sortClientsBelow = false;
     bool m_canMoveOthers = false;
     bool m_canRenameOthers = false;

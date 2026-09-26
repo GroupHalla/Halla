@@ -2660,11 +2660,6 @@ Los mensajes sin conexión solo se pueden enviar a usuarios registrados en este 
       <translation>Mostrar la bandera del país a los clientes</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="699" />
-      <source>Exibir ícones do Overwolf nos clientes</source>
-      <translation>Mostrar íconos de Overwolf en los clientes</translation>
-    </message>
-    <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="700" />
       <source>Exibir ícones de emblema nos clientes</source>
       <translation>Mostrar íconos de insignia en los clientes</translation>

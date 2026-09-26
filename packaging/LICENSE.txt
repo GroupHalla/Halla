@@ -1,4 +1,4 @@
-LICENÇA — HALLA (USO LIVRE, INCLUSIVE HOSPEDAGEM)
+﻿LICENÇA — HALLA (USO LIVRE, INCLUSIVE HOSPEDAGEM)
 
 O Halla é software livre para uso pessoal, educacional, comunitário e
 comercial.

@@ -2660,11 +2660,6 @@ Offline messages can only be sent to users registered on this server.</translati
       <translation>Show country flags on clients</translation>
     </message>
     <message>
-      <location filename="../src/dialogs/OptionsDialog.cpp" line="699" />
-      <source>Exibir ícones do Overwolf nos clientes</source>
-      <translation>Display Overwolf icons on clients</translation>
-    </message>
-    <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="700" />
       <source>Exibir ícones de emblema nos clientes</source>
       <translation>Show badge icons on clients</translation>

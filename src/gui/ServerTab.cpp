@@ -411,6 +411,9 @@ void ServerTab::applyDisplayOptions() {
     updatePermissionUi();
     m_tree->setShowCounts(S::flag("design/showCounts", true));
     m_tree->setShowMinis(S::flag("design/showMinis", true));
+    // v1.1.31: emblemas globais — padrão LIGADO (não existia na instalação
+    // limpa; quem marcou/desmarcou antes conserva a escolha no QSettings).
+    m_tree->setShowBadges(S::flag("design/showBadgeIcons", true));
     m_tree->setSortClientsBelow(S::flag("design/sortClientsBelow", false));
     m_tree->rebuild();
 

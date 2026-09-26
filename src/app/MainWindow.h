@@ -51,6 +51,7 @@ public:
 protected:
     void closeEvent(QCloseEvent* e) override;
     void changeEvent(QEvent* e) override; // minimizar para a bandeja
+    void hideEvent(QHideEvent* e) override; // guardar em qual tela a janela estava
     bool eventFilter(QObject* obj, QEvent* ev) override;
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
 
@@ -161,6 +162,18 @@ private:
     bool m_closeDelayPending = false;
     bool m_closingAfterSound = false;
     bool m_restartAfterClose = false;
+
+    // ---- v1.1.31: restaurar na MESMA tela depois da bandeja -----------------
+    // Relato do usuário: com o app na tela 2, minimizar e voltar fazia a
+    // janela reaparecer na tela 1. O Windows descarta o placement quando a
+    // janela é escondida minimizada (hide() do caminho da bandeja), e o
+    // showNormal() puro a devolve na tela principal. Guardamos o retângulo
+    // "normal" + o estado maximizado antes de esconder e reaplicamos ao
+    // voltar — cobre também a remaximização na tela certa.
+    QRect m_geometryBeforeHide;
+    bool m_wasMaximizedBeforeHide = false;
+    void savePlacementBeforeHide();
+    void showFromTray();
 
     void wireTab(ServerTab* tab);
 

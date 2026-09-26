@@ -719,8 +719,9 @@ QWidget* OptionsDialog::pageDesign() {
     };
     treeCb(QStringLiteral("design/sortClientsBelow"), tr("Classificar clientes abaixo dos canais"), false, true);
     treeCb(QStringLiteral("design/showCountryFlags"), tr("Exibir bandeira de país nos clientes"), false, false);
-    treeCb(QStringLiteral("design/showOverwolfIcons"), tr("Exibir ícones do Overwolf nos clientes"), false, false);
-    treeCb(QStringLiteral("design/showBadgeIcons"), tr("Exibir ícones de emblema nos clientes"), false, false);
+    // v1.1.31: emblemas agora efetivamente ligados/desligados por esta opção
+    // (antes a flag nunca era lida) — e LIGADA por padrão na instalação.
+    treeCb(QStringLiteral("design/showBadgeIcons"), tr("Exibir ícones de emblema nos clientes"), true, true);
     treeCb(QStringLiteral("design/showGroupIconsMenu"), tr("Exibir ícones de grupo nos menus de contexto"), true, false);
     treeCb(QStringLiteral("design/hideInaccessibleGroups"), tr("Ocultar grupos inacessíveis nos menus de contexto"), true, false);
     treeCb(QStringLiteral("design/showCounts"), tr("Mostrar número de clientes ao lado dos canais"), true, true);

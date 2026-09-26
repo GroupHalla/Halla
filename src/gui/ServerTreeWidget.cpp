@@ -187,8 +187,13 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
         }
     }
     // Emblemas globais são assinados pelo registro oficial e vinculados à UID.
-    for (const GlobalBadge& badge : BadgeRegistry::instance().badgesForUid(u.uniqueId)) {
-        if (!badge.icon.isNull()) iconPms << badge.icon;
+    // v1.1.31: esta opção agora é respeitada (antes os emblemas eram desenhados
+    // sempre, ignorando a preferência) e vem LIGADA por padrão. A flag vive no
+    // delegado (não no QSettings) porque o paint roda a cada quadro.
+    if (m_showBadges) {
+        for (const GlobalBadge& badge : BadgeRegistry::instance().badgesForUid(u.uniqueId)) {
+            if (!badge.icon.isNull()) iconPms << badge.icon;
+        }
     }
     const QPixmap liveBadge = u.screensharing ? liveBadgePixmap() : QPixmap();
 
@@ -294,6 +299,17 @@ void ServerTreeWidget::setServerData(ServerData* d) {
 
 void ServerTreeWidget::setShowMinis(bool on) {
     m_delegate->setShowMinis(on);
+
+    viewport()->update();
+}
+
+// v1.1.31: "Exibir ícones de emblema nos clientes" (Opções > Aparência).
+// Guardado em memória (paint consulta a cada quadro) — o QSettings é lido
+// apenas no applyDisplayOptions do ServerTab.
+void ServerTreeWidget::setShowBadges(bool on) {
+    m_showBadges = on;
+    m_delegate->setShowBadges(on);
+
     viewport()->update();
 }
 
@@ -370,10 +386,14 @@ QString ServerTreeWidget::userTooltip(const User& u) const {
     }
     if (!roles.isEmpty())
         tip += QStringLiteral("Grupos: %1").arg(roles.join(QStringLiteral(", ")));
-    const QStringList globalBadges = BadgeRegistry::instance().badgeNamesForUid(u.uniqueId);
-    if (!globalBadges.isEmpty())
-        tip += QStringLiteral("<br>Emblemas oficiais: %1")
-            .arg(globalBadges.join(QStringLiteral(", ")).toHtmlEscaped());
+    // Nomes dos emblemas no tooltip seguem a mesma opção dos ícones
+    // (design/showBadgeIcons — v1.1.31).
+    if (m_showBadges) {
+        const QStringList globalBadges = BadgeRegistry::instance().badgeNamesForUid(u.uniqueId);
+        if (!globalBadges.isEmpty())
+            tip += QStringLiteral("<br>Emblemas oficiais: %1")
+                       .arg(globalBadges.join(QStringLiteral(", ")).toHtmlEscaped());
+    }
     return tip;
 }
 

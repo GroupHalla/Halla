@@ -1236,9 +1236,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         m_tray = new QSystemTrayIcon(QIcon(HIcons::appIcon(64)), this);
         QMenu* trayMenu = new QMenu(this);
         QAction* show = trayMenu->addAction(tr("Mostrar Halla"), this, [this] {
-            showNormal();
-            raise();
-            activateWindow();
+            showFromTray();
         });
         Q_UNUSED(show);
         trayMenu->addSeparator();
@@ -1252,9 +1250,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         connect(m_tray, &QSystemTrayIcon::activated, this,
                 [this](QSystemTrayIcon::ActivationReason reason) {
                     if (reason == QSystemTrayIcon::DoubleClick) {
-                        showNormal();
-                        raise();
-                        activateWindow();
+                        showFromTray();
                     }
                 });
     }
@@ -2235,6 +2231,8 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
 
 // "Minimizar na bandeja" (Opções > Aparência > Ícone da bandeja)
 void MainWindow::changeEvent(QEvent* e) {
+    if (e->type() == QEvent::WindowStateChange && isMinimized())
+        savePlacementBeforeHide();
     if (e->type() == QEvent::WindowStateChange && isMinimized() &&
         S::flag("app/minimizeToTray", false) && m_tray && m_tray->isVisible()) {
         QTimer::singleShot(0, this, [this] {
@@ -2245,6 +2243,53 @@ void MainWindow::changeEvent(QEvent* e) {
         });
     }
     QMainWindow::changeEvent(e);
+}
+
+// ----------------------------------------------------------------------
+// v1.1.31 — restaurar na mesma tela depois da bandeja
+//
+// Relato: com o app na tela 2, minimizar para a bandeja e voltar fazia a
+// janela reaparecer na tela 1. Causa: o Windows descarta o placement de
+// janelas escondidas ainda minimizadas (hide() do caminho da bandeja) e o
+// showNormal() puro devolve a janela na tela principal. Solução: guardar o
+// retângulo "normal" + o estado maximizado antes de esconder e reaplicar ao
+// voltar — inclusive remaximizando na tela certa (o Windows maximiza na
+// tela onde a janela se encontra no momento).
+void MainWindow::savePlacementBeforeHide() {
+    const QRect g = normalGeometry();
+    if (!g.isValid()) return;
+    m_geometryBeforeHide = g;
+    m_wasMaximizedBeforeHide = isMaximized();
+    // Maximizada: o retângulo "normal" pode ter ficado numa tela antiga (o
+    // usuário moveu a janela maximizada entre telas). Garante a remaximização
+    // na tela onde a janela estava no momento de esconder.
+    if (m_wasMaximizedBeforeHide) {
+        if (QScreen* s = screen()) {
+            const QRect avail = s->availableGeometry();
+            if (!avail.contains(g.center())) {
+                m_geometryBeforeHide = QRect(avail.topLeft() + QPoint(48, 48),
+                                             g.size().boundedTo(avail.size()));
+            }
+        }
+    }
+}
+
+void MainWindow::hideEvent(QHideEvent* e) {
+    savePlacementBeforeHide();
+    QMainWindow::hideEvent(e);
+}
+
+void MainWindow::showFromTray() {
+    const QRect g = m_geometryBeforeHide;
+    showNormal();
+    // Só reaplica se o retângulo salvo ainda cai numa tela existente — a
+    // segunda tela pode ter sido desconectada com o app na bandeja.
+    if (!g.isNull() && QGuiApplication::screenAt(g.center()))
+        setGeometry(g);
+    if (m_wasMaximizedBeforeHide)
+        showMaximized();
+    raise();
+    activateWindow();
 }
 
 // ======================================================================
