@@ -1336,20 +1336,43 @@ void ServerTab::setWhisperUids(const QStringList& uids) {
 void ServerTab::applyWhisper() {
     if (!m_net) return;
     QList<int> ids;
-    QSet<int> channelTargets;
-    for (const QString& target : m_whisperUids) {
-        bool ok = false;
-        const int channelId = target.toInt(&ok);
-        if (ok && m_data.channels.contains(channelId)) channelTargets.insert(channelId);
-    }
-    // Uma lista pode conter usuários (UID) e canais. Expandir os canais aqui,
-    // no instante do envio, evita listas "vazias" quando seus membros entram,
-    // saem ou mudam de canal.
-    for (const User& u : m_data.users) {
-        if (u.id == m_data.selfId) continue;
-        const int userChannel = m_data.channelOfUser(u.id);
-        if (m_whisperUids.contains(u.uniqueId) || channelTargets.contains(userChannel))
-            if (!ids.contains(u.id)) ids << u.id;
+    if (m_whisperHold) {
+        // Hold de RESPOSTA: o alvo é fixo (quem sussurrou por último) e foi
+        // definido por setWhisperReplyHold — re-resolver por escopo aqui
+        // sobrescreveria o destinatário da resposta.
+        if (m_whisperReplyHold) return;
+        // Sussurro por tecla ATIVO: re-resolve os alvos pelo escopo da tecla.
+        // Os alvos são ids de SESSÃO — quando o alvo reconecta, move-se de
+        // canal ou entra alguém novo no escopo, o conjunto muda; re-enviar
+        // somente o conjunto diferente mantém o sussurro vivo sem inundar o
+        // servidor (dedup pelo m_lastSentWhisperIds).
+        ids = whisperTargetIds(m_whisperHoldScope);
+    } else if (!m_whisperUids.isEmpty()) {
+        // Lista fixa de sussurro (uids + canais): expande os canais aqui, no
+        // instante do envio, para listas não ficarem "vazias" quando seus
+        // membros entram, saem ou mudam de canal.
+        QSet<int> channelTargets;
+        for (const QString& target : m_whisperUids) {
+            bool ok = false;
+            const int channelId = target.toInt(&ok);
+            if (ok && m_data.channels.contains(channelId)) channelTargets.insert(channelId);
+        }
+        for (const User& u : m_data.users) {
+            if (u.id == m_data.selfId) continue;
+            const int userChannel = m_data.channelOfUser(u.id);
+            if (m_whisperUids.contains(u.uniqueId) || channelTargets.contains(userChannel))
+                if (!ids.contains(u.id)) ids << u.id;
+        }
+    } else {
+        // NADA ativo: não há conjunto a sincronizar. Este era o coração do
+        // bug do sussurro (v1.1.31): com a lista fixa vazia o código caia
+        // até o fim e enviava whisper_ids = [] ao servidor no PRIMEIRO
+        // refresh de estado (user_state de qualquer cliente — indicador de
+        // fala oscilando com o VAD bastava), LIMPANDO o roteamento do
+        // sussurro que a tecla acabou de configurar. A voz voltava para o
+        // canal do remetente: o alvo em outro canal não ouvia nada — nem
+        // sussurro, nem voz normal — com o anel laranja aceso na origem.
+        return;
     }
     // stateChanged dispara a cada user_state — inclusive o indicador de fala
     // (talking) de qualquer cliente oscilando com o VAD. Reenviar o whisper
@@ -1410,6 +1433,8 @@ QList<int> ServerTab::whisperTargetIds(int scope) const {
 void ServerTab::setWhisperHold(bool on, int scope) {
     if (m_whisperHold == on) return;
     m_whisperHold = on;
+    m_whisperHoldScope = qBound(0, scope, 2);
+    m_whisperReplyHold = false; // hold comum: alvos pelo escopo da tecla
     if (m_data.users.contains(m_data.selfId)) {
         m_data.users[m_data.selfId].whispering = on;
         m_data.users[m_data.selfId].talking = on;
@@ -1474,6 +1499,7 @@ void ServerTab::setWhisperReplyHold(bool on) {
     }
     if (m_voice) m_voice->setWhisperHeld(true);
     m_whisperHold = true;
+    m_whisperReplyHold = true; // resposta: alvo fixo, applyWhisper não re-resolve
     // Mesma regra do hold comum: cue de sussurro ao apertar a tecla de
     // resposta (modos por voz/contínuo).
     if (S::num("capture/pttMode", 1) != 0) {

@@ -16,6 +16,7 @@
 class NetSession;
 class QAudioSource;
 class QAudioSink;
+class QAudioDevice;
 struct OpusEncoder;
 struct OpusDecoder;
 struct ServerData;
@@ -96,6 +97,16 @@ private:
     // da frase não se perder no atraso de confirmação.
     void transmitHeldEchoFrames();
     void refreshDspSettings();
+    // Dispositivo de captura configurado (Opções > Captura) ou o padrão do
+    // sistema — mesma escolha do construtor, reavaliada a cada reabertura.
+    QAudioDevice pickCaptureDevice() const;
+    // Observa erros do QAudioSource (IO/dispositivo removido): a captura
+    // morria em silêncio — o app seguia "transmitindo" sem amostra nenhuma e
+    // ninguém ouvia nada (o usuário concluía que o Halla não capturava o
+    // microfone). Reage reabrindo o dispositivo.
+    void watchSourceState();
+    // Reabre o QAudioSource do microfone após erro, com guarda anti-loop.
+    void reopenAudioCapture();
     OpusDecoder* decoderFor(int userId);
     QByteArray spatializeFrame(int userId, int16_t* mono, int frames);
     void applyRadioEffect(int userId, int16_t* mono, int frames,
@@ -187,6 +198,8 @@ private:
     quint64 m_opusSent = 0, m_opusReceived = 0;
     quint64 m_opusSentBytes = 0, m_opusReceivedBytes = 0;
     int m_inputRms = 0;
+    qint64 m_lastCaptureReopenMs = 0;   // anti-loop de reabertura da captura
+    bool m_captureReopenPending = false;
 
     void recWrite(const char* pcm, int bytes);
     void recFinalize();

@@ -205,7 +205,30 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
             QJsonParseError error; const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &error);
             if (!doc.isArray()) { QMessageBox::warning(this, tr("Importar"), tr("Arquivo de listas inválido.")); return; }
             QList<QJsonObject> imported;
-            for (const QJsonValue& value : doc.array()) { const QJsonObject list = value.toObject(); if (!list["name"].toString().trimmed().isEmpty()) imported << list; }
+            QStringList seenNames;
+            for (const QJsonValue& value : doc.array()) {
+                const QJsonObject list = value.toObject();
+                const QString name = list["name"].toString().trimmed();
+                if (name.isEmpty()) continue;         // sem nome: fora
+                if (seenNames.contains(name)) continue; // duplicata no arquivo: fica a primeira
+                // Sanitiza campo a campo: arquivos editados à mão ou de
+                // versões antigas podiam entrar sem "uids" (o sussurro
+                // resolvia zero alvos), com "scope" fora de faixa ou com
+                // tipos errados — estados corrompidos que quebravam a
+                // resolução de alvos em silêncio.
+                QJsonObject clean;
+                clean["name"] = name;
+                clean["key"] = list["key"].toString();
+                clean["replyKey"] = list["replyKey"].toString();
+                clean["scope"] = qBound(0, list["scope"].toInt(0), 2);
+                QJsonArray uids;
+                for (const QJsonValue& u : list["uids"].toArray())
+                    if (!u.toString().isEmpty()) uids << u.toString();
+                clean["uids"] = uids;
+                clean["targetNames"] = list["targetNames"].toString();
+                seenNames << name;
+                imported << clean;
+            }
             m_whispers = imported; saveSettings(); loadSettings(); emit settingsSaved();
         }
     });
@@ -261,12 +284,21 @@ void WhisperDialog::loadSettings() {
 
 void WhisperDialog::saveSettings() {
     saveList("whispers", m_whispers);
-    QListWidgetItem* item = m_syncList->currentItem();
-    if (item) {
-        int index = m_syncList->row(item);
-        if (index >= 0 && index < m_whispers.size()) {
-            S::set("whisper/activeList", m_whispers[index]["name"].toString());
-        }
+    // A lista ativa NÃO nasce da seleção da UI: selecionar uma linha para
+    // editar não é ativá-la — a lista ativa muda quando o usuário aperta a
+    // tecla de sussurro da lista (whisperSetHeld). Derivar daqui era o
+    // gatilho do bug do import: a seleção era do estado PRÉ-import e era
+    // aplicada por ÍNDICE sobre as listas NOVAS (m_whispers acabara de ser
+    // trocada pelo arquivo) — a lista ativa virava outra qualquer, ou
+    // continuava apontando para um nome que não existe mais, e o sussurro
+    // resolvia os alvos errados (ou nenhum). Aqui só garantimos a
+    // integridade: se a lista ativa deixou de existir, limpa.
+    const QString active = S::str("whisper/activeList");
+    if (!active.isEmpty()) {
+        bool stillExists = false;
+        for (const QJsonObject& o : m_whispers)
+            if (o["name"].toString() == active) { stillExists = true; break; }
+        if (!stillExists) S::set("whisper/activeList", QString());
     }
 }
 

@@ -66,17 +66,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     QAudioFormat outputFmt = inputFmt;
     outputFmt.setChannelCount(2);
 
-    QAudioDevice inDev = QMediaDevices::defaultAudioInput();
-    const QString savedInId = S::str("capture/device");
-    if (!savedInId.isEmpty()) {
-        const auto inputs = QMediaDevices::audioInputs();
-        for (const QAudioDevice& input : inputs) {
-            if (input.id() == savedInId) {
-                inDev = input;
-                break;
-            }
-        }
-    }
+    QAudioDevice inDev = pickCaptureDevice();
 
     QAudioDevice outDev = QMediaDevices::defaultAudioOutput();
     const QString savedOutId = S::str("playback/device");
@@ -97,6 +87,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         m_source->setBufferSize(960 * 2 * 20); // ~400 ms
         m_srcDev = m_source->start();
         m_captureBuf.reserve(960 * 2 * 20);
+        watchSourceState(); // erro de dispositivo não pode ser silêncio eterno
 
         m_capTimer = new QTimer(this);
         m_capTimer->setTimerType(Qt::PreciseTimer);
@@ -254,6 +245,89 @@ VoiceEngine::~VoiceEngine() {
     if (m_encoder) opus_encoder_destroy(m_encoder);
     for (OpusDecoder* decoder : m_decoders) opus_decoder_destroy(decoder);
     m_decoders.clear();
+}
+
+// ------------------------------------------------- dispositivo de captura
+QAudioDevice VoiceEngine::pickCaptureDevice() const {
+    // Mesma escolha do construtor: o dispositivo salvo em Opções > Captura
+    // quando ainda existe no sistema, senão o padrão. Reavaliar a cada
+    // reabertura cobre headset Bluetooth ligado/desligado e USB trocado.
+    QAudioDevice dev = QMediaDevices::defaultAudioInput();
+    const QString savedInId = S::str("capture/device");
+    if (!savedInId.isEmpty()) {
+        const auto inputs = QMediaDevices::audioInputs();
+        for (const QAudioDevice& input : inputs) {
+            if (input.id() == savedInId) {
+                dev = input;
+                break;
+            }
+        }
+    }
+    return dev;
+}
+
+void VoiceEngine::watchSourceState() {
+    if (!m_source) return;
+    connect(m_source, &QAudioSource::stateChanged, this, [this](QtAudio::State state) {
+        if (state != QtAudio::StoppedState || !m_source) return;
+        const QtAudio::Error err = m_source->error();
+        if (err == QtAudio::NoError) return; // stop() intencional (destrutor)
+        // IO falhou / dispositivo sumiu: sem isto a captura morria em
+        // silêncio — o app seguia "transmitindo" sem amostra nenhuma.
+        AppLog::warn(tr("A captura do microfone caiu (erro %1); reabrindo o dispositivo.")
+                         .arg(int(err)));
+        reopenAudioCapture();
+    });
+}
+
+void VoiceEngine::reopenAudioCapture() {
+    if (m_captureReopenPending) return;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - m_lastCaptureReopenMs < 2000) return; // guarda anti-loop
+    m_lastCaptureReopenMs = now;
+
+    const QAudioDevice dev = pickCaptureDevice();
+    m_srcDev = nullptr;
+    if (m_source) {
+        m_source->disconnect(this); // nada de callbacks do objeto moribundo
+        m_source->stop();
+        m_source->deleteLater();
+        m_source = nullptr;
+    }
+    m_captureBuf.clear();
+
+    QAudioFormat inputFmt;
+    inputFmt.setSampleRate(48000);
+    inputFmt.setChannelCount(1);
+    inputFmt.setSampleFormat(QAudioFormat::Int16);
+
+    if (!dev.isNull()) {
+        m_source = new QAudioSource(dev, inputFmt, this);
+        m_source->setBufferSize(960 * 2 * 20); // ~400 ms
+        m_srcDev = m_source->start();
+        watchSourceState();
+    }
+
+    if (m_srcDev) {
+        m_captureBuf.reserve(960 * 2 * 20);
+        AppLog::info(tr("Captura do microfone reaberta."));
+        return;
+    }
+
+    // Dispositivo sumiu ou não abriu: tenta de novo em 5 s (headset volta a
+    // ficar disponível, dispositivo padrão muda etc.) — sem spam de log.
+    if (m_source) {
+        m_source->disconnect(this);
+        m_source->deleteLater();
+        m_source = nullptr;
+    }
+    AppLog::warn(tr("Nenhum dispositivo de captura disponível agora; "
+                    "nova tentativa em 5 s."));
+    m_captureReopenPending = true;
+    QTimer::singleShot(5000, this, [this] {
+        m_captureReopenPending = false;
+        reopenAudioCapture();
+    });
 }
 
 void VoiceEngine::setTransmitEnabled(bool on) {

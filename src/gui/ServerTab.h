@@ -108,6 +108,8 @@ private:
     QVector<OfflineMsgItem> m_offlineInbox;
     QStringList m_whisperUids;
     bool m_whisperHold = false;           // atalho de sussurro pressionado agora
+    int m_whisperHoldScope = 2;           // escopo da tecla de sussurro ativa (0/1/2)
+    bool m_whisperReplyHold = false;      // hold de sussurro de RESPOSTA (alvo fixo)
     int m_lastWhisperFromId = -1;         // último usuário que sussurrou (tecla de resposta)
     QList<int> m_lastSentWhisperIds;      // último conjunto whisper efetivamente enviado
     bool m_whisperHoldCuePlayed = false;  // cue de sussurro já tocou neste hold (não re-dispara com o VAD)

@@ -2048,6 +2048,9 @@ void NetSession::e2eeEnsureComponentKey(int channelId) {
             : tr("Chave E2EE do canal %1 gerada (mestre).").arg(channelId));
     }
     e2eeDistributeComponentKey(comp, gk);
+    // Chave de canal gerada/re-partilhada com sussurro ativo: re-embrulha a
+    // vigente para os alvos na hora (mesma urgência da rotação).
+    if (!m_whisperIds.isEmpty()) e2eeDistributeWhisperKey();
     e2eeFlushPending();
     emit e2eeStateChanged();
 }
@@ -2073,6 +2076,10 @@ void NetSession::e2eeRotateComponentKey(int channelId) {
         ? tr("Chave E2EE do escopo servidor rotacionada (membro saiu).")
         : tr("Chave E2EE do canal %1 rotacionada (membro saiu).").arg(channelId));
     e2eeDistributeComponentKey(comp, gk);
+    // Rotação com sussurro ativo: quem sussurra precisa re-embrulhar a chave
+    // nova para os alvos IMEDIATAMENTE — os frames de sussurro seguintes já
+    // saem cifrados com ela.
+    if (!m_whisperIds.isEmpty()) e2eeDistributeWhisperKey();
     e2eeFlushPending();
     emit e2eeStateChanged();
 }
@@ -2154,6 +2161,12 @@ void NetSession::e2eeApplyGroupKey(const QList<int>& chans, qint64 epoch, const 
         }
     }
     if (chans.contains(myCh)) m_e2eeWhisperNeedsRewrap = true; // sussurro ativo: re-embrulha
+    // Sussurro ativo: a chave do MEU canal acabou de mudar — os alvos fora
+    // do componente precisam da nova chave JÁ (cada frame de voz do sussurro
+    // sai cifrado com ela). Sem isto o re-embrulho esperava o housekeeper de
+    // 2 s: o alvo ficava até 2 s sem conseguir decifrar o sussurro a cada
+    // rotação.
+    if (!m_whisperIds.isEmpty()) e2eeDistributeWhisperKey();
     e2eeFlushPending();
     emit e2eeStateChanged();
 }

@@ -1956,6 +1956,18 @@ void MainWindow::runConfiguredAction(const QString& action) {
 }
 
 void MainWindow::applyHotkeys() {
+    // Reconstruir as teclas com um sussurro ATIVO deixava o hold preso: os
+    // HoldKey antigos (com o estado "held") são descartados abaixo — se a
+    // tecla que SOLTA o sussurro sumiu no meio (lista importada sem a
+    // tecla, lista removida, atalhos regravados), o release nunca chegava e
+    // o cliente seguia "sussurrando" para sempre: anel laranja preso, voz
+    // saindo só para os alvos antigos e o usuário sem falar nem pelo
+    // sussurro nem no canal. Solta o hold AGORA; se a tecla ainda existir
+    // e continuar fisicamente pressionada, o polling de 50 ms volta a
+    // segurá-la em seguida.
+    if (ServerTab* t = currentTab()) {
+        if (t->whisperHoldActive()) t->setWhisperHold(false, 2);
+    }
     for (QShortcut* s : m_hotkeyShortcuts)
         if (s) s->deleteLater();
     m_hotkeyShortcuts.clear();
