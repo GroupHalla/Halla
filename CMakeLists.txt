@@ -207,13 +207,17 @@ if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
             if (UNIX AND NOT APPLE)
                 # Loopback do áudio do PC (PulseAudio/pipewire-pulse) +
                 # pthread/dl/m exigidos pelo libwebrtc.a no Linux.
+                # pa_simple_* (gravação bloqueante do monitor no setup do
+                # loopback) vive na libpulse-simple, separada da libpulse.
                 find_package(Threads REQUIRED)
                 find_path(PULSE_INCLUDE_DIR pulse/pulseaudio.h REQUIRED)
                 find_library(PULSE_LIBRARY NAMES pulse REQUIRED)
+                find_library(PULSE_SIMPLE_LIBRARY NAMES pulse-simple REQUIRED)
                 target_include_directories(Halla PRIVATE ${PULSE_INCLUDE_DIR})
                 find_library(M_LIBRARY m REQUIRED)
                 target_link_libraries(Halla PRIVATE
-                    ${PULSE_LIBRARY} ${M_LIBRARY} Threads::Threads ${CMAKE_DL_LIBS})
+                    ${PULSE_LIBRARY} ${PULSE_SIMPLE_LIBRARY} ${M_LIBRARY}
+                    Threads::Threads ${CMAKE_DL_LIBS})
             endif()
             message(STATUS "Halla: WebRTC nativo habilitado (${HALLA_WEBRTC_LIBRARY})")
         else()
