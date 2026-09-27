@@ -2259,6 +2259,21 @@ Abra a janela Identidades e crie uma nova, ou restaure seu backup de identidade.
         <source>Banimento removido</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="1165"/>
+        <source>Sua identidade de criptografia não passou na verificação do diretório deste servidor. Sem ela ninguém consegue trocar chaves com você — a voz fica bloqueada nos dois sentidos. Reconecte-se; se o problema persistir, crie uma nova identidade em Ferramentas > Identidades.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="2499"/>
+        <source>A chave de criptografia deste canal não chegou: sua voz está bloqueada e você não ouve ninguém. Troque de canal e volte, ou reconecte-se ao servidor.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="2507"/>
+        <source>Chave de criptografia do canal recebida — voz liberada.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>OfflineMessagesDialog</name>

@@ -219,7 +219,10 @@
     "O material encontrado não gera este ID único.": "The material found does not produce this unique ID.",
     "Repita a senha:": "Repeat the password:",
     "Senha do arquivo de backup:": "Password of the backup file:",
-    "Senha incorreta.": "Wrong password."
+    "Senha incorreta.": "Wrong password.",
+    "Sua identidade de criptografia não passou na verificação do diretório deste servidor. Sem ela ninguém consegue trocar chaves com você — a voz fica bloqueada nos dois sentidos. Reconecte-se; se o problema persistir, crie uma nova identidade em Ferramentas > Identidades.": "Your encryption identity did not pass this server's directory verification. Without it nobody can exchange keys with you — voice is blocked in both directions. Reconnect; if the problem persists, create a new identity in Tools > Identities.",
+    "A chave de criptografia deste canal não chegou: sua voz está bloqueada e você não ouve ninguém. Troque de canal e volte, ou reconecte-se ao servidor.": "This channel's encryption key has not arrived: your voice is blocked and you cannot hear anyone. Switch channels and back, or reconnect to the server.",
+    "Chave de criptografia do canal recebida — voz liberada.": "Channel encryption key received — voice unlocked."
   },
   "es": {
     "Apelido fonético": "Apodo fonético",
@@ -410,6 +413,9 @@
     "O material encontrado não gera este ID único.": "El material encontrado no genera este ID único.",
     "Repita a senha:": "Repita la contraseña:",
     "Senha do arquivo de backup:": "Contraseña del archivo de copia de seguridad:",
-    "Senha incorreta.": "Contraseña incorrecta."
+    "Senha incorreta.": "Contraseña incorrecta.",
+    "Sua identidade de criptografia não passou na verificação do diretório deste servidor. Sem ela ninguém consegue trocar chaves com você — a voz fica bloqueada nos dois sentidos. Reconecte-se; se o problema persistir, crie uma nova identidade em Ferramentas > Identidades.": "Su identidad de cifrado no superó la verificación del directorio de este servidor. Sin ella nadie puede intercambiar claves con usted — la voz queda bloqueada en ambos sentidos. Reconéctese; si el problema continúa, cree una nueva identidad en Herramientas > Identidades.",
+    "A chave de criptografia deste canal não chegou: sua voz está bloqueada e você não ouve ninguém. Troque de canal e volte, ou reconecte-se ao servidor.": "La clave de cifrado de este canal no ha llegado: su voz está bloqueada y no escucha a nadie. Cambie de canal y vuelva, o reconéctese al servidor.",
+    "Chave de criptografia do canal recebida — voz liberada.": "Clave de cifrado del canal recibida — voz liberada."
   }
 }

@@ -2286,6 +2286,21 @@ Abra la ventana Identidades y cree una nueva, o restaure su copia de seguridad d
       <source>Banimento removido</source>
       <translation>Prohibición eliminada</translation>
     </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="1165"/>
+      <source>Sua identidade de criptografia não passou na verificação do diretório deste servidor. Sem ela ninguém consegue trocar chaves com você — a voz fica bloqueada nos dois sentidos. Reconecte-se; se o problema persistir, crie uma nova identidade em Ferramentas &gt; Identidades.</source>
+      <translation>Su identidad de cifrado no superó la verificación del directorio de este servidor. Sin ella nadie puede intercambiar claves con usted — la voz queda bloqueada en ambos sentidos. Reconéctese; si el problema continúa, cree una nueva identidad en Herramientas &gt; Identidades.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2499"/>
+      <source>A chave de criptografia deste canal não chegou: sua voz está bloqueada e você não ouve ninguém. Troque de canal e volte, ou reconecte-se ao servidor.</source>
+      <translation>La clave de cifrado de este canal no ha llegado: su voz está bloqueada y no escucha a nadie. Cambie de canal y vuelva, o reconéctese al servidor.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2507"/>
+      <source>Chave de criptografia do canal recebida — voz liberada.</source>
+      <translation>Clave de cifrado del canal recibida — voz liberada.</translation>
+    </message>
   </context>
   <context>
     <name>OfflineMessagesDialog</name>

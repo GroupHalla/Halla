@@ -295,7 +295,18 @@ private:
     struct PendingOfflineInbox { QString fromUid; QString fromName;
                                   QString blobB64; QString ts; qint64 receivedAt; };
     QList<PendingOfflineInbox> m_pendingOfflineInbox;
-    QMap<int, int> m_e2eeKeyRequestTries;    // channelId -> tentativas
+    QMap<int, int> m_e2eeKeyRequestTries;    // channelId -> tentativas (backoff)
     qint64 m_e2eeLastRequestAt = 0;
-    bool m_e2eeLoggedNoKeyVoice = false;     // aviso único de frame descartado
+    qint64 m_e2eeLastNoKeyWarnMs = 0;        // cadência (30 s) do aviso de chave ausente
+    // Anti-split-brain por clock skew: o mestre que gerou chave com época do
+    // relógio LOCAL também PERGUNTA aos demais — resposta com época maior é
+    // adotada (convergência); menor é descartada sem efeito.
+    QList<int> m_e2eeVerifyPending;
+    // Visibilidade do bloqueio de voz por chave ausente: início da espera
+    // atual e canal sobre o qual já avisamos. O usuário afetado precisa
+    // saber POR QUE está mudo nas duas direções, em vez de adivinhar.
+    qint64 m_e2eeKeyWaitStartMs = 0;
+    int m_e2eeWaitChan = -1;
+    int m_e2eeVoiceKeyWarnedChan = -1;
+    bool m_e2eeSelfEntryWarned = false;      // aviso único: entrada própria inválida
 };

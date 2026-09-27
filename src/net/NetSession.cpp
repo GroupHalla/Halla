@@ -656,8 +656,9 @@ void NetSession::sendVoiceFrame(const QByteArray& opus, quint16 seq) {
             // tem TLS, então um frame em claro seria audível por qualquer
             // ouvinte da rede. Descarta até a chave chegar (milissegundos).
             if (!m_channelKeys.contains(chanId)) {
-                if (!m_e2eeLoggedNoKeyVoice) {
-                    m_e2eeLoggedNoKeyVoice = true;
+                const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+                if (nowMs - m_e2eeLastNoKeyWarnMs > 30000) {
+                    m_e2eeLastNoKeyWarnMs = nowMs;
                     AppLog::warn(tr("Frame de voz descartado: chave E2EE do canal ainda "
                                     "não recebida (a fala volta quando a chave chegar)."));
                 }
@@ -1152,6 +1153,23 @@ void NetSession::applyUserJson(const QJsonObject& u) {
             tr("O servidor publicou chaves de criptografia diferentes das suas "
                "locais. Mensagens privadas podem não decifrar; confira o "
                "certificado TLS do servidor e reconecte."));
+    }
+    // A MINHA entrada inválida era o ponto cego: o aviso acima só existia
+    // para o caso e2eeValid=TRUE. Quando a própria entrada não passa na
+    // verificação, NINGUÉM consegue embrulhar chaves para mim — não falo (o
+    // frame nem sai sem chave) e não ouço (nada decifra) — e o cliente não
+    // dizia absolutamente nada para a vítima do mudo duplo.
+    if (usr.id == d.selfId && !usr.e2eeValid && !m_e2eeSelfEntryWarned
+            && m_e2eeDhPriv.size() == 32) {
+        m_e2eeSelfEntryWarned = true;
+        const QString text = tr("Sua identidade de criptografia não passou na "
+                                "verificação do diretório deste servidor. Sem ela "
+                                "ninguém consegue trocar chaves com você — a voz "
+                                "fica bloqueada nos dois sentidos. Reconecte-se; se "
+                                "o problema persistir, crie uma nova identidade em "
+                                "Ferramentas > Identidades.");
+        emit e2eeSecurityNotice(text);
+        emit systemEvent(text);
     }
     usr.op = d.users.value(usr.id).op;                 // preserva flag de operador
     // Volume individual e mudo local sobrevivem ao user_state: o servidor
@@ -1858,8 +1876,9 @@ void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
     // o frame não sai (a rota UDP não tem TLS: em claro seria audível/vizível
     // a qualquer ouvinte da rede).
     if (chanId > 0 && !m_channelKeys.contains(chanId)) {
-        if (!m_e2eeLoggedNoKeyVoice) {
-            m_e2eeLoggedNoKeyVoice = true;
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        if (nowMs - m_e2eeLastNoKeyWarnMs > 30000) {
+            m_e2eeLastNoKeyWarnMs = nowMs;
             AppLog::warn(tr("Compartilhamento de tela adiado: chave E2EE do canal "
                             "ainda não recebida."));
         }
@@ -1993,6 +2012,12 @@ void NetSession::e2eeBootstrap() {
     // Escopo servidor (chat público, canal lógico 0)
     if (e2eeIsServerScopeMaster()) {
         e2eeEnsureComponentKey(0);
+        // Clock skew: a época gerada vem do relógio LOCAL. Se algum outro
+        // cliente tem chave com época "futura" (relógio adiantado), a nossa
+        // seria rejeitada em silêncio por quem já a tem — mudo duplo sem
+        // cura, porque ambos os lados "têm" uma chave. O mestre também
+        // pergunta: resposta com época maior é adotada (convergência).
+        m_e2eeVerifyPending << 0;
     } else if (!m_channelKeys.contains(0)) {
         e2eeRequestKey(0);
     }
@@ -2001,6 +2026,7 @@ void NetSession::e2eeBootstrap() {
     if (myCh > 0) {
         if (e2eeIsMasterOfComponent(myCh)) {
             e2eeEnsureComponentKey(myCh);
+            m_e2eeVerifyPending << myCh; // idem: conferir a época contra os demais
         } else {
             const QSet<int> comp = e2eeComponentOf(myCh);
             bool missing = false;
@@ -2139,9 +2165,13 @@ void NetSession::e2eeHandleKeyEnvelope(const QJsonObject& obj) {
         // (servidor mal configurado), ou adulteração — AEAD já rejeitou.
         return;
     }
-    // Épocas no futuro distante são impossíveis de clientes honestos (ms
-    // Unix atuais); rejeitar limita injeção maliciosa a janela curta.
-    if (epoch > QDateTime::currentMSecsSinceEpoch() + 60'000) return;
+    // Épocas no futuro distante são impossíveis de clientes honestos — mas
+    // o limite precisa tolerar clock skew real entre máquinas (minutos em
+    // PCs sem NTP). O antigo 60 s punia quem tinha relógio atrasado com mudo
+    // duplo permanente: a chave "futura" do outro lado nunca era adotada e
+    // a local sempre perdia a comparação de época. 15 minutos mantém a
+    // barreira anti-injeção e cobre o desvio crível de relógio.
+    if (epoch > QDateTime::currentMSecsSinceEpoch() + 900'000) return;
     const ServerData& d = target();
     for (int ch : chans) {
         // Só aceita chaves de canais que existem aqui (ou do escopo 0).
@@ -2405,33 +2435,80 @@ void NetSession::e2eeClearState() {
     m_pendingOfflineInbox.clear();
     m_e2eeKeyRequestTries.clear();
     m_e2eeWhisperNeedsRewrap = false;
-    m_e2eeLoggedNoKeyVoice = false;
+    m_e2eeLastNoKeyWarnMs = 0;
+    m_e2eeVerifyPending.clear();
+    m_e2eeKeyWaitStartMs = 0;
+    m_e2eeWaitChan = -1;
+    m_e2eeVoiceKeyWarnedChan = -1;
+    m_e2eeSelfEntryWarned = false;
     if (m_e2eeHousekeeper) m_e2eeHousekeeper->stop();
 }
 
 void NetSession::onE2eeHousekeeping() {
     if (!m_ready || m_e2eeDhPriv.size() != 32) return;
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    // Re-pede chaves que não chegaram (limite de tentativas evita laço eterno).
     const ServerData& d = target();
     const int myCh = d.channelOfUser(d.selfId);
-    if (!m_channelKeys.contains(0)
-            && m_e2eeKeyRequestTries.value(0, 0) < 5
-            && now - m_e2eeLastRequestAt > 3000) {
-        m_e2eeKeyRequestTries[0] = m_e2eeKeyRequestTries.value(0, 0) + 1;
-        e2eeRequestKey(0);
+
+    // Mestre recém-chegado confere a própria época contra os demais (anti
+    // split-brain por clock skew). Um pedido por tick respeita o limitador
+    // do servidor (1 e2e_key_request / 2 s); só confere quem JÁ tem chave —
+    // quem não tem cai no re-pedido normal logo abaixo.
+    if (!m_e2eeVerifyPending.isEmpty()) {
+        const int verifyCh = m_e2eeVerifyPending.takeFirst();
+        if (m_channelKeys.contains(verifyCh))
+            e2eeRequestKey(verifyCh);
     }
+
+    // Falta de chave de canal = mudo duplo (não fala: o frame nem sai;
+    // não ouve: nada decifra). Desistir após 5 tentativas deixava o usuário
+    // bloqueado PARA SEMPRE até reconectar — cada reconexão virava loteria.
+    // Agora: 10 tentativas a cada ~3 s e depois 1 a cada 15 s, para sempre —
+    // o pedido é minúsculo e o servidor limita a 1/2 s mesmo.
+    const bool missingScope0 = !m_channelKeys.contains(0);
+    bool missingVoiceKey = false;
     if (myCh > 0) {
         const QSet<int> comp = e2eeComponentOf(myCh);
-        bool missing = false;
         for (int ch : comp)
-            if (!m_channelKeys.contains(ch)) { missing = true; break; }
-        if (missing
-                && m_e2eeKeyRequestTries.value(myCh, 0) < 5
-                && now - m_e2eeLastRequestAt > 3000) {
-            m_e2eeKeyRequestTries[myCh] = m_e2eeKeyRequestTries.value(myCh, 0) + 1;
-            e2eeRequestKey(myCh);
+            if (!m_channelKeys.contains(ch)) { missingVoiceKey = true; break; }
+    }
+    auto requestMissing = [&](int ch) {
+        const int tries = m_e2eeKeyRequestTries.value(ch, 0);
+        const qint64 interval = tries < 10 ? 3000 : 15000;
+        if (now - m_e2eeLastRequestAt > interval) {
+            m_e2eeKeyRequestTries[ch] = tries + 1;
+            e2eeRequestKey(ch);
         }
+    };
+    if (missingScope0) requestMissing(0);
+    if (missingVoiceKey) requestMissing(myCh);
+
+    // Visibilidade do bloqueio: 12 s conectado, dentro de um canal e sem
+    // chave é hora de avisar COM O QUE FAZER. Sem isto o usuário só sabe
+    // que "não fala nem ouve de jeito nenhum" — trocar de canal força novo
+    // bootstrap E2EE e reconectar refaz a sessão inteira.
+    if (myCh != m_e2eeWaitChan) {
+        m_e2eeWaitChan = myCh;
+        m_e2eeKeyWaitStartMs = 0;
+    }
+    if (missingVoiceKey && myCh > 0) {
+        if (m_e2eeKeyWaitStartMs == 0) m_e2eeKeyWaitStartMs = now;
+        if (m_e2eeVoiceKeyWarnedChan != myCh && now - m_e2eeKeyWaitStartMs > 12000) {
+            m_e2eeVoiceKeyWarnedChan = myCh;
+            emit systemEvent(
+                tr("A chave de criptografia deste canal não chegou: sua voz está "
+                   "bloqueada e você não ouve ninguém. Troque de canal e volte, ou "
+                   "reconecte-se ao servidor."));
+        }
+    } else if (m_e2eeVoiceKeyWarnedChan != -1) {
+        const bool recovered = myCh > 0; // em canal E com chave = voz voltou
+        m_e2eeVoiceKeyWarnedChan = -1;
+        m_e2eeKeyWaitStartMs = 0;
+        if (recovered)
+            emit systemEvent(
+                tr("Chave de criptografia do canal recebida — voz liberada."));
+    } else {
+        m_e2eeKeyWaitStartMs = 0;
     }
     // Expira filas que nunca resolveram
     if (!m_pendingChats.isEmpty()) {
