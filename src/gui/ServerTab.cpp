@@ -368,7 +368,11 @@ void ServerTab::attachNetwork(NetSession* net) {
             // real de fala (speechActivityChanged) — tocar aqui faria o som
             // disparar ao ABRIR a transmissão, não quando o usuário fala.
             if (S::num("capture/pttMode", 1) == 0) playSpeechCue(on);
-            m_tree->rebuild();
+            // v1.1.35: transição de fala do PRÓPRIO usuário = atualização
+            // leve (só o anel/ícone da linha). O rebuild completo aqui era
+            // uma rajada de recriação de itens a cada lig/deslig do VAD —
+            // na mesma thread do áudio.
+            m_tree->updateUserVisuals();
         });
         // Cue "ao falar" dirigido por fala real: vale para detecção por voz
         // E transmissão contínua, com a voz aberta ou fechada — o detector
@@ -797,8 +801,32 @@ void ServerTab::refreshServerState() {
     applyWhisper(); // mantém o alvo do sussurro sincronizado (ids mudam a cada login)
     updatePermissionUi();
 
-    m_tree->rebuild();
-    m_info->refresh();
+    // v1.1.35: assinatura estrutural do servidor (id+revisão de cada usuário
+    // e canal — a revisão só sobe quando algo estrutural muda; transições de
+    // fala NÃO contam). Mesma assinatura = nada entrou/saiu/moveu/renomeou/
+    // mudou permissão: a árvore recebe a atualização LEVE (updateUserVisuals
+    // repinta só o anel/ícone das linhas cuja chave visual mudou) em vez de
+    // ser destruída e reconstruída. Antes, cada rajada de user_state (uma
+    // por transição de fala de cada cliente, coalescida a 120 ms) recriava
+    // TODOS os itens/ícones/tooltips/expansão/rolagem — em salas cheias isso
+    // virava uma fábrica de pixmaps a 8x/s na MESMA thread do pipeline de
+    // áudio, e a voz picotava depois de um tempo de sessão.
+    QString sig;
+    for (auto it = m_data.users.constBegin(); it != m_data.users.constEnd(); ++it)
+        sig += QString::number(it.key()) + QLatin1Char(':')
+             + QString::number(it.value().rev) + QLatin1Char(';');
+    sig += QLatin1Char('#');
+    for (auto it = m_data.channels.constBegin(); it != m_data.channels.constEnd(); ++it)
+        sig += QString::number(it.key()) + QLatin1Char(':')
+             + QString::number(it.value().rev) + QLatin1Char(';');
+
+    if (sig == m_structSig) {
+        m_tree->updateUserVisuals(); // nada estrutural: só estados visuais
+    } else {
+        m_structSig = sig;
+        m_tree->rebuild();
+        m_info->refresh();
+    }
     emit statusChanged();
 }
 

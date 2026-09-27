@@ -40,7 +40,9 @@ public:
 protected:
     void paintEvent(QPaintEvent* e) override {
         QTextBrowser::paintEvent(e);
-        const QPixmap wm = HIcons::appIcon(112);
+        // v1.1.35: marca d'água em cache — o appIcon(112) era redesenhado
+        // (gradiente + wave marks) a CADA paint do painel de informações.
+        static const QPixmap wm = HIcons::appIcon(112);
         if (wm.isNull()) return;
         QPainter p(viewport());
         p.setOpacity(HTheme::isDark() ? 0.12 : 0.075);
@@ -78,7 +80,12 @@ InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
     m_timer = new QTimer(this);
     m_timer->setInterval(1000);
     connect(m_timer, &QTimer::timeout, this, [this] {
-        if (m_data && m_kind == 0) refresh();
+        // v1.1.35: qualquer seleção (antes só o cartão do servidor). Como o
+        // refreshServerState agora só repinta o painel quando a ESTRUTURA
+        // muda (transições de fala vão pelo caminho leve da árvore), este
+        // timer é o responsável por manter vivo o que muda com o tempo —
+        // uptime do servidor, tempo online do cliente selecionado.
+        if (m_data) refresh();
     });
     m_timer->start();
 }

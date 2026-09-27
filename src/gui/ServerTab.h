@@ -114,6 +114,9 @@ private:
     QList<int> m_lastSentWhisperIds;      // último conjunto whisper efetivamente enviado
     bool m_whisperHoldCuePlayed = false;  // cue de sussurro já tocou neste hold (não re-dispara com o VAD)
     bool m_stateRefreshPending = false;   // coalesce rajadas de user_state
+    // v1.1.35: assinatura estrutural (usuários/canais por id+rev) — decide
+    // entre rebuild completo e atualização leve de ícones (updateUserVisuals).
+    QString m_structSig;
 
     void hookSignals();
     void refreshServerState();     // estado consolidado (coalesce rajadas de user_state)

@@ -1,6 +1,8 @@
 #include "ChatPanel.h"
 #include "RichTextBrowser.h"
 
+#include <QTextCursor>
+#include <QTextDocument>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QToolBar>
@@ -133,6 +135,20 @@ void ChatPanel::updateSendTarget() {}
 
 void ChatPanel::addLine(QTextBrowser* browser, const QString& html) {
     browser->append(html);
+    // v1.1.35: teto no histórico. O QTextDocument cresce PARA SEMEIRA e
+    // cada append (e cada paint) fica mais lento conforme milhares de
+    // blocos se acumulam — o chat "pesava" a GUI depois de horas de
+    // sessão, e a GUI divide a thread com o pipeline de áudio (voz
+    // picotando). Mantém os últimos 500 blocos (mensagens + quebras).
+    constexpr int kMaxChatBlocks = 500;
+    QTextDocument* doc = browser->document();
+    const int excess = doc->blockCount() - kMaxChatBlocks;
+    if (excess > 0) {
+        QTextCursor cut(doc);
+        cut.movePosition(QTextCursor::Start);
+        cut.movePosition(QTextCursor::NextBlock, QTextCursor::KeepAnchor, excess);
+        cut.removeSelectedText();
+    }
     QTextCursor c = browser->textCursor();
     c.movePosition(QTextCursor::End);
     browser->setTextCursor(c);

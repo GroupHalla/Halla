@@ -4,6 +4,8 @@
 #include <QString>
 #include <QDateTime>
 
+class QFile;
+
 // Registro de eventos do cliente (equivale ao "Client Log" do Halla)
 class AppLog : public QObject {
     Q_OBJECT
@@ -26,4 +28,7 @@ signals:
 
 private:
     AppLog() = default;
+    // v1.1.35: handle persistente — abrir/fechar o arquivo (e rodar mkpath)
+    // a CADA linha de log era I/O puramente desperdiçado.
+    QFile* m_file = nullptr;
 };

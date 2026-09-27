@@ -96,7 +96,11 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
         m_capTimer = new QTimer(this);
         m_capTimer->setTimerType(Qt::PreciseTimer);
-        m_capTimer->setInterval(5);
+        // v1.1.35: 5 ms -> 10 ms. O buffer do QAudioSource é de 800 ms — a
+        // drenagem a cada 10 ms segue sobrando folga; metade dos wakeups do
+        // event loop (200/s -> 100/s), que compartilha a thread com TODA a
+        // GUI. A latência adicionada é de no máximo 5 ms no início da fala.
+        m_capTimer->setInterval(10);
         connect(m_capTimer, &QTimer::timeout, this, &VoiceEngine::captureTick);
         m_capTimer->start();
     } else {
@@ -118,7 +122,10 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
         m_playTimer = new QTimer(this);
         m_playTimer->setTimerType(Qt::PreciseTimer);
-        m_playTimer->setInterval(5);
+        // v1.1.35: 5 ms -> 10 ms (idem captura — o sink tem 240 ms de buffer
+        // e o jitter buffer por usuário por cima; o tick escreve 0-2 frames
+        // de 20 ms, a cadência de 10 ms cobre com folga).
+        m_playTimer->setInterval(10);
         connect(m_playTimer, &QTimer::timeout, this, &VoiceEngine::playbackTick);
         m_playTimer->start();
 
@@ -479,11 +486,11 @@ QByteArray VoiceEngine::spatializeFrame(int userId, int16_t* mono, int frames) {
         const int volumeDb = m_data->users[userId].volumeDb;
         if (volumeDb != 0) gain *= qPow(10.0f, volumeDb / 20.0f);
     }
-    const int masterX10 = S::num("playback/volumeDb", 0);
+    const int masterX10 = m_cfgMasterVolX10; // v1.1.35: cache (ver refreshCachedConfig)
     if (masterX10 != 0)
         gain *= qPow(10.0f, (masterX10 / 10.0f) / 20.0f);
-    if (m_talking && S::flag("capture/ducking", false))
-        gain *= qPow(10.0f, -float(S::num("capture/duckingDb", 10)) / 20.0f);
+    if (m_talking && m_cfgDucking)
+        gain *= qPow(10.0f, -float(m_cfgDuckingDb) / 20.0f);
 
     const float pan = qBound(-1.0f, control.pan, 1.0f);
     const float angle = (pan + 1.0f) * float(M_PI) * 0.25f;
@@ -496,6 +503,24 @@ QByteArray VoiceEngine::spatializeFrame(int userId, int16_t* mono, int frames) {
         output[i * 2 + 1] = int16_t(qBound(-32768.0f, mono[i] * rightGain, 32767.0f));
     }
     return stereo;
+}
+
+// ------------------------------------------------------------- config cache
+// v1.1.35: as chaves abaixo eram lidas do QSettings DENTRO do caminho por
+// quadro (até ~10 leituras a cada 20 ms de voz). O QSettings tem cache em
+// memória, mas cada leitura ainda constrói QString/QVariant — dezenas por
+// segundo durante a call. TTL de 250 ms: mudanças nas Opções continuam
+// pegando em tempo imperceptível e o hot path vira leitura de membro.
+void VoiceEngine::refreshCachedConfig() {
+    if (m_cfgClock.isValid() && m_cfgClock.elapsed() < 250) return;
+    m_cfgClock.restart();
+    m_cfgPttMode = S::num("capture/pttMode", 1);
+    m_cfgVoiceLevelDb = S::num("capture/voiceLevel", -45);
+    m_cfgCrosstalkGuard = S::flag("capture/crosstalkGuard", true);
+    m_cfgMicGainX10 = S::num("capture/micGainDb", 0);
+    m_cfgMasterVolX10 = S::num("playback/volumeDb", 0);
+    m_cfgDucking = S::flag("capture/ducking", false);
+    m_cfgDuckingDb = S::num("capture/duckingDb", 10);
 }
 
 // ------------------------------------------------- DSP + detecção de fala
@@ -537,7 +562,7 @@ void VoiceEngine::updateSpeechDetection(double rms) {
     // (Opções > Captura > Atividade de voz), com histerese para não tremolar.
     // Roda no sinal JÁ processado (ruído/eco removidos): com alto-falantes, a
     // voz do outro lado captada pelo microfone não abre mais o cue.
-    const int levelDb = S::num("capture/voiceLevel", -45);
+    const int levelDb = m_cfgVoiceLevelDb; // v1.1.35: cache (ver refreshCachedConfig)
     const double onThreshold = qPow(10.0, levelDb / 20.0) * 32767.0;
     const double offThreshold = onThreshold * 0.45; // ~-7 dB de histerese
     const qint64 now = m_speechClock.elapsed();
@@ -584,7 +609,7 @@ void VoiceEngine::analyzeCapturedSpeech() {
     const bool cueAllowed = m_txEnabled;
     drainCaptureDevice();
     const double micGain = micGainLinear();
-    const int levelDb = S::num("capture/voiceLevel", -45);
+    const int levelDb = m_cfgVoiceLevelDb; // v1.1.35: cache (ver refreshCachedConfig)
     const double onThreshold = qPow(10.0, levelDb / 20.0) * 32767.0;
     while (m_captureBuf.size() >= 960 * 2) {
         int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
@@ -616,8 +641,7 @@ void VoiceEngine::analyzeCapturedSpeech() {
         // falantes em uso e a sala falando junto, falsos positivos do guarda
         // picotavam a voz do próprio usuário ("mic travando, cortando"). O
         // checkbox vive em Opções > Captura > Processamento digital de sinal.
-        const bool guardActive = S::num("capture/pttMode", 1) == 1
-            && S::flag("capture/crosstalkGuard", true);
+        const bool guardActive = m_cfgPttMode == 1 && m_cfgCrosstalkGuard;
         const EchoGuard::Decision d = m_echoGuard.noteCapture(
             rawPcm, 960, guardActive && rms > onThreshold, false);
         if (guardActive && d != EchoGuard::Decision::Open) cueRms = 0.0;
@@ -657,7 +681,9 @@ void VoiceEngine::transmitHeldEchoFrames() {
 double VoiceEngine::micGainLinear() const {
     // "capture/micGainDb" é gravado em DÉCIMOS de dB (padrão dos sliders de
     // dB das Opções): 300 = +30 dB = ~31x. Default 0 = sem amplificação.
-    const int gainX10 = S::num("capture/micGainDb", 0);
+    // v1.1.35: valor vem do cache de 250 ms (m_cfgMicGainX10) — era uma
+    // leitura de QSettings por quadro de 20 ms.
+    const int gainX10 = m_cfgMicGainX10;
     if (gainX10 <= 0) return 1.0;
     return qPow(10.0, (qMin(gainX10, 300) / 10.0) / 20.0);
 }
@@ -743,6 +769,15 @@ void VoiceEngine::updateCodecSettings() {
         app = OPUS_APPLICATION_AUDIO;
     }
 
+    // v1.1.35: isto rodava a CADA tick de captura aplicando os mesmos ctl's
+    // — agora aplica apenas quando canal/bitrate/codec mudam de fato.
+    if (myChanId == m_lastCodecChanId && bitrate == m_lastCodecBitrate
+            && app == m_lastCodecApp)
+        return;
+    m_lastCodecChanId = myChanId;
+    m_lastCodecBitrate = bitrate;
+    m_lastCodecApp = app;
+
     opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(bitrate));
     opus_encoder_ctl(m_encoder, OPUS_SET_VBR(1));
     opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1));
@@ -751,6 +786,7 @@ void VoiceEngine::updateCodecSettings() {
 
 void VoiceEngine::captureTick() {
     if (!m_srcDev) return;
+    refreshCachedConfig(); // v1.1.35: hot path lê membros, não QSettings
 
     // Watchdog de travamento (v1.1.34): dispositivo aberto, estado "ativo",
     // mas NENHUMA amostra há mais de 2 s. Glitch de driver, economia de
@@ -780,7 +816,7 @@ void VoiceEngine::captureTick() {
 
     // ativação de voz (Opções > Captura): 0 = PTT, 1 = detecção de voz, 2 = contínuo
     // (obs.: "capture/mode" é o backend de áudio — não confundir)
-    const int mode = S::num("capture/pttMode", 1);
+    const int mode = m_cfgPttMode; // v1.1.35: cache (ver refreshCachedConfig)
     if (mode == 0 && !m_pttHeld && !m_whisperHeld) {
         if (m_talking) closeTransmissionGate(); // tecla solta sem flush prévio
         flushGateFade();       // envia a rampa de fechamento, se pendente
@@ -819,7 +855,7 @@ void VoiceEngine::captureTick() {
         for (int i = 0; i < 960; ++i) sum += double(pcm[i]) * double(pcm[i]);
         const double rms = qSqrt(sum / 960.0);
         m_inputRms = qBound(0, int(rms), 32767);
-        const int levelDb = S::num("capture/voiceLevel", -45);
+        const int levelDb = m_cfgVoiceLevelDb; // v1.1.35: cache
         const double threshold = qPow(10.0, levelDb / 20.0) * 32767.0;
         bool voiceNow = rms > threshold;
         if (mode == 0) voiceNow = true;       // PTT segurado: envia tudo
@@ -839,7 +875,7 @@ void VoiceEngine::captureTick() {
         // proteção também pode ser desligada nas Opções > Captura (falsos
         // positivos picotavam a voz de quem fala com alto-falantes).
         const bool guardActive = (mode == 1 && !m_whisperHeld
-            && S::flag("capture/crosstalkGuard", true));
+            && m_cfgCrosstalkGuard);
         EchoGuard::Decision echo = m_echoGuard.noteCapture(
             rawPcm, 960, guardActive && voiceNow, guardActive && m_talking);
         if (guardActive) {
@@ -1089,6 +1125,7 @@ void VoiceEngine::adaptVoiceTarget() {
 
 void VoiceEngine::playbackTick() {
     if (!m_sinkDev) return;
+    refreshCachedConfig(); // v1.1.35: ganhos/ducking do spatializeFrame vêm daqui
     if (!m_spkEnabled) {
         m_remoteQueues.clear();
         m_voicePrimed.clear();
@@ -1135,10 +1172,14 @@ void VoiceEngine::playbackTick() {
     constexpr int kChannels = 2;
     constexpr int kBytes = kFrames * kChannels * int(sizeof(int16_t));
     int free = int(m_sink->bytesFree());
+    // v1.1.35: alocações hoisted para fora do laço de frames (o laço roda
+    // por frame de 20 ms; QList/QDateTime por iteração era churn desnecessário).
+    QList<int> emptyUsers;
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
     while (free >= kBytes) {
         bool hasFrame = false;
         int32_t mix[kFrames * kChannels] = {};
-        QList<int> emptyUsers;
+        emptyUsers.clear();
         for (auto it = m_remoteQueues.begin(); it != m_remoteQueues.end(); ++it) {
             const int uid = it.key();
             if (uid == std::numeric_limits<int>::min()) {
@@ -1170,13 +1211,12 @@ void VoiceEngine::playbackTick() {
                 // depois da graça o prebuffer é reconstruído; a seca conta
                 // como sinal para o alvo crescer (o jitter existiu, mesmo
                 // que o buffer do sink tenha escondido o buraco).
-                const qint64 now = QDateTime::currentMSecsSinceEpoch();
                 const qint64 drySince = m_voiceDryMs.value(uid, 0);
                 if (drySince == 0) {
-                    m_voiceDryMs.insert(uid, now);
+                    m_voiceDryMs.insert(uid, nowMs);
                     continue;
                 }
-                if (now - drySince <= kVoiceDryGraceMs) continue;
+                if (nowMs - drySince <= kVoiceDryGraceMs) continue;
                 m_voiceDryMs.remove(uid);
                 m_voicePrimed.remove(uid);
                 ++m_voiceDries;

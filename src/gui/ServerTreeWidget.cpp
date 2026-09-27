@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QLinearGradient>
 #include <QSet>
+#include <QHash>
 #include <QStyle>
 #include <QRegularExpression>
 #include <algorithm>
@@ -39,7 +40,15 @@ static QPixmap createGroupIconPixmap(const QString& iconText, const QString& ser
             emit tree->iconRequested(iconText);
         return pm;
     }
-    
+
+    // v1.1.35: o ícone de cargo de TEXTO/emoji é função pura de iconText —
+    // mas era redesenhado (QFont + drawRoundedRect + drawText) a CADA PAINT
+    // de cada linha visível do delegado, inclusive rolando a lista. Cache
+    // por texto: o custo passa a ser uma busca em hash.
+    static QHash<QString, QPixmap> textPixmapCache;
+    const auto hit = textPixmapCache.constFind(iconText);
+    if (hit != textPixmapCache.constEnd()) return hit.value();
+
     // Ícones de cargo maiores (24x21): em 16x14 ficavam minúsculos ao lado
     // do nome — mesmo tamanho do cache de imagens (GroupIconCache) para a
     // linha ficar uniforme entre ícone de imagem e ícone de letra/emoji.
@@ -77,7 +86,8 @@ static QPixmap createGroupIconPixmap(const QString& iconText, const QString& ser
         painter.setFont(font);
         painter.drawText(QRect(0, 0, 24, 21), Qt::AlignCenter, iconText.left(1).toUpper());
     }
-    
+
+    textPixmapCache.insert(iconText, pm);
     return pm;
 }
 
@@ -85,28 +95,43 @@ static QPixmap createGroupIconPixmap(const QString& iconText, const QString& ser
 // reference shows microphone/headphone/away indicators before the nickname,
 // never after it.
 static QPixmap liveBadgePixmap() {
-    QPixmap pm(54, 18);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    QRectF r(0.5, 1.5, 53, 15);
-    p.setPen(QPen(QColor("#EF4444"), 1));
-    p.setBrush(QColor("#B91C1C"));
-    p.drawRoundedRect(r, 8, 8);
-    p.setPen(Qt::white);
-    QFont f = p.font();
-    f.setPixelSize(9);
-    f.setBold(true);
-    p.setFont(f);
-    p.drawText(QRect(0, 0, 54, 18), Qt::AlignCenter, QStringLiteral("● LIVE"));
+    // v1.1.35: pixmap estático — o delegado pedia um novo (com drawText) a
+    // cada paint de cada linha em live.
+    static const QPixmap pm = [] {
+        QPixmap pm(54, 18);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        QRectF r(0.5, 1.5, 53, 15);
+        p.setPen(QPen(QColor("#EF4444"), 1));
+        p.setBrush(QColor("#B91C1C"));
+        p.drawRoundedRect(r, 8, 8);
+        p.setPen(Qt::white);
+        QFont f = p.font();
+        f.setPixelSize(9);
+        f.setBold(true);
+        p.setFont(f);
+        p.drawText(QRect(0, 0, 54, 18), Qt::AlignCenter, QStringLiteral("● LIVE"));
+        return pm;
+    }();
     return pm;
 }
 
 static QPixmap treeUserSphere(const User& u) {
+    // v1.1.35: a esfera é função pura de (away, talking, whispering, tema) —
+    // 16 variantes no máximo. Era gerada com gradiente + QPainter POR
+    // USUÁRIO a cada rebuild (que rodava a cada transição de fala); com o
+    // updateUserVisuals ela só roda quando a chave muda — e agora nem isso
+    // desenha: é uma busca em cache.
+    const bool dark = HTheme::isDark();
+    const int key = (u.away ? 1 : 0) | (u.talking ? 2 : 0)
+                  | (u.whispering ? 4 : 0) | (dark ? 8 : 0);
+    static QPixmap cache[16];
+    if (!cache[key].isNull()) return cache[key];
+
     QPixmap pm(16, 16);
     pm.fill(Qt::transparent);
     QPainter p(&pm);
-    const bool dark = HTheme::isDark();
     QLinearGradient gradient(0, 1, 0, 15);
     gradient.setColorAt(0, u.away ? QColor("#8B97A5") : (dark ? QColor("#9A8BCE") : QColor("#9FC4E4")));
     gradient.setColorAt(1, u.away ? QColor("#566271") : (dark ? QColor("#3B2875") : QColor("#1E527D")));
@@ -119,7 +144,21 @@ static QPixmap treeUserSphere(const User& u) {
         p.setPen(QPen(ring, 1.8, Qt::SolidLine, Qt::RoundCap));
         p.drawEllipse(QRectF(0.7, 0.7, 14.6, 14.6));
     }
+    cache[key] = pm;
     return pm;
+}
+
+// v1.1.35: chave de TUDO que o ícone/cores da linha de usuário exibem. As
+// transições de fala mudam só isto — comparar a chave permite atualizar a
+// linha sem reconstruir a árvore. (showMinis/tema entram porque o desenho
+// depende deles.)
+static quint32 userVisualKey(const User& u, bool showMinis) {
+    return (u.talking ? 1u : 0u) | (u.whispering ? 2u : 0u)
+         | (u.away ? 4u : 0u) | (u.inputMuted ? 8u : 0u)
+         | (u.outputMuted ? 16u : 0u) | (u.locallyMuted ? 32u : 0u)
+         | (u.recording ? 64u : 0u) | (u.commander ? 128u : 0u)
+         | (u.op ? 256u : 0u) | (showMinis ? 512u : 0u)
+         | (HTheme::isDark() ? 1024u : 0u);
 }
 
 static QIcon leadingUserIcon(const User& u, bool showStatus) {
@@ -177,7 +216,10 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     const QString serverKey = GroupIconCache::serverKey(m_data->address);
 
     // Separamos e renderizamos múltiplos ícones/cargos se existirem (separados por vírgula ou ponto e vírgula)
-    QStringList icons = u.groupIcon.split(QRegularExpression("[,;]"), Qt::SkipEmptyParts);
+    // v1.1.35: regex estático — compilar a expressão a cada paint de cada
+    // linha era puro desperdício (o paint roda em rajadas ao rolar/hover).
+    static const QRegularExpression splitRoleIcons("[,;]");
+    QStringList icons = u.groupIcon.split(splitRoleIcons, Qt::SkipEmptyParts);
     QList<QPixmap> iconPms;
     for (const QString& ic : icons) {
         QString trimmed = ic.trimmed();
@@ -514,9 +556,11 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
     bool isCentered = false;
     bool isRepeating = false;
     QString spacerText = c.name;
-    
-    QRegularExpression rx(QStringLiteral("\\[(\\*?)(c)?spacer[^\\]]*\\](.*)"));
-    QRegularExpressionMatch match = rx.match(c.name);
+
+    // v1.1.35: regex estático — o rebuild roda em cada atualização de
+    // estado; compilar a expressão por canal, por rebuild, era desperdício.
+    static const QRegularExpression spacerRx(QStringLiteral("\\[(\\*?)(c)?spacer[^\\]]*\\](.*)"));
+    QRegularExpressionMatch match = spacerRx.match(c.name);
     if (match.hasMatch()) {
         isSpacer = true;
         isCentered = !match.captured(2).isEmpty();
@@ -657,11 +701,55 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
     item->setIcon(0, leadingUserIcon(u, m_delegate ? m_delegate->showMinis() : true));
     item->setData(0, RoleKind, NodeUser);
     item->setData(0, RoleId, u.id);
+    // v1.1.35: chave visual da linha — updateUserVisuals compara esta chave
+    // com o estado atual para repintar SÓ o que mudou (anel de fala, mutes,
+    // away) sem reconstruir a árvore.
+    item->setData(0, RoleVisualKey,
+                  userVisualKey(u, m_delegate ? m_delegate->showMinis() : true));
     item->setToolTip(0, userTooltip(u));
     const bool draggable = (u.id == m_data->selfId) || m_canMoveOthers;
     item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
                    (draggable ? Qt::ItemIsDragEnabled : Qt::NoItemFlags));
     if (u.away) item->setForeground(0, QColor("#6E7B86"));
+}
+
+// v1.1.35 — atualização leve da árvore. Percorre os itens EXISTENTES e
+// repinta (ícone + cor) apenas os usuários cuja chave visual mudou. É o
+// caminho das transições de "falando": antes, cada transição (coalescida a
+// 120 ms) destruía e recriava a árvore inteira — itens, tooltips, ícones,
+// expansão e rolagem — o que em salas cheias virava dezenas de milhares de
+// alocações por segundo na thread da GUI. O pipeline de áudio (captura e
+// reprodução a cada 10 ms) divide essa MESMA thread: a rajada de rebuild
+// atrasava os ticks e a voz picotava ("depois de um tempo o som trava").
+// Agora: transição de fala = comparação de inteiros + setIcon das linhas
+// afetadas. Estrutura (entradas/saídas/moves/renomes) continua no rebuild()
+// completo, decidido por assinatura no ServerTab.
+void ServerTreeWidget::updateUserVisuals() {
+    if (!m_data) return;
+    const bool showMinis = m_delegate ? m_delegate->showMinis() : true;
+    std::function<void(QTreeWidgetItem*)> walk = [&](QTreeWidgetItem* it) {
+        if (!it) return;
+        if (it->data(0, RoleKind).toInt() == NodeUser) {
+            const int uid = it->data(0, RoleId).toInt();
+            const auto found = m_data->users.constFind(uid);
+            if (found != m_data->users.constEnd()) {
+                const quint32 key = userVisualKey(found.value(), showMinis);
+                if (it->data(0, RoleVisualKey).toUInt() != key) {
+                    it->setIcon(0, leadingUserIcon(found.value(), showMinis));
+                    it->setData(0, RoleVisualKey, key);
+                    // away também dessatura o texto (mesma regra do rebuild)
+                    if (found.value().away) it->setForeground(0, QColor("#6E7B86"));
+                    else it->setForeground(0, QBrush()); // pincel vazio = cor padrão
+                }
+            }
+        }
+        for (int i = 0; i < it->childCount(); ++i) walk(it->child(i));
+    };
+    for (int i = 0; i < topLevelItemCount(); ++i) walk(topLevelItem(i));
+    // Emblemas de live e ícones de cargo são pintados pelo delegado direto
+    // do m_data: um repaint geral garante que mudanças não-chave (ex. alguém
+    // entrou em live) apareçam mesmo sem mudança de chave visual.
+    viewport()->update();
 }
 
 // ------------------------------------------------------------------ menus de contexto

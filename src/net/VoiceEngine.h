@@ -115,6 +115,25 @@ private:
     QByteArray spatializeFrame(int userId, int16_t* mono, int frames);
     void applyRadioEffect(int userId, int16_t* mono, int frames,
                           const PluginAudioControl& control);
+    // v1.1.35: cache das chaves de configuração do HOT PATH. O tick de
+    // captura/reprodução rodava até ~10 consultas ao QSettings por quadro de
+    // 20 ms (limiar do VAD, modo PTT, guarda, ganhos, ducking) — dezenas de
+    // QVariant/QString por segundo de voz ativa. Agora recarrega a cada
+    // 250 ms (imperceptível para o usuário, remove o churn do hot path).
+    void refreshCachedConfig();
+    int  m_cfgPttMode = 1;
+    int  m_cfgVoiceLevelDb = -45;
+    bool m_cfgCrosstalkGuard = true;
+    int  m_cfgMicGainX10 = 0;
+    int  m_cfgMasterVolX10 = 0;
+    bool m_cfgDucking = false;
+    int  m_cfgDuckingDb = 10;
+    QElapsedTimer m_cfgClock;
+    // v1.1.35: updateCodecSettings aplicava 4 opus_encoder_ctl a CADA tick
+    // de captura com os mesmos valores — agora aplica só quando muda.
+    int m_lastCodecChanId = -1;
+    int m_lastCodecBitrate = -1;
+    int m_lastCodecApp = -1;
 
     NetSession* m_net;
     ServerData* m_data;

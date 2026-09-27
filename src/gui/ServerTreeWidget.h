@@ -16,6 +16,9 @@ enum NodeKind { NodeServer = 0, NodeChannel = 1, NodeUser = 2 };
 enum TreeRoles {
     RoleKind = Qt::UserRole + 1,
     RoleId,
+    // v1.1.35: chave visual do usuário (talking/whisper/mutes/away/...) —
+    // permite atualizar o ícone da linha SEM recriar a árvore inteira.
+    RoleVisualKey,
 };
 
 // Delegado que pinta os ícones de grupo/status; os indicadores de microfone,
@@ -49,6 +52,12 @@ public:
 
     void setServerData(ServerData* d);
     void rebuild();
+    // v1.1.35: atualização LEVE — repinta apenas os ícones/cores dos
+    // usuários cujo estado visual mudou (anel de "falando", mutes, away),
+    // sem destruir/recriar itens. É o caminho das transições de fala:
+    // rebuild() completo por transição de fala congelava a GUI em salas
+    // cheias — e o pipeline de áudio divide a MESMA thread da GUI.
+    void updateUserVisuals();
     void setShowCounts(bool on)  { m_showCounts = on; }
     void setShowMinis(bool on);
     void setShowBadges(bool on);          // v1.1.31: emblemas globais na árvore

@@ -83,6 +83,12 @@ struct User {
     QByteArray dhPub;
     QByteArray dhSig;
     bool    e2eeValid = false;
+    // v1.1.35: revisão do registro — sobe quando um campo ESTRUTURAL muda
+    // (nome, cargos, mutes, away, permissões...) e alimenta a assinatura da
+    // árvore no ServerTab: mesma assinatura = atualização leve de ícones em
+    // vez de rebuild completo. Transições de fala (talking/whispering/
+    // screensharing) NÃO contam — alta frequência, só afetam o ícone.
+    quint32 rev = 0;
 };
 
 struct Channel {
@@ -109,6 +115,10 @@ struct Channel {
     int     maxClients = -1;         // -1 = ilimitado
     QList<int> linkedChannels;       // canais que compartilham o áudio com este canal
     QList<int> users;
+    // v1.1.35: revisão do registro — chan_update é sempre estrutural
+    // (nome/permissões/tópicos/lista de usuários); a assinatura da árvore
+    // (ServerTab) compara id+rev para decidir entre rebuild e atualização leve.
+    quint32 rev = 0;
 };
 
 struct ServerData {

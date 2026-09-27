@@ -2,6 +2,7 @@
 
 #include <QHash>
 #include <QImage>
+#include <QList>
 #include <QSet>
 #include <QTextBrowser>
 #include <QUrl>
@@ -21,5 +22,8 @@ protected:
 private:
     QNetworkAccessManager* m_network = nullptr;
     QHash<QUrl, QImage> m_images;
+    // v1.1.35: ordem de inserção das imagens em cache — sem ela o cache
+    // cresce para sempre em sessões longas com muitas imagens no chat.
+    QList<QUrl> m_imageOrder;
     QSet<QUrl> m_pending;
 };

@@ -1207,6 +1207,28 @@ void NetSession::applyUserJson(const QJsonObject& u) {
         // desconhecido (watchdog do viewer cobre esse caso).
         usr.screenshareMode = u["ssmode"].toString();
     }
+    // v1.1.35: revisão do registro. user_state chega a CADA transição de
+    // fala (o servidor reenvia a ficha inteira do usuário quando o VAD liga
+    // ou desliga) — então a revisão só sobe quando um campo ESTRUTURAL mudou
+    // de fato. talking/whispering/screensharing ficam de fora: alta
+    // frequência, só afetam o ícone (caminho leve do ServerTreeWidget).
+    {
+        const User prev = d.users.value(usr.id);
+        const bool structural = usr.name != prev.name
+            || usr.uniqueId != prev.uniqueId
+            || usr.description != prev.description
+            || usr.serverGroups != prev.serverGroups
+            || usr.sigla != prev.sigla || usr.siglaSuffix != prev.siglaSuffix
+            || usr.groupIcon != prev.groupIcon || usr.groupOrder != prev.groupOrder
+            || usr.groupOrderEnabled != prev.groupOrderEnabled
+            || usr.groupId != prev.groupId || usr.groupPosition != prev.groupPosition
+            || usr.groupSiglaPosition != prev.groupSiglaPosition
+            || usr.inputMuted != prev.inputMuted || usr.outputMuted != prev.outputMuted
+            || usr.away != prev.away || usr.recording != prev.recording
+            || usr.commander != prev.commander || usr.avatarHash != prev.avatarHash
+            || usr.e2eeValid != prev.e2eeValid;
+        usr.rev = structural ? prev.rev + 1 : prev.rev;
+    }
     d.users[usr.id] = usr;
     refreshOperators();                                // recalcula ops por canal
 }
@@ -1247,6 +1269,9 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     ch.opUids.clear();
     for (const QJsonValue& v : c["ops"].toArray()) ch.opUids << v.toString(); // v3
     ch.temporaryOwnerUid = c["tempOwner"].toString();
+    // v1.1.35: chan_update é sempre estrutural (nome/perms/tópicos/membership)
+    // — revisão incondicional alimenta a assinatura da árvore (ServerTab).
+    ch.rev = d.channels.value(ch.id).rev + 1;
     d.channels[ch.id] = ch;
     if (ch.id >= d.nextChannelId) d.nextChannelId = ch.id + 1;
     refreshOperators();
