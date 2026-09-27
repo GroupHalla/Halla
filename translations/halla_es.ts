@@ -3047,6 +3047,16 @@ Los mensajes sin conexión solo se pueden enviar a usuarios registrados en este 
       <translation>Cancelación de eco</translation>
     </message>
     <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1180" />
+      <source>Proteção contra eco de rede (crosstalk)</source>
+      <translation>Protección contra eco de red (crosstalk)</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1181" />
+      <source>Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, abra a sua transmissão como eco. Desligue se a sua voz estiver sendo cortada enquanto outros falam e você usa alto-falantes (não fone).</source>
+      <translation>Evita que el audio recibido, captado por tu micrófono a través de los altavoces, abra tu transmisión como eco. Desactívalo si tu voz se corta mientras otros hablan y usas altavoces (no auriculares).</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1131" />
       <source>Redução de eco (Ducking):</source>
       <translation>Reducción de eco (ducking):</translation>
@@ -4222,6 +4232,13 @@ Opus enviado: tramas %6, bytes %7
 Opus recibido: tramas %8, bytes %9
 Cola de reproducción: fotogramas %10
 Ping TCP: %11 ms</translation>
+    </message>
+    <message>
+      <location filename="../src/app/MainWindow.cpp" line="934" />
+      <source>Proteção de crosstalk: %1 bloqueios, %2 revogações
+Reaberturas por travamento do microfone: %3</source>
+      <translation>Protección crosstalk: %1 bloqueos, %2 revocaciones
+Reaperturas por bloqueo del micrófono: %3</translation>
     </message>
     <message>
       <location filename="../src/app/MainWindow.cpp" line="550" />

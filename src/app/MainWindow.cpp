@@ -929,7 +929,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                 .arg(d["inputRms"].toInt())
                 .arg(d["opusSent"].toVariant().toLongLong()).arg(d["opusSentBytes"].toVariant().toLongLong())
                 .arg(d["opusReceived"].toVariant().toLongLong()).arg(d["opusReceivedBytes"].toVariant().toLongLong())
-                .arg(d["playbackQueue"].toInt()).arg(n ? n->pingMs() : -1));
+                .arg(d["playbackQueue"].toInt()).arg(n ? n->pingMs() : -1)
+                + QStringLiteral("\n")
+                + QObject::tr("Proteção de crosstalk: %1 bloqueios, %2 revogações\n"
+                              "Reaberturas por travamento do microfone: %3")
+                      .arg(d["echoGuardBlocks"].toVariant().toLongLong())
+                      .arg(d["echoGuardRevokes"].toVariant().toLongLong())
+                      .arg(d["captureStallReopens"].toVariant().toLongLong()));
         });
         timer.start(400);
         dlg.exec();

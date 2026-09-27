@@ -83,10 +83,15 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     if (!inDev.isNull()) {
         m_source = new QAudioSource(inDev, inputFmt, this);
         // Dá folga para a captura de voz sobreviver a pequenos picos de CPU
-        // causados pelo grab/encode de tela sem perder amostras.
-        m_source->setBufferSize(960 * 2 * 20); // ~400 ms
+        // causados pelo grab/encode de tela sem perder amostras. v1.1.34:
+        // 400 ms -> 800 ms — rajadas longas de GUI (encode de tela em
+        // máquina modesta) estouravam o buffer e perdiam amostras no MEIO
+        // da fala (o "mic cortando"); o leitor drena a cada 5 ms, então o
+        // buffer maior não adiciona latência em regime — é só folga.
+        m_source->setBufferSize(960 * 2 * 40); // ~800 ms
         m_srcDev = m_source->start();
-        m_captureBuf.reserve(960 * 2 * 20);
+        m_captureBuf.reserve(960 * 2 * 40);
+        m_lastCaptureDataMs = QDateTime::currentMSecsSinceEpoch();
         watchSourceState(); // erro de dispositivo não pode ser silêncio eterno
 
         m_capTimer = new QTimer(this);
@@ -235,6 +240,14 @@ QJsonObject VoiceEngine::diagnostics() const {
     d["voiceSheds"] = qint64(m_voiceSheds);
     d["primedVoices"] = m_voicePrimed.size();
     d["remoteDecoders"] = m_decoders.size();
+    // Diagnóstico do "mic travando, cortando" (v1.1.34): se os contadores do
+    // guarda sobem enquanto o usuário fala, a proteção de crosstalk está
+    // cortando fala legítima (desligável em Opções > Captura); se as
+    // reaberturas por travamento sobem, o dispositivo do usuário trava sem
+    // reportar erro (driver/USB/Bluetooth).
+    d["echoGuardBlocks"] = qint64(m_echoGuard.blockCount());
+    d["echoGuardRevokes"] = qint64(m_echoGuard.revokeCount());
+    d["captureStallReopens"] = qint64(m_captureStallReopens);
     return d;
 }
 
@@ -303,13 +316,14 @@ void VoiceEngine::reopenAudioCapture() {
 
     if (!dev.isNull()) {
         m_source = new QAudioSource(dev, inputFmt, this);
-        m_source->setBufferSize(960 * 2 * 20); // ~400 ms
+        m_source->setBufferSize(960 * 2 * 40); // ~800 ms (idem construtor)
         m_srcDev = m_source->start();
         watchSourceState();
     }
 
     if (m_srcDev) {
-        m_captureBuf.reserve(960 * 2 * 20);
+        m_captureBuf.reserve(960 * 2 * 40);
+        m_lastCaptureDataMs = QDateTime::currentMSecsSinceEpoch();
         AppLog::info(tr("Captura do microfone reaberta."));
         return;
     }
@@ -328,6 +342,19 @@ void VoiceEngine::reopenAudioCapture() {
         m_captureReopenPending = false;
         reopenAudioCapture();
     });
+}
+
+// Drena o dispositivo de captura e mantém o relógio de atividade em dia.
+// Todos os caminhos de leitura (transmissão, drenagem com voz fechada e
+// flush da rampa) passam por aqui — é o único ponto que sabe quando o
+// microfone entregou a última amostra.
+void VoiceEngine::drainCaptureDevice() {
+    if (!m_srcDev) return; // flushGateFade também chega aqui via setPttHeld
+    const QByteArray chunk = m_srcDev->readAll();
+    if (!chunk.isEmpty()) {
+        m_lastCaptureDataMs = QDateTime::currentMSecsSinceEpoch();
+        m_captureBuf.append(chunk);
+    }
 }
 
 void VoiceEngine::setTransmitEnabled(bool on) {
@@ -555,7 +582,7 @@ void VoiceEngine::analyzeCapturedSpeech() {
     // cue não toca de jeito nenhum — o usuário calou o microfone de
     // propósito; o beep "ao falar" a cada frase seria só incômodo.
     const bool cueAllowed = m_txEnabled;
-    m_captureBuf.append(m_srcDev->readAll());
+    drainCaptureDevice();
     const double micGain = micGainLinear();
     const int levelDb = S::num("capture/voiceLevel", -45);
     const double onThreshold = qPow(10.0, levelDb / 20.0) * 32767.0;
@@ -585,7 +612,12 @@ void VoiceEngine::analyzeCapturedSpeech() {
         // não pode disparar com a voz do parceiro no modo VAD. Nos outros
         // modos o quadro apenas alimenta o anel do guarda.
         double cueRms = rms;
-        const bool guardActive = S::num("capture/pttMode", 1) == 1;
+        // A proteção de crosstalk é opcional desde a v1.1.34: com alto-
+        // falantes em uso e a sala falando junto, falsos positivos do guarda
+        // picotavam a voz do próprio usuário ("mic travando, cortando"). O
+        // checkbox vive em Opções > Captura > Processamento digital de sinal.
+        const bool guardActive = S::num("capture/pttMode", 1) == 1
+            && S::flag("capture/crosstalkGuard", true);
         const EchoGuard::Decision d = m_echoGuard.noteCapture(
             rawPcm, 960, guardActive && rms > onThreshold, false);
         if (guardActive && d != EchoGuard::Decision::Open) cueRms = 0.0;
@@ -664,7 +696,7 @@ void VoiceEngine::flushGateFade() {
     // da rampa de fechamento antes de o silêncio assumir. Sem isto, o último
     // quadro transmitido terminaria em nível arbitrário (clique seco).
     if (m_fadeOutLeft <= 0 || !m_encoder || !m_txEnabled) return;
-    m_captureBuf.append(m_srcDev->readAll());
+    drainCaptureDevice();
     const double micGain = micGainLinear();
     while (m_captureBuf.size() >= 960 * 2 && m_fadeOutLeft > 0) {
         int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
@@ -719,6 +751,24 @@ void VoiceEngine::updateCodecSettings() {
 
 void VoiceEngine::captureTick() {
     if (!m_srcDev) return;
+
+    // Watchdog de travamento (v1.1.34): dispositivo aberto, estado "ativo",
+    // mas NENHUMA amostra há mais de 2 s. Glitch de driver, economia de
+    // energia USB e Bluetooth travam assim — sem erro, sem estado novo, o
+    // watchdog de erro da v1.1.32 nunca disparava e o mic ficava mudo até
+    // reconectar. Dispositivo sadio entrega amostra (ou silêncio) a cada
+    // ~10 ms; 2 s de nada é travamento. Reabre (com a guarda anti-loop).
+    if (m_source && m_source->state() != QAudio::StoppedState) {
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        if (now - m_lastCaptureDataMs > 2000) {
+            AppLog::warn(tr("O microfone parou de entregar amostras (travou sem erro); reabrindo o dispositivo."));
+            ++m_captureStallReopens;
+            m_lastCaptureDataMs = now; // reinicia a janela (reopen tem guarda de 2 s)
+            reopenAudioCapture();
+            return;
+        }
+    }
+
     if (!m_txEnabled || !m_encoder) {
         // Voz fechada: drena o microfone mantendo a detecção de fala viva —
         // o cue "ao falar" é sobre o usuário falar, não sobre transmitir.
@@ -738,7 +788,7 @@ void VoiceEngine::captureTick() {
         return;
     }
 
-    m_captureBuf.append(m_srcDev->readAll());
+    drainCaptureDevice();
     const double micGain = micGainLinear();
 
     while (m_captureBuf.size() >= 960 * 2) {
@@ -785,8 +835,11 @@ void VoiceEngine::captureTick() {
         // cópia atrasada = crosstalk, não abre (e revoga se já abriu).
         // PTT/contínuo são escolhas explícitas do usuário: sem decisão, mas
         // o microfone continua alimentando o anel (trocar de modo no meio
-        // da call não deixa buracos na referência).
-        const bool guardActive = (mode == 1 && !m_whisperHeld);
+        // da call não deixa buracos na referência). Desde a v1.1.34 a
+        // proteção também pode ser desligada nas Opções > Captura (falsos
+        // positivos picotavam a voz de quem fala com alto-falantes).
+        const bool guardActive = (mode == 1 && !m_whisperHeld
+            && S::flag("capture/crosstalkGuard", true));
         EchoGuard::Decision echo = m_echoGuard.noteCapture(
             rawPcm, 960, guardActive && voiceNow, guardActive && m_talking);
         if (guardActive) {
@@ -803,7 +856,27 @@ void VoiceEngine::captureTick() {
             if (echo == EchoGuard::Decision::Blocked) {
                 if (m_talking) closeTransmissionGate();
                 m_echoPending.clear();
-                m_captureBuf.clear();     // crosstalk acumulado: fora
+                // Rampa de fechamento da revogação: os quadros bloqueados
+                // que ainda têm rampa pendente seguem transmitidos (o corte
+                // seco no meio da palavra era o "clique" na outra ponta);
+                // esgotada a rampa, o bloqueio vira descarte puro.
+                if (m_fadeOutLeft > 0) {
+                    applyGateFades(pcm, 960);
+                    unsigned char out[1276];
+                    const int n = opus_encode(m_encoder, pcm, 960, out, sizeof(out));
+                    if (n > 0) {
+                        m_net->sendVoiceFrame(
+                            QByteArray(reinterpret_cast<char*>(out), n), ++m_seq);
+                        ++m_opusSent;
+                        m_opusSentBytes += quint64(n);
+                    }
+                }
+                // v1.1.34: era m_captureBuf.clear() — jogava fora de uma vez
+                // até 7 quadros capturados (buraco de até 140 ms + clique na
+                // outra ponta, a rampa de fechamento nunca era transmitida).
+                // Agora derruba UM quadro por vez: o bloqueio continua o
+                // mesmo, mas a saída é contínua.
+                m_captureBuf.remove(0, 960 * 2);
                 updateSpeechDetection(0.0);
                 continue;
             }
@@ -824,6 +897,12 @@ void VoiceEngine::captureTick() {
                 m_net->sendTalking(true);
                 emit talkingChanged(true);
                 m_fadeInLeft = kFadeInSamples;   // abertura suave (sem "pop")
+                // Rampa de fechamento que ficou pendente (ex.: transmissão
+                // revogada pelo guarda e a fala voltou) não pode comer o
+                // começo da retomada: o fadeIn de 4 ms já faz a abertura
+                // suave — a rampa descendente velha seria a voz "sumindo"
+                // nos primeiros 60 ms.
+                m_fadeOutLeft = 0;
                 // Backfill do EchoGuard: os quadros retidos durante a
                 // validação são transmitidos agora — a fala legítima não
                 // perde o começo nos 400 ms de confirmação.

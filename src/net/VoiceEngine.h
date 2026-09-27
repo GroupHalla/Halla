@@ -107,6 +107,10 @@ private:
     void watchSourceState();
     // Reabre o QAudioSource do microfone após erro, com guarda anti-loop.
     void reopenAudioCapture();
+    // Drena o dispositivo de captura para m_captureBuf atualizando o relógio
+    // de atividade (última vez que o mic entregou amostras) — alimenta o
+    // watchdog de travamento abaixo.
+    void drainCaptureDevice();
     OpusDecoder* decoderFor(int userId);
     QByteArray spatializeFrame(int userId, int16_t* mono, int frames);
     void applyRadioEffect(int userId, int16_t* mono, int frames,
@@ -200,6 +204,13 @@ private:
     int m_inputRms = 0;
     qint64 m_lastCaptureReopenMs = 0;   // anti-loop de reabertura da captura
     bool m_captureReopenPending = false;
+    // Watchdog de travamento (v1.1.34): dispositivo que para de entregar
+    // amostras SEM erro (glitch de driver, economia de energia USB,
+    // Bluetooth) ficava mudo para sempre — o estado continua "ativo" e o
+    // watchdog de erro da v1.1.32 nunca disparava. Sem amostras por 2 s
+    // com o dispositivo aberto = travado: reabre.
+    qint64 m_lastCaptureDataMs = 0;
+    quint64 m_captureStallReopens = 0;
 
     void recWrite(const char* pcm, int bytes);
     void recFinalize();

@@ -222,7 +222,10 @@
     "Senha incorreta.": "Wrong password.",
     "Sua identidade de criptografia não passou na verificação do diretório deste servidor. Sem ela ninguém consegue trocar chaves com você — a voz fica bloqueada nos dois sentidos. Reconecte-se; se o problema persistir, crie uma nova identidade em Ferramentas > Identidades.": "Your encryption identity did not pass this server's directory verification. Without it nobody can exchange keys with you — voice is blocked in both directions. Reconnect; if the problem persists, create a new identity in Tools > Identities.",
     "A chave de criptografia deste canal não chegou: sua voz está bloqueada e você não ouve ninguém. Troque de canal e volte, ou reconecte-se ao servidor.": "This channel's encryption key has not arrived: your voice is blocked and you cannot hear anyone. Switch channels and back, or reconnect to the server.",
-    "Chave de criptografia do canal recebida — voz liberada.": "Channel encryption key received — voice unlocked."
+    "Chave de criptografia do canal recebida — voz liberada.": "Channel encryption key received — voice unlocked.",
+    "Proteção contra eco de rede (crosstalk)": "Network echo protection (crosstalk)",
+    "Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, abra a sua transmissão como eco. Desligue se a sua voz estiver sendo cortada enquanto outros falam e você usa alto-falantes (não fone).": "Prevents received audio picked up by your microphone through your speakers from opening your transmission as echo. Turn this off if your voice is being cut off while others speak and you use speakers (not a headset).",
+    "Proteção de crosstalk: %1 bloqueios, %2 revogações\nReaberturas por travamento do microfone: %3": "Crosstalk protection: %1 blocks, %2 revocations\nMicrophone stall reopens: %3"
   },
   "es": {
     "Apelido fonético": "Apodo fonético",
@@ -416,6 +419,9 @@
     "Senha incorreta.": "Contraseña incorrecta.",
     "Sua identidade de criptografia não passou na verificação do diretório deste servidor. Sem ela ninguém consegue trocar chaves com você — a voz fica bloqueada nos dois sentidos. Reconecte-se; se o problema persistir, crie uma nova identidade em Ferramentas > Identidades.": "Su identidad de cifrado no superó la verificación del directorio de este servidor. Sin ella nadie puede intercambiar claves con usted — la voz queda bloqueada en ambos sentidos. Reconéctese; si el problema continúa, cree una nueva identidad en Herramientas > Identidades.",
     "A chave de criptografia deste canal não chegou: sua voz está bloqueada e você não ouve ninguém. Troque de canal e volte, ou reconecte-se ao servidor.": "La clave de cifrado de este canal no ha llegado: su voz está bloqueada y no escucha a nadie. Cambie de canal y vuelva, o reconéctese al servidor.",
-    "Chave de criptografia do canal recebida — voz liberada.": "Clave de cifrado del canal recibida — voz liberada."
+    "Chave de criptografia do canal recebida — voz liberada.": "Clave de cifrado del canal recibida — voz liberada.",
+    "Proteção contra eco de rede (crosstalk)": "Protección contra eco de red (crosstalk)",
+    "Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, abra a sua transmissão como eco. Desligue se a sua voz estiver sendo cortada enquanto outros falam e você usa alto-falantes (não fone).": "Evita que el audio recibido, captado por tu micrófono a través de los altavoces, abra tu transmisión como eco. Desactívalo si tu voz se corta mientras otros hablan y usas altavoces (no auriculares).",
+    "Proteção de crosstalk: %1 bloqueios, %2 revogações\nReaberturas por travamento do microfone: %3": "Protección crosstalk: %1 bloqueos, %2 revocaciones\nReaperturas por bloqueo del micrófono: %3"
   }
 }

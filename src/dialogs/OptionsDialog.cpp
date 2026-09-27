@@ -1173,6 +1173,20 @@ QWidget* OptionsDialog::pageCapture() {
             [](bool v) { S::set("capture/echoCancellation", v); });
     vd->addWidget(cancel);
 
+    // Proteção de crosstalk (v1.1.34): o guarda que impede a voz recebida de
+    // abrir a transmissão virou opção — com alto-falantes e a sala falando
+    // junto, falsos positivos picotavam a voz do próprio usuário e não havia
+    // escapatória (o guarda não depende do AEC/ruído acima). Desligável.
+    QCheckBox* xguard = new QCheckBox(tr("Proteção contra eco de rede (crosstalk)"), gbDsp);
+    xguard->setToolTip(tr(
+        "Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, "
+        "abra a sua transmissão como eco. Desligue se a sua voz estiver sendo "
+        "cortada enquanto outros falam e você usa alto-falantes (não fone)."));
+    xguard->setChecked(S::flag("capture/crosstalkGuard", true));
+    connect(xguard, &QCheckBox::toggled, this,
+            [](bool v) { S::set("capture/crosstalkGuard", v); });
+    vd->addWidget(xguard);
+
     QHBoxLayout* duckRow = new QHBoxLayout;
     QCheckBox* duck = new QCheckBox(tr("Redução de eco (Ducking):"), gbDsp);
     duck->setChecked(S::flag("capture/ducking", false));

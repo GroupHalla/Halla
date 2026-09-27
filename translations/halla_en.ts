@@ -3047,6 +3047,16 @@ Offline messages can only be sent to users registered on this server.</translati
       <translation>Echo cancellation</translation>
     </message>
     <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1180" />
+      <source>Proteção contra eco de rede (crosstalk)</source>
+      <translation>Network echo protection (crosstalk)</translation>
+    </message>
+    <message>
+      <location filename="../src/dialogs/OptionsDialog.cpp" line="1181" />
+      <source>Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, abra a sua transmissão como eco. Desligue se a sua voz estiver sendo cortada enquanto outros falam e você usa alto-falantes (não fone).</source>
+      <translation>Prevents received audio picked up by your microphone through your speakers from opening your transmission as echo. Turn this off if your voice is being cut off while others speak and you use speakers (not a headset).</translation>
+    </message>
+    <message>
       <location filename="../src/dialogs/OptionsDialog.cpp" line="1131" />
       <source>Redução de eco (Ducking):</source>
       <translation>Echo reduction (ducking):</translation>
@@ -4222,6 +4232,13 @@ Opus sent: %6 frames, %7 bytes
 Opus received: %8 frames, %9 bytes
 Play queue: %10 frames
 TCP Ping: %11 ms</translation>
+    </message>
+    <message>
+      <location filename="../src/app/MainWindow.cpp" line="934" />
+      <source>Proteção de crosstalk: %1 bloqueios, %2 revogações
+Reaberturas por travamento do microfone: %3</source>
+      <translation>Crosstalk protection: %1 blocks, %2 revocations
+Microphone stall reopens: %3</translation>
     </message>
     <message>
       <location filename="../src/app/MainWindow.cpp" line="550" />

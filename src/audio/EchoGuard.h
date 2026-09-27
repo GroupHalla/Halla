@@ -56,9 +56,22 @@ public:
     // Diagnóstico (log/smoke): último casamento que confirmou eco.
     int lastMatchLagMs() const { return m_lastMatchLagMs; }
     float lastMatchScore() const { return m_lastMatchScore; }
+    // Diagnóstico do suporte ("mic travando, cortando"): quantas vezes o
+    // guarda bloqueou a abertura da transmissão e quantas revogou no meio.
+    // Contadores acumulados por engine (não zeram no reset — o suporte quer
+    // o histórico da sessão inteira, não o estado corrente).
+    int64_t blockCount() const { return m_blockCount; }
+    int64_t revokeCount() const { return m_revokeCount; }
 
     static constexpr float kConfirmEcho = 0.78f;  // abertura: eco provável
     static constexpr float kRevokeEcho = 0.92f;   // revogação: eco domina o mic
+    // Revogação exige DOMINAÇÃO SUSTENTADA: 2 casamentos consecutivos no
+    // limiar de revogação (~120 ms) em vez de uma única janela de 60 ms.
+    // Um casamento isolado (fala própria com trecho que lembra o playout)
+    // picotava a voz no meio da palavra — o relato "mic travando, cortando"
+    // de quem usa alto-falante com a sala falando junto. Eco de verdade
+    // persiste e revoga normalmente no teste seguinte.
+    static constexpr int kRevokeStreakFrames = 2;
 
 private:
     bool tryConfirmEcho(double threshold);
@@ -98,6 +111,9 @@ private:
     int64_t m_validateStart = 0;
     int64_t m_echoUntilFrame = 0;
     int64_t m_lastTestFrame = 0;
+    int m_revokeStreak = 0;
+    int64_t m_blockCount = 0;
+    int64_t m_revokeCount = 0;
     int m_lastMatchLagMs = 0;
     float m_lastMatchScore = 0.0f;
 };

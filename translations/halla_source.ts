@@ -3016,6 +3016,16 @@ Mensagens offline podem ser enviadas apenas a usuários registrados neste servid
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../src/dialogs/OptionsDialog.cpp" line="1180"/>
+        <source>Proteção contra eco de rede (crosstalk)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/dialogs/OptionsDialog.cpp" line="1181"/>
+        <source>Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, abra a sua transmissão como eco. Desligue se a sua voz estiver sendo cortada enquanto outros falam e você usa alto-falantes (não fone).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/dialogs/OptionsDialog.cpp" line="1131"/>
         <source>Redução de eco (Ducking):</source>
         <translation type="unfinished"></translation>
@@ -4163,6 +4173,12 @@ Opus enviados: %6 frames, %7 bytes
 Opus recebidos: %8 frames, %9 bytes
 Fila de reprodução: %10 frames
 Ping TCP: %11 ms</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/app/MainWindow.cpp" line="934"/>
+        <source>Proteção de crosstalk: %1 bloqueios, %2 revogações
+Reaberturas por travamento do microfone: %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

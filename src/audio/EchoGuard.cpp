@@ -122,25 +122,41 @@ EchoGuard::Decision EchoGuard::noteCapture(const int16_t* pcm, int samples,
     pushRing(m_capRing, m_capTotal, pcm, samples);
     if (!aboveThreshold) {
         // A fala acabou no meio da validação: não há mais nada para casar
-        // com o playout — cancela (a próxima fala recomeça do zero).
+        // com o playout — cancela (a próxima fala recomeça do zero). O
+        // streak de revogação também zera: evidência de uma fala antiga
+        // não pode revogar a próxima sozinha.
         m_validating = false;
+        m_revokeStreak = 0;
         return Decision::Open;
     }
 
     if (transmitGateOpen) {
         // Revogação: microfone DOMINADO pelo eco enquanto transmite. Mistura
         // com fala própria real fica bem abaixo de kRevokeEcho e não revoga.
+        // Desde a v1.1.34 exige kRevokeStreakFrames casamentos CONSECUTIVOS
+        // (dominação sustentada): um casamento isolado cortava fala legítima
+        // no meio da palavra — o "mic travando, cortando" de quem fala com
+        // alto-falantes ligados e a sala falando junto.
         if (m_capTotal - m_lastTestFrame >= kTestPeriodFrames) {
             if (tryConfirmEcho(kRevokeEcho)) {
+                ++m_revokeStreak;
+            } else {
+                m_revokeStreak = 0;
+            }
+            if (m_revokeStreak >= kRevokeStreakFrames) {
+                m_revokeStreak = 0;
                 m_validating = false;
                 m_echoUntilFrame = m_capTotal + kEchoHoldFrames;
+                ++m_revokeCount;
             }
         }
         return m_echoUntilFrame > m_capTotal ? Decision::Blocked
                                              : Decision::Open;
     }
 
-    // Abertura do gate.
+    // Abertura do gate. Evidência de revogação da transmissão anterior não
+    // vale para esta: um casamento novo precisa reconstruir o streak.
+    m_revokeStreak = 0;
     if (m_echoUntilFrame > m_capTotal) return Decision::Blocked;
     if (playoutSilentRecently()) return Decision::Open;   // não há fonte de eco
     if (!m_validating) {
@@ -151,6 +167,7 @@ EchoGuard::Decision EchoGuard::noteCapture(const int16_t* pcm, int samples,
         if (tryConfirmEcho(kConfirmEcho)) {
             m_validating = false;
             m_echoUntilFrame = m_capTotal + kEchoHoldFrames;
+            ++m_blockCount;
             return Decision::Blocked;
         }
     }
@@ -174,6 +191,7 @@ void EchoGuard::reset() {
     m_validateStart = 0;
     m_echoUntilFrame = 0;
     m_lastTestFrame = 0;
+    m_revokeStreak = 0;
     m_lastMatchLagMs = 0;
     m_lastMatchScore = 0.0f;
 }
