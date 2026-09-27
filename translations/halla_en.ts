@@ -2297,6 +2297,16 @@ Open the Identities window and create a new one, or restore your identity backup
       <translation>This channel's encryption key has not arrived: your voice is blocked and you cannot hear anyone. Switch channels and back, or reconnect to the server.</translation>
     </message>
     <message>
+      <location filename="../src/net/NetSession.cpp" line="597" />
+      <source>A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.</source>
+      <translation>This channel's local encryption key was outdated (a key rotation never reached you) — syncing with the channel; voice resumes in a few seconds.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="602" />
+      <source>Sincronizando a chave de criptografia do canal — sua voz pode falhar por alguns segundos.</source>
+      <translation>Syncing the channel encryption key — your voice may drop for a few seconds.</translation>
+    </message>
+    <message>
       <location filename="../src/net/NetSession.cpp" line="2507"/>
       <source>Chave de criptografia do canal recebida — voz liberada.</source>
       <translation>Channel encryption key received — voice unlocked.</translation>

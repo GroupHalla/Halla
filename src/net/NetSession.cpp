@@ -574,7 +574,42 @@ void NetSession::onUdpReadyRead() {
                     payload = AeadVoiceCipher::decrypt(encryptedPayload, key, fromId, seq);
                     if (!payload.isEmpty()) break;
                 }
-                if (payload.isEmpty()) continue;
+                if (payload.isEmpty()) {
+                    // v1.1.36 — chave STALE: pacotes de voz do MEU canal que
+                    // não abrem com NENHUMA chave local em sequência = a chave
+                    // local é antiga (a rotação do canal não chegou até aqui).
+                    // O usuário fica mudo duplo para sempre: o TX cifra com a
+                    // chave velha (ninguém ouve) e isto aqui descarta tudo (não
+                    // ouve ninguém) — o housekeeper não pede outra porque
+                    // "tem" uma chave. Limiar de 15 pacotes (~300 ms de fala
+                    // contínua) para não disparar com perda comum de UDP:
+                    // esquece a chave local e o housekeeper re-pede ao grupo
+                    // nos próximos 2 s. Perda isolada zera no próximo sucesso.
+                    const int myCh = m_target
+                        ? m_target->channelOfUser(m_target->selfId) : 0;
+                    if (chanId > 0 && chanId == myCh) {
+                        ++m_e2eeDecryptFails;
+                        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+                        if (m_e2eeDecryptFails >= 15
+                                && nowMs - m_e2eeDecryptRecoverMs > 30000) {
+                            m_e2eeDecryptRecoverMs = nowMs;
+                            m_e2eeDecryptFails = 0;
+                            AppLog::warn(tr(
+                                "A chave de criptografia local deste canal estava "
+                                "desatualizada (uma rotação não chegou até aqui) — "
+                                "sincronizando com o canal; a voz volta em alguns "
+                                "segundos."));
+                            emit systemEvent(tr(
+                                "Sincronizando a chave de criptografia do canal — "
+                                "sua voz pode falhar por alguns segundos."));
+                            m_channelKeys.remove(myCh);
+                            m_channelEpochs.remove(myCh);
+                            m_e2eeKeyRequestTries[myCh] = 0;
+                        }
+                    }
+                    continue;
+                }
+                m_e2eeDecryptFails = 0; // decifrou: as chaves locais servem
             }
 
             emit voicePacketReceived(int(fromId), seq, payload);
@@ -1088,6 +1123,27 @@ void NetSession::serverEdit(const QString& name, const QString& motd,
 }
 
 // ==================================================================== estado
+// v1.1.36: predicado único de mudança ESTRUTURAL de usuário (nome, cargos,
+// mutes, away, permissões...) — usado pela applyUserJson (ficha completa) E
+// pelo handler incremental de user_state. Transições de fala (talking/
+// whispering/screensharing) não contam: alta frequência, só afetam o ícone
+// (caminho leve updateUserVisuals da árvore).
+static bool userStructuralChanged(const User& a, const User& b) {
+    return a.name != b.name
+        || a.uniqueId != b.uniqueId
+        || a.description != b.description
+        || a.serverGroups != b.serverGroups
+        || a.sigla != b.sigla || a.siglaSuffix != b.siglaSuffix
+        || a.groupIcon != b.groupIcon || a.groupOrder != b.groupOrder
+        || a.groupOrderEnabled != b.groupOrderEnabled
+        || a.groupId != b.groupId || a.groupPosition != b.groupPosition
+        || a.groupSiglaPosition != b.groupSiglaPosition
+        || a.inputMuted != b.inputMuted || a.outputMuted != b.outputMuted
+        || a.away != b.away || a.recording != b.recording
+        || a.commander != b.commander || a.avatarHash != b.avatarHash
+        || a.e2eeValid != b.e2eeValid;
+}
+
 void NetSession::applyUserJson(const QJsonObject& u) {
     ServerData& d = target();
     User usr;
@@ -1210,24 +1266,10 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     // v1.1.35: revisão do registro. user_state chega a CADA transição de
     // fala (o servidor reenvia a ficha inteira do usuário quando o VAD liga
     // ou desliga) — então a revisão só sobe quando um campo ESTRUTURAL mudou
-    // de fato. talking/whispering/screensharing ficam de fora: alta
-    // frequência, só afetam o ícone (caminho leve do ServerTreeWidget).
+    // de fato (v1.1.36: predicado compartilhado userStructuralChanged).
     {
         const User prev = d.users.value(usr.id);
-        const bool structural = usr.name != prev.name
-            || usr.uniqueId != prev.uniqueId
-            || usr.description != prev.description
-            || usr.serverGroups != prev.serverGroups
-            || usr.sigla != prev.sigla || usr.siglaSuffix != prev.siglaSuffix
-            || usr.groupIcon != prev.groupIcon || usr.groupOrder != prev.groupOrder
-            || usr.groupOrderEnabled != prev.groupOrderEnabled
-            || usr.groupId != prev.groupId || usr.groupPosition != prev.groupPosition
-            || usr.groupSiglaPosition != prev.groupSiglaPosition
-            || usr.inputMuted != prev.inputMuted || usr.outputMuted != prev.outputMuted
-            || usr.away != prev.away || usr.recording != prev.recording
-            || usr.commander != prev.commander || usr.avatarHash != prev.avatarHash
-            || usr.e2eeValid != prev.e2eeValid;
-        usr.rev = structural ? prev.rev + 1 : prev.rev;
+        usr.rev = userStructuralChanged(usr, prev) ? prev.rev + 1 : prev.rev;
     }
     d.users[usr.id] = usr;
     refreshOperators();                                // recalcula ops por canal
@@ -1532,7 +1574,12 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         // precisa saber de onde a pessoa saiu para rotacionar a chave.
         const int oldChan = d.channelOfUser(id);
         emit systemEvent(tr("%1 saiu do servidor").arg(name));
-        for (Channel& c : d.channels) c.users.removeAll(id);
+        // v1.1.36: membership mudou fora do applyChanJson — bumpa a revisão
+        // de cada canal afetado, senão a assinatura estrutural da árvore
+        // (v1.1.35) não vê a saída e a lista não atualiza.
+        for (Channel& c : d.channels) {
+            if (c.users.removeAll(id) > 0) ++c.rev;
+        }
         d.users.remove(id);
         e2eeOnUserLeft(id, oldChan);
         emit stateChanged();
@@ -1542,8 +1589,23 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const int id = obj["id"].toInt();
         const int chan = obj["channel"].toInt();
         const int old = d.channelOfUser(id);
-        if (d.channels.contains(old)) d.channels[old].users.removeAll(id);
-        if (d.channels.contains(chan)) d.channels[chan].users << id;
+        // v1.1.36: A troca de canal muta a membership DIRETAMENTE (sem
+        // applyChanJson) — sem bumpar a revisão dos canais afetados, a
+        // assinatura estrutural da árvore (v1.1.35) não mudava e a árvore
+        // NUNCA era reconstruída: o app anunciava "Você entrou no canal",
+        // mas a linha do usuário continuava no canal antigo (regressão da
+        // v1.1.35 — a v1.1.34 reconstruía incondicionalmente e escondia).
+        if (d.channels.contains(old)) {
+            Channel& oldCh = d.channels[old];
+            if (oldCh.users.removeAll(id) > 0) ++oldCh.rev;
+        }
+        if (d.channels.contains(chan)) {
+            Channel& newCh = d.channels[chan];
+            if (!newCh.users.contains(id)) {
+                newCh.users << id;
+                ++newCh.rev;
+            }
+        }
         e2eeOnUserMoved(id, chan, old);
         const QString uname = d.users.value(id).name;
         const QString cname = d.channels.value(chan).name;
@@ -1558,6 +1620,12 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const int id = obj["id"].toInt();
         if (d.users.contains(id)) {
             User& u = d.users[id];
+            // v1.1.36: snapshot pré-mutação para bumpar a revisão quando um
+            // campo ESTRUTURAL muda neste handler INCREMENTAL (renomear,
+            // trocar cargo, mutar...) — sem isto a assinatura da árvore não
+            // via a mudança e o texto/ícone da linha ficava velho (a v1.1.34
+            // reconstruía incondicionalmente a cada stateChanged).
+            const User before = u;
             if (obj.contains("mic")) u.inputMuted = obj["mic"].toBool();
             if (obj.contains("spk")) u.outputMuted = obj["spk"].toBool();
             if (obj.contains("away")) u.away = obj["away"].toBool();
@@ -1583,6 +1651,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             if (obj.contains("orderEnabled")) u.groupOrderEnabled = obj["orderEnabled"].toBool(true);
             if (obj.contains("position")) u.groupPosition = obj["position"].toInt(0);
             if (obj.contains("siglaPosition")) u.groupSiglaPosition = obj["siglaPosition"].toInt(0);
+            if (userStructuralChanged(u, before)) ++u.rev;
             // renomeação confirmada pelo servidor: avisa para memorizar o
             // apelido deste servidor (persistência por host:porta)
             if (t == "user_nick" && id == d.selfId && obj.contains("name"))
@@ -1631,7 +1700,16 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "user_avatar") {
         const int id = obj["id"].toInt();
-        if (d.users.contains(id)) d.users[id].avatarHash = obj["av"].toString();
+        if (d.users.contains(id)) {
+            // v1.1.36: avatarHash é estrutural (faz parte da assinatura da
+            // árvore via userStructuralChanged) — bumpa junto.
+            User& u = d.users[id];
+            const QString av = obj["av"].toString();
+            if (u.avatarHash != av) {
+                u.avatarHash = av;
+                ++u.rev;
+            }
+        }
         emit userAvatarChanged(id, obj["av"].toString());
         emit stateChanged();
         return;

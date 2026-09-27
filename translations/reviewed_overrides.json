@@ -225,7 +225,9 @@
     "Chave de criptografia do canal recebida — voz liberada.": "Channel encryption key received — voice unlocked.",
     "Proteção contra eco de rede (crosstalk)": "Network echo protection (crosstalk)",
     "Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, abra a sua transmissão como eco. Desligue se a sua voz estiver sendo cortada enquanto outros falam e você usa alto-falantes (não fone).": "Prevents received audio picked up by your microphone through your speakers from opening your transmission as echo. Turn this off if your voice is being cut off while others speak and you use speakers (not a headset).",
-    "Proteção de crosstalk: %1 bloqueios, %2 revogações\nReaberturas por travamento do microfone: %3": "Crosstalk protection: %1 blocks, %2 revocations\nMicrophone stall reopens: %3"
+    "Proteção de crosstalk: %1 bloqueios, %2 revogações\nReaberturas por travamento do microfone: %3": "Crosstalk protection: %1 blocks, %2 revocations\nMicrophone stall reopens: %3",
+    "A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.": "This channel's local encryption key was outdated (a key rotation never reached you) — syncing with the channel; voice resumes in a few seconds.",
+    "Sincronizando a chave de criptografia do canal — sua voz pode falhar por alguns segundos.": "Syncing the channel encryption key — your voice may drop for a few seconds."
   },
   "es": {
     "Apelido fonético": "Apodo fonético",
@@ -422,6 +424,8 @@
     "Chave de criptografia do canal recebida — voz liberada.": "Clave de cifrado del canal recibida — voz liberada.",
     "Proteção contra eco de rede (crosstalk)": "Protección contra eco de red (crosstalk)",
     "Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, abra a sua transmissão como eco. Desligue se a sua voz estiver sendo cortada enquanto outros falam e você usa alto-falantes (não fone).": "Evita que el audio recibido, captado por tu micrófono a través de los altavoces, abra tu transmisión como eco. Desactívalo si tu voz se corta mientras otros hablan y usas altavoces (no auriculares).",
-    "Proteção de crosstalk: %1 bloqueios, %2 revogações\nReaberturas por travamento do microfone: %3": "Protección crosstalk: %1 bloqueos, %2 revocaciones\nReaperturas por bloqueo del micrófono: %3"
+    "Proteção de crosstalk: %1 bloqueios, %2 revogações\nReaberturas por travamento do microfone: %3": "Protección crosstalk: %1 bloqueos, %2 revocaciones\nReaperturas por bloqueo del micrófono: %3",
+    "A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.": "La clave de cifrado local de este canal estaba desactualizada (una rotación no llegó hasta aquí) — sincronizando con el canal; la voz vuelve en unos segundos.",
+    "Sincronizando a chave de criptografia do canal — sua voz pode falhar por alguns segundos.": "Sincronizando la clave de cifrado del canal — su voz puede fallar unos segundos."
   }
 }

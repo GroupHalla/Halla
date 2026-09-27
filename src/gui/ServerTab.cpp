@@ -816,9 +816,14 @@ void ServerTab::refreshServerState() {
         sig += QString::number(it.key()) + QLatin1Char(':')
              + QString::number(it.value().rev) + QLatin1Char(';');
     sig += QLatin1Char('#');
+    // v1.1.36: a contagem de membros entra na assinatura como salvaguarda —
+    // qualquer caminho que mude a membership de um canal SEM bumpar a
+    // revisão (regressão da v1.1.35: user_moved mutava Channel.users
+    // diretamente) ainda muda a assinatura e força o rebuild.
     for (auto it = m_data.channels.constBegin(); it != m_data.channels.constEnd(); ++it)
         sig += QString::number(it.key()) + QLatin1Char(':')
-             + QString::number(it.value().rev) + QLatin1Char(';');
+             + QString::number(it.value().rev) + QLatin1Char(':')
+             + QString::number(it.value().users.size()) + QLatin1Char(';');
 
     if (sig == m_structSig) {
         m_tree->updateUserVisuals(); // nada estrutural: só estados visuais

@@ -309,4 +309,15 @@ private:
     int m_e2eeWaitChan = -1;
     int m_e2eeVoiceKeyWarnedChan = -1;
     bool m_e2eeSelfEntryWarned = false;      // aviso único: entrada própria inválida
+    // v1.1.36 — cura da chave STALE (o "tava funcionando e parou"): quando a
+    // chave do canal rotaciona (alguém entra/sai do componente) e o push da
+    // chave nova se perde, o cliente fica com a chave VELHA — o TX cifra com
+    // ela (ninguém ouve) e o RX não decifra nada (não ouve ninguém). O
+    // housekeeper não pede outra porque "tem" uma chave. Contador de falhas
+    // consecutivas de decifragem no MEU canal: no limiar, esquece a chave
+    // local (remove + zera tentativas) e deixa o housekeeper re-pedir ao
+    // grupo — a resposta aplica sem barreira de época (!contains) e a voz
+    // volta nos dois sentidos.
+    int m_e2eeDecryptFails = 0;              // falhas consecutivas (zera em sucesso)
+    qint64 m_e2eeDecryptRecoverMs = 0;       // última recuperação disparada (re-tentativa após 30 s)
 };

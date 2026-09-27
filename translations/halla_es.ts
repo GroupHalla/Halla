@@ -2297,6 +2297,16 @@ Abra la ventana Identidades y cree una nueva, o restaure su copia de seguridad d
       <translation>La clave de cifrado de este canal no ha llegado: su voz está bloqueada y no escucha a nadie. Cambie de canal y vuelva, o reconéctese al servidor.</translation>
     </message>
     <message>
+      <location filename="../src/net/NetSession.cpp" line="597" />
+      <source>A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.</source>
+      <translation>La clave de cifrado local de este canal estaba desactualizada (una rotación no llegó hasta aquí) — sincronizando con el canal; la voz vuelve en unos segundos.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="602" />
+      <source>Sincronizando a chave de criptografia do canal — sua voz pode falhar por alguns segundos.</source>
+      <translation>Sincronizando la clave de cifrado del canal — su voz puede fallar unos segundos.</translation>
+    </message>
+    <message>
       <location filename="../src/net/NetSession.cpp" line="2507"/>
       <source>Chave de criptografia do canal recebida — voz liberada.</source>
       <translation>Clave de cifrado del canal recibida — voz liberada.</translation>

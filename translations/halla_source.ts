@@ -2270,6 +2270,16 @@ Abra a janela Identidades e crie uma nova, ou restaure seu backup de identidade.
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../src/net/NetSession.cpp" line="597"/>
+        <source>A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="602"/>
+        <source>Sincronizando a chave de criptografia do canal — sua voz pode falhar por alguns segundos.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/net/NetSession.cpp" line="2507"/>
         <source>Chave de criptografia do canal recebida — voz liberada.</source>
         <translation type="unfinished"></translation>
