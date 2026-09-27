@@ -227,7 +227,15 @@
     "Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, abra a sua transmissão como eco. Desligue se a sua voz estiver sendo cortada enquanto outros falam e você usa alto-falantes (não fone).": "Prevents received audio picked up by your microphone through your speakers from opening your transmission as echo. Turn this off if your voice is being cut off while others speak and you use speakers (not a headset).",
     "Proteção de crosstalk: %1 bloqueios, %2 revogações\nReaberturas por travamento do microfone: %3": "Crosstalk protection: %1 blocks, %2 revocations\nMicrophone stall reopens: %3",
     "A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.": "This channel's local encryption key was outdated (a key rotation never reached you) — syncing with the channel; voice resumes in a few seconds.",
-    "Sincronizando a chave de criptografia do canal — sua voz pode falhar por alguns segundos.": "Syncing the channel encryption key — your voice may drop for a few seconds."
+    "Sincronizando a chave de criptografia do canal — sua voz pode falhar por alguns segundos.": "Syncing the channel encryption key — your voice may drop for a few seconds.",
+    "canal": "channel",
+    "Muitas solicitações em pouco tempo — aguarde alguns segundos e tente novamente.": "Too many requests in a short time — wait a few seconds and try again.",
+    "O canal \"%1\" não existe mais.": "Channel \"%1\" no longer exists.",
+    "O canal \"%1\" está cheio.": "The channel \"%1\" is full.",
+    "A senha do canal \"%1\" está incorreta.": "The password for channel \"%1\" is incorrect.",
+    "Você não tem permissão para mover este cliente para o canal \"%1\".": "You don't have permission to move this client to channel \"%1\".",
+    "Você não tem permissão para entrar no canal \"%1\".": "You don't have permission to join channel \"%1\".",
+    "Consulta de fundo sem resultado: %1": "Background lookup without result: %1"
   },
   "es": {
     "Apelido fonético": "Apodo fonético",
@@ -426,6 +434,14 @@
     "Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, abra a sua transmissão como eco. Desligue se a sua voz estiver sendo cortada enquanto outros falam e você usa alto-falantes (não fone).": "Evita que el audio recibido, captado por tu micrófono a través de los altavoces, abra tu transmisión como eco. Desactívalo si tu voz se corta mientras otros hablan y usas altavoces (no auriculares).",
     "Proteção de crosstalk: %1 bloqueios, %2 revogações\nReaberturas por travamento do microfone: %3": "Protección crosstalk: %1 bloqueos, %2 revocaciones\nReaperturas por bloqueo del micrófono: %3",
     "A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.": "La clave de cifrado local de este canal estaba desactualizada (una rotación no llegó hasta aquí) — sincronizando con el canal; la voz vuelve en unos segundos.",
-    "Sincronizando a chave de criptografia do canal — sua voz pode falhar por alguns segundos.": "Sincronizando la clave de cifrado del canal — su voz puede fallar unos segundos."
+    "Sincronizando a chave de criptografia do canal — sua voz pode falhar por alguns segundos.": "Sincronizando la clave de cifrado del canal — su voz puede fallar unos segundos.",
+    "canal": "canal",
+    "Muitas solicitações em pouco tempo — aguarde alguns segundos e tente novamente.": "Demasiadas solicitudes en poco tiempo — espere unos segundos e intente de nuevo.",
+    "O canal \"%1\" não existe mais.": "El canal \"%1\" ya no existe.",
+    "O canal \"%1\" está cheio.": "El canal \"%1\" está lleno.",
+    "A senha do canal \"%1\" está incorreta.": "La contraseña del canal \"%1\" es incorrecta.",
+    "Você não tem permissão para mover este cliente para o canal \"%1\".": "No tiene permiso para mover a este cliente al canal \"%1\".",
+    "Você não tem permissão para entrar no canal \"%1\".": "No tiene permiso para entrar en el canal \"%1\".",
+    "Consulta de fundo sem resultado: %1": "Consulta en segundo plano sin resultado: %1"
   }
 }

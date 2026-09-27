@@ -11,6 +11,7 @@
 #include <QPainter>
 #include <QImage>
 #include <QFrame>
+#include <QScrollBar>
 
 static QPixmap serverBannerPixmap(const ServerData* data) {
     // O refresh roda a cada segundo enquanto o servidor está selecionado —
@@ -85,7 +86,13 @@ InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
         // muda (transições de fala vão pelo caminho leve da árvore), este
         // timer é o responsável por manter vivo o que muda com o tempo —
         // uptime do servidor, tempo online do cliente selecionado.
-        if (m_data) refresh();
+        // v1.1.37: o cartão de CANAL não tem nenhum campo que varia com o
+        // tempo (contagem de clientes vem por user_moved/stateChanged) —
+        // pular o refresh por timer dele evita o setHtml por segundo que
+        // devolvia a descrição do canal para o topo enquanto o usuário a
+        // lia/arrastava.
+        if (!m_data || m_kind == 1) return;
+        refresh();
     });
     m_timer->start();
 }
@@ -252,11 +259,23 @@ void InfoPanel::refresh() {
         m_view->setHtml(QString());
         return;
     }
+    QString html;
     if (m_kind == 1 && m_data->channels.contains(m_id)) {
-        m_view->setHtml(channelHtml(m_data->channels[m_id]));
+        html = channelHtml(m_data->channels[m_id]);
     } else if (m_kind == 2 && m_data->users.contains(m_id)) {
-        m_view->setHtml(userHtml(m_data->users[m_id]));
+        html = userHtml(m_data->users[m_id]);
     } else {
-        m_view->setHtml(serverHtml());
+        html = serverHtml();
     }
+    // v1.1.37: setHtml reseta a rolagem para o TOPO — e o refresh roda a
+    // cada mudança de estado (alguém entra/sai/muda), além do timer de 1 s.
+    // Quem estava lendo a descrição do canal (ou do usuário) mais abaixo
+    // viaja de volta ao topo a cada evento: "arrasto para baixo e ele volta
+    // sozinho para cima". Preservar a posição da barra devolve o controle —
+    // setValue faz clamp no novo máximo se o conteúdo encolher.
+    QScrollBar* sb = m_view->verticalScrollBar();
+    const int scrollPos = sb->value();
+    m_view->setHtml(html);
+    if (scrollPos > 0 && sb->maximum() > 0)
+        sb->setValue(qMin(scrollPos, sb->maximum()));
 }

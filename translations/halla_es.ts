@@ -2297,6 +2297,41 @@ Abra la ventana Identidades y cree una nueva, o restaure su copia de seguridad d
       <translation>La clave de cifrado de este canal no ha llegado: su voz está bloqueada y no escucha a nadie. Cambie de canal y vuelva, o reconéctese al servidor.</translation>
     </message>
     <message>
+      <location filename="../src/net/NetSession.cpp" line="2773" />
+      <source>O canal "%1" está cheio.</source>
+      <translation>El canal "%1" está lleno.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2766" />
+      <source>canal</source>
+      <translation>canal</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2768" />
+      <source>Muitas solicitações em pouco tempo — aguarde alguns segundos e tente novamente.</source>
+      <translation>Demasiadas solicitudes en poco tiempo — espere unos segundos e intente de nuevo.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2771" />
+      <source>O canal "%1" não existe mais.</source>
+      <translation>El canal "%1" ya no existe.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2775" />
+      <source>A senha do canal "%1" está incorreta.</source>
+      <translation>La contraseña del canal "%1" es incorrecta.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2778" />
+      <source>Você não tem permissão para mover este cliente para o canal "%1".</source>
+      <translation>No tiene permiso para mover a este cliente al canal "%1".</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2779" />
+      <source>Você não tem permissão para entrar no canal "%1".</source>
+      <translation>No tiene permiso para entrar en el canal "%1".</translation>
+    </message>
+    <message>
       <location filename="../src/net/NetSession.cpp" line="597" />
       <source>A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.</source>
       <translation>La clave de cifrado local de este canal estaba desactualizada (una rotación no llegó hasta aquí) — sincronizando con el canal; la voz vuelve en unos segundos.</translation>
@@ -5586,6 +5621,11 @@ Introduzca la contraseña:</translation>
       <location filename="../src/gui/ServerTab.cpp" line="760" />
       <source>Você entrou no canal "%1".</source>
       <translation>Te has unido al canal "%1".</translation>
+    </message>
+    <message>
+      <location filename="../src/gui/ServerTab.cpp" line="328" />
+      <source>Consulta de fundo sem resultado: %1</source>
+      <translation>Consulta en segundo plano sin resultado: %1</translation>
     </message>
     <message>
       <location filename="../src/gui/ServerTab.cpp" line="761" />

@@ -320,4 +320,24 @@ private:
     // volta nos dois sentidos.
     int m_e2eeDecryptFails = 0;              // falhas consecutivas (zera em sucesso)
     qint64 m_e2eeDecryptRecoverMs = 0;       // última recuperação disparada (re-tentativa após 30 s)
+
+    // v1.1.37 — contexto dos "move"/"move_other" recentes. Os erros do
+    // servidor chegam só com código (no_permission, channel_full...) e a
+    // mensagem genérica da tabela não diz a QUAL canal se refere: o usuário
+    // clicava num canal e lia "Você não tem permissão para realizar esta
+    // ação" sem entender o que fez de errado. Como o TCP preserva a ordem,
+    // um erro atribui-se ao move mais antigo ainda sem resposta (FIFO) —
+    // user_moved do canal correspondente consome a entrada. Janela curta
+    // (6 s) e lista pequena: atribuição errada é praticamente impossível.
+    struct PendingMove {
+        int channel;        // canal de destino
+        QString name;       // nome dele no instante do pedido
+        bool otherUser;     // move (próprio) ou move_other (arrastar/mover alguém)
+        qint64 atMs;        // quando foi enviado
+    };
+    QList<PendingMove> m_pendingMoves;
+    // Constrói a mensagem de erro CONTEXTUAL para o move mais antigo sem
+    // resposta; devolve QString() quando não há candidato plausível (o
+    // chamador mostra a mensagem genérica da tabela).
+    QString consumeMoveErrorContext(const QString& code);
 };

@@ -8,6 +8,16 @@
 #include <QSet>
 #include <QStandardPaths>
 
+// v1.1.37: estado de pedido COMPARTILHADO entre shouldRequest() e store()
+// (escopo de arquivo). Antes era local estático dentro de shouldRequest e o
+// store() não tinha como zerar o recuo quando os bytes finalmente chegavam.
+namespace {
+QHash<QString, qint64> g_iconLastAsked;
+QHash<QString, qint64> g_iconNextAllowed;
+QHash<QString, int> g_iconBackoffSecs;
+QSet<QString> g_iconRefreshed;
+}
+
 GroupIconCache& GroupIconCache::instance() {
     static GroupIconCache cache;
     return cache;
@@ -100,18 +110,31 @@ QString GroupIconCache::iconFilePath(const QString& serverKey, const QString& na
 bool GroupIconCache::shouldRequest(const QString& requestKey, bool haveIt) {
     // Estado compartilhado por processo: a árvore e o painel de informações
     // pedem os MESMOS ícones — quem chegar primeiro consome a cota.
-    static QHash<QString, qint64> lastAsked;
-    static QSet<QString> refreshed;
+    //
+    // v1.1.37: recuo EXPONENCIAL quando o ícone não chega. O fluxo antigo
+    // re-pedia a cada 5 s PARA SEMPRE o ícone que o servidor não tem (cargo
+    // referenciando "x.png" nunca enviado: o icon_get volta como not_found
+    // e o cache nunca enche) — dezenas desses somavam pedidos por segundo
+    // em servidores grandes e colidiam com o limitador genérico do servidor
+    // ("você está enviando mensagens rápido demais"). Agora cada falha dobra
+    // o intervalo (5 s -> 10 -> 20 -> ... -> 10 min de teto): um ícone
+    // quebrado custa ~12 pedidos na primeira hora, não ~720. Quando os
+    // bytes chegam, store() zera o recuo (a próxima troca de imagem volta
+    // a ser rápida).
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (haveIt) {
-        if (refreshed.contains(requestKey)) return false;
-        refreshed.insert(requestKey);
-        lastAsked.insert(requestKey, now);
+        if (g_iconRefreshed.contains(requestKey)) return false;
+        g_iconRefreshed.insert(requestKey);
+        g_iconLastAsked.insert(requestKey, now);
+        g_iconBackoffSecs.remove(requestKey); // em mãos: sem recuo acumulado
+        g_iconNextAllowed.remove(requestKey);
         return true;
     }
-    const auto it = lastAsked.constFind(requestKey);
-    if (it != lastAsked.constEnd() && now - it.value() < 5000) return false;
-    lastAsked.insert(requestKey, now);
+    if (now < g_iconNextAllowed.value(requestKey, 0)) return false;
+    const int backoff = qBound(5, g_iconBackoffSecs.value(requestKey, 0) * 2, 600);
+    g_iconBackoffSecs.insert(requestKey, backoff);
+    g_iconNextAllowed.insert(requestKey, now + qint64(backoff) * 1000);
+    g_iconLastAsked.insert(requestKey, now);
     return true;
 }
 
@@ -151,6 +174,13 @@ void GroupIconCache::store(const QString& serverKey, const QString& name,
 
     QImage img = QImage::fromData(bytes);
     if (img.isNull()) return; // bytes inválidos: mantém o que já existe
+
+    // v1.1.37: o ícone CHEGOU — zera o recuo exponencial do pedido para que
+    // uma futura atualização de imagem volte a ser buscada rápido (a chave é
+    // a mesma do shouldRequest: serverKey + '|' + nome vindo do servidor).
+    const QString requestKey = serverKey + QLatin1Char('|') + name;
+    g_iconBackoffSecs.remove(requestKey);
+    g_iconNextAllowed.remove(requestKey);
 
     const QPixmap pm = QPixmap::fromImage(img).scaled(
         24, 21, Qt::KeepAspectRatio, Qt::SmoothTransformation);

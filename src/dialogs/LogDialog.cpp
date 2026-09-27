@@ -51,8 +51,15 @@ LogDialog::LogDialog(QWidget* parent) : QDialog(parent) {
 
     m_table = new QTableWidget(0, 3, this);
     m_table->setHorizontalHeaderLabels({ tr("Data/Hora"), tr("Nível"), tr("Mensagem") });
-    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    // v1.1.37: ResizeToContents recalculava a largura da coluna varrendo
+    // TODAS as linhas a CADA item inserido — carregar 2000 linhas do
+    // histórico era O(n²) na thread da GUI (o app ficava "não respondendo"
+    // ao abrir Ajuda > Registro do cliente, e piorava com o tamanho do
+    // halla.log, que crescia para sempre). Colunas 0/1 interativas com
+    // largura calculada UMA vez após o carregamento em lote; a mensagem
+    // continua esticando. O append() incremental também fica O(1).
+    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
+    m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
     m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -95,6 +102,11 @@ LogDialog::LogDialog(QWidget* parent) : QDialog(parent) {
     // (ex.: a escolha de encoder GPU/CPU no começo de uma transmissão 4K)
     // já apareçam na janela.
     loadFromFile();
+
+    // Uma única passada de largura após o carregamento em lote (as colunas
+    // são interativas — ver comentário no construtor da tabela).
+    m_table->resizeColumnToContents(0);
+    m_table->resizeColumnToContents(1);
 }
 
 AppLog::Level LogDialog::levelFromName(const QString& name) {
@@ -112,16 +124,35 @@ void LogDialog::loadFromFile() {
     QFile f(dir + QStringLiteral("/halla.log"));
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return;
 
-    // Mantém no máximo as últimas ~2000 linhas para não travar a janela.
+    // v1.1.37: lê só o FINAL do arquivo (256 KiB ≈ 2,5k linhas). O arquivo
+    // inteiro podia ter dezenas de MB em instalações com semanas de uso —
+    // ler tudo linha a linha na GUI era metade do congelamento ao abrir a
+    // janela (a outra metade era o ResizeToContents por linha, agora
+    // interativo). O limite de 2000 linhas continua valendo; a rotação do
+    // AppLog (2 MiB) mantém o arquivo pequeno no longo prazo.
+    static const qint64 kTailBytes = 256 * 1024;
     QStringList lines;
-    QTextStream in(&f);
-    QString line;
-    while (in.readLineInto(&line))
-        lines << line;
+    if (f.size() > kTailBytes) {
+        f.seek(f.size() - kTailBytes);
+        QTextStream skipper(&f);
+        skipper.readLine(); // descarta a primeira linha parcial
+        QString line;
+        while (skipper.readLineInto(&line))
+            lines << line;
+    } else {
+        QTextStream in(&f);
+        QString line;
+        while (in.readLineInto(&line))
+            lines << line;
+    }
     if (lines.size() > 2000) {
         lines = lines.mid(lines.size() - 2000);
     }
 
+    // Preenchimento em lote: sem repaine por linha, sem scrollToBottom por
+    // linha e sem item criado duas vezes — o append() da vida continua
+    // sendo o caminho incremental das mensagens ao vivo.
+    m_table->setUpdatesEnabled(false);
     for (const QString& raw : lines) {
         // Formato: [dd/MM/yyyy HH:mm:ss] [NIVEL] mensagem
         const QString l = raw.trimmed();
@@ -143,10 +174,21 @@ void LogDialog::loadFromFile() {
         }
         append(int(levelFromName(levelText)), ts, text);
     }
+    m_table->setUpdatesEnabled(true);
+    if (m_autoscroll->isChecked()) m_table->scrollToBottom();
 }
 
 void LogDialog::append(int level, const QString& timestamp, const QString& text) {
     m_entries << Entry{ level, timestamp, text };
+    // v1.1.37: teto de memória — o diálogo vive para sempre aberto/oculto
+    // depois da primeira abertura e cada linha de log da sessão entrava
+    // aqui. Acima de 5000 entradas, descarta as 1000 mais antigas e recria
+    // a tabela (uma passada O(n) rara; o arquivo em disco tem tudo).
+    if (m_entries.size() > 5000) {
+        m_entries = m_entries.mid(m_entries.size() - 1000);
+        rebuild();
+        return;
+    }
     const int filter = m_filter->currentData().toInt();
     if (filter >= 0 && filter != level) return;
 
@@ -166,7 +208,9 @@ void LogDialog::append(int level, const QString& timestamp, const QString& text)
     m_table->setItem(r, 0, ts);
     m_table->setItem(r, 1, lvl);
     m_table->setItem(r, 2, msg);
-    if (m_autoscroll->isChecked()) m_table->scrollToBottom();
+    // Diálogo oculto não gasta tempo rolando a tabela para o fim a cada
+    // linha — só quando está visível de verdade.
+    if (isVisible() && m_autoscroll->isChecked()) m_table->scrollToBottom();
 }
 
 void LogDialog::rebuild() {

@@ -315,6 +315,19 @@ void ServerTab::attachNetwork(NetSession* net) {
 
     connect(net, &NetSession::errorOccurred, this,
             [this](const QString& code, const QString& msg) {
+                // v1.1.37: not_found é o "não achei" de consultas de FUNDO —
+                // ícone de cargo que o admin referenciou mas nunca enviou
+                // (icon_get), avatar apagado, identidade que nunca conectou
+                // (identity_get). Nada disso é ação do usuário nem exige
+                // resposta dele: virava linha "Erro do servidor: ..." no chat
+                // + som de erro a cada re-tentativa (o ícone que falta é
+                // re-pedido pelo cache com recuo exponencial). Fica só no
+                // registro (Ajuda > Registro do cliente), onde quem diagnostica
+                // procura.
+                if (code == QLatin1String("not_found")) {
+                    AppLog::warn(tr("Consulta de fundo sem resultado: %1").arg(msg));
+                    return;
+                }
                 systemMsgServer(tr("Erro do servidor: %1").arg(msg));
                 static const QSet<QString> permissionErrors = {
                     QStringLiteral("no_permission"), QStringLiteral("hierarchy"),

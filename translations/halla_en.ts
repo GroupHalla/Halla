@@ -2297,6 +2297,41 @@ Open the Identities window and create a new one, or restore your identity backup
       <translation>This channel's encryption key has not arrived: your voice is blocked and you cannot hear anyone. Switch channels and back, or reconnect to the server.</translation>
     </message>
     <message>
+      <location filename="../src/net/NetSession.cpp" line="2773" />
+      <source>O canal "%1" está cheio.</source>
+      <translation>The channel "%1" is full.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2766" />
+      <source>canal</source>
+      <translation>channel</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2768" />
+      <source>Muitas solicitações em pouco tempo — aguarde alguns segundos e tente novamente.</source>
+      <translation>Too many requests in a short time — wait a few seconds and try again.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2771" />
+      <source>O canal "%1" não existe mais.</source>
+      <translation>Channel "%1" no longer exists.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2775" />
+      <source>A senha do canal "%1" está incorreta.</source>
+      <translation>The password for channel "%1" is incorrect.</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2778" />
+      <source>Você não tem permissão para mover este cliente para o canal "%1".</source>
+      <translation>You don't have permission to move this client to channel "%1".</translation>
+    </message>
+    <message>
+      <location filename="../src/net/NetSession.cpp" line="2779" />
+      <source>Você não tem permissão para entrar no canal "%1".</source>
+      <translation>You don't have permission to join channel "%1".</translation>
+    </message>
+    <message>
       <location filename="../src/net/NetSession.cpp" line="597" />
       <source>A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.</source>
       <translation>This channel's local encryption key was outdated (a key rotation never reached you) — syncing with the channel; voice resumes in a few seconds.</translation>
@@ -5586,6 +5621,11 @@ Enter password:</translation>
       <location filename="../src/gui/ServerTab.cpp" line="760" />
       <source>Você entrou no canal "%1".</source>
       <translation>You have joined the channel "%1".</translation>
+    </message>
+    <message>
+      <location filename="../src/gui/ServerTab.cpp" line="328" />
+      <source>Consulta de fundo sem resultado: %1</source>
+      <translation>Background lookup without result: %1</translation>
     </message>
     <message>
       <location filename="../src/gui/ServerTab.cpp" line="761" />

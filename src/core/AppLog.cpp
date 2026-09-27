@@ -32,7 +32,21 @@ void AppLog::write(Level lvl, const QString& msg) {
     if (!m_file) {
         const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
         QDir().mkpath(dir);
-        m_file = new QFile(dir + "/halla.log");
+        const QString path = dir + "/halla.log";
+        // v1.1.37: rotação — o arquivo crescia PARA SEMPRE (o AppLog nunca
+        // apagava nada) e o "Registro do cliente" (que carrega o histórico
+        // ao abrir) congelava a interface por segundos em instalações com
+        // semanas de uso. Acima de 2 MiB o log atual vira halla.log.old
+        // (substituindo o anterior) e um novo começa do zero: disco limitado
+        // a ~4 MiB e abertura instantânea. A primeira escrita da sessão
+        // (banner do motor de voz ao conectar) já dispara a rotação.
+        qint64 size = QFile(path).size();
+        if (size > 2 * 1024 * 1024) {
+            const QString old = dir + "/halla.log.old";
+            QFile::remove(old);
+            QFile::rename(path, old);
+        }
+        m_file = new QFile(path);
         m_file->open(QIODevice::Append | QIODevice::Text);
     }
     if (m_file->isOpen()) {

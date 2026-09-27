@@ -776,6 +776,18 @@ void NetSession::moveToChannel(int channelId, const QString& pass) {
     m["channel"] = channelId;
     if (!pass.isEmpty()) m["pass"] = pass;
     send(m);
+    // v1.1.37: contexto para atribuir erros ao canal clicado (ver
+    // consumeMoveErrorContext) — o TCP preserva a ordem pedido/resposta.
+    const QString chanName = m_target
+        ? m_target->channels.value(channelId).name : QString();
+    PendingMove pm;
+    pm.channel = channelId;
+    pm.name = chanName;
+    pm.otherUser = false;
+    pm.atMs = QDateTime::currentMSecsSinceEpoch();
+    m_pendingMoves << pm;
+    while (m_pendingMoves.size() > 6)
+        m_pendingMoves.removeFirst();
 }
 
 void NetSession::moveOther(int userId, int channelId) {
@@ -783,6 +795,18 @@ void NetSession::moveOther(int userId, int channelId) {
     m["id"] = userId;
     m["channel"] = channelId;
     send(m);
+    // v1.1.37: idem moveToChannel — “mover para o seu canal”/arrastar tem
+    // os mesmos códigos de erro e merece mensagem específica.
+    const QString chanName = m_target
+        ? m_target->channels.value(channelId).name : QString();
+    PendingMove pm;
+    pm.channel = channelId;
+    pm.name = chanName;
+    pm.otherUser = true;
+    pm.atMs = QDateTime::currentMSecsSinceEpoch();
+    m_pendingMoves << pm;
+    while (m_pendingMoves.size() > 6)
+        m_pendingMoves.removeFirst();
 }
 
 void NetSession::moveChannel(int channelId, int parentId, int order) {
@@ -1366,7 +1390,14 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     if (t == "error") {
         const QString code = obj["code"].toString();
         const QString serverText = obj["msg"].toString();
-        const QString msg = localizedServerError(code, serverText);
+        QString msg = localizedServerError(code, serverText);
+        // v1.1.37: erro de "move"/"move_other" vira mensagem CONTEXTUAL —
+        // “sem permissão PARA ENTRAR NO CANAL X” em vez do genérico "realizar
+        // esta ação" (o usuário clicou num canal e merece saber qual e por
+        // quê). Só quando há um move recente sem resposta na janela (TCP
+        // preserva a ordem; user_moved consome a entrada no sucesso).
+        const QString moveContext = consumeMoveErrorContext(code);
+        if (!moveContext.isEmpty()) msg = moveContext;
         // O detalhe do servidor distingue causas do mesmo código (ex.:
         // bad_identity por chave ausente vs. assinatura inválida).
         AppLog::warn(serverText.isEmpty()
@@ -1589,6 +1620,15 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const int id = obj["id"].toInt();
         const int chan = obj["channel"].toInt();
         const int old = d.channelOfUser(id);
+        // v1.1.37: o move teve SUCESSO — consome a entrada pendente de
+        // contexto de erro correspondente a este canal (FIFO: a resposta de
+        // um move anterior já chegou antes desta, em ordem TCP).
+        for (int i = 0; i < m_pendingMoves.size(); ++i) {
+            if (m_pendingMoves[i].channel == chan) {
+                m_pendingMoves.removeAt(i);
+                break;
+            }
+        }
         // v1.1.36: A troca de canal muta a membership DIRETAMENTE (sem
         // applyChanJson) — sem bumpar a revisão dos canais afetados, a
         // assinatura estrutural da árvore (v1.1.35) não mudava e a árvore
@@ -2247,7 +2287,14 @@ void NetSession::e2eeShareKeyWith(int sessionId, const QSet<int>& comp, const E2
 void NetSession::e2eeRequestKey(int channelId) {
     if (channelId < 0) return;
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if (now - m_e2eeLastRequestAt < 2000) return; // o servidor limita 1/2s
+    // v1.1.37: 2000 -> 2500 ms. O servidor aceita 1 e2e_key_request por
+    // janela de 2 s, mas despeja o registro antigo só quando a diferença é
+    // ESTRITAMENTE maior que 2000 ms — dois pedidos espaçados em exatamente
+    // 2000 ms (limite antigo, <=) eram REJEITADOS com "você está enviando
+    // mensagens rápido demais" exatamente quando o usuário trocava de canal
+    // (cada entrada pede a chave do canal novo). 2500 ms dá margem segura
+    // sem mudar o protocolo.
+    if (now - m_e2eeLastRequestAt < 2500) return; // o servidor limita 1/2s
     m_e2eeLastRequestAt = now;
     QJsonObject m = HProto::msg("e2e_key_request");
     m["channel"] = channelId;
@@ -2698,4 +2745,36 @@ void NetSession::e2eeDeliverOfflineMsg(const QJsonObject& obj, qint64 receivedAt
     pi.ts = ts;
     pi.receivedAt = receivedAt > 0 ? receivedAt : QDateTime::currentMSecsSinceEpoch();
     m_pendingOfflineInbox << pi;
+}
+
+QString NetSession::consumeMoveErrorContext(const QString& code) {
+    // v1.1.37 — ver comentário do struct PendingMove no cabeçalho. Os códigos
+    // que handleMove/handleMoveOther podem devolver (rate_limited acontece
+    // ANTES do handler: o move morreu no limitador e nunca executou).
+    static const QSet<QString> moveCodes = {
+        QStringLiteral("no_permission"), QStringLiteral("hierarchy"),
+        QStringLiteral("channel_full"), QStringLiteral("bad_channel_pass"),
+        QStringLiteral("invalid_channel"), QStringLiteral("rate_limited"),
+    };
+    if (!moveCodes.contains(code)) return QString();
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    // Janela curta: expirou, descarta sem consumir (o erro NÃO é deste move).
+    while (!m_pendingMoves.isEmpty() && now - m_pendingMoves.first().atMs > 6000)
+        m_pendingMoves.removeFirst();
+    if (m_pendingMoves.isEmpty()) return QString();
+    const PendingMove pm = m_pendingMoves.takeFirst();
+    const QString name = pm.name.isEmpty() ? tr("canal") : pm.name;
+    if (code == QLatin1String("rate_limited"))
+        return tr("Muitas solicitações em pouco tempo — aguarde alguns "
+                  "segundos e tente novamente.");
+    if (code == QLatin1String("invalid_channel"))
+        return tr("O canal \"%1\" não existe mais.").arg(name);
+    if (code == QLatin1String("channel_full"))
+        return tr("O canal \"%1\" está cheio.").arg(name);
+    if (code == QLatin1String("bad_channel_pass"))
+        return tr("A senha do canal \"%1\" está incorreta.").arg(name);
+    // no_permission / hierarchy: entrar (move) ou levar alguém (move_other).
+    return pm.otherUser
+        ? tr("Você não tem permissão para mover este cliente para o canal \"%1\".").arg(name)
+        : tr("Você não tem permissão para entrar no canal \"%1\".").arg(name);
 }

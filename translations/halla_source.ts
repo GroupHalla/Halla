@@ -2270,6 +2270,41 @@ Abra a janela Identidades e crie uma nova, ou restaure seu backup de identidade.
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../src/net/NetSession.cpp" line="2773"/>
+        <source>O canal "%1" está cheio.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="2766"/>
+        <source>canal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="2768"/>
+        <source>Muitas solicitações em pouco tempo — aguarde alguns segundos e tente novamente.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="2771"/>
+        <source>O canal "%1" não existe mais.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="2775"/>
+        <source>A senha do canal "%1" está incorreta.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="2778"/>
+        <source>Você não tem permissão para mover este cliente para o canal "%1".</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/net/NetSession.cpp" line="2779"/>
+        <source>Você não tem permissão para entrar no canal "%1".</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/net/NetSession.cpp" line="597"/>
         <source>A chave de criptografia local deste canal estava desatualizada (uma rotação não chegou até aqui) — sincronizando com o canal; a voz volta em alguns segundos.</source>
         <translation type="unfinished"></translation>
@@ -5514,6 +5549,11 @@ Digite a senha:</source>
     <message>
         <location filename="../src/gui/ServerTab.cpp" line="760"/>
         <source>Você entrou no canal &quot;%1&quot;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/gui/ServerTab.cpp" line="328"/>
+        <source>Consulta de fundo sem resultado: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
