@@ -158,21 +158,6 @@ private:
     }
 
 };
-        auto next = [&]() -> quint32 {
-            const quint32 result = rotl(state[0] + state[3], 7) * 9;
-            const quint32 t = state[1] << 9;
-            state[2] ^= state[0]; state[3] ^= state[1]; state[1] ^= state[2]; state[0] ^= state[3];
-            state[2] ^= t; state[3] = rotl(state[3], 11);
-            return result;
-        };
-        for (int i = 0; i < output.size(); i += 4) {
-            quint32 ks = next();
-            const int limit = qMin(4, output.size() - i);
-            for (int j = 0; j < limit; ++j) output[i + j] ^= reinterpret_cast<char*>(&ks)[j];
-        }
-        return output;
-    }
-};
 
 static QHostAddress normalizedPeerAddress(QHostAddress address) {
     if (address.protocol() == QAbstractSocket::IPv6Protocol) {

@@ -21,6 +21,8 @@ public:
     static void warn(const QString& msg)    { instance().write(Warning, msg); }
     static void error(const QString& msg)   { instance().write(Error, msg); }
     static void debug(const QString& msg)   { instance().write(Debug, msg); }
+    // Removes the rotated log files and reopens the log on the next write.
+    static void clearFile()                 { instance().clearLogFile(); }
 
     static QString levelName(Level lvl);
 

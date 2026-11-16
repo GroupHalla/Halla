@@ -1759,8 +1759,8 @@ QWidget* OptionsDialog::pageSecurity() {
     connect(clear, &QPushButton::clicked, this, [] {
         // Actually wipe the on-disk caches: the button used to only write a log
         // line, so "clear local cache" did nothing at all.
-        AppLog::clearLogFile();
-        GroupIconCache::clearCache();
+        AppLog::clearFile();
+        GroupIconCache::clear();
         AppLog::info(tr("Registros e cache de ícones locais limpos pelo usuário"));
     });
 

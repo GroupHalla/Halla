@@ -22,6 +22,9 @@ public:
     // Clears all cached role icons in memory and on disk.
     void clearCache();
 
+    // Convenience wrapper for UI call sites that only need the side effect.
+    static void clear() { instance().clearCache(); }
+
     // Sanitizes an untrusted server icon filename so it cannot escape the cache directory.
     static QString safeName(const QString& name);
 
