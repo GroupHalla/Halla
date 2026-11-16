@@ -100,7 +100,6 @@ signals:
     void pokeRequested(int userId);
     void volumeRequested(int userId);
     void localMuteToggled(int userId, bool muted);
-    void commanderToggled();
     void kickRequested(int userId, bool fromServer);
     void banRequested(int userId);
     void moveToMyChannelRequested(int userId);
