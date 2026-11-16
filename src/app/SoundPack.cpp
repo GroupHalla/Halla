@@ -24,13 +24,13 @@ QString dir() {
     return d;
 }
 
-// ------------------------------------------------------------------ WAV 16-bit
-// escreve um WAV mono 48 kHz com uma sequência de tons (freq, ms)
+// ------------------------------------------------------------------ 16-bit WAV
+// writes a mono 48 kHz WAV with a sequence of tones (freq, ms)
 static bool writeWav(const QString& path, const QList<QPair<int,int>>& seq, int volPct = 70) {
     const int rate = 48000;
     int total = 0;
     for (const auto& s : seq) total += rate * s.second / 1000;
-    // 60 ms de silêncio entre tons
+    // 60 ms of silence between tones
     const int gap = rate * 60 / 1000;
     total += gap * (seq.size() - 1);
 
@@ -87,9 +87,9 @@ static bool copyBundledSound(const QString& eventName, const QString& destinatio
 void ensure() {
     const QString d = dir();
 
-    // Os arquivos fornecidos para o pacote oficial substituem uma única vez
-    // os tons sintéticos antigos. Depois disso, arquivos personalizados pelo
-    // usuário são preservados; arquivos apagados são restaurados do recurso.
+    // The files shipped with the official pack replace the old synthetic tones
+    // once. After that, user-customized files are preserved; deleted files are
+    // restored from the resource.
     static const QString packVersion = QStringLiteral("official-voice-v3");
     static const QStringList bundled = {
         QStringLiteral("banned"),
@@ -157,14 +157,14 @@ void play(const QString& name) {
                                          QStringLiteral(".wav")));
         fx.insert(name, e);
     }
-    // Volume do pacote de som (Opções → Reprodução), armazenado em dB ×10.
-    // Aplicado a cada reprodução: mudanças nas opções valem imediatamente.
+    // Sound pack volume (Options > Playback), stored as dB x10. Applied on every
+    // playback: option changes take effect immediately.
     {
         const double db = S::num("playback/soundPackVolume", -170) / 10.0;
         e->setVolume(float(qBound(0.0, qPow(10.0, db / 20.0), 1.0)));
     }
     if (e->isLoaded()) e->play();
-    else if (e->status() == QSoundEffect::Error) { // sem áudio: ignora silenciosamente
+    else if (e->status() == QSoundEffect::Error) { // no audio: ignore silently
     } else {
         // ainda carregando: toca assim que estiver pronto
         QObject::connect(e, &QSoundEffect::loadedChanged, e, [e] { e->play(); },

@@ -23,16 +23,17 @@ static QPixmap mk(int w, int h, const std::function<void(QPainter&)>& fn) {
 static QPixmap mk(int s, const std::function<void(QPainter&)>& fn) { return mk(s, s, fn); }
 
 static QPixmap officialLogo(int size) {
-    // Variante quadrada gerada a partir do logo oficial, sem a grande área
-    // transparente da arte-fonte. Assim o desenho ocupa praticamente todos os
-    // pixels disponíveis na barra de tarefas, no atalho e na janela.
+    // Square variant generated from the official logo, without the large
+    // transparent area of the source art. That way the drawing fills
+    // practically every available pixel in the taskbar, the shortcut and the
+    // window.
     const QImage source(QStringLiteral(":/halla/assets/halla-app-icon.png"));
     if (source.isNull()) return QPixmap();
     return QPixmap::fromImage(source).scaled(
         size, size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
-// ---------------------------------------------------------------- marca d'água / logo
+// ---------------------------------------------------------------- watermark / logo
 QPixmap waveMark(int size, const QColor& color) {
     return mk(size, [&](QPainter& p) {
         p.setPen(Qt::NoPen);
@@ -70,8 +71,9 @@ QPixmap banner(int w, int h) {
             g.setColorAt(0.55, navyMid());
             g.setColorAt(1, QColor("#7828E8"));
         } else {
-            // A área de informações mantém o grande banner azul da referência,
-            // mas com a identidade Halla no lugar da marca externa.
+            // The information area keeps the large blue banner from the
+            // reference, but with the Halla identity instead of the external
+            // brand.
             g.setColorAt(0, QColor("#103D70"));
             g.setColorAt(0.62, QColor("#236AA5"));
             g.setColorAt(1, QColor("#5798C8"));
@@ -134,8 +136,8 @@ QIcon connectPlug() {
 }
 
 QIcon disconnectPlug() {
-    // v1.1.35: ícone de menu em cache — o desenho é função pura dos
-    // argumentos; regenerar (QPainter a cada chamada) só queimava CPU.
+    // v1.1.35: cached menu icon -- the drawing is a pure function of the
+    // arguments; regenerating it (a QPainter on every call) only burned CPU.
     static const QIcon icon = QIcon(mk(24, [&](QPainter& p) {
         drawPlug(p, QColor("#B9C2CB"), QColor("#6E7B86"));
         p.setPen(QPen(red(), 2.4, Qt::SolidLine, Qt::RoundCap));
@@ -156,7 +158,7 @@ static void starPath(QPainterPath& path, const QPointF& c, qreal rOut, qreal rIn
 }
 
 QIcon bookmarkStar() {
-    // v1.1.35: ícone de menu em cache (função pura — ver disconnectPlug).
+    // v1.1.35: cached menu icon (pure function -- see disconnectPlug).
     static const QIcon icon = QIcon(mk(24, [&](QPainter& p) {
         QPainterPath path;
         starPath(path, QPointF(12, 12.5), 9.2, 4.4);
@@ -187,7 +189,7 @@ QIcon optionsGear() {
     }));
 }
 
-// ---------------------------------------------------------------- página de log
+// ---------------------------------------------------------------- log page
 QIcon logPage() {
     return QIcon(mk(24, [&](QPainter& p) {
         p.setPen(QPen(QColor("#4E5B68"), 1));
@@ -226,7 +228,7 @@ static void drawMicro(QPainter& p, const QColor& body) {
     g.setColorAt(1, body);
     p.setPen(QPen(body.darker(140), 1));
     p.setBrush(g);
-    p.drawRoundedRect(QRectF(9, 2, 6, 11), 3, 3);   // cápsula
+    p.drawRoundedRect(QRectF(9, 2, 6, 11), 3, 3);   // capsule
     p.setBrush(Qt::NoBrush);
     p.setPen(QPen(body.darker(120), 1.6, Qt::SolidLine, Qt::RoundCap));
     p.drawArc(QRectF(6, 7, 12, 9), 200 * 16, 140 * 16); // suporte
@@ -322,7 +324,7 @@ QIcon server() {
     }));
 }
 
-// ---------------------------------------------------------------- casa (canal padrão)
+// ---------------------------------------------------------------- house (default channel)
 static void drawHouse(QPainter& p, const QRectF& r) {
     QLinearGradient g(0, r.top(), 0, r.bottom());
     g.setColorAt(0, HTheme::isDark() ? QColor("#C4A7FF") : QColor("#9FC4E4"));
@@ -401,13 +403,13 @@ QIcon channel(bool hasPassword, bool moderated, bool isDefault, bool full) {
 }
 
 QIcon channelAccess(bool canJoin, bool temporary, bool hasPassword, bool full) {
-    // Estados solicitados: vermelho = sem entrada; amarelo = temporário;
-    // azul = entrada permitida. O cadeado/full continuam como sobreposição.
-    // v1.1.35: 16 combinações possíveis, todas função pura dos flags — o
-    // rebuild() da árvore pede este ícone por CANAL a cada atualização (e a
-    // árvore se atualiza a cada transição de fala); gerar o pixmap com
-    // QPainter toda vez era CPU desperdiçada na thread da GUI, a mesma do
-    // pipeline de áudio (o "som picotar quando alguém fala").
+    // Requested states: red = no entry; yellow = temporary; blue = entry
+    // allowed. The padlock/full markers remain as an overlay.
+    // v1.1.35: 16 possible combinations, all pure functions of the flags -- the
+    // tree rebuild() requests this icon PER CHANNEL on every update (and the
+    // tree updates on every speech transition); generating the pixmap with
+    // QPainter every time wasted CPU on the GUI thread, the same one as the
+    // audio pipeline (the "sound chopping when someone speaks").
     const int key = (canJoin ? 1 : 0) | (temporary ? 2 : 0)
                   | (hasPassword ? 4 : 0) | (full ? 8 : 0);
     static QIcon cache[16];
@@ -439,7 +441,7 @@ QIcon channelAccess(bool canJoin, bool temporary, bool hasPassword, bool full) {
     return icon;
 }
 
-// ---------------------------------------------------------------- usuário
+// ---------------------------------------------------------------- user
 QIcon user(bool talking, bool away, int size, bool whispering) {
     return QIcon(mk(size, [&](QPainter& p) {
         const qreal u = size / 24.0;
@@ -492,9 +494,9 @@ static QPixmap miniMicSlash() {
 }
 
 static QPixmap miniHeadphoneSlash() {
-    // Fones bloqueados: mantém o contorno do headset e coloca um cadeado
-    // vermelho no centro, em vez de apenas uma barra que poderia parecer um
-    // risco decorativo ou ser confundida com o microfone mudo.
+    // Blocked headphones: keeps the headset outline and places a red padlock in
+    // the center, instead of only a slash that could look like a decorative
+    // stroke or be confused with the muted microphone.
     return mk(14, [&](QPainter& p) {
         p.setPen(QPen(QColor("#54616E"), 1.35, Qt::SolidLine, Qt::RoundCap));
         p.setBrush(Qt::NoBrush);
@@ -538,7 +540,7 @@ static QPixmap miniStar() {
     });
 }
 
-// v3: escudo do operador de canal
+// v3: channel operator shield
 static QPixmap miniOp() {
     return mk(14, [&](QPainter& p) {
         QPainterPath path;
@@ -575,12 +577,12 @@ static QPixmap miniAway() {
 
 QPixmap userStatusMinis(bool inputMuted, bool outputMuted, bool away,
                         bool recording, bool commander, bool op) {
-    // v1.1.35: os minis são função pura das 6 flags (64 combinações) — e este
-    // pixmap é pedido POR USUÁRIO a cada atualização visual da árvore, que
-    // roda em rajadas enquanto a sala conversa. Gerar mini-ícones com
-    // QPainter a cada chamada custava dezenas de alocações de superfície por
-    // segundo na thread da GUI (a mesma do áudio). Bitmask puro: os minis
-    // não dependem de tema nem de servidor.
+    // v1.1.35: the minis are a pure function of the 6 flags (64 combinations) --
+    // and this pixmap is requested PER USER on every visual update of the tree,
+    // which runs in bursts while the room talks. Generating mini-icons with
+    // QPainter on every call cost dozens of surface allocations per second on
+    // the GUI thread (the same one as the audio). Pure bitmask: the minis depend
+    // neither on the theme nor on the server.
     const int key = (inputMuted ? 1 : 0) | (outputMuted ? 2 : 0) | (away ? 4 : 0)
                   | (recording ? 8 : 0) | (commander ? 16 : 0) | (op ? 32 : 0);
     static QPixmap cache[64];
@@ -604,7 +606,7 @@ QPixmap userStatusMinis(bool inputMuted, bool outputMuted, bool away,
     return pm;
 }
 
-// ---------------------------------------------------------------- ícones simples de menu
+// ---------------------------------------------------------------- simple menu icons
 QIcon identity() {
     return QIcon(mk(16, [&](QPainter& p) {
         p.setPen(QPen(QColor("#1E415F"), 0.8));
@@ -786,7 +788,7 @@ QIcon application() {
 }
 
 QIcon info() {
-    // v1.1.35: ícone de menu em cache (função pura — ver disconnectPlug).
+    // v1.1.35: cached menu icon (pure function -- see disconnectPlug).
     static const QIcon icon = QIcon(mk(16, [&](QPainter& p) {
         p.setPen(QPen(QColor("#1E415F"), 0.8));
         p.setBrush(QColor("#9FC4E4"));
@@ -801,7 +803,7 @@ QIcon info() {
 }
 
 QIcon fileNew() {
-    // v1.1.35: ícone de menu em cache (função pura — ver disconnectPlug).
+    // v1.1.35: cached menu icon (pure function -- see disconnectPlug).
     static const QIcon icon = QIcon(mk(16, [&](QPainter& p) {
         p.setPen(QPen(QColor("#4E5B68"), 0.8));
         p.setBrush(Qt::white);
@@ -814,7 +816,7 @@ QIcon fileNew() {
 }
 
 QIcon editPencil() {
-    // v1.1.35: ícone de menu em cache (função pura — ver disconnectPlug).
+    // v1.1.35: cached menu icon (pure function -- see disconnectPlug).
     static const QIcon icon = QIcon(mk(16, [&](QPainter& p) {
         p.setPen(QPen(QColor("#8F6600"), 1));
         p.setBrush(QColor("#FFD964"));
@@ -827,7 +829,7 @@ QIcon editPencil() {
 }
 
 QIcon trash() {
-    // v1.1.35: ícone de menu em cache (função pura — ver disconnectPlug).
+    // v1.1.35: cached menu icon (pure function -- see disconnectPlug).
     static const QIcon icon = QIcon(mk(16, [&](QPainter& p) {
         p.setPen(QPen(QColor("#7F1D1D"), 0.9));
         p.setBrush(QColor("#E33224"));
@@ -843,7 +845,7 @@ QIcon trash() {
 }
 
 QIcon check() {
-    // v1.1.35: ícone de menu em cache (função pura — ver disconnectPlug).
+    // v1.1.35: cached menu icon (pure function -- see disconnectPlug).
     static const QIcon icon = QIcon(mk(16, [&](QPainter& p) {
         p.setPen(QPen(green().darker(130), 2.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         p.drawPolyline(QPolygonF() << QPointF(2.5, 8.5) << QPointF(6.5, 12.4)
@@ -860,11 +862,10 @@ QIcon record(bool on) {
     }));
 }
 
-// Ícones de navegação do diálogo de Opções em estilo CONTORNO. Inspirados
-// no estilo "linha fina, sem preenchimento" dos mockups do usuário: cada
-// categoria recebe um desenho recognizível e monocromático. A cor do
-// traço acompanha o tema (quase-branco no escuro, grafite no claro) para
-// ficar visível em qualquer superfície.
+// OUTLINE-style navigation icons for the Options dialog. Inspired by the
+// "thin line, no fill" style of the user's mockups: each category gets a
+// recognizable, monochromatic drawing. The stroke color follows the theme
+// (near-white on dark, graphite on light) so it stays visible on any surface.
 QIcon navOutlineIcon(const QString& kind) {
     const QColor stroke = HTheme::isDark() ? QColor("#E7E5F0") : QColor("#475569");
     const qreal w = 1.6;
@@ -878,7 +879,7 @@ QIcon navOutlineIcon(const QString& kind) {
             p.drawRoundedRect(QRectF(3.0, 13.5, 7.5, 7.5), 1.6, 1.6);
             p.drawRoundedRect(QRectF(13.5, 13.5, 7.5, 7.5), 1.6, 1.6);
         } else if (kind == QStringLiteral("playback")) {
-            // círculo + triângulo play
+            // circle + play triangle
             p.drawEllipse(QPointF(12.0, 12.0), 9.4, 9.4);
             QPainterPath tri;
             tri.moveTo(10.0, 7.6);
@@ -887,7 +888,7 @@ QIcon navOutlineIcon(const QString& kind) {
             tri.closeSubpath();
             p.drawPath(tri);
         } else if (kind == QStringLiteral("capture")) {
-            // microfone: cápsula + suporte em arco + haste + base
+            // microphone: capsule + arc holder + stem + base
             p.drawRoundedRect(QRectF(8.5, 3.0, 7.0, 11.0), 3.5, 3.5);
             QPainterPath arc;
             arc.moveTo(5.0, 11.0);
@@ -896,7 +897,7 @@ QIcon navOutlineIcon(const QString& kind) {
             p.drawLine(QPointF(12.0, 16.6), QPointF(12.0, 19.4));
             p.drawLine(QPointF(8.0, 19.4), QPointF(16.0, 19.4));
         } else if (kind == QStringLiteral("design")) {
-            // paleta: círculo grande + 3 pontos de tinta (contornos)
+            // palette: large circle + 3 paint dots (outlines)
             p.drawEllipse(QPointF(12.0, 12.0), 9.4, 9.4);
             p.drawEllipse(QPointF(9.0, 9.0), 1.5, 1.5);
             p.drawEllipse(QPointF(15.0, 9.0), 1.5, 1.5);
@@ -913,7 +914,7 @@ QIcon navOutlineIcon(const QString& kind) {
             p.drawEllipse(QPointF(12.0, 19.6), 1.6, 1.6);
             p.drawLine(QPointF(12.0, 5.0), QPointF(12.0, 3.4));
         } else if (kind == QStringLiteral("hotkeys")) {
-            // 3 sliders verticais com botões em alturas diferentes
+            // 3 vertical sliders with knobs at different heights
             p.drawLine(QPointF(6.0, 4.0), QPointF(6.0, 20.0));
             p.drawLine(QPointF(12.0, 4.0), QPointF(12.0, 20.0));
             p.drawLine(QPointF(18.0, 4.0), QPointF(18.0, 20.0));
@@ -921,7 +922,7 @@ QIcon navOutlineIcon(const QString& kind) {
             p.drawEllipse(QPointF(12.0, 14.0), 2.0, 2.0);
             p.drawEllipse(QPointF(18.0, 10.0), 2.0, 2.0);
         } else if (kind == QStringLiteral("whisper")) {
-            // pessoa: cabeça + ombros
+            // person: head + shoulders
             p.drawEllipse(QPointF(12.0, 8.0), 3.4, 3.4);
             QPainterPath body;
             body.moveTo(5.0, 20.0);
@@ -940,7 +941,7 @@ QIcon navOutlineIcon(const QString& kind) {
             s.closeSubpath();
             p.drawPath(s);
         } else if (kind == QStringLiteral("addons")) {
-            // peça de quebra-cabeça: quadrado com aba superior e entalhe direito
+            // puzzle piece: square with a top tab and a right notch
             QPainterPath pz;
             pz.moveTo(3.0, 6.0);
             pz.lineTo(8.0, 6.0);

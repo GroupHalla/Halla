@@ -4,19 +4,18 @@
 
 class QFocusEvent;
 
-// Campo que captura UMA tecla (ex.: "Space", "Ctrl+M") OU um botão de mouse
-// (XButton1 = "Mouse4", XButton2 = "Mouse5", botão do meio = "MouseMeio").
-// Usado para a tecla de PTT e nas teclas de atalho (o Halla permite
-// botões laterais do mouse).
+// Field that captures ONE key (e.g. "Space", "Ctrl+M") OR a mouse button
+// (XButton1 = "Mouse4", XButton2 = "Mouse5", middle button = "MouseMiddle").
+// Used for the PTT key and for the shortcuts (Halla allows side mouse buttons).
 //
-// A captura é feita em TRÊS camadas (Windows), então nenhum botão passa
-// despercebido, mesmo com softwares de mouse que interceptam os XButtons:
-//  1) eventos do widget (keyPressEvent/mousePressEvent) — caminho comum;
-//  2) filtro de eventos do aplicativo — botões de mouse clicados sobre
-//     qualquer widget do diálogo enquanto o campo está "armado" (focado);
-//  3) filtro de eventos NATIVO (QAbstractNativeEventFilter) — lê WM_KEYDOWN,
-//     WM_XBUTTONDOWN, WM_MBUTTONDOWN e WM_APPCOMMAND direto da fila do
-//     Windows (cobre Logitech/Razer que enviam "Voltar/Avançar" do navegador).
+// Capture happens in THREE layers (Windows), so no button goes unnoticed even
+// with mouse software that intercepts XButtons:
+//  1) widget events (keyPressEvent/mousePressEvent) -- the common path;
+//  2) application event filter -- mouse buttons clicked over any widget of the
+//     dialog while the field is "armed" (focused);
+//  3) NATIVE event filter (QAbstractNativeEventFilter) -- reads WM_KEYDOWN,
+//     WM_XBUTTONDOWN, WM_MBUTTONDOWN and WM_APPCOMMAND straight from the Windows
+//     queue (covers Logitech/Razer sending the browser's "Back/Forward").
 class HotkeyEdit : public QLineEdit {
     Q_OBJECT
 public:
@@ -26,19 +25,18 @@ public:
     QString spec() const { return m_spec; }
     void setSpec(const QString& spec);
 
-    // monta a spec canônica "Mods+Tecla" a partir de um Qt::Key + mods Qt.
-    // Usada pelas duas camadas de captura (evento do widget e filtro nativo)
-    // para NÃO depender do QKeySequence::toString — que pode omitir os
-    // modificadores "Meta+" (tecla Windows) e "Num+" (teclado numérico).
-    // Formato idêntico ao que o toString sempre gerou ("Ctrl+F2", "Space",
-    // "\\"), apenas estendido. Devolve QString() para tecla sem spec
-    // (acentos mortos, teclas exóticas).
+    // builds the canonical "Mods+Key" spec from a Qt::Key + Qt mods. Used by both
+    // capture layers (widget event and native filter) so it does NOT depend on
+    // QKeySequence::toString -- which may omit the "Meta+" (Windows key) and
+    // "Num+" (numeric keypad) modifiers. Format identical to what toString has
+    // always produced ("Ctrl+F2", "Space", "\\"), only extended. Returns
+    // QString() for a key without a spec (dead accents, exotic keys).
     static QString specFromKey(int key, int qtMods);
 
     bool isArmed() const { return m_armed; }   // captura ativa (campo focado)
     void acceptSpec(const QString& spec);       // usado pelos filtros
 
-    // nomes internos dos botões de mouse (independentes de tradução)
+    // internal mouse button names (independent of translation)
     static constexpr const char* kMouse4      = "Mouse4";
     static constexpr const char* kMouse5      = "Mouse5";
     static constexpr const char* kMouseMiddle = "MouseMeio";
@@ -61,23 +59,23 @@ private:
     class NativeCapture* m_native = nullptr; // filtro nativo (Windows)
 };
 
-// "Esta ação de atalho é o sussurro?" — verdade ABSOLUTA, compartilhada
-// pelo diálogo de opções (gravação) e pelo dispatch (applyHotkeys /
+// "Is this shortcut action the whisper?" -- ABSOLUTE truth, shared by the
+// options dialog (save) and by the dispatch (applyHotkeys /
 // runConfiguredAction).
 //
-// O perfil de hotkeys grava a ação como string TRADUZIDA ("Sussurrar ..."
-// em PT, "Whisper (hold to speak)" em EN, "Susurrar ..." em ES). O dispatch
-// antigo procurava só o substring PT "ussurr": em qualquer outro idioma a
-// tecla caía no caminho genérico de atalhos, que não casa com ação nenhuma
-// e ignora o aperto em silêncio — o usuário configurava tudo certo e o
-// sussurro "não disparava" (como se não apertasse o botão).
+// The hotkey profile stores the action as a TRANSLATED string ("Whisper (hold
+// to speak)" in EN, "Sussurrar ..." in ES). The old dispatch looked only for
+// the PT substring "ussurr": in any other language the key fell into the
+// generic shortcut path, which matches no action and silently ignores the
+// press -- the user configured everything correctly and whisper "did not fire"
+// (as if the button had never been pressed).
 //
-// A detecção aceita o id canônico novo ("whisper", campo "id" do JSON a
-// partir do 1.1.26) ou qualquer grafia vivível do nome em PT/EN/ES — imune
-// inclusive a trocar o idioma do cliente depois de configurar.
+// Detection accepts the new canonical id ("whisper", the "id" field of the JSON
+// since 1.1.26) or any spelling of the name in PT/EN/ES -- immune even to
+// switching the client language after configuring it.
 inline bool isWhisperHotkeyAction(const QString& action) {
     const QString a = action.toLower();
     return a.contains(QLatin1String("ussurr"))   // PT: "Sussurrar ..."
-        || a.contains(QLatin1String("whisper"))  // EN + id canônico "whisper"
+        || a.contains(QLatin1String("whisper"))  // EN + canonical "whisper" id
         || a.contains(QLatin1String("susur"));   // ES: "Susurrar/Susurro ..."
 }

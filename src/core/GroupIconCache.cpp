@@ -8,9 +8,6 @@
 #include <QSet>
 #include <QStandardPaths>
 
-// v1.1.37: estado de pedido COMPARTILHADO entre shouldRequest() e store()
-// (escopo de arquivo). Antes era local estático dentro de shouldRequest e o
-// store() não tinha como zerar o recuo quando os bytes finalmente chegavam.
 namespace {
 QHash<QString, qint64> g_iconLastAsked;
 QHash<QString, qint64> g_iconNextAllowed;
@@ -24,8 +21,6 @@ GroupIconCache& GroupIconCache::instance() {
 }
 
 QString GroupIconCache::safeName(const QString& name) {
-    // Espelha o sanitizeFileName do servidor: ícone com nome malicioso
-    // ("../../x") vira um nome inofensivo dentro do cache.
     QString out;
     for (const QChar& ch : name.left(60)) {
         if (ch.isLetterOrNumber() || ch == QLatin1Char('.') || ch == QLatin1Char('_')
@@ -38,7 +33,6 @@ QString GroupIconCache::safeName(const QString& name) {
 }
 
 QString GroupIconCache::serverKey(const QString& serverAddress) {
-    // Memoizado: o delegado chama a cada repaint de cada linha.
     static QHash<QString, QString> memo;
     const auto it = memo.constFind(serverAddress);
     if (it != memo.constEnd()) return it.value();
@@ -65,12 +59,7 @@ bool GroupIconCache::isImageName(const QString& name) {
 }
 
 void GroupIconCache::splitRoleLine(const QString& roleLine, QString* iconName, QString* label) {
-    // O servidor concatena "<icone> <nome>" (applyGroup) sem separador
-    // explícito. Ícones de IMAGEM terminam em extensão conhecida: varremos os
-    // espaços da esquerda para a direita e a PRIMEIRA quebra cujo lado
-    // esquerdo é um nome de imagem delimita o ícone — cobre também nomes de
-    // arquivo com espaços ("meu cargo.png ROTA"). Emoji/letra/sigla e cargo
-    // sem ícone não casam com extensão: a linha inteira é o nome do cargo.
+    // Scan spaces left-to-right so filenames containing spaces ("my role.png ADMIN") parse cleanly.
     QString icon;
     int sp = -1;
     while ((sp = roleLine.indexOf(QLatin1Char(' '), sp + 1)) > 0) {
@@ -84,10 +73,6 @@ void GroupIconCache::splitRoleLine(const QString& roleLine, QString* iconName, Q
 }
 
 QStringList GroupIconCache::cleanRoleNames(const QString& serverGroups) {
-    // O campo "group" do servidor é uma lista de linhas "<icone> <nome>"
-    // (ex.: "rota.png ROTA"). Aqui interessa só o TEXTO: devolvemos os
-    // nomes dos cargos sem os nomes de arquivo dos ícones, preservando a
-    // ordem. Cargo sem ícone de imagem (emoji/sigla/nada) entra inteiro.
     QStringList names;
     const QStringList lines = serverGroups.split(QStringLiteral("\n"));
     for (const QString& line : lines) {
@@ -108,25 +93,13 @@ QString GroupIconCache::iconFilePath(const QString& serverKey, const QString& na
 }
 
 bool GroupIconCache::shouldRequest(const QString& requestKey, bool haveIt) {
-    // Estado compartilhado por processo: a árvore e o painel de informações
-    // pedem os MESMOS ícones — quem chegar primeiro consome a cota.
-    //
-    // v1.1.37: recuo EXPONENCIAL quando o ícone não chega. O fluxo antigo
-    // re-pedia a cada 5 s PARA SEMPRE o ícone que o servidor não tem (cargo
-    // referenciando "x.png" nunca enviado: o icon_get volta como not_found
-    // e o cache nunca enche) — dezenas desses somavam pedidos por segundo
-    // em servidores grandes e colidiam com o limitador genérico do servidor
-    // ("você está enviando mensagens rápido demais"). Agora cada falha dobra
-    // o intervalo (5 s -> 10 -> 20 -> ... -> 10 min de teto): um ícone
-    // quebrado custa ~12 pedidos na primeira hora, não ~720. Quando os
-    // bytes chegam, store() zera o recuo (a próxima troca de imagem volta
-    // a ser rápida).
+    // Exponential backoff (5s -> 600s) prevents flooding the server when a missing icon returns not_found.
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (haveIt) {
         if (g_iconRefreshed.contains(requestKey)) return false;
         g_iconRefreshed.insert(requestKey);
         g_iconLastAsked.insert(requestKey, now);
-        g_iconBackoffSecs.remove(requestKey); // em mãos: sem recuo acumulado
+        g_iconBackoffSecs.remove(requestKey);
         g_iconNextAllowed.remove(requestKey);
         return true;
     }
@@ -142,12 +115,9 @@ QPixmap GroupIconCache::pixmap(const QString& serverKey, const QString& name) {
     const QString safe = safeName(name);
     const QString memKey = serverKey + QLatin1Char('|') + safe;
 
-    // 1) memória — caminho quente do delegado (paint roda o tempo todo).
     const auto it = m_pixmaps.constFind(memKey);
     if (it != m_pixmaps.constEnd()) return it.value();
 
-    // 2) disco — sobrevive entre execuções; se a imagem estiver corrompida,
-    //    remove para que o re-request traga uma cópia boa.
     QFile f(diskPath(serverKey, safe));
     if (f.open(QIODevice::ReadOnly)) {
         const QByteArray bytes = f.read(256 * 1024);
@@ -173,11 +143,8 @@ void GroupIconCache::store(const QString& serverKey, const QString& name,
     const QString memKey = serverKey + QLatin1Char('|') + safe;
 
     QImage img = QImage::fromData(bytes);
-    if (img.isNull()) return; // bytes inválidos: mantém o que já existe
+    if (img.isNull()) return;
 
-    // v1.1.37: o ícone CHEGOU — zera o recuo exponencial do pedido para que
-    // uma futura atualização de imagem volte a ser buscada rápido (a chave é
-    // a mesma do shouldRequest: serverKey + '|' + nome vindo do servidor).
     const QString requestKey = serverKey + QLatin1Char('|') + name;
     g_iconBackoffSecs.remove(requestKey);
     g_iconNextAllowed.remove(requestKey);
@@ -187,12 +154,19 @@ void GroupIconCache::store(const QString& serverKey, const QString& name,
     if (pm.isNull()) return;
     m_pixmaps.insert(memKey, pm);
 
-    // Disco é best effort: em dir só de leitura a memória já garantiu a
-    // exibição nesta sessão.
     QDir().mkpath(cacheDir() + QStringLiteral("/") + serverKey);
     QFile f(diskPath(serverKey, safe));
     if (f.open(QIODevice::WriteOnly)) {
         f.write(bytes);
         f.close();
     }
+}
+
+void GroupIconCache::clearCache() {
+    m_pixmaps.clear();
+    g_iconLastAsked.clear();
+    g_iconNextAllowed.clear();
+    g_iconBackoffSecs.clear();
+    g_iconRefreshed.clear();
+    QDir(cacheDir()).removeRecursively();
 }

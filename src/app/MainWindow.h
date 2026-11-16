@@ -18,26 +18,25 @@ class WelcomePage;
 class LogDialog;
 class HallaWebRtcSession;
 
-// Janela principal do Halla — reproduz fielmente a janela clássica do
-// tema claro clássico: barra de menus (Conexões, Marcadores, Si mesmo,
-// Permissões, Ferramentas, Ajuda), barra de ferramentas com setas suspensas,
-// corpo 50/50 (árvore | informações) com chat embaixo e barra de status
-// em três zonas (servidor | notícias | conexão).
+// Halla's main window -- faithfully reproduces the classic window of the classic
+// light theme: menu bar (Connections, Bookmarks, Self, Permissions, Tools, Help),
+// toolbar with drop-down arrows, 50/50 body (tree | information) with the chat
+// below and a three-zone status bar (server | news | connection).
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow() override;
 
-    // abre uma conexão REAL com um Halla Server (rede TCP+UDP).
-    // Usado pelo diálogo Conectar, favoritos, conexões recentes e --auto-connect.
+    // opens a REAL connection to a Halla Server (TCP+UDP network). Used by the
+    // Connect dialog, bookmarks, recent connections and --auto-connect.
     void connectTo(const QString& address, quint16 port, const QString& nickname,
                    const QString& password = QString());
 
-    // cria uma aba local (offline, usada apenas no modo --demo de capturas)
+    // creates a local tab (offline, used only by the --demo screenshot mode)
     void createLocalTab(const ServerData& initial);
 
-    void loadDemoState(); // usado apenas pelo modo --demo (capturas de tela)
+    void loadDemoState(); // used only by --demo mode (screenshots)
 
     // ---- Compartilhamento de Tela (screenshare)
     void toggleScreenShare();
@@ -51,7 +50,7 @@ public:
 protected:
     void closeEvent(QCloseEvent* e) override;
     void changeEvent(QEvent* e) override; // minimizar para a bandeja
-    void hideEvent(QHideEvent* e) override; // guardar em qual tela a janela estava
+    void hideEvent(QHideEvent* e) override; // remember which screen the window was on
     bool eventFilter(QObject* obj, QEvent* ev) override;
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
 
@@ -74,10 +73,10 @@ private:
     void applyHotkeys();
     void updateConnectionUi();
     void updateStatusBar();
-    void updateWebRtcPreviewState(); // preview da transmissão só com janela aberta
+    void updateWebRtcPreviewState(); // broadcast preview only with the window open
     void publishPluginState();
     void saveSession();
-    void openLogDialog();  // abre o "Registro do cliente" (log) — de Ajuda e Ferramentas
+    void openLogDialog();  // opens the "Client log" -- from Help and Tools
     void rebuildServerButtons();  // fileira horizontal de servidores conectados na barra de status
 
     QStackedWidget* m_stack = nullptr;
@@ -88,7 +87,7 @@ private:
     QSystemTrayIcon* m_tray = nullptr;
     LogDialog* m_log = nullptr;
 
-    // ações da barra de ferramentas/menus (alternam com o estado da conexão)
+    // toolbar/menu actions (toggle with the connection state)
     QAction* m_actConnect = nullptr;
     QAction* m_actDisconnect = nullptr;
     QAction* m_actDisconnectAll = nullptr;
@@ -105,25 +104,25 @@ private:
     QMap<int, class ScreenShareWindow*> m_screenShareWindows;
     QMap<int, QByteArray> m_lastScreenshareFrames;
     HallaWebRtcSession* m_webrtcSession = nullptr;
-    // ---- v1.1.28: assistência a transmissões que não conectam --------------
-    // O pedido de assistir (webrtc_watch_request) só pode ser enviado DEPOIS
-    // de o servidor ter nos movido para o canal do transmissor — antes disso
-    // ele respondia "webrtc_channel" e a janela ficava eternamente em
-    // "Aguardando transmissão...". m_pendingWatch guarda o pedido enquanto o
-    // moveToChannel não confirma (poll local + timeout).
+    // ---- v1.1.28: assistance for broadcasts that never connect ------------
+    // The watch request (webrtc_watch_request) may only be sent AFTER the server
+    // has moved us into the transmitter's channel -- before that it answered
+    // "webrtc_channel" and the window stayed forever on "Waiting for broadcast...".
+    // m_pendingWatch holds the request while moveToChannel is unconfirmed (local
+    // poll + timeout).
     struct PendingWatch {
         int userId = 0;
         int channelId = 0;
     };
     PendingWatch m_pendingWatch;
     QPointer<ServerTab> m_pendingWatchTab;  // aba onde o watch nasceu
-    QTimer* m_pendingWatchPoll = nullptr;   // 150 ms até entrar no canal (máx. 6 s)
+    QTimer* m_pendingWatchPoll = nullptr;   // 150 ms until the channel join (max 6 s)
     int m_pendingWatchTicks = 0;            // voltas do poll (6 s / 150 ms)
-    // Watchdog por usuário: sem primeiro frame em 12 s => erro visível com
-    // botão "Tentar novamente" (ICE falho em CGNAT sem TURN, watch perdido
-    // etc. — antes era silêncio absoluto).
+    // Per-user watchdog: no first frame within 12 s => visible error with a "Retry"
+    // button (failed ICE behind CGNAT without TURN, lost watch, etc. -- previously
+    // absolute silence).
     QMap<int, QTimer*> m_watchNoFrameTimers;
-    void beginWatching(ServerTab* t, int userId);  // abre janela + pede watch
+    void beginWatching(ServerTab* t, int userId);  // opens the window + requests the watch
     void armWatchdog(int userId);                  // arma o watchdog de 12 s
     void cancelWatchdog(int userId);               // 1º frame chegou — tudo bem
     void markWatchAlive(int userId);               // frame: cancela + limpa erro
@@ -148,8 +147,8 @@ private:
     QMap<int, QPair<QString, QString>> m_pluginGlobalHotkeys;
     int m_nextPluginHotkeyId = 10000;
 
-    // barra de status em 3 zonas (servidores | notícias | conexão), como no Halla.
-    // m_serverBar é uma fileira horizontal com um botão por servidor conectado.
+    // three-zone status bar (servers | news | connection), as in Halla. m_serverBar
+    // is a horizontal row with one button per connected server.
     QWidget* m_serverBar = nullptr;
     QHBoxLayout* m_serverBarLayout = nullptr;
     QLabel* m_newsLabel = nullptr;
@@ -163,13 +162,13 @@ private:
     bool m_closingAfterSound = false;
     bool m_restartAfterClose = false;
 
-    // ---- v1.1.31: restaurar na MESMA tela depois da bandeja -----------------
-    // Relato do usuário: com o app na tela 2, minimizar e voltar fazia a
-    // janela reaparecer na tela 1. O Windows descarta o placement quando a
-    // janela é escondida minimizada (hide() do caminho da bandeja), e o
-    // showNormal() puro a devolve na tela principal. Guardamos o retângulo
-    // "normal" + o estado maximizado antes de esconder e reaplicamos ao
-    // voltar — cobre também a remaximização na tela certa.
+    // ---- v1.1.31: restore on the SAME screen after the tray -----------------
+    // User report: with the app on screen 2, minimizing and coming back made the
+    // window reappear on screen 1. Windows discards the placement when the window
+    // is hidden while minimized (the hide() of the tray path), and a bare
+    // showNormal() returns it on the primary screen. We store the "normal"
+    // rectangle + the maximized state before hiding and reapply them on return --
+    // this also covers re-maximizing on the right screen.
     QRect m_geometryBeforeHide;
     bool m_wasMaximizedBeforeHide = false;
     void savePlacementBeforeHide();
@@ -177,11 +176,10 @@ private:
 
     void wireTab(ServerTab* tab);
 
-    // ---- PTT global (hotkey de todo o sistema no Windows — tecla OU mouse)
+    // ---- global PTT (system-wide hotkey on Windows -- key OR mouse)
     void registerPttHotkey();
-    void unregisterPttHotkey();
     void pttSetHeld(bool held);
-    void runConfiguredAction(const QString& action); // ação das "Teclas de atalho"
+    void runConfiguredAction(const QString& action); // "Hotkeys" action
     unsigned int m_pttVk = 0;
     unsigned int m_pttMods = 0;
     bool m_pttRegistered = false;
@@ -190,15 +188,15 @@ private:
     bool m_rawInputRegistered = false;
     class QTimer* m_pttPoll = nullptr;
 
-    // ---- v3.11: sussurro por tecla de atalho (segurar p/ falar, como no Halla)
+    // ---- v3.11: whisper by shortcut key (hold to talk, as in Halla)
     struct HoldKey {
         unsigned int vk = 0;      // tecla (0 = usa mouseBtn)
         unsigned int mods = 0;    // MOD_CONTROL/SHIFT/ALT
         int  mouseBtn = 0;        // 3 = meio, 4/5 = laterais
-        int  scope = 1;           // 0 canal, 1 canal+subcanais, 2 usuários
+        int  scope = 1;           // 0 channel, 1 channel+subchannels, 2 users
         bool held = false;
-        bool reply = false;       // tecla de resposta: alvo = quem sussurrou por último
-        QString whisperListName;  // nome da lista de sussurros (opcional)
+        bool reply = false;       // reply key: target = whoever whispered last
+        QString whisperListName;  // whisper list name (optional)
     };
     struct MouseHotkey {
         int mouseBtn = 0; // 3, 4, 5
@@ -209,10 +207,10 @@ private:
     QList<MouseHotkey> m_mouseHotkeys;
     bool m_mouseButtonState[6] = { false };
     bool isMouseDown(int btn);
-    bool m_whisperToggleOn = false;          // alternância (atalho sem "segurar")
+    bool m_whisperToggleOn = false;          // toggle (shortcut without "hold")
     void whisperSetHeld(int idx, bool held);
-    void pollGlobalInputs();                  // timer de 50 ms (pressões/solturas)
+    void pollGlobalInputs();                  // 50 ms timer (presses/releases)
 
     QList<QPointer<QShortcut>> m_hotkeyShortcuts;
-    QMap<int, QString> m_globalHotkeyActions; // id (100+) -> ação (Windows)
+    QMap<int, QString> m_globalHotkeyActions; // id (100+) -> action (Windows)
 };

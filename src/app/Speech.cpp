@@ -11,7 +11,7 @@ static QTextToSpeech* engine() {
         QTextToSpeech* t = new QTextToSpeech;
         t->setRate(0.0);
         t->setVolume(0.85);
-        // prefere voz em português quando houver
+        // prefers a Portuguese voice when one is available
         const QLocale pt(QLocale::Portuguese, QLocale::Brazil);
         for (const QLocale& l : t->availableLocales())
             if (l.language() == QLocale::Portuguese) { t->setLocale(l); break; }

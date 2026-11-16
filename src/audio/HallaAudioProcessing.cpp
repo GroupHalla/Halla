@@ -4,10 +4,10 @@
 #include <cmath>
 #include <cstring>
 
-// Sem dependência de AppLog/Qt widgets aqui de propósito: o módulo é
-// compilado também pelo gate standalone de CI (tests/webrtc_apm_smoke.cpp
-// + este arquivo num único cl), que não tem moc nem o resto do app. Logging
-// de estado fica no VoiceEngine (lado do app).
+// Deliberately no AppLog/Qt-widget dependency here: this module is also
+// compiled by the standalone CI gate (tests/webrtc_apm_smoke.cpp + this file
+// in a single cl), which has neither moc nor the rest of the app. State
+// logging lives in VoiceEngine (app side).
 
 #ifdef HALLA_WEBRTC_NATIVE
 #include <cstddef>
@@ -16,20 +16,20 @@ using nullptr_t = std::nullptr_t;
 #include "api/audio/builtin_audio_processing_builder.h"
 #include "api/environment/environment_factory.h"
 #else
-// ---- DSP embutido (builds sem o SDK do libwebrtc) ----
-// RNNoise: supressão de ruído por rede neural (GRU), Xiph.Org, BSD-like.
-// AEC MDF: cancelador de eco acústico do speexdsp (Valin/Xiph), BSD-like,
-//          o mesmo algoritmo que softphones livres usam em produção há
-//          duas décadas. Compilado junto do binário via speex_aec/speex_aec.c.
+// ---- Embedded DSP (builds without the libwebrtc SDK) ----
+// RNNoise: neural-network (GRU) noise suppression, Xiph.Org, BSD-like.
+// AEC MDF: acoustic echo canceller from speexdsp (Valin/Xiph), BSD-like,
+//          the same algorithm free softphones have used in production for
+//          two decades. Compiled into the binary via speex_aec/speex_aec.c.
 extern "C" {
 #include "rnnoise/rnnoise.h"
 #include "speex_aec/speex_aec.h"
 }
 #endif
 
-// A implementação concreta fica escondida no Impl para não vazar headers do
-// libwebrtc (C++20 + abseil) para o resto do app — o resto do Halla segue
-// compilando igual no build fallback sem SDK.
+// The concrete implementation is hidden in Impl so libwebrtc headers
+// (C++20 + abseil) do not leak into the rest of the app -- the rest of Halla
+// keeps compiling identically in the no-SDK fallback build.
 struct HallaAudioProcessing::Impl {
 #ifdef HALLA_WEBRTC_NATIVE
     webrtc::scoped_refptr<webrtc::AudioProcessing> apm;
@@ -37,23 +37,28 @@ struct HallaAudioProcessing::Impl {
     bool denoiseEnabled = false;
     bool echoEnabled = false;
 #else
-    // ---- fallback embutido ----
-    // NS: estado do RNNoise (um por engine; ~44 KB).
+    // ---- embedded fallback ----
+    // NS: RNNoise state (one per engine; ~44 KB).
     DenoiseState* ns = nullptr;
-    // AEC: cancelador do speex (um por engine; ~centenas de KB com a cauda
-    // de 250 ms — criado apenas quando o eco está ligado).
+    // AEC: speex canceller (one per engine; ~hundreds of KB with the 250 ms
+    // tail -- created only when echo is enabled).
     void* aec = nullptr;
     bool denoise = false;
     bool echo = false;
-    // Mistura sinal original/processado conforme o nível do slider
-    // (0-100): 1.0 = RNNoise integral; ~0.55 = supressão suave.
+    // Mixes original/processed signal according to the slider level (0-100):
+    // 1.0 = full RNNoise; ~0.55 = gentle suppression.
     float denoiseAlpha = 0.775f;
-    // Passa-alta de 2a ordem (rumble/DC) — mesmo papel do high_pass_filter
-    // do APM: tira energia sub-grave que só gasta bitrate e abre o VAD.
+    // 2nd-order high-pass (rumble/DC) -- same role as the APM high_pass_filter:
+    // removes sub-bass energy that only wastes bitrate and opens the VAD.
     float hpX1 = 0, hpX2 = 0, hpY1 = 0, hpY2 = 0;
-    // O AEC só processa com referência far-end recente: sem playout não
-    // existe eco, e chamar capture sem playback vira spam de warning + o
-    // filtro divergendo no speex. Contador de frames sem reverse (10 ms).
+    // One-frame dry delay line: RNNoise output lags the input by one 480-sample
+    // frame, so the dry signal is delayed by the same amount before mixing --
+    // otherwise dry/wet mixing comb-filters the voice.
+    float dryDelay[480] = {};
+    bool dryPrimed = false;
+    // The AEC only processes with a recent far-end reference: without playout
+    // there is no echo, and calling capture without playback spams warnings
+    // and diverges the speex filter. Counter of frames without reverse (10 ms).
     int reverseStarved = 100000;
 #endif
 };
@@ -83,29 +88,29 @@ void HallaAudioProcessing::configure(bool denoiseEnabled, int denoiseLevel0to100
                                      bool echoCancellation) {
 #ifdef HALLA_WEBRTC_NATIVE
     if (!m_impl->apm) {
-        // BuiltinAudioProcessingBuilder monta a cadeia completa: AEC3 com
-        // estimador neural de eco residual + supressão de ruído por modelo
-        // neural + filtro passa-alta. É a mesma classe de processamento que
-        // apps de voz comerciais usam — e o "cancelamento de eco" do Halla
-        // deixou de ser um checkbox sem efeito.
+        // BuiltinAudioProcessingBuilder assembles the full chain: AEC3 with a
+        // neural residual-echo estimator + neural-model noise suppression +
+        // high-pass filter. It is the same class of processing commercial
+        // voice apps use -- and Halla "echo cancellation" stopped being a
+        // checkbox without effect.
         m_impl->apm = webrtc::BuiltinAudioProcessingBuilder().Build(
             webrtc::CreateEnvironment());
         if (!m_impl->apm) return; // caller detecta via echoActive()/denoiseActive()
     }
 
     webrtc::AudioProcessing::Config config;
-    // Passa-alta em banda completa: corta rumble/DC que abre o VAD a toa e
-    // gasta bitrate do Opus sem contribuir para a fala.
+    // Full-band high-pass: cuts rumble/DC that opens the VAD for nothing and
+    // wastes Opus bitrate without contributing to speech.
     config.high_pass_filter.enabled = denoiseEnabled || echoCancellation;
     config.high_pass_filter.apply_in_full_band = true;
 
-    // AEC3: usa a referencia far-end (processReverseFrame) para subtrair do
-    // microfone o que esta tocando no alto-falante. O estimador de atraso
-    // interno tolera o alinhamento aproximado do sink do Qt.
+    // AEC3: uses the far-end reference (processReverseFrame) to subtract from
+    // the microphone whatever is playing on the speaker. The internal delay
+    // estimator tolerates the approximate Qt sink alignment.
     config.echo_canceller.enabled = echoCancellation;
 
-    // Supressao de ruído neural (wiener + probabilidade de fala): remove
-    // ventilador, teclado, rua — sem o "efeito submarino" dos gates antigos.
+    // Neural noise suppression (wiener + speech probability): removes fans,
+    // keyboards, street noise -- without the "underwater effect" of old gates.
     config.noise_suppression.enabled = denoiseEnabled;
     config.noise_suppression.level = nsLevelFor(denoiseLevel0to100);
 
@@ -113,17 +118,17 @@ void HallaAudioProcessing::configure(bool denoiseEnabled, int denoiseLevel0to100
     m_impl->denoiseEnabled = denoiseEnabled;
     m_impl->echoEnabled = echoCancellation;
 #else
-    // ---- fallback embutido: RNNoise + AEC MDF do speex ----
-    // Criar/destruir estado conforme as opções; ApplyConfig equivalente.
+    // ---- embedded fallback: RNNoise + speex MDF AEC ----
+    // Creates/destroys state according to the options; ApplyConfig equivalent.
     if (denoiseEnabled && !m_impl->ns) {
-        m_impl->ns = rnnoise_create(nullptr); // modelo padrão embutido
+        m_impl->ns = rnnoise_create(nullptr); // built-in default model
     } else if (!denoiseEnabled && m_impl->ns) {
         rnnoise_destroy(m_impl->ns);
         m_impl->ns = nullptr;
     }
     if (echoCancellation && !m_impl->aec) {
-        // Quadros de 480 amostras (10 ms @ 48 kHz) e cauda de 250 ms: cobre
-        // o buffer do QAudioSink (~160 ms) + o caminho acústico da sala.
+        // 480-sample frames (10 ms @ 48 kHz) and a 250 ms tail: covers the
+        // QAudioSink buffer (~160 ms) + the room acoustic path.
         m_impl->aec = halla_speex_aec_init(480, 480 * 25);
     } else if (!echoCancellation && m_impl->aec) {
         halla_speex_aec_destroy(m_impl->aec);
@@ -155,8 +160,8 @@ bool HallaAudioProcessing::echoActive() const {
 void HallaAudioProcessing::processCaptureFrame(int16_t* samples480) {
     if (!m_impl->apm || !samples480) return;
     if (m_impl->echoEnabled) {
-        // Dica de atraso far-end -> eco: atualizada pelo VoiceEngine com o
-        // nivel real do buffer do QAudioSink (+ latencia do dispositivo).
+        // Far-end -> echo delay hint: updated by VoiceEngine with the real
+        // QAudioSink buffer level (+ device latency).
         m_impl->apm->set_stream_delay_ms(m_streamDelayMs);
     }
     m_impl->apm->ProcessStream(samples480, m_impl->streamConfig,
@@ -165,16 +170,16 @@ void HallaAudioProcessing::processCaptureFrame(int16_t* samples480) {
 
 void HallaAudioProcessing::processReverseFrame(const int16_t* samples480) {
     if (!m_impl->apm || !samples480) return;
-    // src e dest podem compartilhar memoria (contrato do APM int16).
+    // src and dest may share memory (int16 APM contract).
     m_impl->apm->ProcessReverseStream(samples480, m_impl->streamConfig,
                                       m_impl->streamConfig,
                                       const_cast<int16_t*>(samples480));
 }
 #else
-// Filtro passa-alta Butterworth de 2a ordem @ 80 Hz (fs 48 kHz, Q=0.707):
-// corta rumble/DC sem tocar na voz masculina grave (300 Hz passa a 99.75%).
+// 2nd-order Butterworth high-pass @ 80 Hz (fs 48 kHz, Q=0.707): cuts
+// rumble/DC without touching deep male voice (300 Hz passes at 99.75%).
 static void highPassFrame(float* x, int n, float& x1, float& x2, float& y1, float& y2) {
-    // Coeficientes precisos p/ fc=80 Hz (verificados: H(10Hz)=0.016, H(80)=0.707,
+    // Precise coefficients for fc=80 Hz (verified: H(10Hz)=0.016, H(80)=0.707,
     // H(300Hz)=0.998, H(1kHz)=1.000).
     constexpr float b0 = 0.99262254f, b1 = -1.98524509f, b2 = 0.99262254f;
     constexpr float a1 = -1.98519066f, a2 = 0.98529951f;
@@ -189,54 +194,65 @@ static void highPassFrame(float* x, int n, float& x1, float& x2, float& y1, floa
 void HallaAudioProcessing::processCaptureFrame(int16_t* samples480) {
     if (!samples480) return;
     Impl& d = *m_impl;
-    if (!d.denoise && !d.echo) return; // nada pedido: passthrough barato
+    if (!d.denoise && !d.echo) return; // nothing requested: cheap passthrough
 
-    // ---- 1. AEC (speex MDF, dominio int16) ----
-    // Só com referência far-end fresca (sem playout não existe eco — e o
-    // speex enche o log de warning se capturarmos sem playback).
+    // ---- 1. AEC (speex MDF, int16 domain) ----
+    // Only with a fresh far-end reference (without playout there is no echo --
+    // and speex floods the log with warnings if we capture without playback).
     ++d.reverseStarved;
     if (d.echo) {
         if (d.reverseStarved == 1) {
-            // Retomada depois de uma pausa longa: caminho acústico pode ter
-            // mudado (usuário pôs/tirou fone) — filtro do zero.
+            // Resuming after a long pause: the acoustic path may have changed
+            // (user put on/took off a headset) -- restart the filter.
             if (m_restartArmed) halla_speex_aec_reset(d.aec);
             m_restartArmed = false;
         }
-        if (d.reverseStarved <= 50) { // referência nos últimos ~500 ms
+        if (d.reverseStarved <= 50) { // reference within the last ~500 ms
             halla_speex_aec_capture(d.aec, samples480, samples480);
         } else if (!m_restartArmed) {
-            m_restartArmed = true;   // sem reverse: arma o reset da retomada
+            m_restartArmed = true;   // no reverse: arm the resume reset
         }
     }
 
-    if (!d.denoise) return; // só eco: pronto
+    if (!d.denoise) return; // echo only: done
 
-    // ---- 2. NS (RNNoise, dominio float) ----
-    // O detector de silêncio interno do modelo calibra com energia
-    // espectral típica de fala a ~-10 dBFS; microfones cotidianos chegam
-    // bem abaixo. Pré-ganho FIXO de +8 dB (x2.5) — sem dinâmica, portanto
-    // sem modulação de ganho entre quadros — leva mics comuns ao regime do
-    // modelo, e a divisão final devolve a escala original: os ganhos por
-    // banda do modelo são relativos, então o resultado é o mesmo sinal com
-    // o ruído atenuado.
+    // ---- 2. NS (RNNoise, float domain) ----
+    // RNNoise expects int16-scale floats (values in [-32768, 32767]): feeding
+    // normalized [-1, 1] samples makes the model see near-silence and the
+    // suppression never engages. The model's internal silence detector
+    // calibrates with typical speech spectral energy at ~-10 dBFS; everyday
+    // microphones arrive well below that. A FIXED +8 dB pre-gain (x2.5) -- no
+    // dynamics, therefore no gain modulation between frames -- brings common
+    // mics into the model regime, and the final division restores the
+    // original scale: the model band gains are relative, so the result is
+    // the same signal with attenuated noise.
     constexpr float kPreGain = 2.5f;
     float x[480];
     for (int i = 0; i < 480; ++i)
-        x[i] = (float(samples480[i]) / 32768.0f) * kPreGain;
+        x[i] = qBound(-32768.0f, float(samples480[i]) * kPreGain, 32767.0f);
 
-    // ---- 3. passa-alta (junto do NS, como no APM) ----
+    // ---- 3. high-pass (together with the NS, as in the APM) ----
     highPassFrame(x, 480, d.hpX1, d.hpX2, d.hpY1, d.hpY2);
 
     float y[480];
     rnnoise_process_frame(d.ns, y, x);
 
-    // Nível do slider: mistura original/processado. Os ganhos do RNNoise
-    // preservam a fase, então a mistura linear não gera cancelamento.
+    // Slider level: original/processed mix. RNNoise gains preserve phase, so
+    // linear mixing does not cancel. The dry signal is delayed by one frame
+    // to align with the RNNoise output latency (480 samples).
+    float dry[480];
+    if (!d.dryPrimed) {
+        std::memcpy(dry, x, sizeof(dry));
+        d.dryPrimed = true;
+    } else {
+        std::memcpy(dry, d.dryDelay, sizeof(dry));
+    }
+    std::memcpy(d.dryDelay, x, sizeof(d.dryDelay));
     const float alpha = d.denoiseAlpha;
     const float invGain = 1.0f / kPreGain;
     for (int i = 0; i < 480; ++i) {
-        const float mixed = alpha * y[i] + (1.0f - alpha) * x[i];
-        samples480[i] = int16_t(qBound(-32768.0f, mixed * 32768.0f * invGain, 32767.0f));
+        const float mixed = alpha * y[i] + (1.0f - alpha) * dry[i];
+        samples480[i] = int16_t(qBound(-32768.0f, mixed * invGain, 32767.0f));
     }
 }
 

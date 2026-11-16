@@ -67,7 +67,7 @@ QStringList WhisperDialog::activeWhisperUids() {
 
 WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     : QDialog(parent), m_data(data) {
-    // Proporções e organização do diálogo clássico de listas de sussurro.
+    // Proportions and organization of the classic whisper lists dialog.
     setWindowTitle(tr("Lista de sussurros"));
     setFixedSize(701, 497);
 
@@ -90,7 +90,7 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     QHBoxLayout* columnsLayout = new QHBoxLayout;
     columnsLayout->setSpacing(10);
 
-    // Coluna esquerda — mesmo tamanho e ordem da referência.
+    // Left column -- same size and order as the reference.
     QVBoxLayout* colLeft = new QVBoxLayout;
     colLeft->setSpacing(5);
     m_syncList = new QListWidget(this);
@@ -114,7 +114,7 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     colLeft->addLayout(leftButtons);
     columnsLayout->addLayout(colLeft);
 
-    // Área central: detalhes e os destinatários selecionados.
+    // Central area: details and the selected recipients.
     QVBoxLayout* colCenter = new QVBoxLayout;
     colCenter->setSpacing(6);
     QFormLayout* centerForm = new QFormLayout;
@@ -136,7 +136,7 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     colCenter->addWidget(m_targetsTree, 1);
     columnsLayout->addLayout(colCenter, 1);
 
-    // Coluna direita: filtro, contatos/canais e pesquisa, sem títulos extras.
+    // Right column: filter, contacts/channels and search, without extra titles.
     QVBoxLayout* colRight = new QVBoxLayout;
     colRight->setSpacing(6);
     m_filterCombo = new QComboBox(this);
@@ -177,8 +177,8 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
     footerLayout->addWidget(btnApply);
     mainLayout->addLayout(footerLayout);
 
-    // Importar/exportar é acessível pelo menu de contexto, preservando o
-    // desenho literal da referência sem novos botões na barra inferior.
+    // Import/export is reachable from the context menu, preserving the literal
+    // reference design without new buttons in the bottom bar.
     m_syncList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_syncList, &QListWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
         QMenu menu(this);
@@ -209,13 +209,12 @@ WhisperDialog::WhisperDialog(const ServerData* data, QWidget* parent)
             for (const QJsonValue& value : doc.array()) {
                 const QJsonObject list = value.toObject();
                 const QString name = list["name"].toString().trimmed();
-                if (name.isEmpty()) continue;         // sem nome: fora
+                if (name.isEmpty()) continue;         // without a name: skipped
                 if (seenNames.contains(name)) continue; // duplicata no arquivo: fica a primeira
-                // Sanitiza campo a campo: arquivos editados à mão ou de
-                // versões antigas podiam entrar sem "uids" (o sussurro
-                // resolvia zero alvos), com "scope" fora de faixa ou com
-                // tipos errados — estados corrompidos que quebravam a
-                // resolução de alvos em silêncio.
+                // Sanitizes field by field: hand-edited files or files from old
+                // versions could arrive without "uids" (whisper resolved zero
+                // targets), with an out-of-range "scope" or with wrong types --
+                // corrupted state that silently broke target resolution.
                 QJsonObject clean;
                 clean["name"] = name;
                 clean["key"] = list["key"].toString();
@@ -284,15 +283,14 @@ void WhisperDialog::loadSettings() {
 
 void WhisperDialog::saveSettings() {
     saveList("whispers", m_whispers);
-    // A lista ativa NÃO nasce da seleção da UI: selecionar uma linha para
-    // editar não é ativá-la — a lista ativa muda quando o usuário aperta a
-    // tecla de sussurro da lista (whisperSetHeld). Derivar daqui era o
-    // gatilho do bug do import: a seleção era do estado PRÉ-import e era
-    // aplicada por ÍNDICE sobre as listas NOVAS (m_whispers acabara de ser
-    // trocada pelo arquivo) — a lista ativa virava outra qualquer, ou
-    // continuava apontando para um nome que não existe mais, e o sussurro
-    // resolvia os alvos errados (ou nenhum). Aqui só garantimos a
-    // integridade: se a lista ativa deixou de existir, limpa.
+    // The active list does NOT come from the UI selection: selecting a row to edit
+    // is not activating it -- the active list changes when the user presses the
+    // list's whisper key (whisperSetHeld). Deriving it from here was the trigger of
+    // the import bug: the selection came from the PRE-import state and was applied
+    // by INDEX over the NEW lists (m_whispers had just been swapped by the file) --
+    // the active list became some other one, or kept pointing at a name that no
+    // longer exists, and whisper resolved the wrong targets (or none). Here we only
+    // guarantee integrity: if the active list no longer exists, clear it.
     const QString active = S::str("whisper/activeList");
     if (!active.isEmpty()) {
         bool stillExists = false;
@@ -389,8 +387,6 @@ void WhisperDialog::onSelectedListChanged() {
     m_isLoading = false;
 }
 
-void WhisperDialog::onTargetsChanged() {
-}
 
 void WhisperDialog::onSearchTextChanged(const QString& text) {
     if (text.isEmpty()) {
@@ -511,9 +507,9 @@ void WhisperDialog::populateServerTree() {
 }
 
 void WhisperDialog::populateTargetsTreeForSelected() {
-    // A área central é uma lista de DESTINOS escolhidos, não uma segunda
-    // cópia da árvore do servidor. Canais/clientes só entram aqui depois de
-    // serem escolhidos na árvore à direita.
+    // The central area is a list of CHOSEN targets, not a second copy of the
+    // server tree. Channels/clients only enter here after being picked in the tree
+    // on the right.
     m_isLoading = true;
     m_targetsTree->clear();
     QListWidgetItem* currentItem = m_syncList->currentItem();
@@ -552,7 +548,7 @@ void WhisperDialog::onServerTreeDoubleClicked(QTreeWidgetItem* item, int column)
     QString type = item->data(0, Qt::UserRole + 1).toString();
     if (type.isEmpty() || type == "server") return;
     const int filter = m_filterCombo->currentIndex();
-    // O filtro à direita determina exatamente o tipo que pode ser adicionado.
+    // The filter on the right determines exactly which type can be added.
     if ((filter == 1 && type != QLatin1String("channel")) ||
         (filter == 2 && type != QLatin1String("user"))) return;
     QString name = item->text(0);
@@ -736,7 +732,7 @@ void ContactsDialog::reload() {
     }
 }
 
-// ================================================================== Transferências
+// ================================================================== Transfers
 static QString fmtSize(const QString& bytesStr) {
     const qint64 b = bytesStr.toLongLong();
     if (b >= 1024 * 1024) return QStringLiteral("%1 MB").arg(b / 1048576.0, 0, 'f', 1);
@@ -805,7 +801,7 @@ FileTransferDialog::FileTransferDialog(NetSession* net, ServerData* data, QWidge
     connect(m_channels, &QComboBox::currentIndexChanged, this,
             [this](int) { this->refresh(); });
 
-    // lista recebida do servidor
+    // list received from the server
     connect(m_net, &NetSession::ftListReceived, this,
             [this](int channel, const QJsonArray& files) {
                 if (channel != currentChannel()) return;
@@ -822,7 +818,7 @@ FileTransferDialog::FileTransferDialog(NetSession* net, ServerData* data, QWidge
                 }
             });
 
-    // conteúdo de download recebido -> salvar
+    // received download content -> save
     connect(m_net, &NetSession::ftDataReceived, this,
             [this](int channel, const QString& name, const QByteArray& bytes) {
                 Q_UNUSED(channel);
@@ -852,7 +848,7 @@ FileTransferDialog::FileTransferDialog(NetSession* net, ServerData* data, QWidge
         QFile f(path);
         if (!f.open(QIODevice::ReadOnly)) return;
         const QByteArray data = f.readAll();
-        if (data.size() > 1024 * 512) { // base64 incha ~33% -> limite efetivo no servidor: 1 MiB
+        if (data.size() > 1024 * 512) { // base64 inflates ~33% -> effective limit on the server: 1 MiB
             QMessageBox::warning(this, tr("Arquivo grande"),
                 tr("O arquivo excede 512 KB, o limite por arquivo deste servidor."));
             return;

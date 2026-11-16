@@ -7,8 +7,8 @@
 #include <QToolButton>
 #include <QMap>
 
-// Painel de chat no estilo Halla: abas de chat do servidor/canal,
-// mensagens com horário, BBCode ([b][i][u][color=][size=][url=]) e emojis.
+// Halla-style chat panel: server/channel chat tabs, timestamped messages,
+// BBCode ([b][i][u][color=][size=][url=]) and emojis.
 class ChatPanel : public QWidget {
     Q_OBJECT
 public:

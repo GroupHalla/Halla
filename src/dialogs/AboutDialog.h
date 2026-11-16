@@ -2,7 +2,7 @@
 
 #include <QDialog>
 
-// Janela "Sobre o Halla" com faixa, logo e informações de versão
+// "About Halla" window with banner, logo and version information
 class AboutDialog : public QDialog {
     Q_OBJECT
 public:

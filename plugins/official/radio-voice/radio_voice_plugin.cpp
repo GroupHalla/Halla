@@ -1,22 +1,22 @@
-// Complemento oficial "Voz de rádio policial" — versão em pacote .halla-addon.
+// Official "Police radio voice" addon -- packaged .halla-addon version.
 //
-// O DSP é o mesmo do complemento embutido nos aplicativos (RadioVoiceDsp.h,
-// compartilhado entre Halla Desktop e Halla Mobile por cópia fiel). Esta
-// biblioteca permite distribuir atualizações do efeito pelo catálogo oficial
-// (https://grouphalla.github.io/Halla-Addons/) SEM publicar uma nova versão
-// dos aplicativos: o pacote instalado substitui o complemento interno.
+// The DSP is the same one built into the applications (RadioVoiceDsp.h, shared by
+// Halla Desktop and Halla Mobile through a faithful copy). This library allows
+// shipping effect updates through the official catalog
+// (https://grouphalla.github.io/Halla-Addons/) WITHOUT publishing a new app
+// release: the installed package replaces the built-in addon.
 //
-// Estágios de áudio usados:
-//   HALLA_AUDIO_CAPTURE_AFTER_VAD — microfone local após a decisão de
-//     transmissão (o AGC do filtro não abre o detector de voz do host);
-//   HALLA_AUDIO_REMOTE_BEFORE_SPATIAL — cada voz recebida antes da
-//     espacialização. No Halla Mobile a captura chega como
-//     HALLA_AUDIO_CAPTURE (a decisão de transmissão é tomada antes da
-//     camada nativa), então os dois estágios são tratados como envio.
+// Audio stages used:
+//   HALLA_AUDIO_CAPTURE_AFTER_VAD -- local microphone after the transmission
+//     decision (the filter's AGC does not open the host's voice detector);
+//   HALLA_AUDIO_REMOTE_BEFORE_SPATIAL -- every received voice before
+//     spatialization. On Halla Mobile the capture arrives as
+//     HALLA_AUDIO_CAPTURE (the transmission decision is taken before the native
+//     layer), so both stages are handled as sending.
 //
-// Configurações (mesmo esquema do complemento interno):
+// Settings (same schema as the built-in addon):
 //   sendMode/receiveMode: "none" | "whisper" | "normal" | "both"
-//   intensity/noise: 0–100 (%)   gain: 50–150 (%)
+//   intensity/noise: 0-100 (%)   gain: 50-150 (%)
 
 #include "halla_plugin_api.h"
 #include "RadioVoiceDsp.h"
@@ -30,9 +30,9 @@
 
 namespace {
 
-// ------------------------------------------------------------- JSON mínimo
-// Parseadores tolerantes para os campos de configuração entregues pelo host
-// (mesma técnica do plugin_host.cpp do Halla Mobile: sem dependências).
+// --------------------------------------------------------------- minimal JSON
+// Tolerant parsers for the settings fields delivered by the host (same technique
+// as Halla Mobile's plugin_host.cpp: no dependencies).
 
 int jsonIntField(const std::string& json, const char* key, int fallback) {
     const std::string needle = std::string("\"") + key + "\":";
@@ -70,7 +70,7 @@ int clampInt(int value, int lo, int hi) {
     return value < lo ? lo : (value > hi ? hi : value);
 }
 
-// ----------------------------------------------------------- configuração
+// ------------------------------------------------------------- settings
 
 enum RadioMode {
     kModeNone = 0,
@@ -86,8 +86,8 @@ RadioMode modeFromName(const std::string& name) {
     return kModeNone;
 }
 
-// Atualizados pela thread da interface (on_settings_changed) e lidos pela
-// thread de áudio — por isso armazenados como atômicos.
+// Updated by the UI thread (on_settings_changed) and read by the audio thread --
+// that is why they are stored as atomics.
 std::atomic<int> g_sendMode{kModeWhisper};
 std::atomic<int> g_receiveMode{kModeWhisper};
 std::atomic<int> g_intensity{90};
@@ -118,9 +118,9 @@ struct StreamKey {
     }
 };
 
-// Estado de filtro por fluxo (conexão/usuário/estágio/canal). O mutex é
-// curto (busca em mapa + 20 ms de áudio) para respeitar as regras de
-// tempo real da ABI: captura e recepção chegam de threads diferentes.
+// Filter state per stream (connection/user/stage/channel). The mutex is short (a
+// map lookup + 20 ms of audio) to respect the ABI's real-time rules: capture and
+// reception arrive from different threads.
 std::mutex g_streamsMutex;
 std::map<StreamKey, RadioVoiceDsp> g_streams;
 
@@ -160,7 +160,7 @@ void processAudio(void*, HallaAudioFrame* frame) {
                             frame->stage, channel};
         RadioVoiceDsp& dsp = g_streams[key];
         if (!dsp.seeded()) {
-            // Mesma semente determinística do complemento interno.
+            // Same deterministic seed as the built-in addon.
             dsp.seed(0xA341316Cu ^ uint32_t(uint32_t(frame->user_id) * 2654435761u)
                 ^ uint32_t(frame->connection_id) ^ (frame->stage << 8) ^ channel);
         }

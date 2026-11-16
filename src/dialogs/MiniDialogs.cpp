@@ -8,7 +8,7 @@
 #include <QLabel>
 #include <QDialogButtonBox>
 
-// ------------------------------------------------------------------ chave de privilégio
+// ------------------------------------------------------------------ privilege key
 PrivilegeKeyDialog::PrivilegeKeyDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle(tr("Usar chave de privilégio"));
     setMinimumWidth(360);
@@ -117,9 +117,9 @@ VolumeDialog::VolumeDialog(const QString& target, int currentDb, QWidget* parent
 
     QHBoxLayout* row = new QHBoxLayout;
     m_slider = new QSlider(Qt::Horizontal, this);
-    // -60 a +30 dB: o antigo teto de +12 dB não dava para amplificar alguém
-    // com microfone fraco; +30 dB (~31x) cobre "extremamente alto" com
-    // saturação controlada no mix. O piso desce para -60 dB (quase mudo).
+    // -60 to +30 dB: the old +12 dB ceiling could not amplify someone with a weak
+    // microphone; +30 dB (~31x) covers "extremely loud" with controlled saturation
+    // in the mix. The floor goes down to -60 dB (almost muted).
     m_slider->setRange(-60, 30);
     m_slider->setValue(currentDb);
     m_label = new QLabel(QStringLiteral("%1 dB").arg(currentDb), this);
@@ -139,7 +139,7 @@ VolumeDialog::VolumeDialog(const QString& target, int currentDb, QWidget* parent
 
 int VolumeDialog::volume() const { return m_slider->value(); }
 
-// ------------------------------------------------------------------ informações de conexão do servidor
+// ------------------------------------------------------------------ server connection details
 #include "core/Models.h"
 #include "net/NetSession.h"
 #include <QDateTime>

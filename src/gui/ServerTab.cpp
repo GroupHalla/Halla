@@ -73,8 +73,8 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     lay->setContentsMargins(16, 4, 16, 12);
     lay->setSpacing(0);
 
-    // A composição principal replica a referência: dois cartões flutuantes
-    // no alto e um cartão de chat ocupando toda a largura abaixo.
+    // The main composition mirrors the reference: two floating cards at the top
+    // and a chat card taking the full width below.
     m_split = new QSplitter(Qt::Vertical, this);
     m_split->setObjectName(QStringLiteral("bodySplitter"));
     m_split->setChildrenCollapsible(false);
@@ -125,10 +125,10 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
     headerLayout->addWidget(more);
     treeLayout->addWidget(treeHeader);
 
-    // O botão "…" abre o menu do servidor (antes era um botão morto) e o
-    // botão direito no nome do servidor no cabeçalho abre o mesmo menu —
-    // "clicar com o direito no servidor" precisa funcionar em todos os
-    // lugares onde o servidor aparece, não só no espaço vazio da árvore.
+    // The "..." button opens the server menu (it used to be a dead button) and the
+    // right click on the server name in the header opens the same menu --
+    // "right-clicking the server" must work everywhere the server appears, not only
+    // in the empty area of the tree.
     connect(more, &QToolButton::clicked, this, [this, more] {
         showServerContextMenu(more->mapToGlobal(QPoint(0, more->height())));
     });
@@ -138,8 +138,8 @@ ServerTab::ServerTab(const ServerData& initial, QWidget* parent)
                 showServerContextMenu(m_serverHeaderName->mapToGlobal(pos));
             });
 
-    // O cabeçalho mostra somente o nome do servidor. A descrição e as
-    // informações ficam no painel ao lado quando o nome é clicado.
+    // The header shows only the server name. The description and the details live
+    // in the side panel when the name is clicked.
 
 
     m_tree = new ServerTreeWidget(treeCard);
@@ -213,11 +213,11 @@ void ServerTab::attachNetwork(NetSession* net) {
     net->attachTo(&m_data);
     updatePermissionUi();
 
-    // ids de sessão de uma conexão anterior não valem para esta; obriga o
-    // primeiro applyWhisper a reenviar o conjunto resolvido.
+    // session ids from a previous connection are not valid for this one; forces the
+    // first applyWhisper to resend the resolved set.
     m_lastSentWhisperIds.clear();
 
-    // usuários já presentes no login (não tocar som para eles)
+    // users already present at login (do not play a sound for them)
     for (const User& u : m_data.users) {
         m_knownUsers << u.id;
         m_lastChannels[u.id] = m_data.channelOfUser(u.id);
@@ -227,32 +227,31 @@ void ServerTab::attachNetwork(NetSession* net) {
     m_myChan = m_data.channelOfUser(m_data.selfId);
 
     connect(net, &NetSession::iconDataReceived, this, [this](const QString& name, const QByteArray& bytes) {
-        // Guarda em memória + disco (QStandardPaths — nunca caminho
-        // relativo: com o app em Program Files o cwd não é gravável) e
-        // repinta a lista na hora. Escopo por servidor.
+        // Keeps it in memory + on disk (QStandardPaths -- never a relative path:
+        // with the app in Program Files the cwd is not writable) and repaints the
+        // list right away. Scoped per server.
         GroupIconCache::instance().store(GroupIconCache::serverKey(m_data.address), name, bytes);
         m_tree->viewport()->update();
-        // O painel de informações embute o ícone de cargo no HTML — precisa
-        // re-renderizar quando os bytes chegam (a linha passa de só-nome
-        // para imagem + nome).
+        // The information panel embeds the role icon in HTML -- it must re-render
+        // when the bytes arrive (the row goes from name-only to image + name).
         m_info->refresh();
     });
 
     connect(net, &NetSession::iconUploaded, this, [this](const QString& name) {
-        // Um admin enviou (ou substituiu) um ícone: baixa IMEDIATAMENTE,
-        // mesmo que já exista cópia local — os bytes novos sobrescrevem o
-        // cache e iconDataReceived repinta a árvore. É isto que faz a
-        // imagem atualizar "na hora" para todos os conectados.
+        // An admin uploaded (or replaced) an icon: downloads IMMEDIATELY, even if a
+        // local copy already exists -- the new bytes overwrite the cache and
+        // iconDataReceived repaints the tree. This is what makes the image refresh
+        // "instantly" for everyone connected.
         if (m_net) m_net->iconGet(name);
     });
 
-    // estado vindo do servidor -> redesenha a árvore/informações
+    // state coming from the server -> repaints the tree/information panel
     connect(net, &NetSession::stateChanged, this, [this] {
-        // user_state chega a cada transição de fala (VAD) de qualquer cliente;
-        // um microfone oscilando pode gerar dezenas de eventos por segundo.
-        // Reconstruir a árvore em cada evento congelava a interface e fazia a
-        // lista de canais "descer sozinha". Coalesce as rajadas: processa no
-        // máximo uma vez a cada 120 ms, sempre com o estado mais recente.
+        // user_state arrives on every speech transition (VAD) of any client; a
+        // fluctuating microphone can generate dozens of events per second. Rebuilding
+        // the tree on each event froze the interface and made the channel list "scroll
+        // by itself". Coalesce the bursts: process at most once every 120 ms, always
+        // with the most recent state.
         if (m_stateRefreshPending) return;
         m_stateRefreshPending = true;
         QTimer::singleShot(120, this, [this] {
@@ -266,17 +265,17 @@ void ServerTab::attachNetwork(NetSession* net) {
                 if (scope == "server") {
                     m_chat->addServerChat(fromName, text);
                 } else if (scope == "private") {
-                    // O servidor ecoa a mensagem privada de volta ao remetente
-                    // para ela aparecer na conversa. Sem distinguir o eco
-                    // (from == eu), ele abria um privado "comigo mesmo" e a
-                    // mensagem caía lá em vez de ficar na conversa do destino
-                    // — exatamente o bug relatado. O peer certo é "to" no eco.
+                    // The server echoes the private message back to the sender so it
+                    // appears in the conversation. Without telling the echo apart (from ==
+                    // me), it opened a private chat "with myself" and the message landed
+                    // there instead of staying in the recipient's conversation -- exactly
+                    // the reported bug. The correct peer is "to" on the echo.
                     const bool selfEcho = (fromId == m_data.selfId);
                     const int peerId = selfEcho ? toId : fromId;
                     QString peerName = fromName;
                     if (selfEcho) {
-                        // Nome do destinatário: estado atual ou último conhecido
-                        // (ele pode ter saído do servidor entre o envio e o eco).
+                        // Recipient name: current or last known state (they may have left
+                        // the server between the send and the echo).
                         if (m_data.users.contains(peerId))
                             peerName = m_data.users[peerId].name;
                         else
@@ -315,15 +314,13 @@ void ServerTab::attachNetwork(NetSession* net) {
 
     connect(net, &NetSession::errorOccurred, this,
             [this](const QString& code, const QString& msg) {
-                // v1.1.37: not_found é o "não achei" de consultas de FUNDO —
-                // ícone de cargo que o admin referenciou mas nunca enviou
-                // (icon_get), avatar apagado, identidade que nunca conectou
-                // (identity_get). Nada disso é ação do usuário nem exige
-                // resposta dele: virava linha "Erro do servidor: ..." no chat
-                // + som de erro a cada re-tentativa (o ícone que falta é
-                // re-pedido pelo cache com recuo exponencial). Fica só no
-                // registro (Ajuda > Registro do cliente), onde quem diagnostica
-                // procura.
+                // v1.1.37: not_found is the "not found" of BACKGROUND queries -- a role
+                // icon the admin referenced but never uploaded (icon_get), a deleted
+                // avatar, an identity that never connected (identity_get). None of these
+                // is a user action nor needs a reply: it became a "Server error: ..." line
+                // in the chat plus an error sound on every retry (the missing icon is
+                // re-requested by the cache with exponential backoff). It stays only in
+                // the log (Help > Client log), where whoever diagnoses looks.
                 if (code == QLatin1String("not_found")) {
                     AppLog::warn(tr("Consulta de fundo sem resultado: %1").arg(msg));
                     return;
@@ -355,15 +352,15 @@ void ServerTab::attachNetwork(NetSession* net) {
                 }
             });
 
-    // ---- voz
-    // A lista ativa configura destinos; ela não transforma o PTT normal em
-    // sussurro. Apenas a tecla de sussurro ativa esse roteamento.
+    // ---- voice
+    // The active list configures the targets; it does not turn normal PTT into
+    // whisper. Only the whisper key enables that routing.
     m_voice = new VoiceEngine(net, &m_data, this);
     m_voice->setWhisperTargetsConfigured(!m_whisperUids.isEmpty());
-    // Indicador "falando" orientado a pacotes: o VoiceEngine acende/apaga o
-    // anel pelo áudio que realmente chega (UDP) e avisa aqui. Reusa a mesma
-    // coalescência do stateChanged — rajadas de pacotes de voz (20 ms) não
-    // podem reconstruir a árvore a cada quadro.
+    // Packet-driven "speaking" indicator: VoiceEngine lights/clears the ring from the
+    // audio that actually arrives (UDP) and notifies here. Reuses the same coalescing
+    // as stateChanged -- bursts of voice packets (20 ms) must not rebuild the tree on
+    // every frame.
     connect(m_voice, &VoiceEngine::remoteVoiceActivityChanged, this, [this] {
         if (m_stateRefreshPending) return;
         m_stateRefreshPending = true;
@@ -376,20 +373,19 @@ void ServerTab::attachNetwork(NetSession* net) {
         connect(m_voice, &VoiceEngine::talkingChanged, this, [this](bool on) {
             m_data.users[m_data.selfId].talking = on;
             m_data.users[m_data.selfId].whispering = on && (m_whisperHold || !m_whisperUids.isEmpty());
-            // PTT: o cue segue a TECLA (pressionar/soltar = falar começar/
-            // terminar). Nos modos por voz/contínuo o cue vem da detecção
-            // real de fala (speechActivityChanged) — tocar aqui faria o som
-            // disparar ao ABRIR a transmissão, não quando o usuário fala.
+            // PTT: the cue follows the KEY (press/release = speech start/end). In
+            // voice-activated/continuous modes the cue comes from real speech detection
+            // (speechActivityChanged) -- playing it here would fire the sound when the
+            // transmission OPENS, not when the user speaks.
             if (S::num("capture/pttMode", 1) == 0) playSpeechCue(on);
-            // v1.1.35: transição de fala do PRÓPRIO usuário = atualização
-            // leve (só o anel/ícone da linha). O rebuild completo aqui era
-            // uma rajada de recriação de itens a cada lig/deslig do VAD —
-            // na mesma thread do áudio.
+            // v1.1.35: the user's OWN speech transition = lightweight update (only the
+            // row ring/icon). A full rebuild here was a burst of item recreation on
+            // every VAD on/off -- on the same thread as the audio.
             m_tree->updateUserVisuals();
         });
-        // Cue "ao falar" dirigido por fala real: vale para detecção por voz
-        // E transmissão contínua, com a voz aberta ou fechada — o detector
-        // do VoiceEngine continua rodando mesmo com o microfone drenado.
+        // "On speak" cue driven by real speech: applies to voice detection AND
+        // continuous transmission, with voice open or closed -- the VoiceEngine
+        // detector keeps running even with the microphone drained.
         connect(m_voice, &VoiceEngine::speechActivityChanged, this,
                 [this](bool active) { playSpeechCueOnSpeech(active); });
         emit statusChanged();
@@ -397,7 +393,7 @@ void ServerTab::attachNetwork(NetSession* net) {
 }
 
 bool ServerTab::hasPermission(const QStringList& keys) const {
-    if (!m_net) return true; // abas locais/demo mantêm todos os controles disponíveis
+    if (!m_net) return true; // local/demo tabs keep every control available
     const QJsonObject perms = m_net->myPerms();
     if (perms.value(QStringLiteral("*")).toBool()) return true;
     for (const QString& key : keys) {
@@ -428,13 +424,13 @@ void ServerTab::applyDisplayOptions() {
     updatePermissionUi();
     m_tree->setShowCounts(S::flag("design/showCounts", true));
     m_tree->setShowMinis(S::flag("design/showMinis", true));
-    // v1.1.31: emblemas globais — padrão LIGADO (não existia na instalação
-    // limpa; quem marcou/desmarcou antes conserva a escolha no QSettings).
+    // v1.1.31: global badges -- default ON (they did not exist in a clean install;
+    // whoever toggled them keeps the choice in QSettings).
     m_tree->setShowBadges(S::flag("design/showBadgeIcons", true));
     m_tree->setSortClientsBelow(S::flag("design/sortClientsBelow", false));
     m_tree->rebuild();
 
-    // Expansão ao fazer login (Opções → Aparência → Árvore do canal)
+    // Expansion at login (Options > Appearance > Channel tree)
     const int mode = S::num("design/expandMode", 0);
     if (mode == 0) {
         m_tree->expandAll();
@@ -451,8 +447,8 @@ void ServerTab::hookSignals() {
             m_net->iconGet(name);
         }
     });
-    // Painel de informações: mesmo caminho de ícones da árvore (cota
-    // compartilhada no GroupIconCache — sem pedido duplicado).
+    // Information panel: same icon path as the tree (quota shared in
+    // GroupIconCache -- no duplicated request).
     connect(m_info, &InfoPanel::iconRequested, this, [this](const QString& name) {
         if (m_net) {
             m_net->iconGet(name);
@@ -606,7 +602,7 @@ void ServerTab::hookSignals() {
             return;
         }
 
-        // Abas locais/demo usam a mesma relação simétrica do servidor.
+        // Local/demo tabs use the same symmetric relation as the server.
         for (int i = 0; i < channelIds.size(); ++i) {
             if (!m_data.channels.contains(channelIds[i])) continue;
             for (int j = i + 1; j < channelIds.size(); ++j) {
@@ -634,10 +630,10 @@ void ServerTab::hookSignals() {
         if (dlg.exec() == QDialog::Accepted) {
             const int db = qBound(-60, dlg.volume(), 30);
             m_data.users[uid].volumeDb = db;
-            // Persiste por uniqueId (estável entre reconexões): "definir
-            // volume" agora sobrevive a reiniciar o app e a pessoa sair/entrar
-            // — antes o valor vivia só em memória e ainda era zerado pelo
-            // user_state do servidor a cada transição de fala.
+            // Persists by uniqueId (stable across reconnections): "set volume" now
+            // survives restarting the app and the person leaving/joining -- before the
+            // value lived only in memory and was still zeroed by the server's user_state
+            // on every speech transition.
             const QString uniqueId = m_data.users[uid].uniqueId;
             if (!uniqueId.isEmpty() && uniqueId != m_data.users.value(m_data.selfId).uniqueId)
                 S::set(QStringLiteral("userVolume/%1").arg(uniqueId), db);
@@ -665,7 +661,7 @@ void ServerTab::hookSignals() {
                                                                      : tr("expulso")));
             emit disconnectRequested();
         } else {
-            // remove o cliente do canal (comportamento local do cliente)
+            // removes the client from the channel (local client behavior)
             for (Channel& c : m_data.channels) c.users.removeAll(uid);
             m_data.users.remove(uid);
             systemMsgServer(isBan ? tr("Cliente banido do servidor.")
@@ -694,7 +690,7 @@ void ServerTab::hookSignals() {
     connect(m_tree, &ServerTreeWidget::moveToMyChannelRequested, this, [this](int uid) {
         if (!m_data.users.contains(uid)) return;
         if (m_net) {
-            // v2: o servidor move quem tem a permissão "move"
+            // v2: the server moves whoever holds the "move" permission
             const int myChan = m_data.channelOfUser(m_data.selfId);
             m_net->moveOther(uid, myChan);
             return;
@@ -730,22 +726,20 @@ void ServerTab::hookSignals() {
 void ServerTab::systemMsgServer(const QString& msg)  { m_chat->addServerSystem(msg); }
 void ServerTab::systemMsgChannel(const QString& msg) { m_chat->addChannelSystem(msg); }
 
-// Estado consolidado do servidor: sons de entrada/saída, sincronização do
-// sussurro e redesenho da árvore. Extraído do handler de stateChanged para
-// poder ser coalescido (rajadas de user_state de VAD não podem reexecutar
-// tudo dezenas de vezes por segundo).
+// Consolidated server state: join/leave sounds, whisper synchronization and tree
+// repaint. Extracted from the stateChanged handler so it can be coalesced (bursts of
+// VAD user_state must not rerun everything dozens of times per second).
 void ServerTab::refreshServerState() {
-    // Detecta entradas e saídas especificamente no canal atual do usuário.
-    // Usuários que entram em outros canais não disparam o aviso da call.
+    // Detects joins and leaves specifically in the user's current channel. Users
+    // joining other channels do not trigger the call notice.
     QSet<int> now;
     QMap<int, int> currentChannels;
-    // Enquanto o PRÓPRIO usuário está falando, o sinal sonoro do parceiro
-    // não dispara: com alto-falantes, o começo da voz do parceiro "volta"
-    // pelo microfone dele como crosstalk e abria o indicador/talking dele
-    // junto com o do usuário — o som "ao falar" tocava duplicado (uma vez
-    // por quem falou, outra pelo eco do outro lado). O EchoGuard já corta
-    // o eco na origem; isto aqui é a rede de segurança para builds/peers
-    // antigos: enquanto eu falo, o cue remoto fica calado.
+    // While the user is speaking, the partner's sound cue does not fire: with
+    // speakers, the beginning of the partner's voice "comes back" through their
+    // microphone as crosstalk and lit up their indicator/talking together with the
+    // user's -- the "on speak" sound played twice (once for the speaker, once for the
+    // echo on the other side). EchoGuard already cuts the echo at the source; this is
+    // the safety net for old builds/peers: while I speak, the remote cue stays silent.
     const bool selfSpeaking = m_data.users.value(m_data.selfId).talking
         || (m_voice && m_voice->speechActive());
     for (const User& u : m_data.users) {
@@ -756,7 +750,7 @@ void ServerTab::refreshServerState() {
             const bool wasTalking = m_lastTalking.value(u.id, false);
             const bool wasWhispering = m_lastWhispering.value(u.id, false);
             if (u.whispering && !wasWhispering)
-                m_lastWhisperFromId = u.id; // tecla de resposta: último sussurrador
+                m_lastWhisperFromId = u.id; // reply key: last whisperer
             if (u.talking && (!wasTalking || (u.whispering && !wasWhispering))) {
                 if (!selfSpeaking) playRemoteSpeechCue(u, true);
             } else if (!u.talking && wasTalking) {
@@ -803,43 +797,42 @@ void ServerTab::refreshServerState() {
         }
     }
 
-    // A própria troca de canal usa um único aviso, sem tocar uma vez para
-    // cada pessoa que já estava no destino.
+    // The channel switch itself uses a single notice, without playing once for each
+    // person who was already at the destination.
     if (selfChangedChannel && S::flag("notify/channelSwitchSound", true))
         HSound::play(QStringLiteral("moved"));
     m_knownUsers = now;
     m_lastChannels = currentChannels;
     m_myChan = myChan;
 
-    applyWhisper(); // mantém o alvo do sussurro sincronizado (ids mudam a cada login)
+    applyWhisper(); // keeps the whisper target in sync (ids change on every login)
     updatePermissionUi();
 
-    // v1.1.35: assinatura estrutural do servidor (id+revisão de cada usuário
-    // e canal — a revisão só sobe quando algo estrutural muda; transições de
-    // fala NÃO contam). Mesma assinatura = nada entrou/saiu/moveu/renomeou/
-    // mudou permissão: a árvore recebe a atualização LEVE (updateUserVisuals
-    // repinta só o anel/ícone das linhas cuja chave visual mudou) em vez de
-    // ser destruída e reconstruída. Antes, cada rajada de user_state (uma
-    // por transição de fala de cada cliente, coalescida a 120 ms) recriava
-    // TODOS os itens/ícones/tooltips/expansão/rolagem — em salas cheias isso
-    // virava uma fábrica de pixmaps a 8x/s na MESMA thread do pipeline de
-    // áudio, e a voz picotava depois de um tempo de sessão.
+    // v1.1.35: structural server signature (id+revision of each user and channel --
+    // the revision only bumps when something structural changes; speech transitions
+    // do NOT count). Same signature = nothing joined/left/moved/renamed/changed
+    // permissions: the tree receives the LIGHT update (updateUserVisuals repaints only
+    // the ring/icon of the rows whose visual key changed) instead of being destroyed
+    // and rebuilt. Before, every user_state burst (one per speech transition of each
+    // client, coalesced to 120 ms) recreated ALL items/icons/tooltips/expansion/
+    // scroll -- in full rooms that became a pixmap factory at 8x/s on the SAME thread
+    // as the audio pipeline, and the voice chopped after some session time.
     QString sig;
     for (auto it = m_data.users.constBegin(); it != m_data.users.constEnd(); ++it)
         sig += QString::number(it.key()) + QLatin1Char(':')
              + QString::number(it.value().rev) + QLatin1Char(';');
     sig += QLatin1Char('#');
-    // v1.1.36: a contagem de membros entra na assinatura como salvaguarda —
-    // qualquer caminho que mude a membership de um canal SEM bumpar a
-    // revisão (regressão da v1.1.35: user_moved mutava Channel.users
-    // diretamente) ainda muda a assinatura e força o rebuild.
+    // v1.1.36: the member count enters the signature as a safeguard -- any path that
+    // changes a channel's membership WITHOUT bumping the revision (a v1.1.35
+    // regression: user_moved mutated Channel.users directly) still changes the
+    // signature and forces the rebuild.
     for (auto it = m_data.channels.constBegin(); it != m_data.channels.constEnd(); ++it)
         sig += QString::number(it.key()) + QLatin1Char(':')
              + QString::number(it.value().rev) + QLatin1Char(':')
              + QString::number(it.value().users.size()) + QLatin1Char(';');
 
     if (sig == m_structSig) {
-        m_tree->updateUserVisuals(); // nada estrutural: só estados visuais
+        m_tree->updateUserVisuals(); // nothing structural: visual states only
     } else {
         m_structSig = sig;
         m_tree->rebuild();
@@ -867,16 +860,16 @@ void ServerTab::playSpeechCue(bool active) {
 }
 
 void ServerTab::playSpeechCueOnSpeech(bool active) {
-    // Sinal sonoro baseado em FALA DETECTADA (não em estado de transmissão):
-    // "se o usuário estiver usando transmissão contínua ou detecção por voz,
-    // o sinal só pode tocar quando o usuário FALAR" — com a voz aberta ou
-    // fechada, porque o detector roda no microfone drenado também.
+    // Sound cue based on DETECTED SPEECH (not on transmission state): "if the user
+    // is on continuous transmission or voice detection, the cue may only play when
+    // the user SPEAKS" -- with the voice open or closed, because the detector also
+    // runs on the drained microphone.
     if (!S::flag("capture/speechCueEnabled", false)) return;
-    if (S::num("capture/pttMode", 1) == 0) return;   // PTT: cue vem da tecla
+    if (S::num("capture/pttMode", 1) == 0) return;   // PTT: the cue comes from the key
     if (S::num("capture/speechCueMode", 1) != 1) return; // "Emitir ao" = PTT
-    // O sussurro já tocou o próprio som ao APERTAR o botão (hold): enquanto o
-    // hold estiver aberto, a fala detectada não re-dispara o mesmo cue — o
-    // sussurro segue a tecla, o resto segue a fala.
+    // Whisper already played its own sound when the button was PRESSED (hold):
+    // while the hold is open, detected speech does not retrigger the same cue --
+    // whisper follows the key, everything else follows speech.
     if (active && m_whisperHold && m_whisperHoldCuePlayed) return;
 
     QString path;
@@ -892,13 +885,13 @@ void ServerTab::playSpeechCueOnSpeech(bool active) {
 }
 
 void ServerTab::playWhisperHoldCue() {
-    // Sussurro "por tecla": em modos por voz/contínuo o hold de sussurro
-    // funciona como o PTT dele (apertar = a voz passa a ir para os alvos do
-    // sussurro) — então o som de sussurro toca AO APERTAR, mesmo que a
-    // detecção por voz ainda não tenha aberto (ou nem abra). Não depende do
-    // "Emitir ao" selecionado: só o sussurro tem tecla própria nesses modos;
-    // o cue normal continua vindo da fala. Em PTT nada muda (o cue segue a
-    // tecla de transmissão e o path de sussurro já é aplicado lá).
+    // Key-driven whisper: in voice-activated/continuous modes the whisper hold works
+    // as its own PTT (pressing = the voice starts going to the whisper targets) -- so
+    // the whisper sound plays AS THE KEY IS PRESSED, even if voice detection has not
+    // opened (or never opens). It does not depend on the selected "Emit on": only
+    // whisper has its own key in these modes; the normal cue keeps coming from
+    // speech. Nothing changes in PTT (the cue follows the transmission key and the
+    // whisper path is already applied there).
     if (!S::flag("capture/speechCueEnabled", false)) return;
     QString path = S::str("capture/speechCueWhisper");
     if (path.isEmpty()) path = S::str("capture/speechCueActive");
@@ -924,7 +917,7 @@ void ServerTab::joinChannel(int channelId) {
     const int oldChan = m_data.channelOfUser(self.id);
     if (oldChan == channelId) return;
 
-    // modo de rede: pergunta a senha (se houver) e envia ao servidor
+    // network mode: asks for the password (if any) and sends it to the server
     if (m_net) {
         Channel& c = m_data.channels[channelId];
         QString pass;
@@ -1061,7 +1054,7 @@ void ServerTab::deleteChannel(int channelId) {
 
     for (int uid : c.users)
         if (m_data.users.contains(uid)) {
-            // move usuários para o canal padrão
+            // moves users to the default channel
             for (Channel& ch : m_data.channels)
                 if (ch.isDefault) { ch.users << uid; break; }
         }
@@ -1092,8 +1085,8 @@ void ServerTab::renameSelf() {
     emit statusChanged();
 }
 
-// Renomear outro cliente. O servidor valida permissão (move) e hierarquia,
-// persiste o apelido para a identidade do alvo e faz o broadcast user_nick.
+// Renames another client. The server validates permission (move) and hierarchy,
+// persists the nickname for the target's identity and broadcasts user_nick.
 void ServerTab::renameUser(int userId) {
     if (!m_data.users.contains(userId)) return;
     User& target = m_data.users[userId];
@@ -1125,11 +1118,10 @@ void ServerTab::setSelfDescription() {
 }
 
 void ServerTab::showServerContextMenu(const QPoint& globalPos) {
-    // Mesmo menu do servidor do clique direito na árvore (espaço vazio):
-    // Desconectar / Editar servidor virtual (nome, mensagem do dia e BANNER)
-    // / Adicionar aos favoritos. Compartilhado pelo botão "…" do cabeçalho,
-    // pelo botão direito no nome do servidor, pela aba e pelo botão do
-    // servidor na barra de status.
+    // Same server menu as the right click on the tree (empty area): Disconnect /
+    // Edit virtual server (name, message of the day and BANNER) / Add to bookmarks.
+    // Shared by the header "..." button, by the right click on the server name, by
+    // the tab and by the server button in the status bar.
     QMenu menu(this);
     menu.addAction(HIcons::disconnectPlug(), tr("Desconectar"), this,
                    [this] { emit disconnectRequested(); });
@@ -1224,7 +1216,7 @@ void ServerTab::editVirtualServerName() {
     if (m_net) {
         m_net->serverEdit(n, motd->text(), bannerBytes, bannerChanged);
         systemMsgServer(tr("Solicitação de edição do servidor virtual enviada."));
-        return; // o estado atualizado chega do servidor
+        return; // the updated state arrives from the server
     }
 
     m_data.name = n;
@@ -1245,7 +1237,7 @@ void ServerTab::viewAvatar(int userId) {
                                  tr("Nenhum avatar definido para este cliente."));
         return;
     }
-    // v3: busca a imagem no servidor e mostra quando chegar
+    // v3: fetches the image from the server and shows it when it arrives
     const QString uid = u.uniqueId;
     QObject* ctx = new QObject(this);
     connect(m_net, &NetSession::avatarDataReceived, ctx,
@@ -1307,7 +1299,7 @@ void ServerTab::removeAvatar() {
     systemMsgServer(tr("Avatar removido."));
 }
 
-// ==================================================================== v3: gravação
+// ==================================================================== v3: recording
 bool ServerTab::isRecording() const { return m_voice && m_voice->isRecording(); }
 
 void ServerTab::toggleRecording() {
@@ -1383,20 +1375,20 @@ void ServerTab::applyWhisper() {
     if (!m_net) return;
     QList<int> ids;
     if (m_whisperHold) {
-        // Hold de RESPOSTA: o alvo é fixo (quem sussurrou por último) e foi
-        // definido por setWhisperReplyHold — re-resolver por escopo aqui
-        // sobrescreveria o destinatário da resposta.
+        // REPLY hold: the target is fixed (whoever whispered last) and was set by
+        // setWhisperReplyHold -- re-resolving by scope here would overwrite the reply
+        // recipient.
         if (m_whisperReplyHold) return;
-        // Sussurro por tecla ATIVO: re-resolve os alvos pelo escopo da tecla.
-        // Os alvos são ids de SESSÃO — quando o alvo reconecta, move-se de
-        // canal ou entra alguém novo no escopo, o conjunto muda; re-enviar
-        // somente o conjunto diferente mantém o sussurro vivo sem inundar o
-        // servidor (dedup pelo m_lastSentWhisperIds).
+        // Key-driven whisper ACTIVE: re-resolves the targets from the key's scope.
+        // Targets are SESSION ids -- when a target reconnects, moves channel or
+        // someone new enters the scope, the set changes; sending only the different
+        // set keeps whisper alive without flooding the server (dedup through
+        // m_lastSentWhisperIds).
         ids = whisperTargetIds(m_whisperHoldScope);
     } else if (!m_whisperUids.isEmpty()) {
-        // Lista fixa de sussurro (uids + canais): expande os canais aqui, no
-        // instante do envio, para listas não ficarem "vazias" quando seus
-        // membros entram, saem ou mudam de canal.
+        // Fixed whisper list (uids + channels): expands the channels here, at send
+        // time, so lists do not become "empty" when their members join, leave or
+        // change channel.
         QSet<int> channelTargets;
         for (const QString& target : m_whisperUids) {
             bool ok = false;
@@ -1410,35 +1402,34 @@ void ServerTab::applyWhisper() {
                 if (!ids.contains(u.id)) ids << u.id;
         }
     } else {
-        // NADA ativo: não há conjunto a sincronizar. Este era o coração do
-        // bug do sussurro (v1.1.31): com a lista fixa vazia o código caia
-        // até o fim e enviava whisper_ids = [] ao servidor no PRIMEIRO
-        // refresh de estado (user_state de qualquer cliente — indicador de
-        // fala oscilando com o VAD bastava), LIMPANDO o roteamento do
-        // sussurro que a tecla acabou de configurar. A voz voltava para o
-        // canal do remetente: o alvo em outro canal não ouvia nada — nem
-        // sussurro, nem voz normal — com o anel laranja aceso na origem.
+        // NOTHING active: there is no set to synchronize. This was the heart of the
+        // whisper bug (v1.1.31): with an empty fixed list the code fell through to
+        // the end and sent whisper_ids = [] to the server on the FIRST state refresh
+        // (any client's user_state -- a speech indicator oscillating with the VAD was
+        // enough), WIPING the whisper routing the key had just configured. The voice
+        // went back to the sender's channel: a target in another channel heard
+        // nothing -- neither whisper nor normal voice -- with the orange ring lit at
+        // the source.
         return;
     }
-    // stateChanged dispara a cada user_state — inclusive o indicador de fala
-    // (talking) de qualquer cliente oscilando com o VAD. Reenviar o whisper
-    // idêntico nessa frequência inundava o servidor e acionava o rate limit
-    // ("você está enviando mensagens rápido demais"). Envie somente quando o
-    // conjunto resolvido realmente mudar (ex.: um alvo reconectou e ganhou
-    // novo id de sessão).
+    // stateChanged fires on every user_state -- including any client's speech
+    // indicator (talking) oscillating with the VAD. Resending an identical whisper at
+    // that rate flooded the server and tripped the rate limit ("you are sending
+    // messages too fast"). Send only when the resolved set really changes (e.g. a
+    // target reconnected and got a new session id).
     if (ids == m_lastSentWhisperIds) return;
     m_lastSentWhisperIds = ids;
     m_net->setWhisperIds(ids);
 }
 
-// ==================================================== v3.11: sussurro por atalho
-// Calcula os destinatários do sussurro conforme o alvo configurado na tecla
-// de atalho: canal atual, canal atual + subcanais ou lista de usuários.
+// ==================================================== v3.11: whisper by shortcut
+// Computes the whisper recipients according to the target configured on the
+// shortcut key: current channel, current channel + subchannels, or a user list.
 QList<int> ServerTab::whisperTargetIds(int scope) const {
     QList<int> ids;
     const int self = m_data.selfId;
 
-    if (scope == 2) { // lista configurada em Ferramentas > Listas de sussurro
+    if (scope == 2) { // list configured in Tools > Whisper Lists
         const QStringList targets = WhisperDialog::activeWhisperUids();
         QSet<int> channels;
         for (const QString& target : targets) {
@@ -1454,13 +1445,13 @@ QList<int> ServerTab::whisperTargetIds(int scope) const {
         return ids;
     }
 
-    // escopo por canal: eu preciso estar em um canal
+    // channel scope: I must be inside a channel
     const int my = m_data.channelOfUser(self);
     if (my < 0 || !m_data.channels.contains(my)) return ids;
 
     QSet<int> chans;
     chans << my;
-    if (scope == 1) { // canal atual + TODOS os subcanais (recursivo)
+    if (scope == 1) { // current channel + ALL subchannels (recursive)
         QList<int> stack = { my };
         while (!stack.isEmpty()) {
             const int cur = stack.takeLast();
@@ -1480,7 +1471,7 @@ void ServerTab::setWhisperHold(bool on, int scope) {
     if (m_whisperHold == on) return;
     m_whisperHold = on;
     m_whisperHoldScope = qBound(0, scope, 2);
-    m_whisperReplyHold = false; // hold comum: alvos pelo escopo da tecla
+    m_whisperReplyHold = false; // regular hold: targets from the key's scope
     if (m_data.users.contains(m_data.selfId)) {
         m_data.users[m_data.selfId].whispering = on;
         m_data.users[m_data.selfId].talking = on;
@@ -1488,10 +1479,10 @@ void ServerTab::setWhisperHold(bool on, int scope) {
     if (m_voice) {
         m_voice->setWhisperHeld(on);
     }
-    // Cue de sussurro "por tecla" (modos por voz/contínuo): o som de sussurro
-    // toca AO APERTAR o botão — mesmo em Atividade de Voz e mesmo que a fala
-    // ainda não tenha aberto. Só o sussurro se comporta assim; a abertura do
-    // VAD durante o hold não re-dispara (m_whisperHoldCuePlayed).
+    // Key-driven whisper cue (voice-activated/continuous modes): the whisper sound
+    // plays as soon as the button is PRESSED -- even in Voice Activity mode and even
+    // if speech has not opened the transmission yet. Only whisper behaves this way;
+    // the VAD opening during the hold does not retrigger it (m_whisperHoldCuePlayed).
     if (S::num("capture/pttMode", 1) != 0) {
         m_whisperHoldCuePlayed = on;
         if (on) playWhisperHoldCue();
@@ -1513,7 +1504,7 @@ void ServerTab::setWhisperHold(bool on, int scope) {
                              .arg(names.value(scope >= 0 && scope <= 2 ? scope : 2))
                              .arg(ids.size()));
     } else {
-        // ao soltar: restaura a lista fixa (se houver) ou volta a falar no canal
+        // on release: restores the fixed list (if any) or speaks on the channel again
         if (!m_whisperUids.isEmpty()) applyWhisper();
         else if (m_net) {
             m_lastSentWhisperIds.clear();
@@ -1525,12 +1516,12 @@ void ServerTab::setWhisperHold(bool on, int scope) {
     emit statusChanged();
 }
 
-// Tecla de resposta das Listas de Sussurro: segure para sussurrar de volta
-// para o último usuário que sussurrou para você nesta sessão. Soltar segue
-// o mesmo caminho de restauração do hold comum (lista fixa ou canal).
+// Reply key of the Whisper Lists: hold to whisper back to the last user who
+// whispered to you in this session. Releasing follows the same restore path as the
+// regular hold (fixed list or channel).
 void ServerTab::setWhisperReplyHold(bool on) {
     if (!on) {
-        setWhisperHold(false, 2); // restaura a lista fixa (se houver) ou o canal
+        setWhisperHold(false, 2); // restores the fixed list (if any) or the channel
         return;
     }
     const int from = m_lastWhisperFromId;
@@ -1545,9 +1536,9 @@ void ServerTab::setWhisperReplyHold(bool on) {
     }
     if (m_voice) m_voice->setWhisperHeld(true);
     m_whisperHold = true;
-    m_whisperReplyHold = true; // resposta: alvo fixo, applyWhisper não re-resolve
-    // Mesma regra do hold comum: cue de sussurro ao apertar a tecla de
-    // resposta (modos por voz/contínuo).
+    m_whisperReplyHold = true; // reply: fixed target, applyWhisper does not re-resolve
+    // Same rule as the regular hold: whisper cue when the reply key is pressed
+    // (voice-activated/continuous modes).
     if (S::num("capture/pttMode", 1) != 0) {
         m_whisperHoldCuePlayed = true;
         playWhisperHoldCue();
@@ -1612,7 +1603,7 @@ void ServerTab::setSpeakersMuted(bool on) {
     User& self = m_data.users[m_data.selfId];
     if (self.outputMuted == on) return;
     self.outputMuted = on;
-    self.inputMuted = on; // o modo de alto-falantes mudos também silencia o microfone
+    self.inputMuted = on; // muted-speakers mode also silences the microphone
     if (m_voice) {
         m_voice->setSpeakersEnabled(!on);
         m_voice->setTransmitEnabled(!on);

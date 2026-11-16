@@ -24,8 +24,8 @@ std::unique_ptr<webrtc::VideoEncoder> createEncoder();
 std::unique_ptr<webrtc::VideoDecoder> createDecoder();
 
 #if defined(_WIN32)
-// Buffer nativo usado pelo caminho DXGI -> D3D11 Video Processor -> NVENC/MFT.
-// A textura já está em NV12 na GPU; o encoder não precisa reconverter I420 na CPU.
+// Native buffer used by the DXGI -> D3D11 Video Processor -> NVENC/MFT path.
+// The texture is already NV12 on the GPU; the encoder need not reconvert I420 on the CPU.
 class D3D11FrameBuffer : public webrtc::VideoFrameBuffer {
 public:
     D3D11FrameBuffer(ID3D11Texture2D* texture, int width, int height,

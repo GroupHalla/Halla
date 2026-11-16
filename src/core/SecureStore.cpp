@@ -41,7 +41,7 @@ bool remove(const QString& key, QString* error) {
     job.setAutoDelete(false);
     job.setKey(key);
     if (runJob(job, error)) return true;
-    // Remover chave ausente é idempotente.
+    // Deleting a non-existent credential entry is idempotent.
     if (job.error() == QKeychain::EntryNotFound) return true;
     return false;
 }

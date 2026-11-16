@@ -3,7 +3,7 @@
 #include <QWidget>
 #include <QString>
 
-// Banner roxo arredondado usado nos diálogos do Halla.
+// Rounded purple banner used in Halla's dialogs.
 class TsBanner : public QWidget {
     Q_OBJECT
 public:

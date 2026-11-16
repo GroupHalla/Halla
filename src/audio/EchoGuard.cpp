@@ -5,7 +5,7 @@
 #include <cstring>
 
 namespace {
-constexpr int kFrame = 960;  // 20 ms @ 48 kHz (espelha o contrato do header)
+constexpr int kFrame = 960;  // 20 ms @ 48 kHz (mirrors the header contract)
 constexpr int kSub = kFrame / 4;
 } // namespace
 // ------------------------------------------------------------------ push
@@ -13,8 +13,8 @@ void EchoGuard::pushRing(std::vector<int16_t>& ring, int64_t& total,
                           const int16_t* pcm, int samples) {
     if (!pcm || samples < kFrame) return;
     if (ring.empty()) ring.assign(size_t(kRingFrames) * size_t(kSub), 0);
-    // Decimação por 4 com média móvel (anti-aliasing grosseiro): mantém a
-    // correlação de voz (300-3400 Hz) intacta e corta o custo 4x.
+    // Decimation by 4 with a moving average (coarse anti-aliasing): keeps
+    // voice correlation (300-3400 Hz) intact and cuts the cost 4x.
     const size_t slot = size_t(total % kRingFrames) * size_t(kSub);
     for (int i = 0; i < kSub; ++i) {
         const int s = int(pcm[i * 4]) + int(pcm[i * 4 + 1])
@@ -29,7 +29,7 @@ void EchoGuard::notePlayout(const int16_t* pcm, int samples) {
     pushRing(m_playRing, m_playTotal, pcm, samples);
     if (m_playTotal == before) return;
 
-    // Energia por quadro para o fast-path de silêncio (rms^2 normalizado).
+    // Per-frame energy for the silence fast path (normalized rms^2).
     if (m_playEnergy.empty()) m_playEnergy.assign(size_t(kRingFrames), 0.0);
     const size_t slot = size_t((m_playTotal - 1) % kRingFrames) * size_t(kSub);
     double energy = 0.0;
@@ -38,14 +38,14 @@ void EchoGuard::notePlayout(const int16_t* pcm, int samples) {
                 * double(m_playRing[slot + size_t(i)]);
     m_playEnergy[size_t((m_playTotal - 1) % kRingFrames)] = energy / double(kSub);
 
-    // O playout avançou: com validação em curso, o correspondente do
-    // crosstalk pode ter acabado de chegar — tenta confirmar já.
+    // Playout advanced: with validation in progress, the crosstalk
+    // counterpart may have just arrived -- try to confirm now.
     if (m_validating && m_capTotal - m_lastTestFrame >= kTestPeriodFrames)
         tryConfirmEcho(kConfirmEcho);
 }
 
-// ------------------------------------------------------------- correlação
-// Copia [endSub - kWindowSub, endSub) do ring (linear com wrap) para "out".
+// ------------------------------------------------------------- correlation
+// Copies [endSub - kWindowSub, endSub) from the ring (linear with wrap) into "out".
 bool EchoGuard::copyWindow(const std::vector<int16_t>& ring, int64_t endSub,
                            std::vector<int16_t>& out) {
     if (ring.empty()) return false;
@@ -68,17 +68,17 @@ bool EchoGuard::tryConfirmEcho(double threshold) {
     m_lastTestFrame = m_capTotal;
     if (m_playTotal < 5 || m_capTotal < 5) return false;
 
-    // Janela de referência: os últimos 100 ms do playout.
+    // Reference window: the last 100 ms of playout.
     if (!copyWindow(m_playRing, m_playTotal * kSub, m_playWin))
         return false;
     double playEnergy = 0.0;
     for (int i = 0; i < kWindowSub; ++i)
         playEnergy += double(m_playWin[size_t(i)]) * double(m_playWin[size_t(i)]);
     const double playRms = std::sqrt(playEnergy / double(kWindowSub));
-    if (playRms < kMinVoiceRmsSub) return false;   // playout mudo: sem eco
+    if (playRms < kMinVoiceRmsSub) return false;   // muted playout: no echo
 
-    // Procura a janela de captura (por IDADE, o mic é adiantado em relação
-    // ao playout no crosstalk de rede) que casa com o playout atual.
+    // Searches the capture window (by AGE -- the mic leads the playout in
+    // network crosstalk) that matches the current playout.
     for (int ageSub = kSub; ageSub <= kSearchMaxSub;
          ageSub += kSearchStepSub) {
         if (!copyWindow(m_capRing, m_capTotal * kSub - ageSub, m_capWin))
@@ -87,7 +87,7 @@ bool EchoGuard::tryConfirmEcho(double threshold) {
         for (int i = 0; i < kWindowSub; ++i)
             capEnergy += double(m_capWin[size_t(i)])
                        * double(m_capWin[size_t(i)]);
-        // Energias comparáveis — early-out barato antes do dot.
+        // Comparable energies -- cheap early-out before the dot product.
         if (capEnergy < playEnergy * 0.05 || capEnergy > playEnergy * 20.0)
             continue;
         double dot = 0.0;
@@ -95,7 +95,7 @@ bool EchoGuard::tryConfirmEcho(double threshold) {
             dot += double(m_capWin[size_t(i)]) * double(m_playWin[size_t(i)]);
         const double cosv = dot / std::sqrt(capEnergy * playEnergy);
         if (cosv >= threshold) {
-            m_lastMatchLagMs = int(ageSub) / 12;  // 1 sub-amostra = 1/12 ms
+            m_lastMatchLagMs = int(ageSub) / 12;  // 1 sub-sample = 1/12 ms
             m_lastMatchScore = float(cosv);
             return true;
         }
@@ -115,28 +115,28 @@ bool EchoGuard::playoutSilentRecently() const {
     return rms < kMinVoiceRmsSub;
 }
 
-// ----------------------------------------------------------------- decisão
+// ----------------------------------------------------------------- decision
 EchoGuard::Decision EchoGuard::noteCapture(const int16_t* pcm, int samples,
                                             bool aboveThreshold,
                                             bool transmitGateOpen) {
     pushRing(m_capRing, m_capTotal, pcm, samples);
     if (!aboveThreshold) {
-        // A fala acabou no meio da validação: não há mais nada para casar
-        // com o playout — cancela (a próxima fala recomeça do zero). O
-        // streak de revogação também zera: evidência de uma fala antiga
-        // não pode revogar a próxima sozinha.
+        // Speech ended mid-validation: there is nothing left to match
+        // against the playout -- cancel (the next speech starts from zero).
+        // The revocation streak also resets: evidence from an old speech
+        // cannot revoke the next one alone.
         m_validating = false;
         m_revokeStreak = 0;
         return Decision::Open;
     }
 
     if (transmitGateOpen) {
-        // Revogação: microfone DOMINADO pelo eco enquanto transmite. Mistura
-        // com fala própria real fica bem abaixo de kRevokeEcho e não revoga.
-        // Desde a v1.1.34 exige kRevokeStreakFrames casamentos CONSECUTIVOS
-        // (dominação sustentada): um casamento isolado cortava fala legítima
-        // no meio da palavra — o "mic travando, cortando" de quem fala com
-        // alto-falantes ligados e a sala falando junto.
+        // Revocation: microphone DOMINATED by echo while transmitting. A mix
+        // with real own speech stays well below kRevokeEcho and does not
+        // revoke. Since v1.1.34 it requires kRevokeStreakFrames CONSECUTIVE
+        // matches (sustained domination): an isolated match used to chop
+        // legitimate speech mid-word -- the "mic stalling, chopping" of users
+        // speaking with speakers on and the room talking together.
         if (m_capTotal - m_lastTestFrame >= kTestPeriodFrames) {
             if (tryConfirmEcho(kRevokeEcho)) {
                 ++m_revokeStreak;
@@ -154,11 +154,11 @@ EchoGuard::Decision EchoGuard::noteCapture(const int16_t* pcm, int samples,
                                              : Decision::Open;
     }
 
-    // Abertura do gate. Evidência de revogação da transmissão anterior não
-    // vale para esta: um casamento novo precisa reconstruir o streak.
+    // Gate opening. Evidence from revoking the previous transmission does
+    // not count for this one: a new match must rebuild the streak.
     m_revokeStreak = 0;
     if (m_echoUntilFrame > m_capTotal) return Decision::Blocked;
-    if (playoutSilentRecently()) return Decision::Open;   // não há fonte de eco
+    if (playoutSilentRecently()) return Decision::Open;   // no echo source
     if (!m_validating) {
         m_validating = true;
         m_validateStart = m_capTotal;
@@ -172,7 +172,7 @@ EchoGuard::Decision EchoGuard::noteCapture(const int16_t* pcm, int samples,
         }
     }
     if (m_capTotal - m_validateStart >= kValidateFrames) {
-        // 400 ms sem casar com o playout: fala legítima.
+        // 400 ms without matching the playout: legitimate speech.
         m_validating = false;
         return Decision::Open;
     }

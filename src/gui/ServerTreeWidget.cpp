@@ -22,18 +22,18 @@
 #include <QFile>
 #include <QDir>
 
-// isImageIconName/shouldRequestIcon agora vivem no GroupIconCache
-// (compartilhados com o painel de informações, que também renderiza ícones
-// de cargo — mesma regra do que é imagem e mesma cota de requisições).
+// isImageIconName/shouldRequestIcon now live in GroupIconCache (shared with the
+// information panel, which also renders role icons -- same rule for what counts as
+// an image and the same request quota).
 
 static QPixmap createGroupIconPixmap(const QString& iconText, const QString& serverKey,
                                      ServerTreeWidget* tree) {
     if (iconText.isEmpty()) return QPixmap();
 
-    // Se o ícone for uma imagem (extensão de arquivo): cache em memória +
-    // disco com escopo por servidor (GroupIconCache — QStandardPaths,
-    // gravável mesmo com o app instalado em Program Files; o antigo
-    // "cache/icons/" relativo nunca gravava e a imagem não aparecia).
+    // If the icon is an image (file extension): in-memory + on-disk cache scoped per
+    // server (GroupIconCache -- QStandardPaths, writable even with the app installed
+    // in Program Files; the old relative "cache/icons/" never wrote anything and the
+    // image never appeared).
     if (GroupIconCache::isImageName(iconText)) {
         const QPixmap pm = GroupIconCache::instance().pixmap(serverKey, iconText);
         if (tree && GroupIconCache::shouldRequest(serverKey + QLatin1Char('|') + iconText, !pm.isNull()))
@@ -41,17 +41,17 @@ static QPixmap createGroupIconPixmap(const QString& iconText, const QString& ser
         return pm;
     }
 
-    // v1.1.35: o ícone de cargo de TEXTO/emoji é função pura de iconText —
-    // mas era redesenhado (QFont + drawRoundedRect + drawText) a CADA PAINT
-    // de cada linha visível do delegado, inclusive rolando a lista. Cache
-    // por texto: o custo passa a ser uma busca em hash.
+    // v1.1.35: the TEXT/emoji role icon is a pure function of iconText -- but it was
+    // redrawn (QFont + drawRoundedRect + drawText) on EVERY paint of every visible
+    // delegate row, including while scrolling. Cache by text: the cost becomes a hash
+    // lookup.
     static QHash<QString, QPixmap> textPixmapCache;
     const auto hit = textPixmapCache.constFind(iconText);
     if (hit != textPixmapCache.constEnd()) return hit.value();
 
-    // Ícones de cargo maiores (24x21): em 16x14 ficavam minúsculos ao lado
-    // do nome — mesmo tamanho do cache de imagens (GroupIconCache) para a
-    // linha ficar uniforme entre ícone de imagem e ícone de letra/emoji.
+    // Larger role icons (24x21): at 16x14 they were tiny next to the name -- the same
+    // size as the image cache (GroupIconCache) so the row looks uniform between image
+    // icons and letter/emoji icons.
     QPixmap pm(24, 21);
     pm.fill(Qt::transparent);
     QPainter painter(&pm);
@@ -95,8 +95,8 @@ static QPixmap createGroupIconPixmap(const QString& iconText, const QString& ser
 // reference shows microphone/headphone/away indicators before the nickname,
 // never after it.
 static QPixmap liveBadgePixmap() {
-    // v1.1.35: pixmap estático — o delegado pedia um novo (com drawText) a
-    // cada paint de cada linha em live.
+    // v1.1.35: static pixmap -- the delegate requested a new one (with drawText) on
+    // every paint of every row during a live stream.
     static const QPixmap pm = [] {
         QPixmap pm(54, 18);
         pm.fill(Qt::transparent);
@@ -118,11 +118,10 @@ static QPixmap liveBadgePixmap() {
 }
 
 static QPixmap treeUserSphere(const User& u) {
-    // v1.1.35: a esfera é função pura de (away, talking, whispering, tema) —
-    // 16 variantes no máximo. Era gerada com gradiente + QPainter POR
-    // USUÁRIO a cada rebuild (que rodava a cada transição de fala); com o
-    // updateUserVisuals ela só roda quando a chave muda — e agora nem isso
-    // desenha: é uma busca em cache.
+    // v1.1.35: the ball is a pure function of (away, talking, whispering, theme) -- 16
+    // variants at most. It was generated with a gradient + QPainter PER USER on every
+    // rebuild (which ran on every speech transition); with updateUserVisuals it only
+    // runs when the key changes -- and now not even that draws: it is a cache lookup.
     const bool dark = HTheme::isDark();
     const int key = (u.away ? 1 : 0) | (u.talking ? 2 : 0)
                   | (u.whispering ? 4 : 0) | (dark ? 8 : 0);
@@ -148,10 +147,9 @@ static QPixmap treeUserSphere(const User& u) {
     return pm;
 }
 
-// v1.1.35: chave de TUDO que o ícone/cores da linha de usuário exibem. As
-// transições de fala mudam só isto — comparar a chave permite atualizar a
-// linha sem reconstruir a árvore. (showMinis/tema entram porque o desenho
-// depende deles.)
+// v1.1.35: key of EVERYTHING the user row icon/colors display. Speech transitions
+// change only this -- comparing the key allows updating the row without rebuilding
+// the tree. (showMinis/theme are part of it because the drawing depends on them.)
 static quint32 userVisualKey(const User& u, bool showMinis) {
     return (u.talking ? 1u : 0u) | (u.whispering ? 2u : 0u)
          | (u.away ? 4u : 0u) | (u.inputMuted ? 8u : 0u)
@@ -166,10 +164,10 @@ static QIcon leadingUserIcon(const User& u, bool showStatus) {
     const bool audioMuted = u.inputMuted || outputMuted;
     const QPixmap avatar = treeUserSphere(u);
 
-    // O indicador azul é o estado normal. Quando a entrada ou a saída de
-    // áudio está bloqueada, ele é substituído pelos indicadores correspondentes
-    // antes do nome: microfone riscado e/ou fones com cadeado. Assim não há
-    // dois sinais concorrentes nem dúvida sobre o estado real do usuário.
+    // The blue indicator is the normal state. When audio input or output is blocked it
+    // is replaced by the matching indicators before the name: crossed-out microphone
+    // and/or headset with a padlock. That way there are no two competing signals and no
+    // doubt about the user's real state.
     const QPixmap statuses = (showStatus || audioMuted)
         ? HIcons::userStatusMinis(
               u.inputMuted,
@@ -211,13 +209,14 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
     const User& u = m_data->users[uid];
 
     ServerTreeWidget* tree = qobject_cast<ServerTreeWidget*>(const_cast<QObject*>(parent()));
-    // Escopo do cache por servidor: dois servidores podem ter ícones com o
-    // MESMO nome de arquivo e imagens diferentes.
+    // Cache scope per server: two servers may have icons with the SAME file name and
+    // different images.
     const QString serverKey = GroupIconCache::serverKey(m_data->address);
 
-    // Separamos e renderizamos múltiplos ícones/cargos se existirem (separados por vírgula ou ponto e vírgula)
-    // v1.1.35: regex estático — compilar a expressão a cada paint de cada
-    // linha era puro desperdício (o paint roda em rajadas ao rolar/hover).
+    // We split and render multiple icons/roles when present (separated by comma or
+    // semicolon)
+    // v1.1.35: static regex -- compiling the expression on every paint of every row was
+    // pure waste (paint runs in bursts while scrolling/hovering).
     static const QRegularExpression splitRoleIcons("[,;]");
     QStringList icons = u.groupIcon.split(splitRoleIcons, Qt::SkipEmptyParts);
     QList<QPixmap> iconPms;
@@ -228,10 +227,10 @@ void ServerRowDelegate::paint(QPainter* p, const QStyleOptionViewItem& opt,
             if (!pm.isNull()) iconPms << pm;
         }
     }
-    // Emblemas globais são assinados pelo registro oficial e vinculados à UID.
-    // v1.1.31: esta opção agora é respeitada (antes os emblemas eram desenhados
-    // sempre, ignorando a preferência) e vem LIGADA por padrão. A flag vive no
-    // delegado (não no QSettings) porque o paint roda a cada quadro.
+    // Global badges are signed by the official registry and bound to the UID.
+    // v1.1.31: this option is now honored (before, badges were always drawn, ignoring
+    // the preference) and defaults to ON. The flag lives in the delegate (not in
+    // QSettings) because paint runs every frame.
     if (m_showBadges) {
         for (const GlobalBadge& badge : BadgeRegistry::instance().badgesForUid(u.uniqueId)) {
             if (!badge.icon.isNull()) iconPms << badge.icon;
@@ -294,7 +293,7 @@ QSize ServerRowDelegate::sizeHint(const QStyleOptionViewItem& option,
     return size;
 }
 
-// ============================================================== Árvore
+// ================================================================ Tree
 ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     setHeaderHidden(true);
     setIndentation(12);
@@ -302,14 +301,13 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
     setAnimated(false);
     setUniformRowHeights(true);
     setAllColumnsShowFocus(true);
-    // Permite selecionar vários canais para as operações em conjunto, como
-    // vincular/desvincular áudio. Usuários continuam funcionando normalmente
-    // com seleção estendida.
+    // Allows selecting several channels for batch operations, such as linking/unlinking
+    // audio. Users keep working normally with extended selection.
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setDragDropMode(InternalMove);
     setDefaultDropAction(Qt::MoveAction);
-    // Reserva largura para o avatar e até dois indicadores de áudio antes do
-    // nome. Quando o áudio é bloqueado, o avatar deixa de ocupar esse espaço.
+    // Reserves width for the avatar and up to two audio indicators before the name.
+    // When audio is blocked, the avatar stops occupying that space.
     setIconSize(QSize(48, 24));
     setFrameShape(QFrame::NoFrame);
 
@@ -322,8 +320,8 @@ ServerTreeWidget::ServerTreeWidget(QWidget* parent) : QTreeWidget(parent) {
         if (m_data) rebuild();
     });
 
-    // as cores vêm do tema global (HTheme) — stylesheet fixo aqui impedia
-    // o tema escuro no Windows
+    // the colors come from the global theme (HTheme) -- a fixed stylesheet here
+    // prevented the dark theme on Windows
     setObjectName(QStringLiteral("serverTree"));
 
     connect(this, &QTreeWidget::currentItemChanged, this,
@@ -345,9 +343,9 @@ void ServerTreeWidget::setShowMinis(bool on) {
     viewport()->update();
 }
 
-// v1.1.31: "Exibir ícones de emblema nos clientes" (Opções > Aparência).
-// Guardado em memória (paint consulta a cada quadro) — o QSettings é lido
-// apenas no applyDisplayOptions do ServerTab.
+// v1.1.31: "Show badge icons in clients" (Options > Appearance). Kept in memory
+// (paint queries it every frame) -- QSettings is read only in ServerTab's
+// applyDisplayOptions.
 void ServerTreeWidget::setShowBadges(bool on) {
     m_showBadges = on;
     m_delegate->setShowBadges(on);
@@ -398,13 +396,12 @@ QString ServerTreeWidget::userTooltip(const User& u) const {
     if (u.outputMuted) tip += QStringLiteral("Alto-falantes mudos<br>");
     if (u.recording)   tip += QStringLiteral("Gravando<br>");
     if (u.commander)   tip += QStringLiteral("Comandante do canal<br>");
-    // Cada cargo chega como "<icone> <nome>" (ex.: "rota.png ROTA") — aqui
-    // mostramos o ícone de IMAGEM real (via file:// do cache em disco; o
-    // rich text do QToolTip renderiza <img> de arquivo) seguido do NOME do
-    // cargo. Antes a linha inteira era impressa e o tooltip exibia
-    // literalmente "rota.png ROTA". Ícone ainda sem bytes: só o nome (o
-    // delegado da linha visível já pediu o icon_get; o próximo hover mostra
-    // a imagem).
+    // Each role arrives as "<icon> <name>" (e.g. "rota.png ROTA") -- here we show the
+    // real IMAGE icon (via file:// of the on-disk cache; QToolTip rich text renders
+    // <img> from a file) followed by the role NAME. Before, the whole line was printed
+    // and the tooltip literally showed "rota.png ROTA". Icon without bytes yet: name
+    // only (the visible row's delegate already requested the icon_get; the next hover
+    // shows the image).
     const QString serverKey = GroupIconCache::serverKey(m_data->address);
     QStringList roles;
     const QStringList lines = u.serverGroups.split(QStringLiteral("\n"));
@@ -428,8 +425,8 @@ QString ServerTreeWidget::userTooltip(const User& u) const {
     }
     if (!roles.isEmpty())
         tip += QStringLiteral("Grupos: %1").arg(roles.join(QStringLiteral(", ")));
-    // Nomes dos emblemas no tooltip seguem a mesma opção dos ícones
-    // (design/showBadgeIcons — v1.1.31).
+    // Badge names in the tooltip follow the same option as the icons
+    // (design/showBadgeIcons -- v1.1.31).
     if (m_showBadges) {
         const QStringList globalBadges = BadgeRegistry::instance().badgeNamesForUid(u.uniqueId);
         if (!globalBadges.isEmpty())
@@ -454,18 +451,17 @@ QString ServerTreeWidget::channelTooltip(const Channel& c) const {
 void ServerTreeWidget::rebuild() {
     if (!m_data) return;
 
-    // Preserva a posição de rolagem: rebuild() roda a cada transição de fala
-    // (user_state -> refreshServerState, coalescido em 120 ms) e clear() zera
-    // o scroll — a lista de canais "pulava/descia sozinha" quando alguém
-    // falava ou quando o próprio usuário apertava o push-to-talk. O
-    // setCurrentItem da restauração de seleção também rola até o item; salvar
-    // antes e restaurar por último cobre os dois casos. Se o conteúdo encolheu
-    // (usuário saiu), setValue faz clamp no máximo automaticamente.
+    // Preserves the scroll position: rebuild() runs on every speech transition
+    // (user_state -> refreshServerState, coalesced to 120 ms) and clear() resets the
+    // scroll -- the channel list "jumped/scrolled by itself" when someone spoke or when
+    // the user pressed push-to-talk. setCurrentItem in the selection restore also
+    // scrolls to the item; saving beforehand and restoring last covers both cases. If
+    // the content shrank (a user left), setValue clamps to the maximum automatically.
     const int savedScrollY = verticalScrollBar() ? verticalScrollBar()->value() : 0;
     const int savedScrollX = horizontalScrollBar() ? horizontalScrollBar()->value() : 0;
 
-    // preserva itens COLAPSADOS (padrão Halla: tudo expandido — assim usuários
-    // que entram depois do primeiro rebuild nunca ficam invisíveis)
+    // preserves COLLAPSED items (Halla default: everything expanded -- so users joining
+    // after the first rebuild are never invisible)
     QSet<int> collapsed;
     std::function<void(QTreeWidgetItem*)> save = [&](QTreeWidgetItem* it) {
         if (!it) return;
@@ -479,9 +475,9 @@ void ServerTreeWidget::rebuild() {
     blockSignals(true);
     clear();
 
-    // A aba já exibe o nome do servidor no cabeçalho. A árvore usa a raiz
-    // invisível do QTreeWidget para que o servidor não seja repetido como um
-    // terceiro item visual antes dos canais.
+    // The tab already shows the server name in the header. The tree uses the QTreeWidget
+    // invisible root so the server is not repeated as a third visual item before the
+    // channels.
     QTreeWidgetItem* root = invisibleRootItem();
     QSet<int> path;
     QSet<int> built;
@@ -489,9 +485,9 @@ void ServerTreeWidget::rebuild() {
         if (m_data->channels.contains(cid))
             buildChannelItem(m_data->channels[cid], root, path, built);
     }
-    // Dados antigos/corrompidos podem conter pai inexistente ou até ciclo. Não
-    // recurse indefinidamente: mostre cada canal ainda não alcançado uma única
-    // vez na raiz, quebrando visualmente o ciclo sem derrubar o cliente.
+    // Old/corrupted data may contain a missing parent or even a cycle. Do not recurse
+    // forever: show every channel not reached yet once at the root, visually breaking
+    // the cycle without crashing the client.
     QList<int> remaining = m_data->channels.keys();
     std::sort(remaining.begin(), remaining.end(), [this](int a, int b) {
         const Channel& ca = m_data->channels[a];
@@ -506,7 +502,7 @@ void ServerTreeWidget::rebuild() {
 
     blockSignals(false);
 
-    // restaurar seleção sem criar um nó fictício de servidor
+    // restore the selection without creating a fictitious server node
     if (selKind >= 0) {
         std::function<bool(QTreeWidgetItem*)> restore = [&](QTreeWidgetItem* it) -> bool {
             if (it->data(0, RoleKind).toInt() == selKind &&
@@ -524,7 +520,7 @@ void ServerTreeWidget::rebuild() {
         clearSelection();
     }
 
-    // reexpandir tudo, exceto o que o usuário colapsou explicitamente
+    // re-expand everything except what the user explicitly collapsed
     std::function<void(QTreeWidgetItem*)> expand = [&](QTreeWidgetItem* it) {
         const int key = (it->data(0, RoleKind).toInt() << 24) | it->data(0, RoleId).toInt();
         it->setExpanded(!collapsed.contains(key));
@@ -532,9 +528,9 @@ void ServerTreeWidget::rebuild() {
     };
     for (int i = 0; i < topLevelItemCount(); ++i) expand(topLevelItem(i));
 
-    // Devolve a posição de rolagem salva no início (ver comentário no topo):
-    // tem que ser a ÚLTIMA operação para vencer o reset do clear() e o
-    // scrollTo implícito do setCurrentItem acima.
+    // Returns the scroll position saved at the beginning (see the comment at the top):
+    // it must be the LAST operation to beat clear()'s reset and the implicit scrollTo
+    // of setCurrentItem above.
     if (verticalScrollBar()) verticalScrollBar()->setValue(savedScrollY);
     if (horizontalScrollBar()) horizontalScrollBar()->setValue(savedScrollX);
 }
@@ -551,14 +547,14 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
 
     bool full = (c.maxClients >= 0 && c.users.size() >= c.maxClients);
     
-    // ---- Lógica de Canais "Spacers" (Organização Visual do Servidor)
+    // ---- "Spacer" channel logic (visual server organization)
     bool isSpacer = false;
     bool isCentered = false;
     bool isRepeating = false;
     QString spacerText = c.name;
 
-    // v1.1.35: regex estático — o rebuild roda em cada atualização de
-    // estado; compilar a expressão por canal, por rebuild, era desperdício.
+    // v1.1.35: static regex -- the rebuild runs on every state update; compiling the
+    // expression per channel, per rebuild, was waste.
     static const QRegularExpression spacerRx(QStringLiteral("\\[(\\*?)(c)?spacer[^\\]]*\\](.*)"));
     QRegularExpressionMatch match = spacerRx.match(c.name);
     if (match.hasMatch()) {
@@ -578,7 +574,7 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
     item->setText(0, label);
     
     if (isSpacer) {
-        item->setIcon(0, QIcon()); // Sem ícone para spacers
+        item->setIcon(0, QIcon()); // No icon for spacers
         if (isCentered) {
             item->setTextAlignment(0, Qt::AlignCenter);
         }
@@ -590,7 +586,7 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
             const int gid = m_data->users[m_data->selfId].groupId;
             const QJsonObject own = c.groupPerms.value(QString::number(gid)).toObject();
             if (own.contains(QStringLiteral("join"))) canJoin = own.value(QStringLiteral("join")).toBool();
-            // Sem traverse em qualquer ancestral também impede entrada.
+            // No traverse in any ancestor also blocks entry.
             for (int parent = c.parentId; parent && m_data->channels.contains(parent); parent = m_data->channels[parent].parentId) {
                 const QJsonObject parentPerms = m_data->channels[parent].groupPerms.value(QString::number(gid)).toObject();
                 if (parentPerms.contains(QStringLiteral("traverse")) && !parentPerms.value(QStringLiteral("traverse")).toBool()) { canJoin = false; break; }
@@ -607,16 +603,16 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
             f.setBold(true);
             item->setFont(0, f);
         }
-        if (c.type == 0) { // temporário: nome em cinza-azulado, como no Halla
+        if (c.type == 0) { // temporary: name in blue-gray, as in Halla
             item->setForeground(0, QColor("#5C7285"));
         }
     }
 
-    // Ordena os usuários apenas por cargos cuja ordem visual está habilitada.
-    // A hierarquia (position) do cargo primário é o critério principal — a
-    // mesma tag exibida antes do nome — com a ordem visual como desempate e o
-    // apelido por último. Servidores antigos sem posição enviada ordenam como
-    // antes (todos em 0: ordem visual, depois alfabético).
+    // Orders users only by roles whose visual order is enabled. The hierarchy
+    // (position) of the primary role is the main criterion -- the same tag shown
+    // before the name -- with the visual order as a tiebreaker and the nickname last.
+    // Old servers without a position sort as before (all at 0: visual order, then
+    // alphabetical).
     QList<int> sortedUsers;
     for (int uid : c.users) {
         if (m_data->users.contains(uid)) {
@@ -629,11 +625,11 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
         if (uA.groupOrderEnabled != uB.groupOrderEnabled)
             return uA.groupOrderEnabled; // quem tem uma ordem ativa vem primeiro
         if (uA.groupOrderEnabled) {
-            // Hierarquia visual (siglaPosition) é enviada pelo servidor já
-            // filtrada: cargos com "Usar a ordem deste cargo na lista de
-            // nomes" desligado não contam — nem a ordem, nem a hierarquia.
-            // A position de PERMISSÕES não entra aqui de forma nenhuma, ou
-            // um admin com ordem desligada voltaria ao topo da lista.
+            // Visual hierarchy (siglaPosition) is sent by the server already filtered:
+            // roles with "Use this role's order in the name list" turned off do not count
+            // -- neither the order nor the hierarchy. The PERMISSION position never
+            // enters here at all, or an admin with the order disabled would go back to
+            // the top of the list.
             if (uA.groupSiglaPosition != uB.groupSiglaPosition)
                 return uA.groupSiglaPosition > uB.groupSiglaPosition;
             if (uA.groupOrder != uB.groupOrder)
@@ -642,8 +638,8 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
         return uA.name.localeAwareCompare(uB.name) < 0;
     });
 
-    // Halla: por padrão clientes aparecem acima dos subcanais; com a opção
-    // "Classificar clientes abaixo dos canais" os subcanais vêm primeiro.
+    // Halla: by default clients appear above subchannels; with the "Sort clients below
+    // the channels" option the subchannels come first.
     if (!m_sortClientsBelow) {
         for (int uid : sortedUsers)
             addUserItem(item, m_data->users[uid]);
@@ -667,7 +663,7 @@ QTreeWidgetItem* ServerTreeWidget::buildChannelItem(const Channel& c,
     return item;
 }
 
-// ------------------------------------------------------------------ expansão
+// ------------------------------------------------------------------ expansion
 void ServerTreeWidget::expandChannelsToLevel(int level) {
     collapseAll();
     expandToDepth(qMax(0, level));
@@ -701,9 +697,9 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
     item->setIcon(0, leadingUserIcon(u, m_delegate ? m_delegate->showMinis() : true));
     item->setData(0, RoleKind, NodeUser);
     item->setData(0, RoleId, u.id);
-    // v1.1.35: chave visual da linha — updateUserVisuals compara esta chave
-    // com o estado atual para repintar SÓ o que mudou (anel de fala, mutes,
-    // away) sem reconstruir a árvore.
+    // v1.1.35: visual key of the row -- updateUserVisuals compares this key with the
+    // current state to repaint ONLY what changed (speech ring, mutes, away) without
+    // rebuilding the tree.
     item->setData(0, RoleVisualKey,
                   userVisualKey(u, m_delegate ? m_delegate->showMinis() : true));
     item->setToolTip(0, userTooltip(u));
@@ -713,17 +709,16 @@ void ServerTreeWidget::addUserItem(QTreeWidgetItem* chanItem, const User& u) {
     if (u.away) item->setForeground(0, QColor("#6E7B86"));
 }
 
-// v1.1.35 — atualização leve da árvore. Percorre os itens EXISTENTES e
-// repinta (ícone + cor) apenas os usuários cuja chave visual mudou. É o
-// caminho das transições de "falando": antes, cada transição (coalescida a
-// 120 ms) destruía e recriava a árvore inteira — itens, tooltips, ícones,
-// expansão e rolagem — o que em salas cheias virava dezenas de milhares de
-// alocações por segundo na thread da GUI. O pipeline de áudio (captura e
-// reprodução a cada 10 ms) divide essa MESMA thread: a rajada de rebuild
-// atrasava os ticks e a voz picotava ("depois de um tempo o som trava").
-// Agora: transição de fala = comparação de inteiros + setIcon das linhas
-// afetadas. Estrutura (entradas/saídas/moves/renomes) continua no rebuild()
-// completo, decidido por assinatura no ServerTab.
+// v1.1.35 -- lightweight tree update. Walks the EXISTING items and repaints
+// (icon + color) only the users whose visual key changed. This is the path of
+// "speaking" transitions: before, each transition (coalesced to 120 ms) destroyed
+// and recreated the whole tree -- items, tooltips, icons, expansion and scroll --
+// which in full rooms became tens of thousands of allocations per second on the GUI
+// thread. The audio pipeline (capture and playback every 10 ms) shares that SAME
+// thread: the rebuild burst delayed the ticks and the voice chopped ("after a while
+// the sound freezes"). Now: speech transition = integer comparison + setIcon on the
+// affected rows. Structure (joins/leaves/moves/renames) still goes through the full
+// rebuild(), decided by signature in ServerTab.
 void ServerTreeWidget::updateUserVisuals() {
     if (!m_data) return;
     const bool showMinis = m_delegate ? m_delegate->showMinis() : true;
@@ -737,38 +732,38 @@ void ServerTreeWidget::updateUserVisuals() {
                 if (it->data(0, RoleVisualKey).toUInt() != key) {
                     it->setIcon(0, leadingUserIcon(found.value(), showMinis));
                     it->setData(0, RoleVisualKey, key);
-                    // away também dessatura o texto (mesma regra do rebuild)
+                    // away also desaturates the text (same rule as the rebuild)
                     if (found.value().away) it->setForeground(0, QColor("#6E7B86"));
-                    else it->setForeground(0, QBrush()); // pincel vazio = cor padrão
+                    else it->setForeground(0, QBrush()); // empty brush = default color
                 }
             }
         }
         for (int i = 0; i < it->childCount(); ++i) walk(it->child(i));
     };
     for (int i = 0; i < topLevelItemCount(); ++i) walk(topLevelItem(i));
-    // Emblemas de live e ícones de cargo são pintados pelo delegado direto
-    // do m_data: um repaint geral garante que mudanças não-chave (ex. alguém
-    // entrou em live) apareçam mesmo sem mudança de chave visual.
+    // Live badges and role icons are painted by the delegate straight from m_data: a
+    // general repaint ensures non-key changes (e.g. someone started a live stream)
+    // show up even without a visual key change.
     viewport()->update();
 }
 
 // ------------------------------------------------------------------ menus de contexto
 
-// (v6 E2EE) A verificação manual por código SAS foi REMOVIDA da UI: a
-// confiança agora é automática (TOFU) em NetSession::e2eeSecurityCheckUser —
-// a primeira chave válida de cada pessoa já é marcada como confiável, sem
-// diálogo nem botão. O aviso de TROCA de identidade continua existindo.
+// (v6 E2EE) Manual verification by SAS code was REMOVED from the UI: trust is now
+// automatic (TOFU) in NetSession::e2eeSecurityCheckUser -- each person's first valid
+// key is already marked trusted, without a dialog or button. The identity CHANGE
+// warning still exists.
 
 void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
     QTreeWidgetItem* it = itemAt(e->pos());
-    // Guarda a seleção antes de chamar setCurrentItem(): em algumas versões
-    // do Qt essa chamada limpa a seleção estendida mesmo quando o item clicado
-    // já estava selecionado.
+    // Saves the selection before calling setCurrentItem(): in some Qt versions that
+    // call clears the extended selection even when the clicked item was already
+    // selected.
     const QList<int> selectedBefore = selectedChannelIds();
     const bool clickedWasSelected = it && it->isSelected();
     if (it) {
-        // Um clique direito em um item já selecionado preserva a seleção
-        // estendida. Em um item fora dela, começa uma nova seleção.
+        // A right click on an already selected item preserves the extended selection.
+        // On an item outside it, a new selection starts.
         if (!clickedWasSelected) {
             clearSelection();
             it->setSelected(true);
@@ -782,9 +777,9 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
         ? selectedBefore : selectedChannelIds();
     QMenu menu(this);
 
-    // As ações ficam disponíveis independentemente de o clique direito ter
-    // caído no canal, em um usuário ou na raiz do servidor. O que importa é a
-    // seleção múltipla preservada acima.
+    // The actions are available regardless of whether the right click landed on a
+    // channel, on a user or on the server root. What matters is the multiple
+    // selection preserved above.
     if (selectedChannels.size() >= 2) {
         const QList<int> ids = selectedChannels;
         menu.addAction(tr("Vincular canais selecionados"), this,
@@ -795,7 +790,7 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
     }
 
     if (!it || kind == NodeServer) {
-        // menu do servidor — como clicar na aba do servidor no Halla
+        // server menu -- like clicking the server tab in Halla
         menu.addAction(HIcons::disconnectPlug(), tr("Desconectar"), this,
                        [this] { emit disconnectRequested(); });
         menu.addSeparator();
@@ -861,8 +856,8 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
             menu.addAction(tr("Registrar reclamação..."), this,
                            [this, id] { emit complaintRequested(id); });
             menu.addSeparator();
-            // Renomear terceiro: o servidor exige permissão de moderação
-            // (move) e hierarquia; a opção só aparece para quem pode usá-la.
+            // Renaming a third party: the server requires moderation permission (move)
+            // and hierarchy; the option only appears for whoever can use it.
             if (m_canRenameOthers) {
                 menu.addAction(tr("Alterar apelido"), this,
                                [this, id] { emit renameUserRequested(id); });
@@ -898,12 +893,12 @@ void ServerTreeWidget::contextMenuEvent(QContextMenuEvent* e) {
 }
 
 void ServerTreeWidget::startDrag(Qt::DropActions actions) {
-    // O Qt inicia arraste de item com QUALQUER botão pressionado. Com o
-    // direito, no Windows o loop OLE do QDrag::exec() captura o mouse e
-    // consome o WM_RBUTTONUP — o WM_CONTEXTMENU nunca é gerado e o menu de
-    // contexto não abre (o item só ficava selecionado, "as listas não
-    // abriam"). Arrastar cliente/canal agora é exclusivo do botão esquerdo;
-    // o direito sempre entrega o menu de contexto.
+    // Qt starts dragging an item with ANY pressed button. With the right button, on
+    // Windows the OLE loop of QDrag::exec() captures the mouse and consumes
+    // WM_RBUTTONUP -- WM_CONTEXTMENU is never generated and the context menu does not
+    // open (the item was only selected, "the lists did not open"). Dragging a
+    // client/channel is now left-button only; the right button always delivers the
+    // context menu.
     if (QGuiApplication::mouseButtons() & Qt::LeftButton) {
         QTreeWidget::startDrag(actions);
         return;
@@ -1020,8 +1015,7 @@ void ServerTreeWidget::dropEvent(QDropEvent* event) {
             roots.removeAll(channelId);
             order = roots.size();
         } else if (target) {
-            // Não transforma um arraste sobre um usuário em movimento
-            // estrutural acidental.
+            // Does not turn a drag over a user into an accidental structural move.
             event->ignore();
             return;
         } else {
@@ -1040,7 +1034,7 @@ void ServerTreeWidget::dropEvent(QDropEvent* event) {
         desired.insert(order, channelId);
         if (source.parentId == parentId
                 && desired == m_data->childChannels(source.parentId)) {
-            event->ignore(); // soltou na posição atual
+            event->ignore(); // dropped at the current position
             return;
         }
         if (isDuplicateChannelMove(channelId, parentId, order)) {
@@ -1061,8 +1055,8 @@ void ServerTreeWidget::dropEvent(QDropEvent* event) {
             return;
         }
 
-        // Só um canal real é um destino válido. Arrastar para o espaço vazio
-        // da árvore é rejeitado, impedindo que o usuário fique "no nada".
+        // Only a real channel is a valid target. Dragging to the empty area of the tree
+        // is rejected, preventing the user from ending up "nowhere".
         int targetChannel = 0;
         if (target && target->data(0, RoleKind).toInt() == NodeChannel) {
             targetChannel = target->data(0, RoleId).toInt();

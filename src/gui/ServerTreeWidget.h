@@ -10,19 +10,19 @@ class QDropEvent;
 class QMouseEvent;
 class QEvent;
 
-// Papel dos nós da árvore
+// Role of the tree nodes
 enum NodeKind { NodeServer = 0, NodeChannel = 1, NodeUser = 2 };
 
 enum TreeRoles {
     RoleKind = Qt::UserRole + 1,
     RoleId,
-    // v1.1.35: chave visual do usuário (talking/whisper/mutes/away/...) —
-    // permite atualizar o ícone da linha SEM recriar a árvore inteira.
+    // v1.1.35: visual key of the user (talking/whisper/mutes/away/...) -- allows
+    // updating the row icon WITHOUT recreating the whole tree.
     RoleVisualKey,
 };
 
-// Delegado que pinta os ícones de grupo/status; os indicadores de microfone,
-// fones, ausência e fala ficam no bloco antes do nome — exatamente como o Halla.
+// Delegate that paints the group/status icons; the microphone, headphone, away and
+// speech indicators sit in the block before the name -- exactly like Halla.
 class ServerRowDelegate : public QStyledItemDelegate {
     Q_OBJECT
 public:
@@ -41,10 +41,10 @@ protected:
 private:
     const ServerData* m_data = nullptr;
     bool m_showMinis = true;
-    bool m_showBadges = true;   // v1.1.31: "Exibir ícones de emblema nos clientes"
+    bool m_showBadges = true;   // v1.1.31: "Show badge icons in clients"
 };
 
-// Árvore de canais/usuários de uma conexão (visual e comportamento do Halla)
+// Channel/user tree of a connection (Halla visuals and behavior)
 class ServerTreeWidget : public QTreeWidget {
     Q_OBJECT
 public:
@@ -52,15 +52,15 @@ public:
 
     void setServerData(ServerData* d);
     void rebuild();
-    // v1.1.35: atualização LEVE — repinta apenas os ícones/cores dos
-    // usuários cujo estado visual mudou (anel de "falando", mutes, away),
-    // sem destruir/recriar itens. É o caminho das transições de fala:
-    // rebuild() completo por transição de fala congelava a GUI em salas
-    // cheias — e o pipeline de áudio divide a MESMA thread da GUI.
+    // v1.1.35: LIGHT update -- repaints only the icons/colors of the users whose
+    // visual state changed ("speaking" ring, mutes, away), without destroying and
+    // recreating items. This is the path of speech transitions: a full rebuild() per
+    // speech transition froze the GUI in full rooms -- and the audio pipeline shares
+    // the SAME GUI thread.
     void updateUserVisuals();
     void setShowCounts(bool on)  { m_showCounts = on; }
     void setShowMinis(bool on);
-    void setShowBadges(bool on);          // v1.1.31: emblemas globais na árvore
+    void setShowBadges(bool on);          // v1.1.31: global badges in the tree
     bool showBadges() const { return m_showBadges; }
     void setSortClientsBelow(bool on) { m_sortClientsBelow = on; }
     void setCanMoveOthers(bool on) { m_canMoveOthers = on; }
@@ -74,11 +74,11 @@ public:
         m_canSetOtherCommander = others;
     }
 
-    // modos de expansão (Opções → Aparência → Árvore do canal)
-    void expandChannelsToLevel(int level);     // recolhe tudo e expande até o nível
-    void expandOwnChannelOnly(int channelId);  // recolhe tudo, expande só o próprio canal
+    // expansion modes (Options > Appearance > Channel tree)
+    void expandChannelsToLevel(int level);     // collapses everything and expands down to the level
+    void expandOwnChannelOnly(int channelId);  // collapses everything, expands only the own channel
 
-    // seleção atual
+    // current selection
     int  currentKind() const;
     int  currentId() const;
     QList<int> selectedChannelIds() const;
@@ -141,7 +141,7 @@ private:
     ServerData* m_data = nullptr;
     ServerRowDelegate* m_delegate = nullptr;
     bool m_showCounts = true;
-    bool m_showBadges = true;   // v1.1.31: padrão LIGADO (design/showBadgeIcons)
+    bool m_showBadges = true;   // v1.1.31: default ON (design/showBadgeIcons)
     bool m_sortClientsBelow = false;
     bool m_canMoveOthers = false;
     bool m_canRenameOthers = false;

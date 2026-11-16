@@ -1,16 +1,16 @@
 #pragma once
 
-// Captura de tela/janela para o WebRTC nativo no Linux (X11).
+// Screen/window capture for native WebRTC on Linux (X11).
 //
-// O equivalente Linux do DxgiScreenCapturer do Windows: XShmGetImage no root
-// window (monitor inteiro ou região de uma janela), resolução FÍSICA de cada
-// monitor via XRandR e composição do cursor via XFixes. Vive inteiramente na
-// thread de captura do HallaWebRtcSession (a GUI não pode — QScreen::grabWindow
-// só roda na thread da GUI); por isso mantém um Display* próprio, aberto e
-// fechado no mesmo fio.
+// The Linux equivalent of the Windows DxgiScreenCapturer: XShmGetImage on the
+// root window (whole monitor or a window region), PHYSICAL resolution of each
+// monitor via XRandR, and cursor composition via XFixes. Lives entirely on
+// the HallaWebRtcSession capture thread (the GUI cannot -- QScreen::grabWindow
+// only runs on the GUI thread); therefore it keeps its own Display*, opened
+// and closed on the same thread.
 //
-// Compila vazio (sem símbolos) fora de "Linux + WebRTC nativo", seguindo o
-// padrão do MediaFoundationH264 — o CMake adiciona as fontes em todo build.
+// Compiles empty (no symbols) outside "Linux + native WebRTC", following the
+// MediaFoundationH264 pattern -- CMake adds the sources to every build.
 
 #include <QImage>
 #include <QString>
@@ -27,16 +27,17 @@ public:
 
     bool valid() const;
 
-    // Captura um monitor inteiro. `outputName` é o nome do output XRandR
-    // (QScreen::name() devolve exatamente esse nome no X11, ex.: "HDMI-0").
-    // Vazio/não encontrado cai no monitor primário. Devolve a resolução
-    // FÍSICA do monitor (ignora escala fractional do compositor).
+    // Captures a whole monitor. `outputName` is the XRandR output name
+    // (QScreen::name() returns exactly this name on X11, e.g. "HDMI-0").
+    // Empty/not found falls back to the primary monitor. Returns the PHYSICAL
+    // monitor resolution (ignores compositor fractional scaling).
     QImage grabMonitor(const QString& outputName);
 
-    // Captura a região da tela ocupada por uma janela (coords root, pixels
-    // físicos). Janelas cobertas por outras capturam o que está por cima
-    // (limitação do X11 sem XComposite redirect — mesma técnica do
-    // QScreen::grabWindow). Devolve QImage nula se a janela sumiu/inválida.
+    // Captures the screen region occupied by a window (root coordinates,
+    // physical pixels). Windows covered by others capture what is on top
+    // (X11 limitation without XComposite redirect -- same technique as
+    // QScreen::grabWindow). Returns a null QImage if the window vanished or
+    // is invalid.
     QImage grabWindowRegion(quintptr windowId);
 
 private:

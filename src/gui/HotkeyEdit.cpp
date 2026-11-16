@@ -12,10 +12,10 @@
 #endif
 
 // ============================================================================
-// Filtro NATIVO (Windows): enxerga os eventos antes de qualquer widget.
-// Cobre botões laterais mesmo quando algum software do mouse consome os
-// cliques ou os converte em "Voltar/Avançar" do navegador (WM_APPCOMMAND)
-// ou em VK_BROWSER_* (chegam como tecla).
+// NATIVE filter (Windows): sees the events before any widget. Covers side
+// buttons even when some mouse software consumes the clicks or converts them
+// into the browser's "Back/Forward" (WM_APPCOMMAND) or into VK_BROWSER_*
+// (which arrive as a key).
 // ============================================================================
 #ifdef Q_OS_WIN
 class NativeCapture : public QAbstractNativeEventFilter {
@@ -30,7 +30,7 @@ public:
         case VK_MENU: case VK_LMENU: case VK_RMENU:
         case VK_LWIN: case VK_RWIN:
             return QString();
-        // botões de mouse que chegam como "tecla" (softwares de mouse)
+        // mouse buttons that arrive as a "key" (mouse software)
         case VK_XBUTTON1: case VK_BROWSER_BACK:
             return QString::fromLatin1(HotkeyEdit::kMouse4);
         case VK_XBUTTON2: case VK_BROWSER_FORWARD:
@@ -40,12 +40,12 @@ public:
         case VK_ESCAPE:
             return QStringLiteral("!clear");
         case VK_TAB:
-            return QStringLiteral("!ignore"); // preserva a navegação do diálogo
+            return QStringLiteral("!ignore"); // preserves dialog navigation
         default: break;
         }
 
         int key = 0;
-        int extraMods = 0; // KeypadModifier (teclado numérico)
+        int extraMods = 0; // KeypadModifier (numeric keypad)
         if (vk >= 'A' && vk <= 'Z')      key = Qt::Key_A + int(vk - 'A');
         else if (vk >= '0' && vk <= '9') key = Qt::Key_0 + int(vk - '0');
         else if (vk >= VK_F1 && vk <= VK_F24) key = Qt::Key_F1 + int(vk - VK_F1);
@@ -58,8 +58,8 @@ public:
         else switch (vk) {
         case VK_SPACE:    key = Qt::Key_Space;     break;
         case VK_RETURN:   key = Qt::Key_Return;    break;
-        // v1.1.27: Backspace/Delete viraram TECLA configurável (o runtime
-        // sempre soube mapeá-las; só a captura descartava/limpava)
+        // v1.1.27: Backspace/Delete became configurable KEYS (the runtime always
+        // knew how to map them; only the capture discarded/cleared them)
         case VK_BACK:     key = Qt::Key_Backspace; break;
         case VK_DELETE:   key = Qt::Key_Delete;    break;
         case VK_INSERT:   key = Qt::Key_Insert;    break;
@@ -76,25 +76,26 @@ public:
         case VK_SCROLL:   key = Qt::Key_ScrollLock;break;
         case VK_SNAPSHOT: key = Qt::Key_Print;     break;
         case VK_PAUSE:    key = Qt::Key_Pause;     break;
-        // operações do teclado numérico (só existem lá — levam "Num+")
+        // numeric keypad operations (only exist there -- they carry "Num+")
         case VK_ADD:      key = Qt::Key_Plus;     extraMods = int(Qt::KeypadModifier); break;
         case VK_SUBTRACT: key = Qt::Key_Minus;    extraMods = int(Qt::KeypadModifier); break;
         case VK_MULTIPLY: key = Qt::Key_Asterisk; extraMods = int(Qt::KeypadModifier); break;
         case VK_DIVIDE:   key = Qt::Key_Slash;    extraMods = int(Qt::KeypadModifier); break;
         case VK_DECIMAL:  key = Qt::Key_Period;   extraMods = int(Qt::KeypadModifier); break;
         default: {
-            // v1.1.27: teclas OEM (pontuação/acentos — "\", ";", "ç", "'" ...)
-            // resolvem o CARACTERE no LAYOUT ATIVO em vez de uma tabela fixa
-            // US: a spec gravada é o caractere da tecla física CERTA em
-            // ABNT2 e afins, e o runtime re-resolve via VkKeyScanW
-            // (gui/HotkeyVk.h). Os cases OEM fixos da versão anterior cobriam
-            // só 4 teclas e ainda por cima na posição do layout americano.
+            // v1.1.27: OEM keys (punctuation/accents -- "\\", ";", acutted
+            // characters, "'" ...) resolve the CHARACTER in the ACTIVE LAYOUT
+            // instead of a fixed US table: the stored spec is the character of the
+            // RIGHT physical key on ABNT2 and similar layouts, and the runtime
+            // re-resolves it through VkKeyScanW (gui/HotkeyVk.h). The fixed OEM
+            // cases of the previous version covered only 4 keys, and at the US
+            // layout position on top of that.
             const UINT mc = MapVirtualKeyW(UINT(vk), MAPVK_VK_TO_CHAR);
             if (mc == 0 || (mc & 0x80008000u))
-                return QStringLiteral("!ignore"); // tecla morta ou exótica
+                return QStringLiteral("!ignore"); // dead or exotic key
             const WCHAR ch = WCHAR(mc & 0xFFFF);
             if (ch >= 0x20 && ch != 0x7F && ch <= 0xFF)
-                key = int(ch); // Qt::Key imprimível = código Latin-1 do caractere
+                key = int(ch); // printable Qt::Key = the character's Latin-1 code
             else
                 return QStringLiteral("!ignore");
             break;
@@ -105,12 +106,12 @@ public:
         if (GetAsyncKeyState(VK_SHIFT)   & 0x8000) mods |= int(Qt::ShiftModifier);
         if (GetAsyncKeyState(VK_CONTROL) & 0x8000) mods |= int(Qt::ControlModifier);
         if (GetAsyncKeyState(VK_MENU)    & 0x8000) mods |= int(Qt::AltModifier);
-        // v1.1.27: a tecla Windows entra na spec — antes era descartada em
-        // silêncio aqui e "Win+X" era gravado como "X" puro
+        // v1.1.27: the Windows key enters the spec -- before it was silently
+        // discarded here and "Win+X" was stored as plain "X"
         if ((GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000)
             mods |= int(Qt::MetaModifier);
 
-        // monta a spec sem depender do toString do Qt (garante "Meta+"/"Num+")
+        // builds the spec without relying on Qt's toString (guarantees "Meta+"/"Num+")
         const QString spec = HotkeyEdit::specFromKey(key, mods);
         return spec.isEmpty() ? QStringLiteral("!ignore") : spec;
     }
@@ -147,7 +148,7 @@ public:
             if (result) *result = 0;
             return true;
         case WM_APPCOMMAND: {
-            // mouses que enviam comandos de "Voltar/Avançar" do navegador
+            // mice that send the browser's "Back/Forward" commands
             const int cmd = GET_APPCOMMAND_LPARAM(msg->lParam);
             if (cmd == APPCOMMAND_BROWSER_BACKWARD) {
                 edit->acceptSpec(QString::fromLatin1(HotkeyEdit::kMouse4));
@@ -171,14 +172,14 @@ public:
 static HHOOK hMouseHook = NULL;
 static HotkeyEdit* activeCaptureEdit = nullptr;
 
-// Hook de baixo nível: o caminho crítico do input do sistema INTEIRO passa
-// por aqui enquanto um campo de captura está armado. Por isso ele só faz o
-// mínimo — identifica o botão e ENFILEIRA o processamento (invokeMethod
-// com QueuedConnection volta ao loop da GUI depois que o hook retorna).
-// As versões anteriores chamavam setText/emit/clearFocus e até
-// UnhookWindowsHookEx DENTRO do hook: além do risco de reentrância, qualquer
-// demora aqui (ex.: sync do QSettings num slot conectado) travava o mouse
-// do sistema inteiro até o Windows descartar o hook por timeout.
+// Low-level hook: the critical input path of the ENTIRE system passes through
+// here while a capture field is armed. That is why it does the bare minimum --
+// it identifies the button and QUEUES the processing (invokeMethod with
+// QueuedConnection returns to the GUI loop after the hook returns). Previous
+// versions called setText/emit/clearFocus and even UnhookWindowsHookEx INSIDE
+// the hook: besides the re-entrancy risk, any delay here (e.g. a QSettings sync
+// in a connected slot) froze the whole system's mouse until Windows dropped the
+// hook on timeout.
 LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= 0 && activeCaptureEdit
         && (wParam == WM_XBUTTONDOWN || wParam == WM_MBUTTONDOWN)) {
@@ -186,7 +187,7 @@ LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
             : ((HIWORD(reinterpret_cast<MSLLHOOKSTRUCT*>(lParam)->mouseData) == XBUTTON1) ? 4 : 5);
         HotkeyEdit* const target = activeCaptureEdit;
         QMetaObject::invokeMethod(target, [target, button] {
-            // fora do hook: pode tocar Qt, mudar foco e desarmar com segurança
+            // outside the hook: can touch Qt, change focus and disarm safely
             switch (button) {
             case 3: target->acceptSpec(QString::fromLatin1(HotkeyEdit::kMouseMiddle)); break;
             case 4: target->acceptSpec(QString::fromLatin1(HotkeyEdit::kMouse4));      break;
@@ -194,7 +195,7 @@ LRESULT CALLBACK GlobalMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
             }
             target->clearFocus(); // desarma via focusOutEvent
         }, Qt::QueuedConnection);
-        return 1; // engole o clique: ele está sendo capturado como atalho
+        return 1; // swallows the click: it is being captured as a shortcut
     }
     return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
 }
@@ -215,12 +216,11 @@ HotkeyEdit::HotkeyEdit(QWidget* parent) : QLineEdit(parent) {
 
 HotkeyEdit::~HotkeyEdit() {
 #ifdef Q_OS_WIN
-    // Desarma ANTES de destruir: se o campo estava com foco quando o diálogo
-    // fechou, o hook LL de mouse ficava instalado para sempre e
-    // activeCaptureEdit apontava para este objeto já morto — o próximo clique
-    // de botão lateral/meio em QUALQUER app era use-after-free (crash
-    // aleatório) e o hook vazado engrossava o input do sistema a cada
-    // travada da GUI.
+    // Disarms BEFORE destroying: if the field had focus when the dialog closed,
+    // the LL mouse hook stayed installed forever and activeCaptureEdit pointed
+    // to this already-dead object -- the next side/middle button click in ANY app
+    // was a use-after-free (random crash) and the leaked hook thickened the
+    // system input path on every GUI stall.
     if (m_armed) setArmed(false);
     if (m_native) {
         qApp->removeNativeEventFilter(m_native);
@@ -231,15 +231,15 @@ HotkeyEdit::~HotkeyEdit() {
 
 void HotkeyEdit::setSpec(const QString& spec) {
     m_spec = spec;
-    // exibe botões do mouse no estilo Halla ("MOUSE BUTTON 5")
+    // displays mouse buttons in Halla style ("MOUSE BUTTON 5")
     if (spec == QLatin1String(kMouse4))            setText(tr("BOTÃO DO MOUSE 4"));
     else if (spec == QLatin1String(kMouse5))       setText(tr("BOTÃO DO MOUSE 5"));
     else if (spec == QLatin1String(kMouseMiddle))  setText(tr("BOTÃO CENTRAL DO MOUSE"));
     else                                           setText(spec);
 }
 
-// monta a spec canônica "Mods+Tecla" (formato do QKeySequence::toString,
-// estendido com "Meta+"/"Num+"). Ver declaração em HotkeyEdit.h.
+// builds the canonical "Mods+Key" spec (QKeySequence::toString format, extended
+// with "Meta+"/"Num+"). See the declaration in HotkeyEdit.h.
 QString HotkeyEdit::specFromKey(int key, int qtMods) {
     QString prefix;
     if (qtMods & int(Qt::ControlModifier)) prefix += QStringLiteral("Ctrl+");
@@ -249,7 +249,7 @@ QString HotkeyEdit::specFromKey(int key, int qtMods) {
     if (qtMods & int(Qt::KeypadModifier))  prefix += QStringLiteral("Num+");
     QString name;
     if (key >= 0x21 && key <= 0xFF && key != 0x7F) {
-        name = QString(QChar(ushort(key))); // imprimível: o próprio caractere
+        name = QString(QChar(ushort(key))); // printable: the character itself
     } else switch (key) {
     case Qt::Key_Space:     name = QStringLiteral("Space"); break;
     case Qt::Key_Tab:       name = QStringLiteral("Tab"); break;
@@ -274,7 +274,7 @@ QString HotkeyEdit::specFromKey(int key, int qtMods) {
     default:
         if (key >= Qt::Key_F1 && key <= Qt::Key_F24)
             name = QStringLiteral("F") + QString::number(key - Qt::Key_F1 + 1);
-        break; // sem spec (acento morto, tecla exótica): vazio
+        break; // no spec (dead accent, exotic key): empty
     }
     if (name.isEmpty()) return QString();
     return prefix + name;
@@ -295,9 +295,9 @@ void HotkeyEdit::setArmed(bool on) {
         setStyleSheet(QStringLiteral("HotkeyEdit { border: 1px solid #0078D7; }"));
 #ifdef Q_OS_WIN
         activeCaptureEdit = this;
-        // um único hook para o app todo (dois campos armados ao mesmo tempo
-        // não devem instalar dois hooks — o segundo sobrescreveria o
-        // handle do primeiro e o hook antigo vazaria instalado)
+        // a single hook for the whole app (two fields armed at the same time must
+        // not install two hooks -- the second would overwrite the first handle and
+        // the old hook would leak installed)
         if (!hMouseHook)
             hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, GlobalMouseProc, GetModuleHandle(NULL), 0);
 #endif
@@ -331,7 +331,7 @@ bool HotkeyEdit::eventFilter(QObject* obj, QEvent* ev) {
         if (!name.isEmpty()) {
             acceptSpec(name);
             clearFocus(); // desarma imediatamente ao capturar!
-            return true; // consome: evita navegação/fechar diálogo com o botão
+            return true; // consumes it: avoids navigation/dialog close with the button
         }
     }
     return QLineEdit::eventFilter(obj, ev);
@@ -340,15 +340,15 @@ bool HotkeyEdit::eventFilter(QObject* obj, QEvent* ev) {
 // ---- camada 1: eventos diretos do widget
 void HotkeyEdit::keyPressEvent(QKeyEvent* e) {
     const int key = e->key();
-    // v1.1.27: só Esc limpa — Backspace/Delete são teclas de PTT legítimas
-    // (o runtime sempre soube mapeá-las; a captura é que as devorava)
+    // v1.1.27: only Esc clears -- Backspace/Delete are legitimate PTT keys (the
+    // runtime always knew how to map them; the capture was what devoured them)
     if (key == Qt::Key_Escape) {
         acceptSpec(QString());
         clearFocus(); // desarma imediatamente!
         e->accept();
         return;
     }
-    if (key == Qt::Key_Tab || key == Qt::Key_Backtab) { // preserva navegação
+    if (key == Qt::Key_Tab || key == Qt::Key_Backtab) { // preserves navigation
         QLineEdit::keyPressEvent(e);
         return;
     }
@@ -358,13 +358,13 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* e) {
         e->accept();
         return;
     }
-    // v1.1.27: KeypadModifier entra na spec ("Num+5") e a montagem é manual
-    // (specFromKey) — o QKeySequence::toString pode omitir Num/Meta
+    // v1.1.27: KeypadModifier enters the spec ("Num+5") and the assembly is
+    // manual (specFromKey) -- QKeySequence::toString may omit Num/Meta
     const int mods = int(e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier |
                      Qt::AltModifier | Qt::MetaModifier | Qt::KeypadModifier));
     const QString spec = specFromKey(key, mods);
     if (spec.isEmpty()) {
-        e->accept(); // tecla sem spec (acento morto, exótica): aguarda a próxima
+        e->accept(); // key without a spec (dead accent, exotic): waits for the next one
         return;
     }
     acceptSpec(spec);

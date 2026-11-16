@@ -228,7 +228,7 @@ assert "limitedTemporaryOwner" in server_tab
 assert 'limited["bitrate"]' in server_tab
 assert 'limited["max"]' in server_tab
 assert '{ QStringLiteral("view"), tr("Ver canal") }' in channel_dialog
-assert "O servidor continua sendo a autoridade" in channel_dialog
+assert "continues being the authority" in channel_dialog
 assert "m_tempChannelParent->setEnabled(!temporary)" in channel_dialog
 assert 't == "privilege_granted"' in net_session
 assert 'm_myPerms[QStringLiteral("*")] = true' in net_session
@@ -271,10 +271,12 @@ _identity_code = _re.sub(r"/\*.*?\*/", "", _identity_code, flags=_re.S)
 # Manager) indisponível, a chave privada cai no armazenamento local legado.
 assert 'a chave privada será guardada apenas no perfil local' in identity_dialog
 assert 'S::set(keyBase(uid, QStringLiteral("privateDer")), QString::fromLatin1(priv.toBase64()))' in identity_dialog
-# signNonce() usa o material local mesmo quando a re-migração para o cofre
-# volta a falhar — sem isso o desafio de login falhava em máquinas com o
-# cofre bloqueado mesmo com a chave presente no perfil local.
-assert 'usa o material local MESMO' in identity_dialog
+# signNonce() uses the local material even when the re-migration to the vault
+# fails again -- without that, the login challenge failed on machines with a
+# blocked vault even though the key was present in the local profile.
+# (Invariant keyed on the English comment now that the code comments are
+# English-only; the behavior is identical.)
+assert 'local material EVEN IF the re-write to the vault fails' in identity_dialog
 assert 'if (!legacy.isEmpty() && SecureStore::write(privateKeyName, legacy)) {' not in identity_dialog
 # BoringSSL (embutido no SDK WebRTC do build Windows) NÃO implementa
 # i2d_PrivateKey para Ed25519 (só RSA/EC/DSA — devolve -1): a chave privada é

@@ -8,11 +8,11 @@
 class QLabel;
 struct ServerData;
 
-// Janela "Opções" — réplica do diálogo de opções do Halla (clássico):
-// menu lateral de categorias com ícones grandes à esquerda (separado por
-// linha de 1px), cabeçalho com gradiente claro dentro do painel de conteúdo
-// (título em negrito + subtítulo + ícone da seção à direita), fieldsets
-// estilo Windows e os botões OK/Cancelar/Aplicar no canto inferior direito.
+// "Options" window -- replica of Halla's (classic) options dialog: category
+// sidebar with large icons on the left (separated by a 1px line), a light
+// gradient header inside the content panel (bold title + subtitle + section icon
+// on the right), Windows-style fieldsets and the OK/Cancel/Apply buttons in the
+// bottom-right corner.
 class OptionsDialog : public QDialog {
     Q_OBJECT
 public:
@@ -41,9 +41,9 @@ private:
 
     QListWidget* m_nav = nullptr;
     QStackedWidget* m_stack = nullptr;
-    QLabel* m_headerTitle = nullptr;    // título da seção (negrito)
-    QLabel* m_headerSubtitle = nullptr; // subtítulo da seção (menor)
-    QLabel* m_headerIcon = nullptr;     // ícone da seção no canto direito
-    QStringList m_pageSubtitles;        // subtítulo de cada página
+    QLabel* m_headerTitle = nullptr;    // section title (bold)
+    QLabel* m_headerSubtitle = nullptr; // section subtitle (smaller)
+    QLabel* m_headerIcon = nullptr;     // section icon in the right corner
+    QStringList m_pageSubtitles;        // subtitle of each page
     const ServerData* m_whisperData = nullptr;
 };

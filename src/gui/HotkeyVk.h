@@ -1,29 +1,29 @@
 #pragma once
 
 // ============================================================================
-// HotkeyVk — núcleo PORTÁTIL do mapeamento "spec de atalho" <-> teclas.
+// HotkeyVk -- PORTABLE core of the "hotkey spec" <-> keys mapping.
 //
-// Não depende de Qt nem de windows.h: os bits de modificador e os códigos de
-// tecla usados são os MESMOS valores estáveis do Qt (QKeyCombination::
-// toCombined()), e os VK/MOD_* do Windows entram como constantes literais.
-// Isso permite compilar o mapeamento em qualquer plataforma — em particular
-// nos smoke tests do CI (g++/cl sem Qt) e nos testes locais do Linux.
+// It depends neither on Qt nor on windows.h: the modifier bits and key codes
+// used are the SAME stable Qt values (QKeyCombination::toCombined()), and the
+// Windows VK/MOD_* values enter as literal constants. That allows compiling the
+// mapping on any platform -- in particular the CI smoke tests (g++/cl without
+// Qt) and the local Linux tests.
 //
-// POR QUE ISTO EXISTE (v1.1.27): o conversor antigo (MainWindow::
-// specToVkImpl) só conhecia letras, dígitos, F1–F24 e teclas de controle.
-// Toda tecla de pontuação/OEM ("\", ";", "'", "[", "]", ",", "/", "=", "`",
-// "ç", acentos...) caía fora da tabela: vk ficava 0, a função devolvia false
-// e o chamador DESCARTAVA a tecla em silêncio. A captura funcionava (o campo
-// mostrava a tecla), mas no runtime nada era registrado — PTT, sussurro e
-// atalhos genéricos ficavam inertes, "como se o usuário não apertasse nada".
+// WHY THIS EXISTS (v1.1.27): the old converter (MainWindow::specToVkImpl) only
+// knew letters, digits, F1-F24 and control keys. Every punctuation/OEM key
+// ("\", ";", "'", "[", "]", ",", "/", "=", "`", accented keys...) fell outside
+// the table: vk stayed 0, the function returned false and the caller SILENTLY
+// discarded the key. Capture worked (the field showed the key), but nothing was
+// registered at runtime -- PTT, whisper and generic shortcuts stayed inert, "as
+// if the user pressed nothing".
 //
-// As teclas de pontuação são justamente as mais usadas como tecla de
-// sussurro/PTT em layouts não-US (ABNT2 no Brasil: "\" é tecla direta, "ç"
-// existe, "/" fica na tecla extra ao lado do Shift direito).
+// Punctuation keys are precisely the most used as whisper/PTT keys on non-US
+// layouts (ABNT2 in Brazil: "\" is a direct key, the cedilla key exists, "/"
+// sits on the extra key next to the right Shift).
 //
-// O formato da spec é o mesmo que o QKeySequence::toString() sempre gerou
-// ("Ctrl+F2", "Space", "A", "\\"), ESTENDIDO com os modificadores que o
-// toString pode omitir: "Meta+" (tecla Windows) e "Num+" (teclado numérico).
+// The spec format is the same one QKeySequence::toString() has always produced
+// ("Ctrl+F2", "Space", "A", "\\"), EXTENDED with the modifiers toString may
+// omit: "Meta+" (Windows key) and "Num+" (numeric keypad).
 // ============================================================================
 
 #include <cstdlib>
@@ -33,15 +33,15 @@
 
 namespace hvk {
 
-// ---- bits de modificador (valores estáveis do Qt::KeyboardModifier) -------
+// ---- modifier bits (stable Qt::KeyboardModifier values) -------------------
 constexpr int kShiftMod  = 0x02000000;
 constexpr int kCtrlMod   = 0x04000000;
 constexpr int kAltMod    = 0x08000000;
 constexpr int kMetaMod   = 0x10000000; // tecla Windows/Command
-constexpr int kKeypadMod = 0x20000000; // teclado numérico
+constexpr int kKeypadMod = 0x20000000; // numeric keypad
 constexpr int kModMask   = 0xFE000000;
 
-// ---- códigos de tecla de controle (valores estáveis do Qt::Key) -----------
+// ---- control key codes (stable Qt::Key values) ----------------------------
 constexpr int kKeyTab        = 0x01000001;
 constexpr int kKeyBackspace  = 0x01000003;
 constexpr int kKeyReturn     = 0x01000004;
@@ -63,7 +63,7 @@ constexpr int kKeyNumLock    = 0x01000025;
 constexpr int kKeyScrollLock = 0x01000026;
 constexpr int kKeyFBase      = 0x01000030; // F1; F24 = kKeyFBase + 23
 
-// ---- MOD_* do Windows (valores literais do winuser.h) ---------------------
+// ---- Windows MOD_* (literal values from winuser.h) ------------------------
 constexpr unsigned kModAlt     = 0x0001;
 constexpr unsigned kModControl = 0x0002;
 constexpr unsigned kModShift   = 0x0004;
@@ -77,17 +77,17 @@ constexpr unsigned kVkSubtract = 0x6D;
 constexpr unsigned kVkDecimal  = 0x6E;
 constexpr unsigned kVkDivide   = 0x6F;
 
-// Resolvedor layout-dependente: recebe um caractere (Unicode <= 0xFF) e
-// devolve o VK no byte baixo, com os bits 0x100/0x200/0x400 marcando
-// shift/ctrl/alt exigidos pelo layout ATUAL para produzir o caractere —
-// ou -1 se o caractere não existir no layout. No Windows a implementação
-// é VkKeyScanW(); nos testes é um mock (layout US, ABNT2, "vazio"...).
+// Layout-dependent resolver: receives a character (Unicode <= 0xFF) and
+// returns the VK in the low byte, with the 0x100/0x200/0x400 bits marking the
+// shift/ctrl/alt the CURRENT layout requires to produce the character -- or -1
+// if the character does not exist in the layout. On Windows the implementation
+// is VkKeyScanW(); in the tests it is a mock (US layout, ABNT2, "empty"...).
 using VkFromCharFn = int (*)(unsigned ch);
 
 // ---------------------------------------------------------------------------
-// Fallback US para pontuação de digitação direta (sem shift). Só é usado
-// quando o resolvedor do layout falha ou não existe — cobre o caso de o
-// layout ativo não responder pelo caractere sem deixá-lo morto.
+// US fallback for punctuation typed directly (no shift). Only used when the
+// layout resolver fails or does not exist -- covers the case of the active
+// layout not answering for the character, without leaving it dead.
 inline unsigned fallbackUsVk(int key) {
     switch (key) {
     case ' ':  return 0x20; // VK_SPACE
@@ -107,19 +107,20 @@ inline unsigned fallbackUsVk(int key) {
 }
 
 // ---------------------------------------------------------------------------
-// Converte o combined (mods Qt | key, layout do QKeyCombination::toCombined)
-// em VK + MOD_* do Windows.
+// Converts the combined value (Qt mods | key, the QKeyCombination::toCombined
+// layout) into a Windows VK + MOD_*.
 //
-// Cobertura:
-//  - tudo o que o conversor antigo já mapeava (regressão zero);
-//  - teclas de pontuação/acento Latin-1 imprimíveis (0x20..0xFF): resolvidas
-//    NO LAYOUT ATIVO via vkFromChar (VkKeyScanW) — "\\", "ç", ";", "`"...
-//    caem na tecla física certa em qualquer layout — com fallback US;
-//  - teclado numérico ("Num+5" -> VK_NUMPAD5, "Num++" -> VK_ADD...);
-//  - modificador Meta/Windows -> MOD_WIN.
+// Coverage:
+//  - everything the old converter already mapped (zero regression);
+//  - printable Latin-1 punctuation/accent keys (0x20..0xFF): resolved IN THE
+//    ACTIVE LAYOUT through vkFromChar (VkKeyScanW) -- "\\", ";", "`",
+//    accented keys... land on the right physical key on any layout -- with a
+//    US fallback;
+//  - numeric keypad ("Num+5" -> VK_NUMPAD5, "Num++" -> VK_ADD...);
+//  - Meta/Windows modifier -> MOD_WIN.
 //
-// `mods` sai LIMPO (só MOD_ALT/CONTROL/SHIFT/WIN reais, sem MOD_NOREPEAT —
-// quem registra hotkey adiciona o que precisa).
+// `mods` leaves CLEAN (only real MOD_ALT/CONTROL/SHIFT/WIN, without
+// MOD_NOREPEAT -- whoever registers the hotkey adds what it needs).
 inline bool specToVkCore(int combined, VkFromCharFn vkFromChar,
                          unsigned& vk, unsigned& mods) {
     vk = 0;
@@ -137,8 +138,8 @@ inline bool specToVkCore(int combined, VkFromCharFn vkFromChar,
         if (qtMods & kMetaMod)  mods |= kModWin;
     };
 
-    // teclado numérico: distinto da fileira principal (com NumLock, o VK
-    // reportado é VK_NUMPAD0..9, não o dígito da fileira de cima)
+    // numeric keypad: distinct from the main row (with NumLock the reported VK
+    // is VK_NUMPAD0..9, not the digit from the upper row)
     if (qtMods & kKeypadMod) {
         if (key >= '0' && key <= '9') { vk = kVkNumPad0 + unsigned(key - '0'); applyQtMods(); return true; }
         if (key == '+') { vk = kVkAdd;      applyQtMods(); return true; }
@@ -150,7 +151,7 @@ inline bool specToVkCore(int combined, VkFromCharFn vkFromChar,
         // segue como Return normal abaixo
     }
 
-    // letras e dígitos ASCII (VK coincide com o código do caractere)
+    // ASCII letters and digits (the VK matches the character code)
     if ((key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9')) {
         vk = unsigned(key);
         applyQtMods();
@@ -184,12 +185,13 @@ inline bool specToVkCore(int combined, VkFromCharFn vkFromChar,
     case kKeyRight:      vk = 0x27; break;
     case kKeyDown:       vk = 0x28; break;
     default: {
-        // caractere imprimível Latin-1: pontuação, acentos, ç...
+        // printable Latin-1 character: punctuation, accents, cedilla...
         if (key < 0x20 || key > 0xFF || key == 0x7F) return false;
 
-        // 1) resolve NO LAYOUT ATIVO: devolve a tecla física certa (ABNT2,
-        //    europeus...) e os mods que o layout exige (ex.: "+" pede shift
-        //    no US; AltGr entra como ctrl+alt e casa com o polling físico)
+        // 1) resolves IN THE ACTIVE LAYOUT: returns the right physical key
+        //    (ABNT2, European...) and the mods the layout requires (e.g. "+"
+        //    needs shift on US; AltGr enters as ctrl+alt and matches the
+        //    physical polling)
         if (vkFromChar) {
             const int r = vkFromChar(unsigned(key));
             if (r >= 0) {
@@ -199,9 +201,9 @@ inline bool specToVkCore(int combined, VkFromCharFn vkFromChar,
                 if (r & 0x400) mods |= kModAlt;
             }
         }
-        // 2) sem layout que responda: tabela US de digitação direta
+        // 2) no layout answering: US table for directly typed characters
         if (!vk) vk = fallbackUsVk(key);
-        if (!vk) return false; // não existe no layout nem no fallback
+        if (!vk) return false; // exists neither in the layout nor in the fallback
         break;
     }
     }
@@ -211,17 +213,18 @@ inline bool specToVkCore(int combined, VkFromCharFn vkFromChar,
 }
 
 // ---------------------------------------------------------------------------
-// Parser manual da spec "Mods+Tecla" — pega tudo o que o QKeySequence::
-// fromString() rejeita (chars de pontuação soltos, "Num+5", "ç"...).
-// Devolve o combined (mods | key) ou 0 se não entender.
+// Manual parser for the "Mods+Key" spec -- handles everything
+// QKeySequence::fromString() rejects (bare punctuation chars, "Num+5",
+// accented keys...). Returns the combined value (mods | key) or 0 when it does
+// not understand the spec.
 //
-// Formato: tokens separados por "+"; os primeiros são modificadores
-// (Ctrl/Control, Shift, Alt, Meta/Win/Super, Num/Keypad) e o último é a
-// tecla: um caractere imprimível (ASCII ou Latin-1 em UTF-8) OU um nome
-// (Space, Tab, Backspace, Return, Enter, Ins/Insert, Del/Delete, Pause,
-// Print, Home, End, Left, Up, Right, Down, PgUp/PageUp, PgDown/PageDown,
-// CapsLock, NumLock, ScrollLock, F1..F24). Um "+" final conta como a tecla
-// "+" ("Ctrl++", "Num++").
+// Format: tokens separated by "+"; the leading ones are modifiers
+// (Ctrl/Control, Shift, Alt, Meta/Win/Super, Num/Keypad) and the last one is
+// the key: a printable character (ASCII or Latin-1 in UTF-8) OR a name (Space,
+// Tab, Backspace, Return, Enter, Ins/Insert, Del/Delete, Pause, Print, Home,
+// End, Left, Up, Right, Down, PgUp/PageUp, PgDown/PageDown, CapsLock, NumLock,
+// ScrollLock, F1..F24). A trailing "+" counts as the "+" key ("Ctrl++",
+// "Num++").
 inline int parseSpec(const char* utf8) {
     if (!utf8) return 0;
     std::string s(utf8);
@@ -229,8 +232,9 @@ inline int parseSpec(const char* utf8) {
     while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.pop_back();
     if (s.empty()) return 0;
 
-    // separa "Mods+" (prefixo) da TECLA (sufixo). A tecla '+' é ambígua com
-    // o separador: "+", "Ctrl++", "Num++" — termina em "++" (ou é só "+").
+    // separates "Mods+" (prefix) from the KEY (suffix). The '+' key is
+    // ambiguous with the separator: "+", "Ctrl++", "Num++" -- it ends in "++"
+    // (or is just "+").
     std::string keyStr;
     std::string modsStr;
     if (s.back() == '+') {
@@ -240,7 +244,7 @@ inline int parseSpec(const char* utf8) {
             keyStr = "+";
             modsStr = s.substr(0, s.size() - 2);
         }
-        // termina em '+' sem "++": "Ctrl+" — tecla ausente, inválido
+        // ends in '+' without "++": "Ctrl+" -- missing key, invalid
     } else {
         const size_t lastPlus = s.rfind('+');
         if (lastPlus == std::string::npos) keyStr = s;
@@ -251,8 +255,9 @@ inline int parseSpec(const char* utf8) {
     }
     if (keyStr.empty()) return 0;
 
-    // modificadores: split do prefixo por '+'; um token vazio NO FIM é só o
-    // separador pendente ("Ctrl+Num+" da tecla '+'); vazio no meio é erro
+    // modifiers: split the prefix on '+'; an empty token AT THE END is just the
+    // pending separator ("Ctrl+Num+" for the '+' key); empty in the middle is an
+    // error
     int mods = 0;
     if (!modsStr.empty()) {
         size_t i = 0;
@@ -278,17 +283,17 @@ inline int parseSpec(const char* utf8) {
         }
     }
 
-    // a tecla: caractere imprimível ou nome
+    // the key: printable character or name
     int key = 0;
     if (keyStr.size() == 1) {
         const unsigned char c = (unsigned char)keyStr[0];
-        if (c >= 0x21 && c <= 0x7E) key = int(c); // imprimível ASCII (não espaço)
+        if (c >= 0x21 && c <= 0x7E) key = int(c); // printable ASCII (not space)
     } else if (keyStr.size() == 2 &&
                (unsigned char)keyStr[0] >= 0xC2 && (unsigned char)keyStr[0] <= 0xC5) {
-        // Latin-1 supplement em UTF-8 (ç, á, ã...): 110xxxxx 10xxxxxx
+        // Latin-1 supplement in UTF-8 (accented characters): 110xxxxx 10xxxxxx
         const unsigned cp = ((unsigned char)keyStr[0] & 0x1Fu) << 6 |
                             ((unsigned char)keyStr[1] & 0x3Fu);
-        if (cp >= 0xA0 && cp <= 0xFF) key = int(cp); // código do Qt::Key
+        if (cp >= 0xA0 && cp <= 0xFF) key = int(cp); // Qt::Key code
     }
     if (!key) {
         std::string name = keyStr;

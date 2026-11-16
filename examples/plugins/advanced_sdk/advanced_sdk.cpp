@@ -22,8 +22,8 @@ void logMessage(const std::string& message) {
 
 void processAudio(void*, HallaAudioFrame* frame) {
     if (!frame || !frame->samples) return;
-    // Exemplo deliberadamente transparente: prova que o callback PCM está
-    // ligado ao pipeline sem alterar a voz do usuário.
+    // Deliberately transparent example: proves that the PCM callback is wired to
+    // the pipeline without altering the user's voice.
     g_processedFrames += frame->frame_count;
 }
 

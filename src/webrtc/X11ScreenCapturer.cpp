@@ -23,12 +23,13 @@
 
 namespace {
 
-// Erros X11 síncronos (BadWindow em janela que morreu entre a enumeração e o
-// grab, BadMatch em XShmGetImage de retângulo inválido) não podem matar o
-// processo: o handler padrão encerra o app. Engolimos o erro DURANTE a
-// chamada arriscada e restauramos o handler em seguida (mesmo padrão do OBS).
-// O handler é global, mas os erros são despachados sincronamente pela thread
-// que fez a chamada — a janela de execução é de microssegundos.
+// Synchronous X11 errors (BadWindow for a window that died between
+// enumeration and grab, BadMatch for XShmGetImage with an invalid rectangle)
+// must not kill the process: the default handler terminates the app. We
+// swallow the error DURING the risky call and restore the handler right
+// after (same pattern as OBS). The handler is global, but errors are
+// dispatched synchronously by the calling thread -- the execution window is
+// microseconds.
 int swallowX11Errors(Display*, XErrorEvent*)
 {
     return 0;
@@ -56,14 +57,14 @@ struct X11ScreenCapturer::Impl {
     bool shmUsable = false;
     bool fixesUsable = false;
 
-    // Segmento XShm reaproveitado entre frames (attach único).
+    // XShm segment reused across frames (single attach).
     XImage* image = nullptr;
     XShmSegmentInfo segment{};
     int shmWidth = 0;
     int shmHeight = 0;
 
-    // Cache dos monitores XRandR (geometria física) — o round-trip do
-    // XRRGetMonitors a cada frame custa mais que a captura em si.
+    // XRandR monitor cache (physical geometry) -- the XRRGetMonitors
+    // round-trip every frame would cost more than the capture itself.
     struct MonitorInfo {
         QByteArray name;
         int x = 0;
@@ -87,11 +88,11 @@ struct X11ScreenCapturer::Impl {
     bool initialize()
     {
         if (display) return true;
-        // XInitThreads UMA vez por processo, ANTES do primeiro XOpenDisplay
-        // daqui: o capturer é criado pela thread de captura e destruído pela
-        // GUI (destrutor da session) — sem os locks internos do Xlib isso é
-        // UB. No X11 o Qt já chamou (no-op); no Wayland via XWayland somos
-        // nós o primeiro a tocar Xlib.
+        // XInitThreads ONCE per process, BEFORE the first XOpenDisplay from
+        // here: the capturer is created by the capture thread and destroyed
+        // by the GUI (session destructor) -- without Xlib internal locks that
+        // is UB. On X11 Qt already called it (no-op); on Wayland via XWayland
+        // we are the first to touch Xlib.
         static const bool threadsInitialized = [] {
             XInitThreads();
             return true;
@@ -105,8 +106,8 @@ struct X11ScreenCapturer::Impl {
             return false;
         }
         root = DefaultRootWindow(display);
-        // MIT-SHM: a assinatura real é XShmQueryExtension(Display*) — a
-        // base de evento/erro não é necessária para XShmGetImage síncrono.
+        // MIT-SHM: the real signature is XShmQueryExtension(Display*) -- the
+        // event/error base is not needed for synchronous XShmGetImage.
         shmUsable = XShmQueryExtension(display) != False;
         if (!shmUsable)
             AppLog::warn(QStringLiteral("X11: extensão MIT-SHM ausente; captura indisponível"));
@@ -124,7 +125,11 @@ struct X11ScreenCapturer::Impl {
         }
         if (image) {
             XShmDetach(display, &segment);
-            XDestroyImage(image); // libera também image->data (alocado por nós)
+            // image->data points into the shared-memory segment: null it out
+            // so XDestroyImage does not free memory it does not own (the
+            // segment itself is released by shmdt below).
+            image->data = nullptr;
+            XDestroyImage(image);
             image = nullptr;
         }
         if (segment.shmid != -1) {
@@ -134,7 +139,7 @@ struct X11ScreenCapturer::Impl {
         shmWidth = shmHeight = 0;
     }
 
-    // Garante um XImage+segmento shm de w×h bytes (reutilizado entre frames).
+    // Ensures an XImage + shm segment of w x h bytes (reused across frames).
     bool ensureShm(int width, int height)
     {
         if (image && width == shmWidth && height == shmHeight) return true;
@@ -146,9 +151,11 @@ struct X11ScreenCapturer::Impl {
                                 DefaultDepth(display, DefaultScreen(display)),
                                 ZPixmap, nullptr, &segment, unsigned(width), unsigned(height));
         if (!image) return false;
+        // 0600: the frame buffer is screen content -- never world-readable.
         segment.shmid = shmget(IPC_PRIVATE, size_t(image->bytes_per_line) * size_t(height),
-                               IPC_CREAT | 0777);
+                               IPC_CREAT | 0600);
         if (segment.shmid == -1) {
+            image->data = nullptr;
             XDestroyImage(image);
             image = nullptr;
             return false;
@@ -158,18 +165,20 @@ struct X11ScreenCapturer::Impl {
         if (segment.shmaddr == reinterpret_cast<char*>(-1)) {
             shmctl(segment.shmid, IPC_RMID, nullptr);
             segment.shmid = -1;
+            image->data = nullptr;
             XDestroyImage(image);
             image = nullptr;
             return false;
         }
         image->data = segment.shmaddr;
-        // IPC_RMID já aqui: o segmento morre quando o último detach ocorrer,
-        // mesmo se o processo cair no meio (não vaza IPC no crash).
+        // IPC_RMID right away: the segment dies when the last detach happens,
+        // even if the process crashes midway (no IPC leak on crash).
         shmctl(segment.shmid, IPC_RMID, nullptr);
         if (!XShmAttach(display, &segment)) {
             shmdt(segment.shmaddr);
             shmctl(segment.shmid, IPC_RMID, nullptr);
             segment.shmid = -1;
+            image->data = nullptr;
             XDestroyImage(image);
             image = nullptr;
             return false;
@@ -190,17 +199,17 @@ struct X11ScreenCapturer::Impl {
         XRRMonitorInfo* infos = XRRGetMonitors(display, root, True /*active only*/, &count);
         if (!infos || count <= 0) {
             if (infos) XRRFreeMonitors(infos);
-            // Sem XRandR (ex.: telas configuradas na mão): um "monitor" do
-            // tamanho do root mantém a captura funcionando.
+            // No XRandR (e.g. hand-configured screens): a root-sized
+            // "monitor" keeps capture working.
             monitors.push_back({"", 0, 0,
                                 DisplayWidth(display, DefaultScreen(display)),
                                 DisplayHeight(display, DefaultScreen(display)),
                                 true});
             return;
         }
-        // Resources buscados UMA vez por refresh: XRRGetOutputInfo exige
-        // (Display*, XRRScreenResources*, RROutput) — o nome do OUTPUT (que é
-        // o QScreen::name() do Qt), não o nome do monitor.
+        // Resources fetched ONCE per refresh: XRRGetOutputInfo requires
+        // (Display*, XRRScreenResources*, RROutput) -- the OUTPUT name (which
+        // is Qt QScreen::name()), not the monitor name.
         XRRScreenResources* resources = XRRGetScreenResources(display, root);
         for (int i = 0; i < count; ++i) {
             MonitorInfo info;
@@ -209,8 +218,8 @@ struct X11ScreenCapturer::Impl {
             info.width = std::max(1, int(infos[i].width));
             info.height = std::max(1, int(infos[i].height));
             info.primary = infos[i].primary != 0;
-            // Nome do primeiro output do monitor (é o nome que o QScreen::name()
-            // do Qt expõe na GUI thread).
+            // Name of the monitor's first output (the name Qt QScreen::name()
+            // exposes on the GUI thread).
             if (resources && infos[i].noutput > 0) {
                 XRROutputInfo* output = XRRGetOutputInfo(display, resources,
                                                          infos[i].outputs[0]);
@@ -236,11 +245,12 @@ struct X11ScreenCapturer::Impl {
         return monitors.empty() ? nullptr : &monitors.front();
     }
 
-    // Captura uma região do root em pixels físicos; devolve QImage ARGB32.
+    // Captures a root region in physical pixels; returns an ARGB32 QImage.
     QImage grabRootRect(int x, int y, int width, int height)
     {
         if (width < 8 || height < 8) return {};
-        // Recorta ao root (XShmGetImage com retângulo fora devolve BadMatch).
+        // Clips to the root (XShmGetImage with an out-of-bounds rectangle
+        // returns BadMatch).
         const int rootWidth = DisplayWidth(display, DefaultScreen(display));
         const int rootHeight = DisplayHeight(display, DefaultScreen(display));
         if (x < 0) { width += x; x = 0; }
@@ -252,8 +262,9 @@ struct X11ScreenCapturer::Impl {
 
         {
             XErrorGuard guard(display);
-            // Assinatura real: XShmGetImage(dpy, d, ximage, x, y, plane_mask)
-            // — o formato (ZPixmap) vem do XImage criado no ensureShm.
+            // Real signature: XShmGetImage(dpy, d, ximage, x, y, plane_mask)
+            // -- the format (ZPixmap) comes from the XImage created in
+            // ensureShm.
             if (!XShmGetImage(display, root, image, x, y, AllPlanes)) return {};
         }
         if (image->depth < 24 || image->bits_per_pixel != 32) {
@@ -261,15 +272,16 @@ struct X11ScreenCapturer::Impl {
                              .arg(image->depth).arg(image->bits_per_pixel));
             return {};
         }
-        // ZPixmap 32bpp little-endian == layout ARGB32 do QImage (alpha do
-        // root costuma vir 0xff ou lixo — o consumidor ignora o canal).
+        // 32bpp little-endian ZPixmap == QImage ARGB32 layout (root alpha
+        // usually comes as 0xff or garbage -- the consumer ignores the channel).
         QImage frame(reinterpret_cast<uchar*>(image->data), width, height,
                      image->bytes_per_line, QImage::Format_ARGB32);
-        return frame.copy(); // detach antes de reutilizar o buffer shm
+        return frame.copy(); // detach before reusing the shm buffer
     }
 
-    // Compõe o cursor do sistema (posição root) no frame — transmitir sem
-    // cursor torna streams de desktop praticamente inassistíveis.
+    // Composites the system cursor (root position) into the frame --
+    // streaming without a cursor makes desktop streams practically
+    // unwatcheable.
     void compositeCursor(QImage& frame, int originX, int originY)
     {
         if (!fixesUsable || frame.isNull()) return;
@@ -283,11 +295,11 @@ struct X11ScreenCapturer::Impl {
         const int cursorY = int(cursor->y) - int(cursor->yhot) - originY;
         const int cursorW = int(cursor->width);
         const int cursorH = int(cursor->height);
-        // Fora do frame (cursor em outro monitor): descarta sem pintar.
+        // Outside the frame (cursor on another monitor): discard without painting.
         if (cursorX + cursorW > 0 && cursorY + cursorH > 0
                 && cursorX < frame.width() && cursorY < frame.height()) {
             QImage cursorImage(cursorW, cursorH, QImage::Format_ARGB32);
-            // XFixesCursorImage::pixels é ARGB em unsigned long por pixel.
+            // XFixesCursorImage::pixels is ARGB in one unsigned long per pixel.
             for (int row = 0; row < cursorH; ++row) {
                 QRgb* line = reinterpret_cast<QRgb*>(cursorImage.scanLine(row));
                 const unsigned long* source = cursor->pixels + row * cursorW;
@@ -342,9 +354,9 @@ QImage X11ScreenCapturer::grabWindowRegion(quintptr windowId)
         Status geometryOk = XGetGeometry(m_impl->display, window, &rootReturn,
                                          &x, &y, &width, &height, &borderWidth, &depthReturn);
         if (!geometryOk) return {};
-        // x/y do XGetGeometry são relativos ao PAI da janela e width/height
-        // são da CLIENT AREA (sem a borda X11); traduz a origem do client
-        // area para coordenadas do root.
+        // XGetGeometry x/y are relative to the window PARENT and width/height
+        // are the CLIENT AREA (without the X11 border); translate the client
+        // area origin into root coordinates.
         if (!XTranslateCoordinates(m_impl->display, window, m_impl->root,
                                    0, 0, &rootX, &rootY, &window)) return {};
     }

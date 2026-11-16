@@ -1,30 +1,14 @@
-// E2eeCrypto — primitivas de criptografia ponta a ponta do Halla v6.
+// End-to-end encryption primitives for Halla protocol v6.
 //
-// Toda a criptografia de CONTEÚDO acontece aqui, no cliente. O servidor só
-// enxerga bytes opacos: ele não gera, não distribui e não decifra chave
-// alguma. As chaves de grupo nascem nos clientes (o "mestre" de cada
-// componente — menor UID online) e viajam embrulhadas por X25519.
+// All content encryption happens strictly on the client using:
+//   X25519 (ECDH) + HKDF-SHA256 + AES-256-GCM + Ed25519 (identity/binding signatures).
 //
-// Camadas:
-//   X25519 (ECDH) + HKDF-SHA256 + AES-256-GCM + Ed25519 (assinatura/binding)
-//
-// Compatibilidade de backends: o código compila contra OpenSSL real (Linux,
-// MinGW) e contra o BoringSSL embutido no SDK WebRTC (Windows). O caminho é
-// 100% livre de NID (chaves via envelopes DER do RFC 8410: d2i_AutoPrivateKey/
-// d2i_PUBKEY/i2d_PUBKEY) porque as CONSTANTES EVP_PKEY_X25519/ED25519 divergem
-// entre os headers do OpenSSL 3 (usados no build Windows) e o BoringSSL
-// linkado — ver o comentário no topo do E2eeCrypto.cpp.
-//
-// Invariantes de segurança:
-//   * voz, tela, chat, sussurro, poke e offline NUNCA saem em claro;
-//   * cada uso criptográfico tem um domínio AAD próprio (um ciphertext de
-//     chat não serve como envelope de chave e vice-versa);
-//   * envelopes de chave usam X25519 EFÊMERO (PFS por envelope) — mesmo a
-//     revelação futura da chave estática do destinatário não abre envelopes
-//     já entregues;
-//   * chaves par-a-par (chat privado/poke/offline) são estático-estáticas —
-//     os pares persistem nas identidades para que mensagens offline possam
-//     ser decifradas independentemente de quem está online.
+// Backend ABI note:
+// Windows WebRTC builds compile against OpenSSL 3 headers while linking against
+// BoringSSL inside webrtc.lib. All asymmetric keys are constructed via NID-free
+// RFC 8410 DER envelopes (d2i_AutoPrivateKey / d2i_PUBKEY / i2d_PUBKEY) and HMAC
+// is implemented directly over EVP_Digest* so function signatures and constants
+// match identically across OpenSSL and BoringSSL.
 #pragma once
 
 #include <QByteArray>
@@ -32,85 +16,57 @@
 
 namespace E2ee {
 
-// Domínios AAD — distinguem cada protocolo que compartilha primitivas.
-extern const char kDomainKeyWrap[];    // envelopes e2e_key (canal/sussurro)
-extern const char kDomainChat[];       // chat (escopo servidor/canal)
-extern const char kDomainPoke[];       // poke
-extern const char kDomainOffline[];    // mensagem offline
-extern const char kDhBindingDomain[];  // prefixo assinado no binding idPub→dhPub
+// Protocol-separated AAD domain tags.
+extern const char kDomainKeyWrap[];
+extern const char kDomainChat[];
+extern const char kDomainPoke[];
+extern const char kDomainOffline[];
+extern const char kDhBindingDomain[];
 
-// ------------------------------------------------------------------ X25519
 struct DhKeyPair {
-    QByteArray priv;   // 32 bytes crus
-    QByteArray pub;    // 32 bytes crus
+    QByteArray priv; // 32-byte raw X25519 private scalar
+    QByteArray pub;  // 32-byte raw X25519 public point
 };
 
-// Gera par X25519 a partir do CSPRNG da biblioteca cripto linkada.
 bool generateDhKeyPair(DhKeyPair& out);
-
-// Segredo compartilhado ECDH (32 bytes) a partir da minha privada e da
-// pública do par. Devolve QByteArray vazio em caso de falha.
 QByteArray x25519SharedSecret(const QByteArray& myPriv, const QByteArray& theirPub);
-
-// Pública X25519 derivada da privada — valida pares armazenados.
 QByteArray dhPublicFromPrivate(const QByteArray& priv);
 
-// ------------------------------------------------------------- HKDF-SHA256
-// HKDF (RFC 5869): extract + expand. `length` ≤ 255×32.
+// RFC 5869 HKDF-SHA256 (extract + expand, length <= 255 * 32).
 QByteArray hkdfSha256(const QByteArray& ikm, const QByteArray& salt,
                       const QByteArray& info, int length);
 
-// ----------------------------------------------------------- AES-256-GCM
-// nonce de 12 bytes, tag de 16. `out` recebe ciphertext||tag (e vazio em
-// falha). `aad` autentica o contexto (domínio do protocolo).
+// AES-256-GCM authenticated encryption (12-byte nonce, 16-byte authentication tag).
 bool aeadSeal(const QByteArray& key, const QByteArray& nonce, const QByteArray& aad,
               const QByteArray& plain, QByteArray& out);
 bool aeadOpen(const QByteArray& key, const QByteArray& nonce, const QByteArray& aad,
               const QByteArray& ctTag, QByteArray& out);
 
-// ------------------------------------------------------------ Envelope e2e_key
-// Layout do envelope: ephPub(32) | nonce(12) | ct | tag(16).
-// A chave de cifragem é HKDF(ECDH(efêmera, pública do destinatário)) — só o
-// destinatário abre, e a efêmera morre após o wrap (PFS do envelope).
+// Ephemeral-static X25519 key-wrap envelope: ephPub(32) | nonce(12) | ciphertext | tag(16).
 QByteArray envelopeWrap(const QByteArray& recipientDhPub, const QByteArray& aad,
                         const QByteArray& plain);
 QByteArray envelopeUnwrap(const QByteArray& myDhPriv, const QByteArray& aad,
                           const QByteArray& envelope);
 
-// ------------------------------------------------------- Chave par-a-par
-// Derivação estático-estática: HKDF(ECDH(minhaPriv, públicaDoPar)), com o
-// domínio no info — quem não possui o par não deriva a chave. O blob de
-// saída é nonce(12)|ct|tag(16). Simétrico: pairwiseEncrypt(aPriv,bPub) é
-// aberto por pairwiseDecrypt(bPriv,aPub) e vice-versa.
+// Static-static X25519 pairwise authenticated encryption: nonce(12) | ciphertext | tag(16).
 QByteArray pairwiseEncrypt(const QByteArray& myDhPriv, const QByteArray& theirDhPub,
                            const QByteArray& domain, const QByteArray& plain);
 QByteArray pairwiseDecrypt(const QByteArray& myDhPriv, const QByteArray& theirDhPub,
                            const QByteArray& domain, const QByteArray& blob);
 
-// --------------------------------------------------------------- Ed25519
-// Assina `msg` com o material da identidade — aceita a seed crua de 32 bytes
-// (formato atual do cofre) ou PKCS#8 legado. Devolve 64 bytes ou vazio.
+// Ed25519 signing (accepts 32-byte raw seed or PKCS#8 DER) and SPKI DER verification.
 QByteArray ed25519Sign(const QByteArray& privMaterial, const QByteArray& msg);
-
-// Verifica `sig` contra a pública SPKI DER da identidade.
 bool ed25519Verify(const QByteArray& pubSpkiDer, const QByteArray& msg, const QByteArray& sig);
 
-// Mensagem do binding: "HALLA-DH-V1" || dhPub — liga a X25519 à Ed25519.
 QByteArray dhBindingMessage(const QByteArray& dhPub);
 bool verifyDhBinding(const QByteArray& idPub, const QByteArray& dhPub, const QByteArray& dhSig);
 
-// ------------------------------------------------------------- Utilidades
+// Signed key-envelope transcript helper for authenticating e2e_key senders.
+QByteArray keyEnvelopeSignaturePayload(int toSessionId, const QByteArray& envelope);
+
 QByteArray randomBytes(int n);
 QByteArray sha256(const QByteArray& data);
-
-// Código SAS de verificação de identidade: 9 dígitos derivados do par de
-// chaves públicas Ed25519 (ordenado), comparáveis verbalmente entre as duas
-// pontas. A ordem canônica garante que ambos os lados derivam o MESMO
-// número sem negociação.
 QString sasCode(const QByteArray& idPubA, const QByteArray& idPubB);
-
-// UID esperado para uma idPub: base64(SHA-256(SPKI DER)) — igual ao cálculo
-// do servidor e do cliente, usado na verificação local do diretório.
 QString uidForIdPub(const QByteArray& idPubSpkiDer);
 
 } // namespace E2ee

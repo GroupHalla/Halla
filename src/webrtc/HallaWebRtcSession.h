@@ -30,12 +30,13 @@ class PeerConnectionInterface;
 }
 #endif
 
-// Adapter de WebRTC nativo do Halla Desktop.
+// Halla Desktop native WebRTC adapter.
 //
-// Esta camada é intencionalmente pequena: a UI e o NetSession falam com esta
-// classe, e a implementação concreta usa libwebrtc quando HALLA_WEBRTC_NATIVE
-// estiver definido. Sem o SDK pré-compilado, ela compila como stub seguro para
-// manter o cliente e o CI funcionando enquanto a toolchain WebRTC é preparada.
+// This layer is intentionally small: the UI and NetSession talk to this
+// class, and the concrete implementation uses libwebrtc when
+// HALLA_WEBRTC_NATIVE is defined. Without the prebuilt SDK it compiles as a
+// safe stub to keep the client and CI working while the WebRTC toolchain is
+// being prepared.
 class HallaWebRtcSession : public QObject {
     Q_OBJECT
 public:
@@ -47,19 +48,19 @@ public:
     void setCaptureSource(int sourceType, quintptr sourceId);
     void setCaptureQuality(int width, int height, int fps, int bitrateKbps);
     void setCaptureSystemAudio(bool enabled);
-    // Liga/desliga o pipeline de preview local (cópia GPU->CPU + redução).
-    // A MainWindow chama ao abrir/fechar a janela "Minha transmissão": sem
-    // janela, gerar preview é CPU/memória desperdiçados no escuro.
+    // Enables/disables the local preview pipeline (GPU->CPU copy + downscale).
+    // MainWindow calls this when opening/closing the "My stream" window:
+    // without a window, generating preview is CPU/memory wasted in the dark.
     void setLocalPreviewEnabled(bool enabled);
     void startWatching(int userId);
     void stopWatching(int userId);
-    // v1.1.28: re-tenta uma visualização que não conectou (ICE travado em
-    // CGNAT/firewall, oferta perdida): derruba o peer e pede de novo.
+    // v1.1.28: retries a view that did not connect (ICE stuck on
+    // CGNAT/firewall, lost offer): tears down the peer and requests again.
     void restartWatch(int userId);
-    // A sessão WebRTC sobrevive às abas (uma por janela); ao reconectar, o
-    // NetSession antigo é destruído. Sem estes métodos, m_net ficaria pendente
-    // (use-after-free no sendWebRtcStreamStart) e m_broadcasting preso em true
-    // (a próxima transmissão não fazia nada).
+    // The WebRTC session outlives the tabs (one per window); on reconnect,
+    // the old NetSession is destroyed. Without these methods, m_net would
+    // dangle (use-after-free in sendWebRtcStreamStart) and m_broadcasting
+    // would stay stuck at true (the next stream would do nothing).
     void setNetSession(NetSession* net);
     void detachFromNet(NetSession* net);
 
@@ -74,8 +75,9 @@ public:
     bool ensureNativeFactory();
     void resetNativeFactoryForEncoderSetting();
     PeerContext* ensurePeer(int peerId);
-    // Cópia ref-counted do PeerConnection de um peer — segura de usar fora do
-    // lock mesmo que closePeer apague o contexto da thread da GUI no intervalo.
+    // Ref-counted copy of a peer's PeerConnection -- safe to use outside the
+    // lock even if closePeer deletes the context from the GUI thread in the
+    // meantime.
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peerConnection(int peerId);
     void createOfferForPeer(int peerId);
     void setRemoteAnswer(int peerId, const QString& sdp);
@@ -103,35 +105,35 @@ signals:
     void remoteFrameReceived(int userId, const QImage& image);
     void remoteAudioReceived(int userId, const QByteArray& pcm,
                              int sampleRate, int channels, int frames);
-    // v1.1.28: estado da conexão P2P de um peer ("new"/"connecting"/
-    // "connected"/"disconnected"/"failed"/"closed"). Antes o ICE falhava
-    // (NAT/CGNAT sem TURN) e a UI ficava eternamente em "Aguardando
-    // transmissão..." — agora a janela do viewer mostra o erro e oferece
-    // tentar de novo.
+    // v1.1.28: P2P connection state of a peer ("new"/"connecting"/
+    // "connected"/"disconnected"/"failed"/"closed"). Before, ICE failed
+    // (NAT/CGNAT without TURN) and the UI stayed forever on "Waiting for
+    // stream..." -- now the viewer window shows the error and offers to
+    // retry.
     void peerStateChanged(int peerId, const QString& state);
 
 private:
     struct NativeState;
     std::unique_ptr<NativeState> m_native;
     NetSession* m_net = nullptr;
-    // v1.1.28: peerId -> conexão pela qual aquele peer negocia. Com duas ou
-    // mais abas de servidor, o m_net aponta para a ÚLTIMA aba conectada: sem
-    // este mapa, offer/answer/ICE de uma transmissão da aba A eram enviados
-    // pela aba B (servidor errado!) e o viewer nunca recebia vídeo.
+    // v1.1.28: peerId -> connection that peer negotiates over. With two or
+    // more server tabs, m_net points at the LAST connected tab: without this
+    // map, offer/answer/ICE for a stream on tab A were sent via tab B (wrong
+    // server!) and the viewer never received video.
     QMap<int, QPointer<NetSession>> m_peerNet;
     NetSession* netForPeer(int peerId) const;
-    // A captura roda numa thread de trabalho (não na GUI) para que o DXGI,
-    // a escala e o preview não travem a interface em transmissões 4K.
+    // Capture runs on a worker thread (not the GUI) so DXGI, scaling, and
+    // preview do not freeze the interface during 4K streams.
     QThread* m_captureThread = nullptr;
     QTimer* m_captureTimer = nullptr;
     int m_captureSourceType = 0;
     quintptr m_captureSourceId = 0;
-    // Linux: nome do output XRandR do monitor selecionado (X11ScreenCapturer
-    // resolve o monitor por nome — a ordem dos QScreens não é confiável).
+    // Linux: XRandR output name of the selected monitor (X11ScreenCapturer
+    // resolves the monitor by name -- the QScreen order is not reliable).
     QString m_captureScreenName;
-    // Snapshot das geometrias lógicas das telas, coletado NA GUI THREAD
-    // (setCaptureSource). QGuiApplication::screens()/geometry() não podem ser
-    // lidos da thread de captura — o crop de janelas usa esta cópia.
+    // Snapshot of the logical screen geometries, collected ON THE GUI THREAD
+    // (setCaptureSource). QGuiApplication::screens()/geometry() must not be
+    // read from the capture thread -- the window crop uses this copy.
     QVector<QRect> m_screenGeometries;
     int m_captureWidth = 1920;
     int m_captureHeight = 1080;
@@ -139,18 +141,19 @@ private:
     int m_captureBitrateKbps = 8000;
     bool m_captureSystemAudio = false;
     bool m_broadcasting = false;
-    // Preview local é reduzido ANTES de ir para a GUI: um QImage 4K cruzando
-    // a fronteira de thread + QPixmap::fromImage + scaled travava a janela.
+    // Local preview is downscaled BEFORE going to the GUI: a 4K QImage
+    // crossing the thread boundary + QPixmap::fromImage + scaled froze the
+    // window.
     int m_previewMaxWidth = 1280;
-    // Evita que dois frames de captura rodem ao mesmo tempo (o primeiro frame
-    // e o timer da thread de trabalho), o que corrompia o DxgiScreenCapturer e
-    // crashava o app ao clicar em "Compartilhar".
+    // Prevents two capture frames from running at the same time (the first
+    // frame and the worker-thread timer), which corrupted DxgiScreenCapturer
+    // and crashed the app when clicking "Share".
     std::atomic<bool> m_captureInFlight{false};
-    // Coalesce vídeo remoto: se a UI estiver ocupada, substitua o frame
-    // pendente pelo mais recente em vez de enfileirar segundos de atraso.
+    // Remote video coalescing: if the UI is busy, replace the pending frame
+    // with the newest one instead of queueing seconds of delay.
     QMutex m_remoteFrameMutex;
     QMap<int, QImage> m_pendingRemoteFrames;
     QSet<int> m_remoteFrameDispatchPosted;
-    // Preview local só é gerado enquanto existe janela para exibi-lo.
+    // Local preview is only generated while a window exists to display it.
     std::atomic<bool> m_previewEnabled{true};
 };

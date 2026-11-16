@@ -12,7 +12,7 @@
 #include <QInputDialog>
 #include <QLabel>
 
-// Permissões reais do Halla exibidas na grade
+// Real Halla permissions displayed in the grid
 const QStringList& GroupsDialog::permissionDefaults() {
     static const QStringList list = {
         "b_virtualserver_select",
@@ -90,7 +90,7 @@ GroupsDialog::GroupsDialog(ServerData* data, QWidget* parent)
     m_groups->setEditTriggers(QAbstractItemView::NoEditTriggers);
     glay->addWidget(m_groups, 1);
 
-    // ---- coluna 3: permissões
+    // ---- column 3: permissions
     QWidget* colPerms = new QWidget(split);
     QVBoxLayout* play = new QVBoxLayout(colPerms);
     play->setContentsMargins(4, 0, 8, 0);
@@ -116,7 +116,7 @@ GroupsDialog::GroupsDialog(ServerData* data, QWidget* parent)
     root->addLayout(bottom);
     connect(close, &QPushButton::clicked, this, [this] { storePermissions(); accept(); });
 
-    // permissões padrão se vazio
+    // default permissions when empty
     if (m_data->permissions.isEmpty()) {
         for (const QString& p : permissionDefaults()) {
             PermValue pv;
@@ -178,7 +178,7 @@ void GroupsDialog::reloadGroups() {
 }
 
 void GroupsDialog::storePermissions() {
-    // atribuição de grupo selecionado
+    // selected group assignment
     static const QStringList names = { "Convidado", "Normal", "Admin do servidor" };
     for (int i = 0; i < m_groups->rowCount() && i < names.size(); ++i) {
         QTableWidgetItem* chk = m_groups->item(i, 1);
@@ -208,7 +208,7 @@ void GroupsDialog::reloadPermissions() {
         const int r = m_perms->rowCount();
         m_perms->insertRow(r);
 
-        // nome "amigável" + nome técnico no tooltip, como no Halla
+        // "friendly" name + technical name in the tooltip, as in Halla
         QTableWidgetItem* name = new QTableWidgetItem(it.key());
         name->setData(Qt::UserRole, it.key());
         name->setToolTip(it.key());

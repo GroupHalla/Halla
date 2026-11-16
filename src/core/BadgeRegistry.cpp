@@ -88,7 +88,7 @@ void BadgeRegistry::fetchRegistry() {
     QNetworkReply* manifestReply = m_network->get(registryRequest(kManifestUrl));
     connect(manifestReply, &QNetworkReply::finished, this, [this, manifestReply] {
         if (manifestReply->error() == QNetworkReply::NoError)
-            m_pendingManifest = manifestReply->readAll();
+            m_pendingManifest = manifestReply->read(kMaxManifestBytes + 1);
         m_manifestFinished = true;
         manifestReply->deleteLater();
         tryInstallDownloadedRegistry();
@@ -97,7 +97,7 @@ void BadgeRegistry::fetchRegistry() {
     QNetworkReply* signatureReply = m_network->get(registryRequest(kSignatureUrl));
     connect(signatureReply, &QNetworkReply::finished, this, [this, signatureReply] {
         if (signatureReply->error() == QNetworkReply::NoError)
-            m_pendingSignature = signatureReply->readAll();
+            m_pendingSignature = signatureReply->read(kMaxSignatureTextBytes + 1);
         m_signatureFinished = true;
         signatureReply->deleteLater();
         tryInstallDownloadedRegistry();
@@ -228,7 +228,7 @@ void BadgeRegistry::loadOrFetchIcons() {
         connect(reply, &QNetworkReply::finished, this,
                 [this, reply, badgeId, cachePath, expectedHash] {
             const QByteArray bytes = reply->error() == QNetworkReply::NoError
-                ? reply->readAll() : QByteArray();
+                ? reply->read(kMaxIconBytes + 1) : QByteArray();
             reply->deleteLater();
             if (bytes.isEmpty() || bytes.size() > kMaxIconBytes
                     || QCryptographicHash::hash(bytes, QCryptographicHash::Sha256) != expectedHash)

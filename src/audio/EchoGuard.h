@@ -3,45 +3,45 @@
 #include <cstdint>
 #include <vector>
 
-// Guarda de crosstalk/eco de rede para o gate de transmissão (v1.1.22).
+// Crosstalk/network-echo guard for the transmission gate (v1.1.22).
 //
-// PROBLEMA: quando o usuário fala, a voz dele toca no alto-falante do
-// dispositivo ao lado (ou entra direto no microfone compartilhado de um
-// segundo cliente na mesma máquina). O VAD do OUTRO cliente abre com esse
-// som e ele passa a transmitir/talking: na tela de quem falou, o anel de
-// "falando" acende em dois usuários ao mesmo tempo, o sinal sonoro "ao
-// falar" toca duplicado e o eco volta audível ("áudio sujo"). O AEC3 não
-// cobre este caminho: a referência far-end do AEC é o que o PRÓPRIO cliente
-// toca, e o crosstalk entra pelo ar/via mic compartilhado — não pelo
-// alto-falante de quem retransmite.
+// PROBLEM: when a user speaks, their voice plays on the speaker of the device
+// next door (or enters the shared microphone of a second client on the same
+// machine). The OTHER client's VAD opens with that sound and it starts
+// transmitting/talking: on the speaker's screen, the "talking" ring lights up
+// on two users at once, the "on speech" sound cue plays duplicated, and echo
+// comes back audible ("dirty audio"). AEC3 does not cover this path: the AEC
+// far-end reference is what the client ITSELF plays, and crosstalk enters
+// through the air / a shared mic -- not through the retransmitter's speaker.
 //
-// SOLUÇÃO: comparar o microfone com o que está sendo RECEBIDO da rede. Se o
-// sinal capturado de X ms atrás é (quase) cópia atrasada do playout atual,
-// o microfone está captando crosstalk — não a voz do usuário local. A
-// correlação usada é normalizada (cosseno), invariante a ganho linear: a
-// atenuação do caminho acústico não importa.
+// SOLUTION: compare the microphone with what is being RECEIVED from the
+// network. If the captured signal from X ms ago is (almost) a delayed copy of
+// the current playout, the microphone is picking up crosstalk -- not the
+// local user's voice. The correlation used is normalized (cosine), invariant
+// to linear gain: acoustic-path attenuation does not matter.
 //
-// DECISÕES (noteCapture com o VAD querendo abrir):
-//   * Open     — sinal não casa com o playout (fala legítima; ou playout em
-//                silêncio: não há fonte de crosstalk, abertura instantânea).
-//   * Hold     — validação em curso: segurar a abertura por até 400 ms para
-//                o playout receber o correspondente e casar (ou não) o lag.
-//   * Blocked  — eco confirmado: não abrir (e revogar se já estiver aberto).
+// DECISIONS (noteCapture with the VAD wanting to open):
+//   * Open     -- signal does not match the playout (legitimate speech; or
+//                 silent playout: no crosstalk source, instant opening).
+//   * Hold     -- validation in progress: hold the opening for up to 400 ms
+//                 for the playout to receive the counterpart and match (or
+//                 not) the lag.
+//   * Blocked  -- confirmed echo: do not open (and revoke if already open).
 //
-// Com o gate ABERTO, o quadro acima do limiar que casa com o playout com
-// correlação MUITO alta (>0.92, dominado pelo eco) revoga a transmissão.
-// A mistura "fala própria + eco de retorno" fica bem abaixo disso e não é
-// revogada — quem está falando de verdade continua transmitindo.
+// With the gate OPEN, an above-threshold frame matching the playout with VERY
+// high correlation (>0.92, echo-dominated) revokes transmission. The
+// "own speech + return echo" mix stays well below that and is not revoked --
+// whoever is really speaking keeps transmitting.
 //
-// CONTRATO:
-//   * notePlayout(): 960 amostras mono @ 48 kHz (20 ms) do mix que vai para
-//     o alto-falante AGORA — mesmo sinal da referência do AEC3.
-//   * noteCapture(): 960 amostras mono @ 48 kHz do microfone CRU
-//     (pré-APM — o AEC3 remove justamente a componente correlacionada com
-//     o playout que este guarda precisa enxergar).
-//   * Tudo na MESMA thread do VoiceEngine (sem locks); moc-free e sem Qt
-//     para poder ser linkado standalone no gate de smoke do CI.
-//   * Fallback gracioso: sem playout alimentado, tudo é Open.
+// CONTRACT:
+//   * notePlayout(): 960 mono samples @ 48 kHz (20 ms) of the mix going to
+//     the speaker NOW -- same signal as the AEC3 reference.
+//   * noteCapture(): 960 mono samples @ 48 kHz of the RAW microphone
+//     (pre-APM -- AEC3 removes exactly the playout-correlated component this
+//     guard needs to see).
+//   * Everything on the SAME VoiceEngine thread (no locks); moc-free and
+//     Qt-free so it can be linked standalone into the CI smoke gate.
+//   * Graceful fallback: without fed playout, everything is Open.
 class EchoGuard {
 public:
     enum class Decision { Open, Hold, Blocked };
@@ -53,24 +53,24 @@ public:
     bool validating() const { return m_validating; }
     void reset();
 
-    // Diagnóstico (log/smoke): último casamento que confirmou eco.
+    // Diagnostics (log/smoke): last match that confirmed echo.
     int lastMatchLagMs() const { return m_lastMatchLagMs; }
     float lastMatchScore() const { return m_lastMatchScore; }
-    // Diagnóstico do suporte ("mic travando, cortando"): quantas vezes o
-    // guarda bloqueou a abertura da transmissão e quantas revogou no meio.
-    // Contadores acumulados por engine (não zeram no reset — o suporte quer
-    // o histórico da sessão inteira, não o estado corrente).
+    // Support diagnostics ("mic stalling, chopping"): how many times the
+    // guard blocked the transmission opening and how many times it revoked
+    // mid-speech. Counters accumulate per engine (not reset by reset() --
+    // support wants the whole session history, not the current state).
     int64_t blockCount() const { return m_blockCount; }
     int64_t revokeCount() const { return m_revokeCount; }
 
-    static constexpr float kConfirmEcho = 0.78f;  // abertura: eco provável
-    static constexpr float kRevokeEcho = 0.92f;   // revogação: eco domina o mic
-    // Revogação exige DOMINAÇÃO SUSTENTADA: 2 casamentos consecutivos no
-    // limiar de revogação (~120 ms) em vez de uma única janela de 60 ms.
-    // Um casamento isolado (fala própria com trecho que lembra o playout)
-    // picotava a voz no meio da palavra — o relato "mic travando, cortando"
-    // de quem usa alto-falante com a sala falando junto. Eco de verdade
-    // persiste e revoga normalmente no teste seguinte.
+    static constexpr float kConfirmEcho = 0.78f;  // opening: probable echo
+    static constexpr float kRevokeEcho = 0.92f;   // revocation: echo dominates the mic
+    // Revocation requires SUSTAINED DOMINATION: 2 consecutive matches at the
+    // revocation threshold (~120 ms) instead of a single 60 ms window. An
+    // isolated match (own speech with a passage resembling the playout) used
+    // to chop voice mid-word -- the "mic stalling, chopping" report from
+    // users on speakers with the room talking together. Real echo persists
+    // and revokes normally on the next test.
     static constexpr int kRevokeStreakFrames = 2;
 
 private:
@@ -81,30 +81,30 @@ private:
     void pushRing(std::vector<int16_t>& ring, int64_t& total,
                   const int16_t* pcm, int samples);
 
-    // 20 ms @ 48 kHz; decimação por 4 (média móvel) -> 240 sub-amostras.
+    // 20 ms @ 48 kHz; decimation by 4 (moving average) -> 240 sub-samples.
     static constexpr int kFrame = 960;
     static constexpr int kSub = kFrame / 4;
-    // Playout/captura retidos: 1120 ms (janela de 100 ms pesquisada até
-    // 980 ms de idade).
+    // Retained playout/capture: 1120 ms (100 ms window searched up to
+    // 980 ms of age).
     static constexpr int kRingFrames = 56;
-    static constexpr int kWindowSub = kSub * 5;       // janela de 100 ms
+    static constexpr int kWindowSub = kSub * 5;       // 100 ms window
     static constexpr int kSearchMaxSub = kSub * 49;   // 980 ms
-    static constexpr int kSearchStepSub = kSub / 4;   // passo de 5 ms
-    // Fast-path: playout sem voz nos últimos 360 ms -> abertura direta.
+    static constexpr int kSearchStepSub = kSub / 4;   // 5 ms step
+    // Fast path: playout without voice in the last 360 ms -> direct opening.
     static constexpr int kSilenceFrames = 18;
     static constexpr double kMinVoiceRmsSub = 25.0;
-    // Eco confirmado bloqueia por 500 ms antes de revalidar (evita
-    // flapping); a validação de fala legítima dura no máximo 400 ms.
+    // Confirmed echo blocks for 500 ms before revalidating (avoids flapping);
+    // legitimate-speech validation lasts at most 400 ms.
     static constexpr int kEchoHoldFrames = 25;
     static constexpr int kValidateFrames = 20;
-    // Correlação é cara: roda no máximo 1x a cada 60 ms.
+    // Correlation is expensive: runs at most once every 60 ms.
     static constexpr int kTestPeriodFrames = 3;
 
     std::vector<int16_t> m_playRing;
     std::vector<int16_t> m_capRing;
     std::vector<int16_t> m_playWin;
     std::vector<int16_t> m_capWin;
-    std::vector<double> m_playEnergy;   // rms^2 por quadro (fast-path)
+    std::vector<double> m_playEnergy;   // rms^2 per frame (fast path)
     int64_t m_playTotal = 0;
     int64_t m_capTotal = 0;
     bool m_validating = false;

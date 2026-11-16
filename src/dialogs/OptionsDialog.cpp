@@ -2,6 +2,7 @@
 #include "Icons.h"
 #include "Settings.h"
 #include "AppLog.h"
+#include "GroupIconCache.h"
 #include "SoundPack.h"
 #include "HotkeyEdit.h"
 #include "Models.h"
@@ -37,8 +38,8 @@
 #include <QMessageBox>
 #include <QFileDialog>
 
-// envolve a página em um QScrollArea SEM moldura (estilo do Halla: o conteúdo
-// flutua sobre o fundo branco, sem caixas cinzas à vista)
+// wraps the page in a FRAMELESS QScrollArea (Halla style: the content floats over
+// the white background, with no gray boxes in sight)
 static QWidget* wrapScroll(QWidget* inner) {
     inner->setObjectName(QStringLiteral("optionsPage"));
     inner->setAttribute(Qt::WA_StyledBackground, true);
@@ -52,7 +53,7 @@ static QWidget* wrapScroll(QWidget* inner) {
     return sa;
 }
 
-// ícone da seção no canto superior direito do cabeçalho (estilo marca d'água)
+// section icon in the top-right corner of the header (watermark style)
 static QPixmap headerIconPixmap(const QIcon& icon, int size) {
     const QPixmap src = icon.pixmap(size, size);
     QPixmap out(src.size());
@@ -63,16 +64,16 @@ static QPixmap headerIconPixmap(const QIcon& icon, int size) {
     return out;
 }
 
-// Os ícones antigos do pacote têm uma tela de 16/24 px. O menu lateral da
-// referência usa pictogramas grandes; redimensionamos explicitamente para que
-// o Qt não preserve a tela pequena original do QIcon.
+// The old icons in the bundle have a 16/24 px canvas. The reference sidebar uses
+// large pictograms; we resize them explicitly so Qt does not keep the original
+// small canvas of the QIcon.
 static QIcon largeNavigationIcon(const QIcon& icon) {
     const QPixmap source = icon.pixmap(64, 64);
     if (source.isNull()) return icon;
     return QIcon(source.scaled(42, 42, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
-// linha separadora de 1px (vertical na sidebar / horizontal sobre os botões)
+// 1px separator line (vertical in the sidebar / horizontal above the buttons)
 static QWidget* separatorLine(bool vertical) {
     QWidget* w = new QWidget;
     w->setObjectName(QStringLiteral("optionsSep"));
@@ -88,7 +89,7 @@ static QWidget* separatorLine(bool vertical) {
 }
 
 // ============================================================================
-//  WIDGETS AUXILIARES DAS PÁGINAS (estilo Halla)
+//  PAGE HELPER WIDGETS (Halla style)
 // ============================================================================
 #include "ToolsDialogs.h"
 
@@ -102,14 +103,14 @@ static QWidget* separatorLine(bool vertical) {
 #include <functional>
 #include <memory>
 
-// "+0,0 dB" / "-17,0 dB" (locale do usuário)
+// "+0.0 dB" / "-17.0 dB" (user locale)
 static QString fmtDb(double db) {
     return (db >= 0 ? QStringLiteral("+") : QString())
            + QLocale().toString(db, 'f', 1) + QStringLiteral(" dB");
 }
 
-// slider rotulado em dB, com legendas "Baixo/Alto" (ou Quiet/Loud) nas pontas.
-// Persiste o valor em décimos de dB na chave passada.
+// dB-labelled slider with "Low/High" (or Quiet/Loud) captions at the ends.
+// Persists the value in tenths of dB under the given key.
 static QWidget* dbSliderRow(QWidget* parent, const QString& key, int defX10,
                             int minDb, int maxDb, const QString& low,
                             const QString& high) {
@@ -149,8 +150,8 @@ static QWidget* dbSliderRow(QWidget* parent, const QString& key, int defX10,
     return box;
 }
 
-// Painel "Perfis" (lado esquerdo das páginas Reprodução/Capturar): lista de
-// perfis + botão "+" para adicionar. Persiste a lista e o perfil ativo.
+// "Profiles" panel (left side of the Playback/Capture pages): profile list + "+"
+// button to add one. Persists the list and the active profile.
 class ProfilesPanel : public QGroupBox {
 public:
     ProfilesPanel(const QString& storeKey, const QString& activeKey,
@@ -220,8 +221,8 @@ private:
     std::function<void(const QString&)> m_onActivate;
 };
 
-// Medidor visual de volume (régua -50 a +50 dB com barra de nível e LED),
-// usado no teste de captura — lê o microfone padrão de verdade via QAudioSource.
+// Visual level meter (-50 to +50 dB ruler with level bar and LED), used by the
+// capture test -- reads the real default microphone through QAudioSource.
 class CaptureMeter : public QWidget {
 public:
     explicit CaptureMeter(QWidget* parent = nullptr) : QWidget(parent) {
@@ -265,12 +266,12 @@ protected:
         p.fillRect(rect(), palette().base());
         const QRect scale = rect().adjusted(30, 10, -24, -26);
 
-        // moldura da régua
+        // ruler frame
         p.setPen(QPen(palette().color(QPalette::Mid), 1));
         p.setBrush(Qt::NoBrush);
         p.drawRect(scale);
 
-        // barra de nível (verde -> amarelo na zona de voz)
+        // level bar (green -> yellow in the voice zone)
         const double frac = qBound(0.0, (m_db + 50.0) / 100.0, 1.0);
         const int barW = int(scale.width() * frac);
         if (barW > 0) {
@@ -283,7 +284,7 @@ protected:
                            barW - vadX - 1, scale.height() - 2, QColor(251, 188, 5));
         }
 
-        // marca do limiar de ativação de voz
+        // voice-activation threshold mark
         {
             const double vf = double(S::num("capture/voiceLevel", -45) + 50) / 100.0;
             const int x = scale.left() + int(scale.width() * vf);
@@ -291,7 +292,7 @@ protected:
             p.drawLine(x, scale.top(), x, scale.bottom());
         }
 
-        // graduação
+        // scale
         p.setPen(QPen(palette().color(QPalette::Text), 1));
         QFont f = p.font();
         f.setPixelSize(9);
@@ -303,7 +304,7 @@ protected:
                        QString::number(db));
         }
 
-        // LED de atividade (acende quando o nível passa do limiar)
+        // activity LED (lights up when the level crosses the threshold)
         p.setRenderHint(QPainter::Antialiasing);
         p.setPen(Qt::NoPen);
         p.setBrush(m_led ? QColor(52, 168, 83) : QColor(154, 160, 166));
@@ -322,7 +323,7 @@ private:
         const double rms = std::sqrt(sum / n);
         double db = 20.0 * std::log10(rms / 32767.0 + 1e-9);
         db = qBound(-50.0, db, 50.0);
-        m_db = m_db < 0 ? qMax(m_db, db) * 0.3 + db * 0.7 : db; // suavização leve
+        m_db = m_db < 0 ? qMax(m_db, db) * 0.3 + db * 0.7 : db; // light smoothing
         m_led = db >= S::num("capture/voiceLevel", -45);
         update();
     }
@@ -346,7 +347,7 @@ OptionsDialog::OptionsDialog(QWidget* parent, const ServerData* whisperData) : Q
     mid->setContentsMargins(0, 0, 0, 0);
     mid->setSpacing(0);
 
-    // ---------------- menu lateral (ícones grandes + texto) --------------
+    // ---------------- sidebar (large icons + text) -----------------------
     m_nav = new QListWidget(this);
     m_nav->setObjectName(QStringLiteral("optionsNav"));
     m_nav->setFixedWidth(260);
@@ -377,9 +378,9 @@ OptionsDialog::OptionsDialog(QWidget* parent, const ServerData* whisperData) : Q
         m_pageSubtitles << d.subtitle;
     }
 
-    // ---------------- painel de conteúdo: cabeçalho + páginas ------------
-    // cabeçalho com gradiente suave (cinza bem claro -> branco), título em
-    // negrito, subtítulo menor e ícone da seção no canto superior direito
+    // ---------------- content panel: header + pages ----------------------
+    // header with a soft gradient (very light gray -> white), bold title, smaller
+    // subtitle and the section icon in the top-right corner
     QWidget* header = new QWidget(this);
     header->setObjectName(QStringLiteral("pageHeader"));
     header->setMinimumHeight(66);
@@ -410,7 +411,7 @@ OptionsDialog::OptionsDialog(QWidget* parent, const ServerData* whisperData) : Q
     m_stack->setObjectName(QStringLiteral("optionsStack"));
     m_stack->setAttribute(Qt::WA_StyledBackground, true);
 
-    // páginas (mesma ordem do menu lateral)
+    // pages (same order as the sidebar)
     m_stack->addWidget(wrapScroll(pageApplication()));
     m_stack->addWidget(wrapScroll(pagePlayback()));
     m_stack->addWidget(wrapScroll(pageCapture()));
@@ -443,8 +444,8 @@ OptionsDialog::OptionsDialog(QWidget* parent, const ServerData* whisperData) : Q
     });
     m_nav->setCurrentRow(0);
 
-    // ---------------- rodapé: OK / Cancelar / Aplicar --------------------
-    root->addWidget(separatorLine(false)); // linha fina acima dos botões
+    // ---------------- footer: OK / Cancel / Apply ------------------------
+    root->addWidget(separatorLine(false)); // thin line above the buttons
     QHBoxLayout* bottom = new QHBoxLayout;
     bottom->setContentsMargins(10, 7, 10, 0);
     bottom->setSpacing(8);
@@ -475,8 +476,8 @@ void OptionsDialog::apply() {
     AppLog::info(tr("Configurações aplicadas"));
 }
 
-// ------------------------------------------------------------------ Aplicativo
-// duas colunas, como na janela de opções do Halla
+// ------------------------------------------------------------------ Application
+// two columns, as in Halla's options window
 QWidget* OptionsDialog::pageApplication() {
     QWidget* w = new QWidget;
     QHBoxLayout* cols = new QHBoxLayout(w);
@@ -508,10 +509,10 @@ QWidget* OptionsDialog::pageApplication() {
     QVBoxLayout* encoderLayout = new QVBoxLayout(streamEncoder);
     QCheckBox* hardwareEncoder = new QCheckBox(
         tr("Usar encoder H.264 por hardware quando disponível"), streamEncoder);
-    // H.264 ligado por padrão (v1.1.20): captura/escala/encode na GPU é o
-    // caminho leve — sem ele, transmissões 1080p+ viravam VP8 por software
-    // na CPU (app pesado + call pipocando). Fallback para VP8 continua
-    // automático quando não há GPU compatível.
+    // H.264 enabled by default (v1.1.20): capture/scale/encode on the GPU is the
+    // light path -- without it, 1080p+ broadcasts became software VP8 on the CPU
+    // (heavy app + call popping). Fallback to VP8 remains automatic when there is
+    // no compatible GPU.
     hardwareEncoder->setChecked(S::flag("screenshare/hardwareEncoder", true));
     hardwareEncoder->setToolTip(tr(
         "Mantém captura, escala, conversão de cor e encode na GPU pelo Direct3D 11 e "
@@ -578,10 +579,10 @@ QWidget* OptionsDialog::pageApplication() {
 }
 
 // ------------------------------------------------------------------ Design
-// ------------------------------------------------------------------ Aparência
-// duas colunas, como na janela de opções do Halla: à esquerda estilo/tema/ícones/
-// transparência; à direita os grupos "Árvore do canal", "Ícone da bandeja" e
-// "Suporte a GIF animado"
+// ------------------------------------------------------------------ Appearance
+// two columns, as in Halla's options window: on the left style/theme/icons/
+// transparency; on the right the "Channel tree", "Tray icon" and
+// "Animated GIF support" groups
 QWidget* OptionsDialog::pageDesign() {
     QWidget* w = new QWidget;
     QHBoxLayout* cols = new QHBoxLayout(w);
@@ -649,7 +650,7 @@ QWidget* OptionsDialog::pageDesign() {
         emit designChanged();
     });
 
-    // transparência da janela principal (50% a 100%)
+    // main window transparency (50% to 100%)
     QHBoxLayout* orow = new QHBoxLayout;
     QSlider* opacity = new QSlider(Qt::Horizontal, w);
     opacity->setRange(50, 100);
@@ -719,8 +720,8 @@ QWidget* OptionsDialog::pageDesign() {
     };
     treeCb(QStringLiteral("design/sortClientsBelow"), tr("Classificar clientes abaixo dos canais"), false, true);
     treeCb(QStringLiteral("design/showCountryFlags"), tr("Exibir bandeira de país nos clientes"), false, false);
-    // v1.1.31: emblemas agora efetivamente ligados/desligados por esta opção
-    // (antes a flag nunca era lida) — e LIGADA por padrão na instalação.
+    // v1.1.31: badges are now actually toggled by this option (before, the flag was
+    // never read) -- and it is ON by default on installation.
     treeCb(QStringLiteral("design/showBadgeIcons"), tr("Exibir ícones de emblema nos clientes"), true, true);
     treeCb(QStringLiteral("design/showGroupIconsMenu"), tr("Exibir ícones de grupo nos menus de contexto"), true, false);
     treeCb(QStringLiteral("design/hideInaccessibleGroups"), tr("Ocultar grupos inacessíveis nos menus de contexto"), true, false);
@@ -760,7 +761,7 @@ QWidget* OptionsDialog::pageDesign() {
     return w;
 }
 
-// ------------------------------------------------------------------ Notificações
+// ------------------------------------------------------------------ Notifications
 QWidget* OptionsDialog::pageNotifications() {
     QWidget* w = new QWidget;
     QVBoxLayout* lay = new QVBoxLayout(w);
@@ -814,9 +815,9 @@ QWidget* OptionsDialog::pageNotifications() {
     return w;
 }
 
-// ------------------------------------------------------------------ Reprodução
-// estilo Halla: perfis à esquerda; modo/dispositivo; sliders de volume em dB;
-// teste de som; grupo "Opções" (com slider de ruído) e grupo "Expansão de som mono"
+// ------------------------------------------------------------------ Playback
+// Halla style: profiles on the left; mode/device; volume sliders in dB; sound
+// test; the "Options" group (with a noise slider) and "Mono sound expansion"
 QWidget* OptionsDialog::pagePlayback() {
     QWidget* w = new QWidget;
     QHBoxLayout* main = new QHBoxLayout(w);
@@ -879,7 +880,7 @@ QWidget* OptionsDialog::pagePlayback() {
 
     right->addLayout(form);
 
-    // ---- grupo "Opções"
+    // ---- "Options" group
     QGroupBox* gbOpts = new QGroupBox(tr("Opções"), w);
     QVBoxLayout* vo = new QVBoxLayout(gbOpts);
     vo->setSpacing(4);
@@ -902,7 +903,7 @@ QWidget* OptionsDialog::pagePlayback() {
                               tr("Quieto"), tr("Alto")));
     right->addWidget(gbOpts);
 
-    // ---- grupo "Expansão de som mono"
+    // ---- "Mono sound expansion" group
     QGroupBox* gbMono = new QGroupBox(tr("Expansão de som mono"), w);
     QVBoxLayout* vm = new QVBoxLayout(gbMono);
     vm->setSpacing(4);
@@ -970,25 +971,25 @@ QWidget* OptionsDialog::pageCapture() {
     });
     form->addRow(tr("Dispositivo de captura:"), dev);
 
-    // Amplificação de microfone por software, além do limite do dispositivo:
-    // o Windows/microfone param no "100%" — o ganho aqui vai até +30 dB
-    // (~31x), aplicado após a limpeza de ruído/eco e antes da detecção de
-    // voz. No extremo a curva satura suavemente (compressão) em vez de
-    // estalar, mantendo o áudio utilizável para quem tem microfone muito baixo.
+    // Software microphone amplification beyond the device limit: Windows/microphones
+    // stop at "100%" -- the gain here goes up to +30 dB (~31x), applied after the
+    // noise/echo cleanup and before voice detection. At the extreme the curve
+    // saturates smoothly (compression) instead of clipping, keeping the audio usable
+    // for anyone with a very low microphone.
     form->addRow(tr("Aumentar volume do microfone:"),
                  dbSliderRow(w, QStringLiteral("capture/micGainDb"), 0, 0, 30,
                              tr("Normal (0 dB)"), tr("Extremo (+30 dB)")));
 
     right->addLayout(form);
 
-    // ==================== grupo "Ativação de voz" ====================
+    // ==================== "Voice activation" group ====================
     QGroupBox* gbMode = new QGroupBox(tr("Ativação de voz"), w);
     QVBoxLayout* vm = new QVBoxLayout(gbMode);
     vm->setSpacing(5);
 
     const int curMode = S::num("capture/pttMode", 1);
 
-    // --- Radio 1: Push-to-Talk (com sub-opções recuadas, como no Halla)
+    // --- Radio 1: Push-to-Talk (with indented sub-options, as in Halla)
     QRadioButton* rbPtt = new QRadioButton(tr("Pressionar para falar (PTT)"), gbMode);
     vm->addWidget(rbPtt);
 
@@ -1001,10 +1002,10 @@ QWidget* OptionsDialog::pageCapture() {
     HotkeyEdit* pttKey = new HotkeyEdit(pttSub);
     pttKey->setSpec(S::str("capture/pttKey", "Space"));
     pttKey->setMaximumWidth(230);
-    // A tecla PTT é aplicada NA HORA: sem o hotkeysChanged abaixo, o
-    // RegisterHotKey/Raw Input da tecla nova só era (re)feito no próximo
-    // início do app — "seleciono a tecla e ela não aperta" era exatamente
-    // isto. O MainWindow reage com applyHotkeys() -> registerPttHotkey().
+    // The PTT key applies IMMEDIATELY: without the hotkeysChanged below, the
+    // RegisterHotKey/Raw Input for the new key was only (re)done on the next app
+    // launch -- "I select the key and it does not work" was exactly this. MainWindow
+    // reacts with applyHotkeys() -> registerPttHotkey().
     connect(pttKey, &HotkeyEdit::specChanged, this,
             [this](const QString& s) {
                 S::set("capture/pttKey", s);
@@ -1049,11 +1050,11 @@ QWidget* OptionsDialog::pageCapture() {
     vs->addWidget(pttVad);
     vm->addWidget(pttSub);
 
-    // --- Radio 2: transmissão contínua
+    // --- Radio 2: continuous transmission
     QRadioButton* rbCont = new QRadioButton(tr("Transmissão contínua"), gbMode);
     vm->addWidget(rbCont);
 
-    // --- Radio 3: detecção de ativação por voz (+ dropdown de modo)
+    // --- Radio 3: voice-activated detection (+ mode dropdown)
     QHBoxLayout* vadRow = new QHBoxLayout;
     QRadioButton* rbVad = new QRadioButton(tr("Detecção de ativação por voz"), gbMode);
     QComboBox* vadMode = new QComboBox(gbMode);
@@ -1069,14 +1070,14 @@ QWidget* OptionsDialog::pageCapture() {
     if (curMode == 0)      rbPtt->setChecked(true);
     else if (curMode == 2) rbCont->setChecked(true);
     else                   rbVad->setChecked(true);
-    // Trocar de modo também re-aplica na hora: saindo do PTT a tecla global
-    // é liberada do sistema; entrando no PTT ela é registrada — sem
-    // reiniciar o Halla (a detecção de soltura continua no polling de 50 ms).
+    // Switching modes also re-applies immediately: leaving PTT releases the global
+    // key back to the system; entering PTT registers it -- without restarting Halla
+    // (release detection keeps running on the 50 ms polling).
     connect(rbPtt,  &QRadioButton::toggled, this, [this](bool v) { if (v) { S::set("capture/pttMode", 0); emit hotkeysChanged(); } });
     connect(rbVad,  &QRadioButton::toggled, this, [this](bool v) { if (v) { S::set("capture/pttMode", 1); emit hotkeysChanged(); } });
     connect(rbCont, &QRadioButton::toggled, this, [this](bool v) { if (v) { S::set("capture/pttMode", 2); emit hotkeysChanged(); } });
 
-    // sub-opções habilitadas apenas com o modo correspondente
+    // sub-options enabled only with the matching mode
     auto syncSubs = [=] {
         pttSub->setEnabled(rbPtt->isChecked());
         vadMode->setEnabled(rbVad->isChecked());
@@ -1086,7 +1087,7 @@ QWidget* OptionsDialog::pageCapture() {
     connect(rbCont, &QRadioButton::toggled, this, [syncSubs](bool) { syncSubs(); });
     syncSubs();
 
-    // sensibilidade da detecção (linha fina na régua do medidor)
+    // detection sensitivity (thin line on the meter ruler)
     QHBoxLayout* srow = new QHBoxLayout;
     srow->setContentsMargins(22, 0, 0, 0);
     QLabel* sensLabel = new QLabel(tr("Sensibilidade:"), gbMode);
@@ -1105,7 +1106,7 @@ QWidget* OptionsDialog::pageCapture() {
         levelLabel->setText(fmtDb(v));
     });
 
-    // --- medidor visual de volume (régua -50 a +50 dB + botão de teste + LED)
+    // --- visual level meter (-50 to +50 dB ruler + test button + LED)
     QHBoxLayout* meterRow = new QHBoxLayout;
     meterRow->setContentsMargins(22, 2, 0, 0);
     CaptureMeter* meter = new CaptureMeter(gbMode);
@@ -1165,18 +1166,18 @@ QWidget* OptionsDialog::pageCapture() {
             [](int v) { S::set("capture/denoiseLevel", v); });
 
     QCheckBox* cancel = new QCheckBox(tr("Cancelamento do eco"), gbDsp);
-    // AEC3 do WebRTC (v1.1.20) — o mesmo checkbox existia antes, mas não era
-    // aplicado em lugar nenhum. Agora cancela de verdade o que o alto-falante
-    // reproduz (a referência far-end vem do próprio mix de reprodução).
+    // WebRTC AEC3 (v1.1.20) -- the same checkbox existed before but was not applied
+    // anywhere. It now really cancels what the speaker reproduces (the far-end
+    // reference comes from the playback mix itself).
     cancel->setChecked(S::flag("capture/echoCancellation", true));
     connect(cancel, &QCheckBox::toggled, this,
             [](bool v) { S::set("capture/echoCancellation", v); });
     vd->addWidget(cancel);
 
-    // Proteção de crosstalk (v1.1.34): o guarda que impede a voz recebida de
-    // abrir a transmissão virou opção — com alto-falantes e a sala falando
-    // junto, falsos positivos picotavam a voz do próprio usuário e não havia
-    // escapatória (o guarda não depende do AEC/ruído acima). Desligável.
+    // Crosstalk protection (v1.1.34): the guard that stops received voice from
+    // opening the transmission became an option -- with speakers and the room talking
+    // along, false positives chopped the user's own voice and there was no escape
+    // (the guard does not depend on the AEC/noise option above). Can be disabled.
     QCheckBox* xguard = new QCheckBox(tr("Proteção contra eco de rede (crosstalk)"), gbDsp);
     xguard->setToolTip(tr(
         "Impede que a voz recebida, captada pelo seu microfone pelo alto-falante, "
@@ -1293,23 +1294,23 @@ QWidget* OptionsDialog::pageCapture() {
 }
 
 // ------------------------------------------------------------------ Hotkeys
-// alvos possíveis do sussurro (índice = valor salvo em "scope")
+// possible whisper targets (index = value stored in "scope")
 static QStringList whisperScopeNames() {
     return { OptionsDialog::tr("Canal atual"),
              OptionsDialog::tr("Canal atual e subcanais"),
              OptionsDialog::tr("Lista de usuários") };
 }
 
-// chave do perfil ativo de hotkeys ("Padrão" quando não definido)
+// key of the active hotkey profile ("Default" when unset)
 static QString activeHotkeyProfile() {
     return S::str(QStringLiteral("hotkeys/profile"),
                   OptionsDialog::tr("Padrão"));
 }
-// chave de armazenamento da lista de atalhos de um perfil
+// storage key for a profile's shortcut list
 static QString hotkeysStoreKey(const QString& profile) {
     return QStringLiteral("hotkeys/list.") + profile;
 }
-// migração da chave legada "hotkeys/list" (pré-3.13) para o perfil Padrão
+// migration of the legacy "hotkeys/list" key (pre-3.13) to the Default profile
 static void migrateLegacyHotkeys() {
     const QString def = OptionsDialog::tr("Padrão");
     const QString legacy = S::str(QStringLiteral("hotkeys/list"));
@@ -1318,7 +1319,7 @@ static void migrateLegacyHotkeys() {
         S::set(newKey, legacy);
 }
 
-// "MOUSE BUTTON 5" estilo Halla para exibição (Mouse5 -> MOUSE BUTTON 5)
+// "MOUSE BUTTON 5" Halla style for display (Mouse5 -> MOUSE BUTTON 5)
 static QString keyDisplayName(const QString& canonical) {
     if (canonical == QLatin1String(HotkeyEdit::kMouse4))      return QStringLiteral("MOUSE BUTTON 4");
     if (canonical == QLatin1String(HotkeyEdit::kMouse5))      return QStringLiteral("MOUSE BUTTON 5");
@@ -1382,8 +1383,8 @@ QWidget* OptionsDialog::pageHotkeys() {
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     right->addWidget(table, 1);
 
-    // linha informativa (não editável) com o PTT do perfil de captura ativo,
-    // como o Halla mostra: "MOUSE BUTTON 5 | Push-to-Talk ("Padrão")"
+    // informational (read-only) row with the PTT of the active capture profile, as
+    // Halla shows it: "MOUSE BUTTON 5 | Push-to-Talk (\"Default\")"
     auto addPttRow = [table, defProfile] {
         const QString cap = S::str(QStringLiteral("capture/profile"), defProfile);
         const QString key = S::str(QStringLiteral("capture/pttKey"),
@@ -1400,7 +1401,7 @@ QWidget* OptionsDialog::pageHotkeys() {
         table->setItem(0, 1, a);
     };
 
-    // texto da ação com o alvo do sussurro entre parênteses
+    // action text with the whisper target in parentheses
     auto displayAction = [whisperAction](const QString& raw, int scope) {
         if (raw == whisperAction && scope >= 0 && scope <= 2)
             return QStringLiteral("%1 — %2").arg(raw, whisperScopeNames().value(scope));
@@ -1421,9 +1422,9 @@ QWidget* OptionsDialog::pageHotkeys() {
             table->insertRow(r);
             QTableWidgetItem* k = new QTableWidgetItem(
                 keyDisplayName(o["key"].toString()));
-            k->setData(Qt::UserRole, o["key"].toString()); // chave canônica
+            k->setData(Qt::UserRole, o["key"].toString()); // canonical key
             QTableWidgetItem* a = new QTableWidgetItem(displayAction(raw, scope));
-            a->setData(Qt::UserRole, raw);                 // ação "cru"
+            a->setData(Qt::UserRole, raw);                 // "raw" action
             a->setData(Qt::UserRole + 1, scope);           // alvo (-1 = n/a)
             table->setItem(r, 0, k);
             table->setItem(r, 1, a);
@@ -1434,16 +1435,16 @@ QWidget* OptionsDialog::pageHotkeys() {
     auto saveTable = [table, addPttRow, this] {
         QJsonArray arr;
         for (int r = 0; r < table->rowCount(); ++r) {
-            // ignora a linha informativa do PTT
+            // skips the PTT informational row
             if (table->item(r, 0)->data(Qt::UserRole).toString() == QLatin1String("!ptt"))
                 continue;
             QJsonObject o;
             o["key"]    = table->item(r, 0)->data(Qt::UserRole).toString();
             o["action"] = table->item(r, 1)->data(Qt::UserRole).toString();
-            // id canônico da ação de sussurro: o dispatch passa a casar por
-            // este campo e deixa de depender da string TRADUZIDA (em EN/ES o
-            // match antigo por "ussurr" falhava e a tecla não fazia nada).
-            // O match por texto continua valendo para perfis antigos.
+            // canonical id of the whisper action: dispatch now matches on this field
+            // and stops depending on the TRANSLATED string (in EN/ES the old match on
+            // "ussurr" failed and the key did nothing). Matching by text still applies
+            // to old profiles.
             if (isWhisperHotkeyAction(o["action"].toString()))
                 o["id"] = QStringLiteral("whisper");
             const int scope = table->item(r, 1)->data(Qt::UserRole + 1).toInt();
@@ -1456,11 +1457,11 @@ QWidget* OptionsDialog::pageHotkeys() {
     };
     Q_UNUSED(addPttRow);
 
-    // seleção do perfil ativo troca a tabela de verdade
+    // selecting the active profile really swaps the table
     auto switchProfile = [locals, loadTable, this](const QString& name, bool save) {
         if (name.isEmpty()) return;
-        if (save) { // grava a tabela no perfil ANTERIOR antes de trocar
-            // (saveTable já usa activeHotkeyProfile() — chama antes de mudar)
+        if (save) { // saves the table into the PREVIOUS profile before switching
+            // (saveTable already uses activeHotkeyProfile() -- call it before changing)
         }
         S::set(QStringLiteral("hotkeys/profile"), name);
         loadTable();
@@ -1474,7 +1475,7 @@ QWidget* OptionsDialog::pageHotkeys() {
     });
     Q_UNUSED(switchProfile);
     connect(synced, &QListWidget::itemClicked, this, [this, locals, synced](QListWidgetItem*) {
-        // perfis sincronizados exigem conta myHalla — volta para o local
+        // synced profiles require a myHalla account -- falls back to local
         QMessageBox::information(this, tr("Perfis sincronizados"),
             tr("A sincronização de perfis em nuvem requer uma conta myHalla. "
                "Por enquanto, use os perfis locais."));
@@ -1496,7 +1497,7 @@ QWidget* OptionsDialog::pageHotkeys() {
         locals->setCurrentRow(locals->count() - 1); // dispara a troca p/ o novo perfil
     });
 
-    // ---- botões: + Adicionar  X Remover  Editar ... combo do perfil ativo
+    // ---- buttons: + Add  X Remove  Edit ... active profile combo
     QHBoxLayout* btns = new QHBoxLayout;
     QPushButton* add = new QPushButton(tr("+ Adicionar"), w);
     QPushButton* del = new QPushButton(tr("X Remover"), w);
@@ -1536,18 +1537,16 @@ QWidget* OptionsDialog::pageHotkeys() {
         tr("Alternar comandante do canal"),
         tr("Alternar gravação"),
         tr("Alternar transmissão contínua"),
-        // O sussurro voltou a ser oferecido aqui: a linha tinha sido mantida
-        // na UI (o diálogo de edição ainda exibia o seletor de alvo e o texto
-        // de ajuda), era salva no perfil — e silenciosamente descartada pelo
-        // applyHotkeys(). Para quem configurou por este caminho, o sussurro
-        // simplesmente nunca disparava.
+        // Whisper is offered here again: the row had been kept in the UI (the edit
+        // dialog still showed the target selector and the help text), was saved in the
+        // profile -- and silently discarded by applyHotkeys(). For whoever configured
+        // it this way, whisper simply never fired.
         whisperAction,
     };
 
-    // IMPORTANTE: capturar por CÓPIA — esta lambda escapa para o connect()
-    // dos botões e é chamada depois que pageHotkeys() retorna. Com [&] as
-    // referências ficariam penduradas (stack morto) e o app fecha/crash,
-    // principalmente no Windows.
+    // IMPORTANT: capture by COPY -- this lambda escapes into the buttons' connect()
+    // and is called after pageHotkeys() returns. With [&] the references would dangle
+    // (dead stack) and the app closes/crashes, mostly on Windows.
     auto editRow = [=, this](int row) {
         if (row >= 0 && table->item(row, 0)->data(Qt::UserRole).toString()
                             == QLatin1String("!ptt")) {
@@ -1561,7 +1560,7 @@ QWidget* OptionsDialog::pageHotkeys() {
         QFormLayout* f = new QFormLayout(&d);
         QComboBox* action = new QComboBox(&d);
         action->addItems(actions);
-        // captura tecla OU botão do mouse (inclusive laterais) — igual ao Halla
+        // captures a key OR a mouse button (including side buttons) -- same as Halla
         HotkeyEdit* key = new HotkeyEdit(&d);
         key->setMinimumWidth(220);
         QComboBox* scope = new QComboBox(&d);
@@ -1578,7 +1577,7 @@ QWidget* OptionsDialog::pageHotkeys() {
         f->addRow(tr("Ação:"), action);
         f->addRow(tr("Atalho:"), key);
         f->addRow(tr("Sussurrar para:"), scope);
-        // o seletor de alvo só aparece quando a ação é "Sussurrar"
+        // the target selector only appears when the action is "Whisper"
         auto syncScope = [=] {
             scope->setEnabled(action->currentText() == whisperAction);
             if (QLabel* lb = qobject_cast<QLabel*>(f->labelForField(scope)))
@@ -1604,11 +1603,11 @@ QWidget* OptionsDialog::pageHotkeys() {
         QObject::connect(cancel, &QPushButton::clicked, &d, &QDialog::reject);
         if (d.exec() != QDialog::Accepted) return;
 
-        // grava na tabela, APÓS a linha do PTT
+        // writes to the table AFTER the PTT row
         const QString raw = action->currentText();
         const bool isWhisper = (raw == whisperAction);
         const int sc = isWhisper ? scope->currentIndex() : -1;
-        if (isWhisper) S::set("hotkeys/whisperScope", sc); // alvo p/ alternância
+        if (isWhisper) S::set("hotkeys/whisperScope", sc); // target for toggling
         if (row < 0) {
             row = table->rowCount();
             table->insertRow(row);
@@ -1633,7 +1632,7 @@ QWidget* OptionsDialog::pageHotkeys() {
         if (items.isEmpty()) return;
         if (table->item(items.first()->row(), 0)->data(Qt::UserRole).toString()
                 == QLatin1String("!ptt"))
-            return; // a linha do PTT não é removível
+            return; // the PTT row cannot be removed
         table->removeRow(items.first()->row());
         saveTable();
     });
@@ -1658,7 +1657,7 @@ QWidget* OptionsDialog::pageWhisper() {
     QVBoxLayout* lay = new QVBoxLayout(w);
     lay->setSpacing(10);
 
-    // ---- permissões para recebimento
+    // ---- permissions for receiving
     QGroupBox* gbPerm = new QGroupBox(tr("Permissões para recebimento de sussurros"), w);
     QVBoxLayout* vp = new QVBoxLayout(gbPerm);
     const QStringList permOpts = {
@@ -1675,7 +1674,7 @@ QWidget* OptionsDialog::pageWhisper() {
     }
     lay->addWidget(gbPerm);
 
-    // ---- configurações para recebimento
+    // ---- settings for receiving
     QGroupBox* gbRecv = new QGroupBox(tr("Configurações para recebimento de sussurros"), w);
     QVBoxLayout* vr = new QVBoxLayout(gbRecv);
     QCheckBox* sound = new QCheckBox(
@@ -1704,7 +1703,7 @@ QWidget* OptionsDialog::pageWhisper() {
             [](int v) { S::set("whisper/historyMinutes", v); });
     lay->addWidget(gbRecv);
 
-    // ---- ação extra: lista de sussurros
+    // ---- extra action: whisper list
     QHBoxLayout* lr = new QHBoxLayout;
     QPushButton* lists = new QPushButton(tr("Lista de sussurros"), w);
     lr->addWidget(lists, 0, Qt::AlignLeft);
@@ -1720,7 +1719,7 @@ QWidget* OptionsDialog::pageWhisper() {
     return w;
 }
 
-// ------------------------------------------------------------------ Segurança
+// ------------------------------------------------------------------ Security
 QWidget* OptionsDialog::pageSecurity() {
     QWidget* w = new QWidget;
     QFormLayout* form = new QFormLayout(w);
@@ -1758,7 +1757,11 @@ QWidget* OptionsDialog::pageSecurity() {
     QPushButton* clear = new QPushButton(tr("Limpar atalhos, logs e cache local..."), w);
     form->addRow(QString(), clear);
     connect(clear, &QPushButton::clicked, this, [] {
-        AppLog::info(tr("Cache local limpo pelo usuário"));
+        // Actually wipe the on-disk caches: the button used to only write a log
+        // line, so "clear local cache" did nothing at all.
+        AppLog::clearLogFile();
+        GroupIconCache::clearCache();
+        AppLog::info(tr("Registros e cache de ícones locais limpos pelo usuário"));
     });
 
     form->addItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));

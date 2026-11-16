@@ -2,7 +2,7 @@
 
 #include <QWidget>
 
-// Tela inicial exibida quando não há conexões abertas (água de marca + atalhos)
+// Start screen shown when no connection is open (watermark + shortcuts)
 class WelcomePage : public QWidget {
     Q_OBJECT
 public:

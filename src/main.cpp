@@ -21,8 +21,8 @@
 #include "dialogs/ChannelDialog.h"
 #include "version.h"
 
-// Modo especial para capturas de tela automatizadas (usado em desenvolvimento):
-//   Halla --shot <caminho.png> <janela>   (janela: main | demo | connect | options | channel)
+// Special mode for automated screenshots (used during development):
+//   Halla --shot <path.png> <window>   (window: main | demo | connect | options | channel)
 static int takeShot(QApplication& app, const QString& path, const QString& what) {
     QTimer timer;
     timer.setSingleShot(true);
@@ -67,7 +67,7 @@ static int takeShot(QApplication& app, const QString& path, const QString& what)
     } else if (what == "channel") {
         w.loadDemoState();
         ServerData* d = nullptr;
-        // usa o diálogo de canal com dados da aba demo
+        // uses the channel dialog with data from the demo tab
         ChannelDialog* dlg = new ChannelDialog(QObject::tr("Criar canal"), d, nullptr, &w);
         w.show();
         dlg->show();
@@ -87,8 +87,8 @@ class HallaTranslator : public QTranslator {
     Q_OBJECT
 public:
     explicit HallaTranslator(QObject* parent = nullptr) : QTranslator(parent) {
-        // 0 = automático: segue o idioma do sistema. As opções 1, 2 e 3
-        // são Português, English e Español, respectivamente.
+        // 0 = automatic: follows the system language. Options 1, 2 and 3 are
+        // Portuguese, English and Spanish, respectively.
         m_lang = QLocale::system().language();
         switch (S::num(QStringLiteral("app/language"), 0)) {
         case 1: m_lang = QLocale::Portuguese; break;
@@ -1542,9 +1542,9 @@ private:
         m_es["online"] = "en línea";
         m_es["offline"] = "sin conexión";
 
-        // Termos recentes do banner personalizado e dos indicadores de
-        // estado. O fallback por palavras cobre também as mensagens novas
-        // adicionadas nas páginas de opções.
+        // Recent terms from the custom banner and from the state indicators. The
+        // word-based fallback also covers the new messages added to the options
+        // pages.
         m_en["Imagem do banner:"] = "Banner image:";
         m_en["Escolher imagem..."] = "Choose image...";
         m_en["Selecionar imagem do banner"] = "Select banner image";
@@ -1580,7 +1580,7 @@ int main(int argc, char* argv[]) {
         PluginManager::instance().shutdown();
     });
 
-    // fonte padrão estilo Segoe/8.25pt quando disponível
+    // default Segoe-style 8.25pt font when available
     {
         QFont f = app.font();
         const QStringList preferred = { "Segoe UI", "Noto Sans", "DejaVu Sans",
@@ -1602,8 +1602,8 @@ int main(int argc, char* argv[]) {
     MainWindow w;
     w.show();
 
-    // Duplo clique em um pacote registrado no Windows abre o instalador de
-    // complementos diretamente no Halla.
+    // Double-clicking a registered package on Windows opens the addon installer
+    // straight inside Halla.
     for (const QString& argument : args.mid(1)) {
         if (!argument.endsWith(QStringLiteral(".halla-addon"), Qt::CaseInsensitive)) continue;
         const QString packagePath = QFileInfo(argument).absoluteFilePath();
@@ -1617,7 +1617,7 @@ int main(int argc, char* argv[]) {
         break;
     }
 
-    // conexão automática (testes): --auto-connect host:porta,apelido[,senha]
+    // automatic connection (tests): --auto-connect host:port,nickname[,password]
     const int acIdx = args.indexOf(QStringLiteral("--auto-connect"));
     if (acIdx >= 0 && acIdx + 1 < args.size()) {
         const QString spec = args.at(acIdx + 1);
@@ -1629,7 +1629,7 @@ int main(int argc, char* argv[]) {
             w.connectTo(host, port, parts.value(1, QStringLiteral("HallaUser")),
                         parts.value(2));
         });
-        // modo --shot-live <arquivo>: captura a janela após conectar
+        // --shot-live <file> mode: captures the window after connecting
         const int shotLive = args.indexOf(QStringLiteral("--shot-live"));
         if (shotLive >= 0 && shotLive + 1 < args.size()) {
             const QString out = args.at(shotLive + 1);

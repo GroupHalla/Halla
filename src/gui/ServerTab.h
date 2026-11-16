@@ -15,9 +15,9 @@ class QToolButton;
 class NetSession;
 class VoiceEngine;
 
-// Uma "conexão" do Halla = uma aba do servidor — layout clássico do Halla:
-// árvore de canais (50%) | painel de informações (50%) lado a lado em cima,
-// e o console de chat ocupando 100% da largura embaixo.
+// One Halla "connection" = one server tab -- classic Halla layout: channel tree
+// (50%) | information panel (50%) side by side on top, and the chat console taking
+// 100% of the width below.
 class ServerTab : public QWidget {
     Q_OBJECT
 public:
@@ -32,12 +32,12 @@ public:
     VoiceEngine* voice() const { return m_voice; }
     bool isNetworked() const { return m_net != nullptr; }
 
-    // conecta a aba a uma sessão de rede (modo conectado ao Halla Server)
+    // connects the tab to a network session (connected to a Halla Server)
     void attachNetwork(NetSession* net);
 
     QString tabTitle() const;
 
-    // operações reais do lado do cliente
+    // real client-side operations
     void joinChannel(int channelId);
     void createChannel(int parentId);
     void editChannel(int channelId);
@@ -50,16 +50,16 @@ public:
     // ---- v3: Halla feature parity
     void setAvatarInteractive();          // escolher imagem e enviar ao servidor
     void removeAvatar();
-    void toggleRecording();               // gravação local WAV
+    void toggleRecording();               // local WAV recording
     bool isRecording() const;
     void openOfflineMessages();           // caixa de entrada offline
     void setWhisperUids(const QStringList& uids); // vazio = desligar sussurro
     bool whisperActive() const { return !m_whisperUids.isEmpty(); }
 
-    // ---- v3.11: sussurro por TECLA DE ATALHO (segurar para falar, como no Halla)
-    // scope: 0 = canal atual | 1 = canal atual + subcanais | 2 = lista de usuários
+    // ---- v3.11: whisper by SHORTCUT KEY (hold to talk, as in Halla)
+    // scope: 0 = current channel | 1 = current channel + subchannels | 2 = user list
     void setWhisperHold(bool on, int scope);
-    // Tecla de resposta (Listas de Sussurro): alvo = quem sussurrou por último
+    // Reply key (Whisper Lists): target = whoever whispered last
     void setWhisperReplyHold(bool on);
     QList<int> whisperTargetIds(int scope) const;
     bool whisperHoldActive() const { return m_whisperHold; }
@@ -92,45 +92,45 @@ private:
     ChatPanel* m_chat = nullptr;
     InfoPanel* m_info = nullptr;
     QSplitter* m_split = nullptr;   // vertical: corpo (tree|info) / chat
-    QSplitter* m_hsplit = nullptr;  // horizontal: árvore 50% | informações 50%
+    QSplitter* m_hsplit = nullptr;  // horizontal: tree 50% | information 50%
     QToolButton* m_serverHeaderName = nullptr;
     QLabel* m_serverIntroTitle = nullptr;
     QLabel* m_serverIntroText = nullptr;
     NetSession* m_net = nullptr;
     VoiceEngine* m_voice = nullptr;
 
-    QSet<int> m_knownUsers;               // detector de entrada/saída (sons)
+    QSet<int> m_knownUsers;               // join/leave detector (sounds)
     QMap<int, QString> m_lastNames;       // nomes por id (p/ anunciar quem saiu)
-    QMap<int, int> m_lastChannels;         // canal anterior por cliente
+    QMap<int, int> m_lastChannels;         // previous channel per client
     QMap<int, bool> m_lastTalking;
     QMap<int, bool> m_lastWhispering;
-    int m_myChan = -1;                    // meu canal (som de troca de canal)
+    int m_myChan = -1;                    // my channel (channel switch sound)
     QVector<OfflineMsgItem> m_offlineInbox;
     QStringList m_whisperUids;
     bool m_whisperHold = false;           // atalho de sussurro pressionado agora
-    int m_whisperHoldScope = 2;           // escopo da tecla de sussurro ativa (0/1/2)
+    int m_whisperHoldScope = 2;           // scope of the active whisper key (0/1/2)
     bool m_whisperReplyHold = false;      // hold de sussurro de RESPOSTA (alvo fixo)
-    int m_lastWhisperFromId = -1;         // último usuário que sussurrou (tecla de resposta)
-    QList<int> m_lastSentWhisperIds;      // último conjunto whisper efetivamente enviado
-    bool m_whisperHoldCuePlayed = false;  // cue de sussurro já tocou neste hold (não re-dispara com o VAD)
+    int m_lastWhisperFromId = -1;         // last user who whispered (reply key)
+    QList<int> m_lastSentWhisperIds;      // last whisper set actually sent
+    bool m_whisperHoldCuePlayed = false;  // whisper cue already played in this hold (does not retrigger with the VAD)
     bool m_stateRefreshPending = false;   // coalesce rajadas de user_state
-    // v1.1.35: assinatura estrutural (usuários/canais por id+rev) — decide
-    // entre rebuild completo e atualização leve de ícones (updateUserVisuals).
+    // v1.1.35: structural signature (users/channels by id+rev) -- decides between a
+    // full rebuild and a lightweight icon update (updateUserVisuals).
     QString m_structSig;
 
     void hookSignals();
     void refreshServerState();     // estado consolidado (coalesce rajadas de user_state)
     bool hasPermission(const QStringList& keys) const;
     void updatePermissionUi();
-    void applyWhisper();                  // mapeia uids -> ids e envia ao servidor
+    void applyWhisper();                  // maps uids -> ids and sends to the server
     void viewAvatar(int userId);
     void playSpeechCue(bool active);
-    // Cue dirigido pela detecção REAL de fala (modos voz/contínuo), não pelo
-    // estado de transmissão — o som só toca quando o usuário fala.
+    // Cue driven by REAL speech detection (voice/continuous modes), not by the
+    // transmission state -- the sound only plays when the user speaks.
     void playSpeechCueOnSpeech(bool active);
-    // Cue de sussurro "por tecla": o hold de sussurro tem botão próprio — o
-    // som toca AO APERTAR em qualquer modo de voz/contínuo (não depende do
-    // limiar de detecção abrir nem do "Emitir ao" selecionado).
+    // Key-driven whisper cue: the whisper hold has its own button -- the sound plays
+    // AS IT IS PRESSED in any voice/continuous mode (it depends neither on the
+    // detection threshold opening nor on the selected "Emit on").
     void playWhisperHoldCue();
     void playRemoteSpeechCue(const User& user, bool active);
     void systemMsgServer(const QString& msg);

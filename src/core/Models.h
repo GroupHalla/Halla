@@ -8,12 +8,15 @@
 #include <QJsonObject>
 #include <algorithm>
 
-// ============================================================================
-// Modelo de dados do cliente Halla (lado do cliente apenas — igual à
-// estrutura que o Halla mantém em memória para um servidor conectado)
-// ============================================================================
+// Client-side data models representing the state of a connected Halla server.
 
-// Codecs de áudio idênticos aos oferecidos pelo Halla
+// Canonical whisper target scopes shared across WhisperDialog, OptionsDialog, and ServerTab.
+enum class WhisperScope : int {
+    CurrentChannel        = 0,
+    ChannelAndSubchannels = 1,
+    TargetList            = 2,
+};
+
 inline QStringList codecNames() {
     return { "Speex Narrowband (8 kHz)",
              "Speex Wideband (16 kHz)",
@@ -42,82 +45,65 @@ struct User {
     QString platform = "Windows";
     QString description;
     QString serverGroups = "Normal";
-    // Volume individual de reprodução: -60 .. +30 dB. Persistido por uniqueId
-    // ("userVolume/<uid>" no QSettings) e restaurado quando a pessoa
-    // reconecta; entre mensagens user_state o valor é preservado (NetSession).
+    // Per-user playback gain in dB (-60 .. +30), persisted under "userVolume/<uid>".
     int     volumeDb = 0;
     bool    locallyMuted = false;
-    bool    inputMuted = false;      // microfone mudo
-    bool    outputMuted = false;     // alto-falantes mudos
+    bool    inputMuted = false;
+    bool    outputMuted = false;
     bool    away = false;
     bool    recording = false;
     bool    commander = false;
-    bool    op = false;              // operador do canal em que está (v3)
-    QString avatarHash;              // hash do avatar no servidor (v3)
-    QString sigla;                   // siglas de cargos exibidas antes do nome
-    QString siglaSuffix;             // siglas de cargos exibidas depois do nome
-    QString groupIcon;               // ícone do cargo (nome ou emoji)
-    int     groupOrder = 0;           // menor valor = maior prioridade visual
-    bool    groupOrderEnabled = true; // servidores antigos sempre usavam a ordem
+    bool    op = false;
+    QString avatarHash;
+    QString sigla;
+    QString siglaSuffix;
+    QString groupIcon;
+    int     groupOrder = 0;
+    bool    groupOrderEnabled = true;
     int     groupId = 0;
-    int     groupPosition = 0;       // Pilar 1: posição hierárquica do cargo (quanto maior, mais autoridade)
-    int     groupSiglaPosition = 0;  // hierarquia do cargo com a tag visível (ordena a lista; 0 em servidores antigos)
+    int     groupPosition = 0;
+    int     groupSiglaPosition = 0;
     bool    talking = false;
-    bool    whispering = false;      // sussurrando (sinal laranja)
-    bool    screensharing = false;   // compartilhando tela (🔴 LIVE)
-    // v1.1.28: modo da transmissão vista por último ("webrtc" | "jpeg" | vazio
-    // = desconhecido/servidor antigo). Quem assiste precisa saber ANTES de
-    // pedir: transmissão JPEG legado (build antigo) não responde a
-    // webrtc_watch_request — o viewer ficava "Aguardando transmissão..." para
-    // sempre. Vazio mantém o comportamento antigo (tentar WebRTC + watchdog).
+    bool    whispering = false;
+    bool    screensharing = false;
     QString screenshareMode;
     QDateTime connectedAt = QDateTime::currentDateTime();
-    // v6 E2EE — diretório de chaves públicas desta sessão (bytes crus):
-    //   idPub  = Ed25519 pública em SPKI DER (uid = base64(SHA-256(idPub)))
-    //   dhPub  = X25519 pública (32 bytes)
-    //   dhSig  = Ed25519(idPriv, "HALLA-DH-V1" || dhPub) — liga a X25519 à identidade
-    // e2eeValid: a entrada do diretório passou na verificação LOCAL (uid
-    // confere e a assinatura do binding abre). Conteúdo de quem está sem
-    // e2eeValid não é confiado para cifrar nem para decifrar.
+    // Protocol v6 end-to-end encryption directory material:
+    //   idPub = Ed25519 SPKI DER public key (uid = base64(SHA-256(idPub)))
+    //   dhPub = 32-byte X25519 public key
+    //   dhSig = Ed25519(idPriv, "HALLA-DH-V1" || dhPub)
     QByteArray idPub;
     QByteArray dhPub;
     QByteArray dhSig;
     bool    e2eeValid = false;
-    // v1.1.35: revisão do registro — sobe quando um campo ESTRUTURAL muda
-    // (nome, cargos, mutes, away, permissões...) e alimenta a assinatura da
-    // árvore no ServerTab: mesma assinatura = atualização leve de ícones em
-    // vez de rebuild completo. Transições de fala (talking/whispering/
-    // screensharing) NÃO contam — alta frequência, só afetam o ícone.
+    // Incremented on structural state changes to drive lightweight vs. full tree updates.
     quint32 rev = 0;
 };
 
 struct Channel {
     int     id = 0;
-    int     parentId = 0;            // 0 = topo
-    int     order = 0;               // posição entre os irmãos
+    int     parentId = 0;
+    int     order = 0;
     QString name;
     QString topic;
     QString description;
     QString passwordHash;
     bool    hasPassword = false;
     bool    isDefault = false;
-    bool    noSymbol = false;        // oculta o símbolo visual antes do nome
-    bool    tempChannelParent = false; // recebe novos canais temporários como subcanais
-    int     type = 2;                // 0 = temporário, 1 = semi-permanente, 2 = permanente
+    bool    noSymbol = false;
+    bool    tempChannelParent = false;
+    int     type = 2; // 0 = temporary, 1 = semi-permanent, 2 = permanent
     bool    moderated = false;
-    int     codec = 4;               // Opus Voice
-    QStringList opUids;              // UIDs dos operadores deste canal (v3)
-    QString temporaryOwnerUid;       // criador do canal temporário; poderes locais limitados
-    int     codecQuality = 6;        // 0..10
-    int     bitrate = 96;            // de 16kbps a 384kbps (padrão 96)
-    QJsonObject groupPerms;          // Pilar 3: permissões de canal por cargo { "groupId": { "perm": state } }
-    QJsonObject groupPositionReqs;   // Pilar 1: requisitos de position por grupo no canal
-    int     maxClients = -1;         // -1 = ilimitado
-    QList<int> linkedChannels;       // canais que compartilham o áudio com este canal
+    int     codec = 4; // Opus Voice
+    QStringList opUids;
+    QString temporaryOwnerUid;
+    int     codecQuality = 6;
+    int     bitrate = 96;
+    QJsonObject groupPerms;
+    QJsonObject groupPositionReqs;
+    int     maxClients = -1;
+    QList<int> linkedChannels;
     QList<int> users;
-    // v1.1.35: revisão do registro — chan_update é sempre estrutural
-    // (nome/permissões/tópicos/lista de usuários); a assinatura da árvore
-    // (ServerTab) compara id+rev para decidir entre rebuild e atualização leve.
     quint32 rev = 0;
 };
 
@@ -128,8 +114,8 @@ struct ServerData {
     QString platform = "Linux";
     QString motd     = "Bem-vindo ao Halla!";
     QDateTime connectedAt = QDateTime::currentDateTime();
-    int maxClients = 32; // Limite dinâmico de conexões/slots
-    QByteArray serverBanner; // PNG/JPEG/GIF/WebP enviado pelo administrador
+    int maxClients = 32;
+    QByteArray serverBanner;
 
     int selfId = 1;
     QMap<int, User>    users;
@@ -148,12 +134,12 @@ struct ServerData {
         QList<int> out;
         for (const Channel& c : channels)
             if (c.parentId == parentId) out << c.id;
-        // Canais temporários sempre por último (comportamento do Halla)
         std::sort(out.begin(), out.end(), [&](int a, int b) {
             const Channel& ca = channels[a];
             const Channel& cb = channels[b];
             if (ca.order != cb.order) return ca.order < cb.order;
-            bool ta = ca.type == 0, tb = cb.type == 0;
+            const bool ta = ca.type == 0;
+            const bool tb = cb.type == 0;
             if (ta != tb) return tb;
             return ca.name.localeAwareCompare(cb.name) < 0;
         });

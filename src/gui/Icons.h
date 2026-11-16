@@ -5,8 +5,8 @@
 #include <QColor>
 #include "app/Theme.h"
 
-// Ícones do Halla — todos renderizados em código (QPainter) no estilo visual
-// clássico do Halla, sem depender de arquivos externos.
+// Halla icons -- all rendered in code (QPainter) in Halla's classic visual style,
+// without depending on external files.
 namespace HIcons {
 
 // cores da identidade visual
@@ -23,7 +23,7 @@ QPixmap appIcon(int size = 64);
 QPixmap banner(int w = 560, int h = 58);
 QPixmap waveMark(int size = 48, const QColor& color = QColor(255, 255, 255));
 
-// conexão / toolbar
+// connection / toolbar
 QIcon connectPlug();
 QIcon disconnectPlug();
 QIcon bookmarkStar();
@@ -35,7 +35,7 @@ QIcon muteSpeaker(bool muted);
 QIcon screenShare(bool on);
 QIcon bell();
 
-// árvore do servidor
+// server tree
 QIcon server();
 QIcon channel(bool hasPassword, bool moderated, bool isDefault, bool full);
 QIcon channelAccess(bool canJoin, bool temporary, bool hasPassword, bool full);
@@ -43,7 +43,7 @@ QIcon user(bool talking, bool away, int size = 20, bool whispering = false);
 QPixmap userStatusMinis(bool inputMuted, bool outputMuted, bool away,
                         bool recording, bool commander, bool op = false);
 
-// menus / diálogos
+// menus / dialogs
 QIcon identity();
 QIcon contacts();
 QIcon transfer();
@@ -64,9 +64,9 @@ QIcon trash();
 QIcon check();
 QIcon record(bool on);
 
-// Ícones de navegação do diálogo de Opções em estilo CONTORNO (sem
-// preenchimento, traços finos). Cada categoria recebe um desenho
-// recognizível e monocromático que se adapta ao tema (claro/escuro).
+// OUTLINE-style navigation icons for the Options dialog (no fill, thin strokes).
+// Each category gets a recognizable, monochromatic drawing that adapts to the
+// theme (light/dark).
 QIcon navOutlineIcon(const QString& kind);
 
 } // namespace HIcons

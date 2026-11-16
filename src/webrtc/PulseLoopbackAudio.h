@@ -1,23 +1,23 @@
 #pragma once
 
-// Áudio do sistema (loopback) para o WebRTC nativo no Linux — o equivalente
-// do SystemLoopbackAudioDeviceModule do Windows (WASAPI process loopback).
+// System audio (loopback) for native WebRTC on Linux -- the equivalent of the
+// Windows SystemLoopbackAudioDeviceModule (WASAPI process loopback).
 //
-// Captura o MONITOR do sink default do PulseAudio (todo o som do PC) e
-// ISOLA o próprio Halla num sink virtual dedicado (module-null-sink) antes
-// de começar: as vozes/notificações do Halla passam a tocar por esse sink
-// (devolvido ao alto-falante por um module-loopback), então o monitor do
-// sink default contém "todo o PC MENOS o Halla" — sem eco/retransmissão
-// das vozes do canal. É o mesmo resultado do AUDCLNT_PROCESS_LOOPBACK do
-// Windows, adaptado à arquitetura do PulseAudio. Funciona também sobre
-// PipeWire (pipewire-pulse fala o protocolo e suporta os mesmos módulos).
+// Captures the MONITOR of the PulseAudio default sink (all PC sound) and
+// ISOLATES Halla itself on a dedicated virtual sink (module-null-sink) before
+// starting: Halla voices/notifications now play through that sink (returned
+// to the speaker by a module-loopback), so the default sink monitor contains
+// "the whole PC EXCEPT Halla" -- no echo/retransmission of channel voices.
+// It is the same result as Windows AUDCLNT_PROCESS_LOOPBACK, adapted to the
+// PulseAudio architecture. Also works over PipeWire (pipewire-pulse speaks
+// the protocol and supports the same modules).
 //
-// Degradação graciosa: qualquer passo da exclusão falhar (servidor sem
-// permissão para carregar módulos, Pulse muito antigo...) cai no monitor
-// do sink default SEM exclusão, com aviso no log — o stream continua com
-// áudio (agora incluindo sons do Halla) em vez de nascer morto.
+// Graceful degradation: any exclusion step failing (server without permission
+// to load modules, very old Pulse...) falls back to the default sink monitor
+// WITHOUT exclusion, with a log warning -- the stream keeps audio (now
+// including Halla sounds) instead of being born dead.
 //
-// Compila vazio fora de "Linux + WebRTC nativo" (padrão MediaFoundationH264).
+// Compiles empty outside "Linux + native WebRTC" (MediaFoundationH264 pattern).
 
 #include <QtGlobal>
 
@@ -36,8 +36,8 @@
 class LinuxLoopbackAudioDeviceModule
     : public webrtc::webrtc_impl::AudioDeviceModuleDefault<webrtc::AudioDeviceModuleForTest> {
 public:
-    // Out-of-line (definido no .cpp): necessário por causa do unique_ptr do
-    // PulseExclusion incomplete-type vs make_ref_counted/RefCountedObject.
+    // Out-of-line (defined in the .cpp): needed because of the incomplete-type
+    // unique_ptr<PulseExclusion> vs make_ref_counted/RefCountedObject.
     LinuxLoopbackAudioDeviceModule();
     ~LinuxLoopbackAudioDeviceModule() override;
 
@@ -61,13 +61,13 @@ public:
     int SetRecordingSampleRate(uint32_t sample_rate) override;
 
 private:
-    struct PulseExclusion; // declarado ANTES do uso no parâmetro abaixo
+    struct PulseExclusion; // declared BEFORE use in the parameter below
 
     void captureLoop();
     void playoutLoop();
     void pushSamples(const int16_t* samples, size_t count, uint32_t sampleRate);
-    // Chamado pelos callbacks da mainloop Pulse (lock held): move um
-    // sink-input do processo do Halla para o sink virtual isolado.
+    // Called by the Pulse mainloop callbacks (lock held): moves one Halla
+    // process sink-input to the isolated virtual sink.
     static void moveSinkInput(PulseExclusion* excl, uint32_t inputIndex);
 
     std::unique_ptr<PulseExclusion> m_exclusion;
@@ -86,7 +86,7 @@ private:
 
 class LinuxLoopbackAudioDeviceModule {
 public:
-    // Stub sem símbolos para builds sem Linux/WebRTC nativo.
+    // Symbol-less stub for builds without Linux/native WebRTC.
 };
 
 #endif

@@ -1,9 +1,9 @@
 ﻿; Halla Desktop — instalador NSIS Windows x64
-; Multilíngue desde a v1.1.31: inglês, português (Brasil) e espanhol, com
-; diálogo de seleção na abertura e a escolha memorizada no registro.
-; IMPORTANTE: este arquivo é UTF-8 COM BOM — sem o BOM o makensis lê os
-; acentos na página de código ANSI e o instalador fica com caracteres
-; corrompidos ("InstalaÃ§Ã£o").
+; Multilingual since v1.1.31: English, Portuguese (Brazil) and Spanish, with a
+; selection dialog at startup and the choice remembered in the registry.
+; IMPORTANT: this file is UTF-8 WITH BOM -- without the BOM makensis reads the
+; accents in the ANSI code page and the installer ends up with corrupted
+; characters.
 Unicode true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
@@ -55,8 +55,8 @@ VIAddVersionKey /LANG=1046 "ProductVersion" "${APP_VERSION}"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT "$(RUN_TEXT)"
 
-; O idioma escolhido no diálogo fica salvo junto das informações de
-; desinstalação — atualizações e o desinstalador reutilizam a escolha.
+; The language chosen in the dialog is saved together with the uninstall
+; information -- updates and the uninstaller reuse the choice.
 !define MUI_LANGDLL_REGISTRY_ROOT "HKLM"
 !define MUI_LANGDLL_REGISTRY_KEY "${UNINSTALL_KEY}"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "InstallerLanguage"
@@ -71,7 +71,7 @@ VIAddVersionKey /LANG=1046 "ProductVersion" "${APP_VERSION}"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_UNPAGE_FINISH
 
-; Primeiro idioma = pré-selecionado quando o sistema não for EN/PT-BR/ES.
+; First language = preselected when the system is not EN/PT-BR/ES.
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "PortugueseBR"
 !insertmacro MUI_LANGUAGE "Spanish"
@@ -94,7 +94,7 @@ LangString UNINST_SHORTCUT ${LANG_SPANISH} "Desinstalar Halla"
 
 Function .onInit
     SetRegView 64
-    ; Diálogo de idioma (inglês, português, espanhol) — suprimido em /S.
+    ; Language dialog (English, Portuguese, Spanish) -- suppressed with /S.
     ${IfNot} ${Silent}
         !insertmacro MUI_LANGDLL_DISPLAY
     ${EndIf}
@@ -126,7 +126,7 @@ Section "$(SEC_HALLA_NAME)" SEC_HALLA
     File "..\examples\plugins\advanced_sdk\manifest.json"
     SetOutPath "$INSTDIR"
 
-    ; Builds MSVC incluem o redistribuível. Builds MinGW simplesmente pulam esta etapa.
+    ; MSVC builds include the redistributable. MinGW builds simply skip this step.
     IfFileExists "$INSTDIR\vc_redist.x64.exe" 0 runtime_done
     ExecWait '"$INSTDIR\vc_redist.x64.exe" /install /quiet /norestart' $0
     ${If} $0 == 3010
@@ -137,7 +137,7 @@ Section "$(SEC_HALLA_NAME)" SEC_HALLA
 
     WriteRegStr HKLM "${APP_DIR_REGKEY}" "" "$INSTDIR\${APP_EXE}"
     WriteRegStr HKLM "${APP_DIR_REGKEY}" "Path" "$INSTDIR"
-    ; Pacotes comunitários: duplo clique abre a confirmação segura no Halla.
+    ; Community packages: double-click opens the safe confirmation inside Halla.
     WriteRegStr HKCR ".halla-addon" "" "HallaAddonPackage"
     WriteRegStr HKCR "HallaAddonPackage" "" "$(ADDON_DESC)"
     WriteRegStr HKCR "HallaAddonPackage\DefaultIcon" "" "$INSTDIR\${APP_EXE},0"
@@ -165,7 +165,7 @@ Section "Uninstall"
     SetRegView 64
     Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
     Delete "$SMPROGRAMS\${APP_NAME}\$(UNINST_SHORTCUT).lnk"
-    ; Atalho legado dos instaladores anteriores (sempre em português).
+    ; Legacy shortcut from previous installers (always in Portuguese).
     Delete "$SMPROGRAMS\${APP_NAME}\Desinstalar Halla.lnk"
     RMDir "$SMPROGRAMS\${APP_NAME}"
     Delete "$DESKTOP\${APP_NAME}.lnk"

@@ -127,7 +127,7 @@ void BanListDialog::fill(const QJsonArray& bans) {
     }
 }
 
-// ============================================================== Reclamações
+// ============================================================== Complaints
 ComplaintsDialog::ComplaintsDialog(NetSession* net, QWidget* parent)
     : QDialog(parent), m_net(net) {
     setWindowTitle(tr("Reclamações"));
@@ -199,8 +199,8 @@ void ComplaintsDialog::fill(const QJsonArray& complaints) {
     }
 }
 
-// ============================================================== Grupos
-// chave de permissão -> rótulo
+// ============================================================== Groups
+// permission key -> label
 static const QList<QPair<QString, const char*>>& permDefs() {
     static const QList<QPair<QString, const char*>> defs = {
         { QStringLiteral("*"),               QT_TRANSLATE_NOOP("ServerGroupsDialog", "Todas as permissões (administrador total)") },
@@ -231,8 +231,8 @@ static const QList<QPair<QString, const char*>>& permDefs() {
 ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidget* parent)
     : QDialog(parent), m_net(net), m_data(data) {
     setWindowTitle(tr("Grupos de servidores"));
-    // A grade de grupos, membros e permissões precisa de espaço para não
-    // esconder nomes nem transformar a lista de usuários em uma linha curta.
+    // The grid of groups, members and permissions needs room so it neither hides
+    // names nor turns the user list into a short single line.
     setMinimumSize(1000, 650);
     resize(1180, 760);
 
@@ -263,10 +263,10 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     m_groups->setSortingEnabled(false);
     
     dragTree->onDropCallback = [this]() {
-        // Arrastar um cargo renumera a hierarquia inteira. Enviar um
-        // group_set por cargo fazia o servidor regravar o banco e fazer
-        // broadcast N vezes de uma vez (travava o event loop e cortava a
-        // voz). Agora: UMA mensagem de reordenação em lote.
+        // Dragging a role renumbers the whole hierarchy. Sending one group_set per
+        // role made the server rewrite the database and broadcast N times at once
+        // (it froze the event loop and chopped the voice). Now: ONE batch
+        // reordering message.
         QJsonArray entries;
         const int count = m_groups->topLevelItemCount();
         for (int i = 0; i < count; ++i) {
@@ -287,9 +287,9 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
             entry["position"] = newPosition;
             entries << entry;
 
-            // O cargo selecionado ganha os valores novos na hora: sem isso,
-            // os spinboxes ficam com a ordem/posição de ANTES do arrasto e o
-            // próximo "Aplicar permissões" devolveria o cargo ao lugar velho.
+            // The selected role gets the new values right away: without this the
+            // spin boxes keep the order/position from BEFORE the drag and the next
+            // "Apply permissions" would return the role to its old place.
             if (m_groups->currentItem() == it) {
                 m_cur["order"] = newOrder;
                 m_cur["position"] = newPosition;
@@ -310,7 +310,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     ll->addLayout(gbtns);
     split->addWidget(left);
 
-    // ---- direita: editor de permissões + atribuição
+    // ---- right: permission editor + assignment
     QWidget* right = new QWidget(split);
     QVBoxLayout* rl = new QVBoxLayout(right);
     rl->setContentsMargins(8, 0, 0, 0);
@@ -348,17 +348,16 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     m_siglaPlacement->addItem(tr("Depois do nome"), true);
     m_siglaPlacement->setToolTip(tr("Define se a sigla deste cargo aparece no início ou no fim do nome do usuário."));
     m_order = new QSpinBox(propBox);
-    // Arrastar um cargo renumera TODAS as ordens (índice × 10): com 20+
-    // cargos os valores passam de 100. O clamp antigo nesse limite fazia o
-    // "Aplicar permissões" reenviar a ordem errada — e o cargo "pulava"
-    // de posição sozinho.
+    // Dragging a role renumbers EVERY order (index x 10): with 20+ roles the
+    // values go past 100. The old clamp at that limit made "Apply permissions"
+    // resend the wrong order -- and the role "jumped" position by itself.
     m_order->setRange(0, 9999);
     m_order->setToolTip(tr("Ordem deste cargo na lista de nomes (menor número aparece primeiro)."));
     m_orderEnabled = new QCheckBox(tr("Usar a ordem deste cargo na lista de nomes"), propBox);
     m_orderEnabled->setChecked(true);
     m_orderEnabled->setToolTip(tr("Desative para este cargo não alterar a posição do usuário. Outro cargo habilitado fornecerá a ordem."));
     
-    // Pilar 1: posição hierárquica dos cargos
+    // Pillar 1: hierarchical position of the roles
     m_position = new QSpinBox(propBox);
     m_position->setRange(0, 99999);
     m_position->setToolTip(tr("Quanto maior o número, maior a autoridade. Cargo com position maior vence."));
@@ -433,7 +432,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     ebtns->addWidget(apply);
     rl->addLayout(ebtns);
 
-    // atribuição de usuário
+    // user assignment
     QGroupBox* assignBox = new QGroupBox(tr("Atribuir grupo a cliente conectado"), right);
     QHBoxLayout* al = new QHBoxLayout(assignBox);
     m_userCombo = new QComboBox(assignBox);
@@ -459,7 +458,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     btns->addWidget(close);
     root->addLayout(btns);
 
-    // ---------------------------------------------------------- ações
+    // ---------------------------------------------------------- actions
     connect(close, &QPushButton::clicked, this, &QDialog::accept);
     connect(refresh, &QPushButton::clicked, this, [this] { m_net->requestGroupList(); });
     connect(reloadU, &QPushButton::clicked, this, &ServerGroupsDialog::refreshUsers);
@@ -593,9 +592,9 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
         };
         m_net->groupSet(id, name, m_cur["perms"].toObject(), sigla, order, icon,
                         position, siglaAfter, orderEnabled);
-        // O servidor transmite a lista atualizada e envia group_set_ok. Não
-        // dispara uma segunda leitura que possa reconstruir o editor no meio
-        // da confirmação.
+        // The server broadcasts the updated list and sends group_set_ok. Do not
+        // trigger a second read that could rebuild the editor in the middle of the
+        // confirmation.
     });
 
     connect(apply, &QPushButton::clicked, this, [this] {
@@ -616,7 +615,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
         };
         m_net->groupSet(id, name, perms, sigla, order, icon, position,
                         siglaAfter, orderEnabled);
-        // A confirmação explícita é aplicada por applyConfirmedGroup().
+        // The explicit confirmation is applied by applyConfirmedGroup().
     });
 
     connect(assign, &QPushButton::clicked, this, [this] {
@@ -632,9 +631,9 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
     connect(m_net, &NetSession::groupListReceived, this, &ServerGroupsDialog::fillGroups);
     connect(m_net, &NetSession::groupSetConfirmed,
             this, &ServerGroupsDialog::applyConfirmedGroup);
-    // Atribuição/remoção de membro chega em tempo real (group_member_update):
-    // atualiza o item da árvore e a lista exibida quando o cargo tocado está
-    // selecionado — sem precisar fechar e reabrir a janela de grupos.
+    // Member assignment/removal arrives in real time (group_member_update):
+    // updates the tree item and the displayed list when the touched role is
+    // selected -- without closing and reopening the groups window.
     connect(m_net, &NetSession::groupMembersUpdated, this,
             [this](int gid, const QJsonArray& members) {
         const QString raw = QString::fromUtf8(
@@ -646,7 +645,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
             break;
         }
         if (m_cur.value("id").toInt() == gid)
-            this->refreshMembers(members); // this-> desambigua do botão local
+            this->refreshMembers(members); // this-> disambiguates from the local button
     });
     connect(m_net, &NetSession::errorOccurred, this,
             [this](const QString&, const QString&) {
@@ -655,7 +654,7 @@ ServerGroupsDialog::ServerGroupsDialog(NetSession* net, ServerData* data, QWidge
                 m_net->requestGroupList();
             });
 
-    // pré-carrega com o que veio no welcome e pede a lista atualizada
+    // preloads with what came in the welcome and requests the updated list
     fillGroups(m_net->serverGroups());
     refreshUsers();
     m_net->requestGroupList();
@@ -665,10 +664,10 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
     const int keepId = m_cur.value("id").toInt(0);
     QTreeWidgetItem* keepItem = nullptr;
     {
-        // A resposta de atribuição chega enquanto a janela ainda está aberta.
-        // Bloquear o sinal durante o clear evita que currentItemChanged limpe
-        // o editor; desativar a ordenação durante a reconstrução preserva os
-        // nomes e as duas colunas de cada grupo.
+        // The assignment reply arrives while the window is still open. Blocking the
+        // signal during the clear keeps currentItemChanged from wiping the editor;
+        // disabling sorting during the rebuild preserves the names and the two
+        // columns of each group.
         QSignalBlocker blocker(m_groups);
         m_groups->setSortingEnabled(false);
         m_groups->clear();
@@ -681,10 +680,10 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
 
         for (QJsonObject g : sortedList) {
             const int id = g["id"].toInt(0);
-            // Enquanto o clique em Aplicar aguarda confirmação direta, uma
-            // atualização geral da lista não pode recolocar os dois controles
-            // nos padrões. Isso também mantém a interface estável com o
-            // Server 1.1.35, que já persiste os campos mas ainda não envia ACK.
+            // While the Apply click waits for direct confirmation, a general list
+            // update must not put the two controls back to their defaults. This also
+            // keeps the interface stable with Server 1.1.35, which already persists
+            // the fields but does not send an ACK yet.
             if (!m_pendingGroup.isEmpty() && m_pendingGroup["id"].toInt() == id) {
                 static const char* const pendingFields[] = {
                     "name", "perms", "sigla", "siglaAfter", "order",
@@ -705,7 +704,7 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
             it->setData(0, Qt::UserRole + 2, g["sigla"].toString());
             it->setData(0, Qt::UserRole + 3, g["order"].toInt());
             it->setData(0, Qt::UserRole + 4, g["icon"].toString());
-            it->setData(0, Qt::UserRole + 6, g["position"].toInt(0));  // Pilar 1: position hierárquica
+            it->setData(0, Qt::UserRole + 6, g["position"].toInt(0));  // Pillar 1: hierarchical position
             it->setData(0, Qt::UserRole + 7, g["siglaAfter"].toBool(false));
             it->setData(0, Qt::UserRole + 8, g["orderEnabled"].toBool(true));
             it->setData(0, Qt::UserRole + 5,
@@ -718,8 +717,8 @@ void ServerGroupsDialog::fillGroups(const QJsonArray& groups) {
     else if (m_groups->topLevelItemCount() > 0)
         m_groups->setCurrentItem(m_groups->topLevelItem(0));
 
-    // A seleção não emite sinal quando o mesmo cargo permanece selecionado.
-    // Recarrega os membros da resposta nova para a lista não desaparecer.
+    // The selection emits no signal when the same role stays selected. Reloads the
+    // members from the new reply so the list does not disappear.
     if (QTreeWidgetItem* selected = m_groups->currentItem()) {
         m_cur["id"] = selected->data(0, Qt::UserRole).toInt();
         m_cur["name"] = selected->text(1);
@@ -817,20 +816,20 @@ QJsonObject ServerGroupsDialog::collectPerms() const {
 void ServerGroupsDialog::refreshUsers() {
     m_userCombo->clear();
     if (!m_data) return;
-    // Só o nome do usuário. O campo "group" do servidor guarda linhas
-    // "<ícone> <nome>" (ex.: "rota.png ROTA"), e embutir isso no item fazia
-    // o combo listar os nomes de arquivo .png dos ícones e quebrar o texto
-    // em várias linhas cortadas (quebra de linha real dentro do item).
+    // Only the user name. The server's "group" field stores "<icon> <name>"
+    // lines (e.g. "rota.png ROTA"), and embedding that in the item made the combo
+    // list the icons' .png file names and wrap the text into several clipped lines
+    // (a real line break inside the item).
     for (const User& u : m_data->users) {
         m_userCombo->addItem(u.name, u.id);
-        // Nome muito longo para a largura do combo fica elided; o tooltip
+        // A name too long for the combo width gets elided; the tooltip
         // mostra o nome completo.
         m_userCombo->setItemData(m_userCombo->count() - 1, u.name,
                                  Qt::ToolTipRole);
     }
 }
 
-// ============================================================== Minhas permissões
+// ============================================================== My permissions
 PermissionsOverviewDialog::PermissionsOverviewDialog(const QJsonObject& myPerms,
                                                      const QString& groupName,
                                                      QWidget* parent)

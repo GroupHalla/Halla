@@ -1,4 +1,4 @@
-# Toolchain de compilação cruzada: Linux (host) -> Windows 64-bit (MinGW)
+# Cross-compilation toolchain: Linux (host) -> Windows 64-bit (MinGW)
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR AMD64)
 
@@ -17,6 +17,6 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 # Ferramentas de build do Qt (moc/uic/rcc) rodam no host Linux.
-# O shim aponta para os pacotes Qt6 do próprio Debian.
+# The shim points at Debian's own Qt6 packages.
 set(QT_HOST_PATH "/home/user/qt-host-shim" CACHE PATH "Qt do host (moc/uic/rcc)")
 set(QT_HOST_PATH_CMAKE_DIR "${QT_HOST_PATH}/lib/cmake" CACHE PATH "")

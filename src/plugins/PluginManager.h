@@ -9,6 +9,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QString>
+#include <shared_mutex>
 
 struct ServerData;
 class QWidget;
@@ -59,16 +60,16 @@ public:
     void showCatalog(QWidget* parent);
     void openAddonsFolder();
 
-    /* Cada aba recebe um identificador estável durante sua vida útil. */
+    /* Each tab receives a stable identifier for its lifetime. */
     quint64 registerSession(ServerTab* tab);
     void unregisterSession(ServerTab* tab);
     void setActiveSession(ServerTab* tab);
     quint64 connectionId(ServerTab* tab) const;
-    void publishClientState(const ServerData* data); // compatibilidade/testes
+    void publishClientState(const ServerData* data); // compatibility/tests
     void publishClientState(ServerTab* tab);
     QJsonObject currentClientState() const { return m_currentState; }
 
-    /* Chamadas internas do motor de voz; nunca atravessam a rede. */
+    /* Internal voice-engine calls; never cross the network. */
     void processAudio(quint64 connectionId, int userId, uint32_t stage,
                       uint32_t flags, int16_t* samples, uint32_t frames,
                       uint32_t channels, uint32_t sampleRate);
@@ -97,6 +98,11 @@ private:
     Q_DISABLE_COPY_MOVE(PluginManager)
 
     struct Record;
+    // Guards audioProcessor/audioProcessorContext/audioStages: processAudio
+    // snapshots them under a shared lock; unload/audioRegister/audioUnregister
+    // mutate them under an exclusive lock. Without this, unloading a plugin
+    // while a voice frame is being processed called into freed code.
+    mutable std::shared_mutex m_audioMutex;
     QHash<QString, Record*> m_records;
     TalkingOverlay* m_overlay = nullptr;
     RadioVoiceEffect* m_radioVoice = nullptr;

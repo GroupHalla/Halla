@@ -22,9 +22,9 @@ struct OpusDecoder;
 struct ServerData;
 struct PluginAudioControl;
 
-// Motor de voz do cliente: microfone -> Opus (48 kHz, mono, 20 ms) -> UDP,
-// e pacotes recebidos -> decodificação individual -> DSP/espacialização ->
-// mixagem estéreo -> alto-falantes. Degrada graciosamente sem dispositivo.
+// Client voice engine: microphone -> Opus (48 kHz, mono, 20 ms) -> UDP, and
+// received packets -> per-user decoding -> DSP/spatialization -> stereo
+// mixing -> speakers. Degrades gracefully without a device.
 class VoiceEngine : public QObject {
     Q_OBJECT
 public:
@@ -51,7 +51,7 @@ public:
     bool speechActive() const { return m_speechActive; }
     QJsonObject diagnostics() const;
 
-    // WAV 48 kHz mono: mixagem recebida + próprio microfone.
+    // 48 kHz mono WAV: received mix (20 ms frames).
     bool startRecording(const QString& wavPath);
     void stopRecording();
     bool isRecording() const { return m_recFile != nullptr; }
@@ -59,12 +59,12 @@ public:
 signals:
     void talkingChanged(bool talking);
     void recordingChanged(bool on);
-    // O usuário REALMENTE falou (detecção de voz no sinal do microfone,
-    // independente da transmissão estar aberta/fechada e do modo PTT).
-    // Alimenta o sinal sonoro "ao falar" nos modos por voz/contínuo.
+    // The user REALLY spoke (voice detection on the microphone signal,
+    // independent of whether transmission is open/closed and of the PTT mode).
+    // Feeds the "on speech" sound cue in voice-activated/continuous modes.
     void speechActivityChanged(bool active);
-    // Um usuário remoto começou (ou parou) de falar segundo os pacotes de
-    // voz recebidos — não segundo a mensagem "user_state" do servidor.
+    // A remote user started (or stopped) speaking according to received voice
+    // packets -- not according to the server "user_state" message.
     void remoteVoiceActivityChanged();
 
 private:
@@ -74,52 +74,54 @@ private:
     void playbackTick();
     void sweepRemoteTalking();
     void adaptVoiceTarget();
-    // Ramps suaves do gate de transmissão: abertura em 4 ms (sem "pop") e
-    // fechamento em 60 ms (o último quadro transmitido desce para zero —
-    // sem clique e sem corte seco no meio da palavra).
+    // Smooth transmission-gate ramps: 4 ms opening (no "pop") and 60 ms
+    // closing (the last transmitted frame fades to zero -- no click and no
+    // abrupt mid-word cut).
     void applyGateFades(int16_t* pcm, int frames);
-    // Fator linear do "Aumentar volume do microfone" (Opções > Captura),
-    // lido por quadro (as Opções gravam direto no QSettings).
+    // Linear factor of "Boost microphone volume" (Options > Capture), read
+    // per frame (Options write straight into QSettings).
     double micGainLinear() const;
-    // Fecha o gate de transmissão (tecla solta/voz fechada) armando a rampa
-    // de fechamento — o corte seco no meio de uma palavra dava "clique".
+    // Closes the transmission gate (key released/voice closed) arming the
+    // closing ramp -- an abrupt mid-word cut produced an audible "click".
     void closeTransmissionGate();
-    // Envia os quadros da rampa de fechamento quando a transmissão já calou
-    // por tecla (PTT solto): sem isso o último quadro terminaria abrupto.
+    // Sends the closing-ramp frames when transmission already went silent
+    // because of a key (PTT released): without this the last frame would end
+    // abruptly.
     void flushGateFade();
-    // Detecção de fala (para o cue) com o microfone drenado: a voz está
-    // "fechada"/PTT solto, mas o sinal sonoro precisa soar quando o usuário
-    // fala — a detecção não pode depender da transmissão.
+    // Speech detection (for the cue) with the microphone drained: voice is
+    // "closed"/PTT released, but the sound cue must still fire when the user
+    // speaks -- detection must not depend on transmission.
     void analyzeCapturedSpeech();
     void updateSpeechDetection(double rms);
-    // Quadros retidos pela validação do EchoGuard: quando a fala é
-    // confirmada como legítima, são transmitidos de uma vez para o início
-    // da frase não se perder no atraso de confirmação.
+    // Frames held back by EchoGuard validation: once speech is confirmed as
+    // legitimate they are transmitted at once so the phrase start is not lost
+    // in the confirmation delay.
     void transmitHeldEchoFrames();
     void refreshDspSettings();
-    // Dispositivo de captura configurado (Opções > Captura) ou o padrão do
-    // sistema — mesma escolha do construtor, reavaliada a cada reabertura.
+    // Configured capture device (Options > Capture) or the system default --
+    // same choice as the constructor, re-evaluated on every reopen.
     QAudioDevice pickCaptureDevice() const;
-    // Observa erros do QAudioSource (IO/dispositivo removido): a captura
-    // morria em silêncio — o app seguia "transmitindo" sem amostra nenhuma e
-    // ninguém ouvia nada (o usuário concluía que o Halla não capturava o
-    // microfone). Reage reabrindo o dispositivo.
+    // Watches QAudioSource errors (IO/removed device): capture used to die in
+    // silence -- the app kept "transmitting" with no samples at all and
+    // nobody heard anything (the user concluded Halla could not capture the
+    // microphone). Reacts by reopening the device.
     void watchSourceState();
-    // Reabre o QAudioSource do microfone após erro, com guarda anti-loop.
+    // Reopens the microphone QAudioSource after an error, with an anti-loop
+    // guard.
     void reopenAudioCapture();
-    // Drena o dispositivo de captura para m_captureBuf atualizando o relógio
-    // de atividade (última vez que o mic entregou amostras) — alimenta o
-    // watchdog de travamento abaixo.
+    // Drains the capture device into m_captureBuf, updating the activity
+    // clock (last time the mic delivered samples) -- feeds the stall
+    // watchdog below.
     void drainCaptureDevice();
     OpusDecoder* decoderFor(int userId);
     QByteArray spatializeFrame(int userId, int16_t* mono, int frames);
     void applyRadioEffect(int userId, int16_t* mono, int frames,
                           const PluginAudioControl& control);
-    // v1.1.35: cache das chaves de configuração do HOT PATH. O tick de
-    // captura/reprodução rodava até ~10 consultas ao QSettings por quadro de
-    // 20 ms (limiar do VAD, modo PTT, guarda, ganhos, ducking) — dezenas de
-    // QVariant/QString por segundo de voz ativa. Agora recarrega a cada
-    // 250 ms (imperceptível para o usuário, remove o churn do hot path).
+    // v1.1.35: cache of the HOT PATH configuration keys. The capture/playback
+    // tick used to run up to ~10 QSettings lookups per 20 ms frame (VAD
+    // threshold, PTT mode, guard, gains, ducking) -- dozens of QVariant/QString
+    // per second of active voice. Now reloaded every 250 ms (imperceptible to
+    // the user, removes hot-path churn).
     void refreshCachedConfig();
     int  m_cfgPttMode = 1;
     int  m_cfgVoiceLevelDb = -45;
@@ -129,8 +131,8 @@ private:
     bool m_cfgDucking = false;
     int  m_cfgDuckingDb = 10;
     QElapsedTimer m_cfgClock;
-    // v1.1.35: updateCodecSettings aplicava 4 opus_encoder_ctl a CADA tick
-    // de captura com os mesmos valores — agora aplica só quando muda.
+    // v1.1.35: updateCodecSettings used to apply 4 opus_encoder_ctl calls on
+    // EVERY capture tick with the same values -- now applies only on change.
     int m_lastCodecChanId = -1;
     int m_lastCodecBitrate = -1;
     int m_lastCodecApp = -1;
@@ -151,56 +153,58 @@ private:
     class QTimer* m_capTimer = nullptr;
     class QTimer* m_playTimer = nullptr;
     class QTimer* m_endpointTimer = nullptr;
-    QMap<int, std::deque<QByteArray>> m_remoteQueues; // PCM S16 estéreo por usuário
-    // Jitter buffer de voz: quadros ficam retidos por usuário até acumular
-    // m_voiceTargetFrames (20 ms cada) antes de começar a tocar. Sem isso,
-    // qualquer atraso de rede/UI estourava o buffer do QAudioSink e a voz
-    // "pipocava". O alvo é adaptativo e decai devagar quando estável.
+    QMap<int, std::deque<QByteArray>> m_remoteQueues; // per-user stereo S16 PCM
+    // Voice jitter buffer: frames are held per user until m_voiceTargetFrames
+    // (20 ms each) accumulate before playback starts. Without this, any
+    // network/UI delay drained the QAudioSink buffer and voice "stuttered".
+    // The target is adaptive and decays slowly when stable.
     QSet<int> m_voicePrimed;
-    // Alvo inicial de 4 quadros (80 ms) — o antigo 3 deixava a voz pipocar
-    // em qualquer rajada curta de trabalho da GUI — crescendo até 8 quadros
-    // (160 ms) em underruns reais e secagens além da graça.
+    // Initial target of 4 frames (80 ms) -- the old 3 let voice stutter on
+    // any short GUI work burst -- growing to 8 frames (160 ms) on real
+    // underruns and dry-outs beyond the grace period.
     int m_voiceTargetFrames = 4;
     quint64 m_voiceUnderruns = 0;
     quint64 m_voiceSheds = 0;
     quint64 m_voiceUnderrunsAtAdapt = 0;
-    // Graça de re-prime: quando a fila de um usuário primado seca, o prime é
-    // mantido por ~300 ms para que o próximo quadro retome NA HORA em vez de
-    // esperar o prebuffer reconstruir (era o "para por milésimos"). Secagem
-    // que passa da graça vira re-prime normal e conta como sinal de jitter
-    // para o alvo crescer.
+    // Re-prime grace: when a primed user's queue dries out, the prime is kept
+    // for ~300 ms so the next frame resumes IMMEDIATELY instead of waiting
+    // for the prebuffer to rebuild (that was the "pauses for milliseconds"
+    // bug). A dry-out beyond the grace becomes a normal re-prime and counts
+    // as a jitter signal so the target grows.
     QMap<int, qint64> m_voiceDryMs;
     quint64 m_voiceDries = 0;
     quint64 m_voiceDriesAtAdapt = 0;
     class QTimer* m_voiceAdaptTimer = nullptr;
-    // Áudio WebRTC das lives fica separado da voz/plugins: permite mudo por
-    // transmissão e um pequeno prebuffer contra jitter sem atrasar a chamada.
+    // WebRTC live audio stays separate from voice/plugins: allows per-stream
+    // mute and a small anti-jitter prebuffer without delaying the call.
     QMap<int, std::deque<QByteArray>> m_streamQueues;
     QSet<int> m_primedStreams;
     QMap<int, qint64> m_streamLastPacketMs;
-    // Último instante (m_remoteVoiceClock) em que chegou um pacote de voz de
-    // cada usuário remoto. Alimenta o indicador "falando" orientado a
-    // pacotes: o anel na árvore acende pelo áudio que realmente chega, não
-    // apenas pela mensagem user_state (que pode atrasar ou nunca chegar —
-    // ex.: estado preso no servidor após o app do falante congelar no meio
-    // de uma fala).
+    // Last instant (m_remoteVoiceClock) a voice packet arrived from each
+    // remote user. Feeds the packet-driven "talking" indicator: the tree ring
+    // lights up from audio that actually arrives, not only from the
+    // user_state message (which can be delayed or never arrive -- e.g. state
+    // stuck on the server after the speaker app froze mid-speech).
     QMap<int, qint64> m_remoteLastVoiceMs;
+    // Last accepted UDP sequence per remote user: duplicate or replayed
+    // datagrams (same or older seq) are dropped before decoding.
+    QMap<int, quint16> m_lastVoiceSeq;
     class QTimer* m_remoteTalkingTimer = nullptr;
     QElapsedTimer m_remoteVoiceClock;
     QMap<int, RadioVoiceDsp> m_radioStates;
     QByteArray m_captureBuf;
     quint16 m_seq = 0;
     bool m_talking = false;
-    bool m_speechActive = false;      // detecção de fala para o cue "ao falar"
+    bool m_speechActive = false;      // speech detection for the "on speech" cue
     qint64 m_lastSpeechAboveMs = 0;
     QElapsedTimer m_speechClock;
-    // DSP de voz do microfone: eco (AEC3) + ruído (neural) via WebRTC APM.
+    // Microphone voice DSP: echo (AEC3) + noise (neural) via WebRTC APM.
     HallaAudioProcessing m_apm;
-    // Guarda de crosstalk: impede que a voz recebida (que toca no
-    // alto-falante / vaza no microfone compartilhado) abra a transmissão
-    // como se fosse fala do usuário — o "falando" duplicado na sala.
+    // Crosstalk guard: prevents received voice (playing on the speaker /
+    // leaking into a shared microphone) from opening transmission as if it
+    // were the user's speech -- the duplicated "talking" ring in the room.
     EchoGuard m_echoGuard;
-    QList<QByteArray> m_echoPending;   // quadros retidos na validação
+    QList<QByteArray> m_echoPending;   // frames held during validation
     class QTimer* m_dspTimer = nullptr;
     bool m_dspAnnounced = false;
     bool m_lastDspDenoise = true;
@@ -209,10 +213,10 @@ private:
     bool m_whisperHeld = false;
     bool m_whisperTargetsConfigured = false;
     quint32 m_pttGen = 0;
-    // Gate de transmissão com histerese de ÁUDIO: quadros seguem para o
-    // Opus enquanto o gate está aberto (m_talking), independentemente do
-    // RMS do quadro individual. Sem isso, qualquer ruído oscilando em
-    // torno da sensibilidade picotava a voz frame a frame.
+    // Transmission gate with AUDIO hysteresis: frames keep flowing to Opus
+    // while the gate is open (m_talking), regardless of the individual frame
+    // RMS. Without this, any noise oscillating around the sensitivity chopped
+    // voice frame by frame.
     static constexpr int kFadeInSamples = 192;    // 4 ms @ 48 kHz
     static constexpr int kFadeOutSamples = 2880;  // 60 ms @ 48 kHz
     int m_fadeInLeft = 0;
@@ -221,13 +225,13 @@ private:
     quint64 m_opusSent = 0, m_opusReceived = 0;
     quint64 m_opusSentBytes = 0, m_opusReceivedBytes = 0;
     int m_inputRms = 0;
-    qint64 m_lastCaptureReopenMs = 0;   // anti-loop de reabertura da captura
+    qint64 m_lastCaptureReopenMs = 0;   // capture reopen anti-loop
     bool m_captureReopenPending = false;
-    // Watchdog de travamento (v1.1.34): dispositivo que para de entregar
-    // amostras SEM erro (glitch de driver, economia de energia USB,
-    // Bluetooth) ficava mudo para sempre — o estado continua "ativo" e o
-    // watchdog de erro da v1.1.32 nunca disparava. Sem amostras por 2 s
-    // com o dispositivo aberto = travado: reabre.
+    // Stall watchdog (v1.1.34): a device that stops delivering samples
+    // WITHOUT an error (driver glitch, USB power saving, Bluetooth) stayed
+    // muted forever -- the state remained "active" and the v1.1.32 error
+    // watchdog never fired. No samples for 2 s with the device open = stalled:
+    // reopen.
     qint64 m_lastCaptureDataMs = 0;
     quint64 m_captureStallReopens = 0;
 

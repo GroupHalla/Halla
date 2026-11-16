@@ -184,10 +184,10 @@ public:
                     "WebRTC DXGI: conversão GPU BGRA->NV12 indisponível (0x%1); usando caminho pela CPU")
                     .arg(quint32(hr), 8, 16, QLatin1Char('0')));
             }
-            // Um VideoProcessor com estado obsoleto (ou um pool de texturas de
-            // um dispositivo D3D11 antigo, p.ex. após trocar resolução/monitor)
-            // costuma ficar preso retornando E_INVALIDARG. Redefina-o para que o
-            // próximo frame tente criar um processador novo e limpo.
+            // A VideoProcessor with stale state (or a texture pool from an
+            // old D3D11 device, e.g. after changing resolution/monitor) tends
+            // to get stuck returning E_INVALIDARG. Reset it so the next frame
+            // tries to create a fresh, clean processor.
             resetVideoProcessor();
             return nullptr;
         }
@@ -478,10 +478,10 @@ private:
         m_gpuFailureLogged = false;
     }
 
-    // Limpa apenas o estado do VideoProcessor e o pool de texturas de saída,
-    // mantendo a duplicação/desktop e o dispositivo D3D11. É chamado quando o
-    // caminho GPU falha (ex.: E_INVALIDARG) para que o próximo frame recrie um
-    // processador limpo, em vez de ficar preso num estado obsoleto.
+    // Clears only the VideoProcessor state and the output texture pool,
+    // keeping desktop duplication and the D3D11 device. Called when the GPU
+    // path fails (e.g. E_INVALIDARG) so the next frame recreates a clean
+    // processor instead of staying stuck on stale state.
     void resetVideoProcessor() {
         m_lastNative = nullptr;
         m_texturePool.reset();
@@ -612,10 +612,10 @@ public:
     bool PlayoutIsInitialized() const override { return true; }
     int32_t InitPlayout() override { return 0; }
     int32_t StartPlayout() override {
-        // Start/Stop podem chegar de threads diferentes (GUI x signaling do
-        // libwebrtc). Sem o mutex, dois joins concorrentes no mesmo
-        // std::thread (ou join durante reatribuição) são UB e terminam o
-        // processo sem diálogo — o app "fecha sozinho".
+        // Start/Stop can arrive from different threads (GUI x libwebrtc
+        // signaling). Without the mutex, two concurrent joins on the same
+        // std::thread (or join during reassignment) are UB and terminate the
+        // process without a word -- the app "closes by itself".
         std::lock_guard<std::mutex> threadLock(m_threadMutex);
         if (m_playoutRunning.exchange(true)) return 0;
         if (m_playoutThread.joinable()) m_playoutThread.join();
@@ -632,8 +632,8 @@ public:
     int32_t StartRecording() override {
         std::lock_guard<std::mutex> threadLock(m_threadMutex);
         if (m_running.exchange(true)) return 0;
-        // Uma tentativa anterior pode ter falhado e encerrado a thread depois
-        // de limpar m_running; faça join antes de reutilizar std::thread.
+        // A previous attempt may have failed and ended the thread after
+        // clearing m_running; join before reusing the std::thread.
         if (m_thread.joinable()) m_thread.join();
         m_thread = std::thread([this] { captureLoop(); });
         return 0;
@@ -699,8 +699,8 @@ private:
         }
 
 #ifndef HALLA_PROCESS_LOOPBACK_EXCLUSION
-        // Nunca volte silenciosamente ao loopback global: ele capturaria as
-        // vozes e notificações do próprio Halla e causaria retorno/eco.
+        // Never silently fall back to the global loopback: it would capture
+        // Halla's own voices and notifications and cause feedback/echo.
         AppLog::warn(QStringLiteral(
             "Áudio da transmissão indisponível: SDK do Windows sem process loopback exclusion"));
         if (shouldUninitialize) CoUninitialize();
@@ -835,8 +835,9 @@ public:
     void OnDataChannel(webrtc::scoped_refptr<webrtc::DataChannelInterface>) override {}
     void OnIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState state) override {
         AppLog::info(QStringLiteral("WebRTC ICE peer #%1: %2").arg(m_peerId).arg(int(state)));
-        // v1.1.28: ICE failed (CGNAT/firewall sem TURN) também precisa virar
-        // estado para a UI — alguns stack só reportam aqui, não no OnConnectionChange.
+        // v1.1.28: ICE failed (CGNAT/firewall without TURN) must also become
+        // state for the UI -- some stacks only report it here, not in
+        // OnConnectionChange.
         if (state == webrtc::PeerConnectionInterface::kIceConnectionFailed) {
             QMetaObject::invokeMethod(m_owner, [owner = m_owner, id = m_peerId] {
                 emit owner->peerStateChanged(id, QStringLiteral("failed"));
@@ -845,9 +846,9 @@ public:
     }
     void OnConnectionChange(webrtc::PeerConnectionInterface::PeerConnectionState state) override {
         AppLog::info(QStringLiteral("WebRTC conexão peer #%1: %2").arg(m_peerId).arg(int(state)));
-        // v1.1.28: estado P2P encaminhado à GUI. Sem isto, ICE travado em
-        // NAT simétrico/CGNAT falhava em silêncio e a janela do espectador
-        // ficava eternamente "Aguardando transmissão...".
+        // v1.1.28: P2P state forwarded to the GUI. Without this, ICE stuck on
+        // symmetric NAT/CGNAT failed silently and the viewer window stayed
+        // forever on "Waiting for stream...".
         const char* name = "new";
         switch (state) {
         case webrtc::PeerConnectionInterface::PeerConnectionState::kConnecting: name = "connecting"; break;
@@ -1003,11 +1004,11 @@ public:
         if (!m_owner) return;
         auto i420 = frame.video_frame_buffer() ? frame.video_frame_buffer()->ToI420() : nullptr;
         if (!i420) return;
-        // Teto de conversão (v1.1.20): streams 2K/4K são reduzidos ANTES de
-        // virar QImage ARGB32 (33 MB/frame no 4K). Cada frame era convertido
-        // em resolução cheia a 60 FPS — churn de memória que fazia o app
-        // inchar e a call pipocar. 1920 preserva nitidez de texto em janela
-        // cheia e corta o custo do 4K em ~4x.
+        // Conversion ceiling (v1.1.20): 2K/4K streams are downscaled BEFORE
+        // becoming ARGB32 QImages (33 MB/frame at 4K). Every frame used to be
+        // converted at full resolution at 60 FPS -- memory churn that bloated
+        // the app and made the call stutter. 1920 preserves text sharpness in
+        // a full window and cuts the 4K cost by ~4x.
         constexpr int kMaxDecodeWidth = 1920;
         if (i420->width() > kMaxDecodeWidth) {
             const int scaledWidth = kMaxDecodeWidth & ~1;
@@ -1229,15 +1230,15 @@ struct HallaWebRtcSession::NativeState {
     std::unique_ptr<DxgiScreenCapturer> dxgiCapturer;
 #endif
 #ifdef Q_OS_LINUX
-    // Captura X11 (XShm/XRandR/XFixes) — vive na thread de captura com um
-    // Display* próprio, como o DxgiScreenCapturer no Windows.
+    // X11 capture (XShm/XRandR/XFixes) -- lives on the capture thread with
+    // its own Display*, like DxgiScreenCapturer on Windows.
     std::unique_ptr<X11ScreenCapturer> x11Capturer;
 #endif
     std::map<int, std::unique_ptr<PeerContext>> peers;
-    // Observers do libwebrtc (OnTrack/OnIceCandidate/OnSuccess de ofertas)
-    // rodam na thread de signaling; handleSignal/closePeer rodam na GUI. O
-    // mapa e cada PeerContext só podem ser tocados com este lock — acessos
-    // concorrentes corrompiam a heap e crashavam o app ao iniciar transmissão.
+    // libwebrtc observers (OnTrack/OnIceCandidate/offer OnSuccess) run on the
+    // signaling thread; handleSignal/closePeer run on the GUI. The map and
+    // each PeerContext may only be touched under this lock -- concurrent
+    // access corrupted the heap and crashed the app when starting a stream.
     std::recursive_mutex peersMutex;
     uint64_t captureFrameNumber = 0;
     bool gpuCaptureFrames = false;
@@ -1253,17 +1254,18 @@ HallaWebRtcSession::HallaWebRtcSession(NetSession* net, QObject* parent)
     : QObject(parent), m_native(std::make_unique<NativeState>()), m_net(net) {}
 
 void HallaWebRtcSession::setNetSession(NetSession* net) {
-    // wireTab() chama a cada aba conectada: mantém m_net apontando para a
-    // sessão viva mais recente (a sessão WebRTC é única e sobrevive às abas).
+    // wireTab() calls this for every connected tab: keeps m_net pointing at
+    // the most recent live session (the WebRTC session is unique and outlives
+    // the tabs).
     if (m_net == net) return;
     m_net = net;
 }
 
 void HallaWebRtcSession::detachFromNet(NetSession* net) {
-    // A aba que possui a conexão morreu: encerra a transmissão (fecha peers,
-    // para o timer de captura e avisa o servidor enquanto o NetSession ainda
-    // existe) e solta o ponteiro — nunca deixe m_net pendente para um
-    // QObject agendado para deleteLater.
+    // The tab owning the connection died: end the stream (close peers, stop
+    // the capture timer, notify the server while the NetSession still exists)
+    // and release the pointer -- never leave m_net dangling to a QObject
+    // scheduled for deleteLater.
     if (net && m_net != net) return;
     if (m_broadcasting) stopBroadcast();
 #ifdef HALLA_WEBRTC_NATIVE
@@ -1290,7 +1292,10 @@ HallaWebRtcSession::~HallaWebRtcSession() {
             QMetaObject::invokeMethod(m_captureTimer, [t = m_captureTimer] { t->stop(); },
                                       Qt::QueuedConnection);
         m_captureThread->quit();
-        m_captureThread->wait(2000);
+        // Block until the capture thread really exits: deleting a running
+        // QThread (the old wait(2000) timeout) crashes the process when a
+        // slow 4K grab outlives the timeout.
+        m_captureThread->wait();
         delete m_captureTimer;
         m_captureTimer = nullptr;
         delete m_captureThread;
@@ -1336,15 +1341,15 @@ bool HallaWebRtcSession::isNativeAvailable() const {
 }
 
 void HallaWebRtcSession::setCaptureSource(int sourceType, quintptr sourceId) {
-    // Roda na GUI thread: snapshot das geometrias para o crop da thread de
-    // captura (não pode tocar QGuiApplication::screens() fora daqui).
+    // Runs on the GUI thread: geometry snapshot for the capture-thread crop
+    // (must not touch QGuiApplication::screens() from anywhere else).
     m_screenGeometries.clear();
     const QList<QScreen*> screens = QGuiApplication::screens();
     for (QScreen* screen : screens)
         m_screenGeometries.push_back(screen ? screen->geometry() : QRect());
-    // Linux: o X11ScreenCapturer resolve o monitor pelo NOME do output XRandR
-    // (QScreen::name() devolve esse mesmo nome no X11) — a ordem dos QScreens
-    // não é garantidamente a ordem dos monitores do servidor X.
+    // Linux: X11ScreenCapturer resolves the monitor by XRandR output NAME
+    // (QScreen::name() returns that same name on X11) -- the QScreen order is
+    // not guaranteed to match the X server monitor order.
     m_captureScreenName.clear();
     if (sourceType == 0 && int(sourceId) >= 0 && int(sourceId) < screens.size()) {
         QScreen* selected = screens[int(sourceId)];
@@ -1360,7 +1365,7 @@ void HallaWebRtcSession::setCaptureQuality(int width, int height, int fps, int b
     m_captureFps = qBound(15, fps, 60);
     m_captureBitrateKbps = qBound(500, bitrateKbps, 50000);
     if (m_captureThread && m_captureTimer) {
-        // O timer vive na thread de captura; reinicie por fila de eventos.
+        // The timer lives on the capture thread; restart via event queue.
         QMetaObject::invokeMethod(m_captureTimer, [this] {
             m_captureTimer->start(qMax(1, 1000 / m_captureFps));
         }, Qt::QueuedConnection);
@@ -1375,9 +1380,9 @@ void HallaWebRtcSession::setCaptureSystemAudio(bool enabled) {
 }
 
 void HallaWebRtcSession::setLocalPreviewEnabled(bool enabled) {
-    // Sem consumidores de preview (janela própria fechada), o caminho de
-    // cópia GPU->CPU + redução é desligado na hora — transmitir com a janela
-    // fechada não pode continuar custando CPU/memória no escuro.
+    // Without preview consumers (own window closed), the GPU->CPU copy +
+    // downscale path is switched off immediately -- streaming with the window
+    // closed must not keep burning CPU/memory in the dark.
     m_previewEnabled.store(enabled);
 }
 
@@ -1435,8 +1440,8 @@ bool HallaWebRtcSession::ensureNativeFactory() {
     }
 #elif defined(Q_OS_LINUX)
     if (!m_native->loopbackAdm) {
-        // Loopback PulseAudio com exclusão dos sons do próprio Halla
-        // (sink virtual) — o equivalente Linux do process loopback WASAPI.
+        // PulseAudio loopback with exclusion of Halla's own sounds (virtual
+        // sink) -- the Linux equivalent of WASAPI process loopback.
         m_native->loopbackAdm = webrtc::make_ref_counted<LinuxLoopbackAudioDeviceModule>();
     }
 #endif
@@ -1516,9 +1521,9 @@ HallaWebRtcSession::PeerContext* HallaWebRtcSession::ensurePeer(int peerId) {
 
 webrtc::scoped_refptr<webrtc::PeerConnectionInterface>
 HallaWebRtcSession::peerConnection(int peerId) {
-    // Chamado por observers da thread de signaling: devolve uma referência
-    // contada, mantendo o PeerConnection vivo mesmo que a GUI apague o
-    // contexto (closePeer) antes do uso.
+    // Called by signaling-thread observers: returns a ref-counted reference,
+    // keeping the PeerConnection alive even if the GUI deletes the context
+    // (closePeer) before use.
     if (!m_native) return nullptr;
     std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
     auto it = m_native->peers.find(peerId);
@@ -1527,21 +1532,21 @@ HallaWebRtcSession::peerConnection(int peerId) {
 
 void HallaWebRtcSession::sendNativeIce(int peerId, const std::string& candidate,
                                        const std::string& mid, int mline) {
-    // Chamado pela thread de signaling do libwebrtc (OnIceCandidate). O
-    // QTcpSocket do NetSession vive na GUI: escrever nele de outra thread
-    // corrompia a heap e crashava o app justamente na rajada de ICE que
-    // segue o "Compartilhar". Empacota para a fila da GUI.
+    // Called by the libwebrtc signaling thread (OnIceCandidate). The
+    // NetSession QTcpSocket lives on the GUI: writing to it from another
+    // thread corrupted the heap and crashed the app exactly in the ICE burst
+    // following "Share". Packed for the GUI queue.
     const QString candidateText = QString::fromStdString(candidate);
     const QString midText = QString::fromStdString(mid);
     QMetaObject::invokeMethod(this, [this, peerId, candidateText, midText, mline] {
-        // v1.1.28: resposta pela conexão do peer (multi-abas), não pela m_net.
+        // v1.1.28: reply via the peer connection (multi-tab), not m_net.
         if (NetSession* net = netForPeer(peerId)) net->sendWebRtcIce(peerId, candidateText, midText, mline);
         else if (m_net) m_net->sendWebRtcIce(peerId, candidateText, midText, mline);
     }, Qt::QueuedConnection);
 }
 
 void HallaWebRtcSession::sendNativeOffer(int peerId, const std::string& sdp) {
-    // Thread de signaling -> GUI (mesmo motivo de sendNativeIce).
+    // Signaling thread -> GUI (same reason as sendNativeIce).
     const QString sdpText = QString::fromStdString(sdp);
     QMetaObject::invokeMethod(this, [this, peerId, sdpText] {
         if (NetSession* net = netForPeer(peerId)) net->sendWebRtcOffer(peerId, sdpText);
@@ -1560,8 +1565,8 @@ void HallaWebRtcSession::sendNativeAnswer(int peerId, const std::string& sdp) {
 
 void HallaWebRtcSession::startWatching(int userId) {
     if (userId <= 0) return;
-    // v1.1.28: este peer negocia por ESTA conexão — guardado antes de tudo
-    // para que offer/answer/ICE saiam pela mesma aba/servidor.
+    // v1.1.28: this peer negotiates over THIS connection -- stored before
+    // everything so offer/answer/ICE leave via the same tab/server.
     m_peerNet[userId] = m_net;
     ensurePeer(userId);
     if (m_net) m_net->sendWebRtcWatchRequest(userId);
@@ -1661,9 +1666,9 @@ void HallaWebRtcSession::attachRemoteAudioTrack(
         track->AddSink(sink.get());
         it->second->remoteAudio.push_back({track, std::move(sink)});
     }
-    // O ADM customizado captura o loopback do sistema, mas a saída final é o
-    // mixer/QAudioSink do Halla. Ainda assim o libwebrtc precisa ser puxado a
-    // cada 10 ms para decodificar a track e chamar RemoteAudioSink::OnData.
+    // The custom ADM captures the system loopback, but the final output is
+    // the Halla mixer/QAudioSink. Still, libwebrtc must be pulled every 10 ms
+    // to decode the track and call RemoteAudioSink::OnData.
     if (m_native->loopbackAdm && !m_native->loopbackAdm->Playing()) {
         bool available = false;
         if (m_native->loopbackAdm->PlayoutIsAvailable(&available) == 0 && available
@@ -1703,9 +1708,9 @@ void HallaWebRtcSession::deliverRemoteAudio(int peerId, const QByteArray& pcm,
 }
 
 void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
-    // Rode tanto na GUI (handleSignal) quanto na thread de signaling
-    // (remoteDescriptionReady): só PROCURA o peer — nunca cria um fantasma
-    // para ICE órfão de negociação encerrada.
+    // Runs both on the GUI (handleSignal) and on the signaling thread
+    // (remoteDescriptionReady): only LOOKS UP the peer -- never creates a
+    // ghost for ICE orphaned by a closed negotiation.
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> pc;
     bool remoteDescriptionSet = false;
     {
@@ -1718,9 +1723,9 @@ void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
     if (!pc) return;
     const QString candidate = signal.value(QStringLiteral("candidate")).toString();
     if (candidate.isEmpty()) return;
-    // Android costuma enviar ICE imediatamente após a oferta. libwebrtc rejeita
-    // candidatos antes de SetRemoteDescription concluir; preserve-os e aplique
-    // em ordem quando a descrição remota ficar pronta.
+    // Android usually sends ICE immediately after the offer. libwebrtc
+    // rejects candidates before SetRemoteDescription completes; preserve them
+    // and apply in order when the remote description is ready.
     if (!remoteDescriptionSet) {
         std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
         auto it = m_native->peers.find(peerId);
@@ -1741,8 +1746,8 @@ void HallaWebRtcSession::addRemoteIce(int peerId, const QJsonObject& signal) {
 }
 
 void HallaWebRtcSession::remoteDescriptionReady(int peerId) {
-    // Thread de signaling: não usa ensurePeer() — se o peer foi fechado pela
-    // GUI no meio da negociação, não recrie um fantasma; apenas descarte.
+    // Signaling thread: does not use ensurePeer() -- if the GUI closed the
+    // peer mid-negotiation, do not recreate a ghost; just discard.
     std::vector<QJsonObject> pending;
     {
         std::lock_guard<std::recursive_mutex> lock(m_native->peersMutex);
@@ -1766,12 +1771,13 @@ void HallaWebRtcSession::closePeer(int peerId) {
             m_native->peers.erase(it);
         }
     }
-    // v1.1.28: peer encerrado solta o binding de conexão (watch_stop/
-    // restartWatch re-registram se voltarem a negociar).
+    // v1.1.28: a closed peer releases its connection binding (watch_stop /
+    // restartWatch re-register if they negotiate again).
     m_peerNet.remove(peerId);
-    // RemoveSink/Close fora do lock: podem demorar e disparar callbacks na
-    // thread de signaling (que tentaria pegar o mesmo mutex — recursivo só
-    // reentra na MESMA thread; travaria se mantido aqui).
+    // RemoveSink/Close outside the lock: they can take time and fire
+    // callbacks on the signaling thread (which would try to take the same
+    // mutex -- recursive only re-enters on the SAME thread; it would deadlock
+    // if held here).
     if (ctx) {
         for (auto& binding : ctx->remoteVideo) {
             if (binding.track && binding.sink) binding.track->RemoveSink(binding.sink.get());
@@ -1781,17 +1787,17 @@ void HallaWebRtcSession::closePeer(int peerId) {
         }
         if (ctx->pc) {
             ctx->pc->Close();
-            // Solte a referência ANTES de ctx morrer: a ordem natural de
-            // destruição dos membros derrubaria o observer primeiro, deixando
-            // o PeerConnection vivo (refs internas) apontando para observer
-            // liberado — use-after-free na thread de signaling.
+            // Release the reference BEFORE ctx dies: the natural member
+            // destruction order would drop the observer first, leaving the
+            // live PeerConnection (internal refs) pointing at a freed
+            // observer -- use-after-free on the signaling thread.
             ctx->pc = nullptr;
         }
     }
     {
         QMutexLocker lock(&m_remoteFrameMutex);
         m_pendingRemoteFrames.remove(peerId);
-        // Um dispatch já postado pode executar e encontrar imagem vazia.
+        // An already-posted dispatch may run and find an empty image.
         m_remoteFrameDispatchPosted.remove(peerId);
     }
     bool stopPlayout = false;
@@ -1806,15 +1812,15 @@ void HallaWebRtcSession::closePeer(int peerId) {
 static QImage downscaleForPreview(const QImage& source, int maxWidth = 1280) {
     if (source.isNull()) return source;
     if (source.width() <= maxWidth) return source;
-    // SmoothTransformation: o antigo FastTransformation (vizinho mais próximo)
-    // deixava o preview todo pixelado quando escalado para cima na janela.
+    // SmoothTransformation: the old FastTransformation (nearest neighbor)
+    // left the preview all pixelated when scaled up in the window.
     return source.scaledToWidth(maxWidth, Qt::SmoothTransformation);
 }
 
-// Impede que o captureFrame() rode de forma concorrente. O primeiro frame é
-// agendado na thread de captura e o timer também a dispara; sem este guard,
-// duas execuções simultâneas acessavam o DxgiScreenCapturer/D3D11 e crashavam
-// o app ao clicar em "Compartilhar".
+// Prevents captureFrame() from running concurrently. The first frame is
+// scheduled on the capture thread and the timer also fires it; without this
+// guard, two simultaneous executions accessed DxgiScreenCapturer/D3D11 and
+// crashed the app when clicking "Share".
 class CaptureFrameGuard {
 public:
     explicit CaptureFrameGuard(std::atomic<bool>& flag) : m_flag(flag) {
@@ -1832,23 +1838,23 @@ private:
 void HallaWebRtcSession::captureFrame() {
     if (!m_broadcasting || !m_native || !m_native->videoSource) return;
     CaptureFrameGuard guard(m_captureInFlight);
-    if (!guard.acquired()) return; // frame anterior ainda em execução
+    if (!guard.acquired()) return; // previous frame still running
 
     QImage frameImage;
     QPixmap pix;
 #ifdef Q_OS_WIN
-    // Caminho de alto desempenho para monitor inteiro: o frame permanece em
-    // D3D11 desde Desktop Duplication até o MFT/NVENC. A prévia local é copiada
-    // para a CPU em apenas ~10 FPS e não limita a transmissão de 60 FPS.
+    // High-performance path for a whole monitor: the frame stays in D3D11
+    // from Desktop Duplication to the MFT/NVENC. The local preview is copied
+    // to the CPU at only ~10 FPS and does not limit the 60 FPS stream.
     if (m_captureSourceType == 0 && m_native->gpuCaptureFrames) {
         const int screenIndex = int(m_captureSourceId);
         if (!m_native->dxgiCapturer)
             m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
-        // Preview em ~1/10 dos frames (~10 FPS num stream de 60 FPS) e SOMENTE
-        // quando existe janela para exibi-lo (setLocalPreviewEnabled): a cópia
-        // GPU->CPU em resolução cheia + redução suave é o maior custo do caminho
-        // de preview e não pode rodar no escuro — era isso que fazia o app
-        // pesar e comer memória com a transmissão rodando sem ninguém assistindo.
+        // Preview at ~1/10 of frames (~10 FPS in a 60 FPS stream) and ONLY
+        // when a window exists to display it (setLocalPreviewEnabled): the
+        // full-resolution GPU->CPU copy + smooth downscale is the biggest
+        // preview-path cost and must not run in the dark -- that was what made
+        // the app heavy and memory-hungry with a stream running unwatched.
         const uint64_t previewInterval = uint64_t(std::max(1, m_captureFps / 10));
         const bool makePreview = m_previewEnabled.load()
             && (m_native->captureFrameNumber++ % previewInterval) == 0;
@@ -1858,8 +1864,8 @@ void HallaWebRtcSession::captureFrame() {
             &preview, makePreview);
         if (native) {
             if (!preview.isNull()) {
-                // Preview reduzido: evita cruzar um QImage 4K na fronteira de
-                // thread e travar a janela ao arrastar o Halla.
+                // Downscaled preview: avoids crossing a 4K QImage over the
+                // thread boundary and freezing the window when dragging Halla.
                 emit localPreviewFrame(downscaleForPreview(preview, m_previewMaxWidth));
             }
             m_native->videoSource->PushBuffer(native);
@@ -1873,16 +1879,16 @@ void HallaWebRtcSession::captureFrame() {
         if (!m_native->dxgiCapturer) m_native->dxgiCapturer = std::make_unique<DxgiScreenCapturer>();
         frameImage = m_native->dxgiCapturer->grab(screenIndex);
 #elif defined(Q_OS_LINUX)
-        // Captura X11 (XShm) na thread de trabalho: QScreen::grabWindow só
-        // roda na GUI. Monitor resolvido pelo nome do output XRandR guardado
-        // no setCaptureSource (snapshot da GUI thread).
+        // X11 capture (XShm) on the worker thread: QScreen::grabWindow only
+        // runs on the GUI. Monitor resolved by the XRandR output name stored
+        // in setCaptureSource (GUI-thread snapshot).
         Q_UNUSED(screenIndex);
         if (!m_native->x11Capturer) m_native->x11Capturer = std::make_unique<X11ScreenCapturer>();
         frameImage = m_native->x11Capturer->grabMonitor(m_captureScreenName);
 #else
-        // QScreen::grabWindow() só pode rodar na thread da GUI; captureFrame
-        // roda na thread de captura. Builds nativos de outras plataformas
-        // apenas ignoram o frame neste caminho.
+        // QScreen::grabWindow() can only run on the GUI thread; captureFrame
+        // runs on the capture thread. Native builds on other platforms simply
+        // ignore the frame on this path.
         Q_UNUSED(screenIndex);
         return;
 #endif
@@ -1892,9 +1898,9 @@ void HallaWebRtcSession::captureFrame() {
             HWND hwnd = reinterpret_cast<HWND>(m_captureSourceId);
             RECT wr = {};
             if (hwnd && !IsIconic(hwnd) && GetWindowRect(hwnd, &wr)) {
-                // Geometrias vêm do snapshot tirado na GUI thread
-                // (m_screenGeometries); NUNCA de QGuiApplication::screens()
-                // aqui — captureFrame roda na thread de captura.
+                // Geometries come from the GUI-thread snapshot
+                // (m_screenGeometries); NEVER from QGuiApplication::screens()
+                // here -- captureFrame runs on the capture thread.
                 const QPoint center((wr.left + wr.right) / 2, (wr.top + wr.bottom) / 2);
                 int screenIndex = 0;
                 QRect targetGeometry;
@@ -1926,15 +1932,15 @@ void HallaWebRtcSession::captureFrame() {
             if (frameImage.isNull()) pix = grabWindowsAppForWebRtc(m_captureSourceId);
         }
 #elif defined(Q_OS_LINUX)
-        // Janela específica: região root da janela X11 (geometria traduzida
-        // no próprio servidor X). Janela coberta captura o que está por cima
-        // — limitação documentada do caminho sem XComposite redirect.
+        // Specific window: X11 root region of the window (geometry translated
+        // by the X server itself). A covered window captures what is on top
+        // -- documented limitation of the path without XComposite redirect.
         if (m_captureSourceId > 0) {
             if (!m_native->x11Capturer) m_native->x11Capturer = std::make_unique<X11ScreenCapturer>();
             frameImage = m_native->x11Capturer->grabWindowRegion(m_captureSourceId);
         }
 #else
-        // Mesma restrição de thread: sem caminho nativo em outras plataformas.
+        // Same thread restriction: no native path on other platforms.
         Q_UNUSED(pix);
 #endif
     }
@@ -1961,10 +1967,10 @@ void HallaWebRtcSession::startWatching(int userId) {
 #endif
 
 NetSession* HallaWebRtcSession::netForPeer(int peerId) const {
-    // v1.1.28: respostas de sinalização saem pela MESMA conexão em que o peer
-    // negociou (ver m_peerNet). QPointer já volta nullptr se a aba morreu.
-    // Fora do #ifdef: stopWatching/restartWatch (que existem em qualquer
-    // build) também chamam.
+    // v1.1.28: signaling replies leave via the SAME connection the peer
+    // negotiated on (see m_peerNet). QPointer already returns nullptr if the
+    // tab died. Outside the #ifdef: stopWatching/restartWatch (which exist in
+    // any build) also call this.
     return m_peerNet.value(peerId, nullptr);
 }
 
@@ -1979,9 +1985,9 @@ void HallaWebRtcSession::stopWatching(int userId) {
 }
 
 void HallaWebRtcSession::restartWatch(int userId) {
-    // v1.1.28: tentativa nova de uma visualização que não conectou. O peer
-    // antigo pode estar com o ICE morto (candidatos já descartados); derrubar
-    // e recriar é mais confiável que ICE restart no mesmo objeto.
+    // v1.1.28: fresh attempt at a view that did not connect. The old peer may
+    // have dead ICE (candidates already discarded); tearing down and
+    // recreating is more reliable than an ICE restart on the same object.
     if (userId <= 0) return;
 #ifdef HALLA_WEBRTC_NATIVE
     closePeer(userId);
@@ -2002,9 +2008,10 @@ void HallaWebRtcSession::startBroadcast() {
     }
     m_broadcasting = true;
     if (!m_captureThread) {
-        // A captura (DXGI, escala, preview) roda fora da GUI para não travar a
-        // interface ao transmitir em 4K. O QTimer vive na thread de captura e
-        // chama captureFrame() com conexão direta (no thread do timer).
+        // Capture (DXGI, scaling, preview) runs off the GUI so it does not
+        // freeze the interface while streaming 4K. The QTimer lives on the
+        // capture thread and calls captureFrame() with a direct connection
+        // (on the timer thread).
         m_captureThread = new QThread(this);
         m_captureThread->setObjectName(QStringLiteral("HallaCapture"));
         m_captureThread->start();
@@ -2019,8 +2026,8 @@ void HallaWebRtcSession::startBroadcast() {
     }
     // Prepare a first frame (and the D3D11 adapter) before advertising the
     // live. This guarantees that the H.264 MFT is bound to the capture GPU.
-    // IMPORTANTE: roda na thread de captura (não na GUI) — chamar aqui na GUI
-    // criava uma corrida com o timer da thread de trabalho e crashava o app.
+    // IMPORTANT: runs on the capture thread (not the GUI) -- calling it here
+    // on the GUI raced with the worker-thread timer and crashed the app.
     QMetaObject::invokeMethod(m_captureTimer, [this] {
         captureFrame();
         m_captureTimer->start(qMax(1, 1000 / m_captureFps));
@@ -2040,8 +2047,9 @@ void HallaWebRtcSession::stopBroadcast() {
     if (!m_broadcasting) return;
     m_broadcasting = false;
     if (m_captureThread && m_captureTimer) {
-        // O timer vive na thread de captura; pare por fila de eventos. Mantém a
-        // thread viva para reuso na próxima transmissão (encerrada no destrutor).
+        // The timer lives on the capture thread; stop via event queue. Keeps
+        // the thread alive for reuse on the next stream (ended in the
+        // destructor).
         QMetaObject::invokeMethod(m_captureTimer, [t = m_captureTimer] { t->stop(); },
                                   Qt::QueuedConnection);
     }
@@ -2064,16 +2072,21 @@ void HallaWebRtcSession::handleSignal(const QJsonObject& signal) {
 #ifdef HALLA_WEBRTC_NATIVE
     const QString type = signal.value(QStringLiteral("t")).toString();
     const int from = signal.value(QStringLiteral("from")).toInt();
-    // v1.1.28: sinal chegou por ESTA conexão (aba/servidor). Fixa o peer a
-    // ela para que as respostas não saiam por outra aba (m_net errado) —
-    // com 2+ servidores abertos, a resposta ia para o servidor errado e o
-    // espectador ficava sem vídeo para sempre. (sender() só é NetSession no
-    // connect do wireTab; chamadas diretas mantêm o binding existente.)
+    // v1.1.28: signal arrived over THIS connection (tab/server). Pins the
+    // peer to it so replies do not leave via another tab (wrong m_net) --
+    // with 2+ servers open, the reply went to the wrong server and the viewer
+    // never got video. (sender() is only NetSession in the wireTab connect;
+    // direct calls keep the existing binding.)
     if (from > 0) {
         if (NetSession* src = qobject_cast<NetSession*>(sender()))
             m_peerNet[from] = src;
     }
-    if (type == QLatin1String("webrtc_watch_request")) createOfferForPeer(from);
+    if (type == QLatin1String("webrtc_watch_request")) {
+        // Only answer watch requests while we are actually broadcasting:
+        // creating an offer otherwise negotiates a peer connection for a
+        // stream that does not exist.
+        if (m_broadcasting) createOfferForPeer(from);
+    }
     else if (type == QLatin1String("webrtc_watch_stop")) closePeer(from);
     else if (type == QLatin1String("webrtc_offer")) setRemoteOffer(from, signal.value(QStringLiteral("sdp")).toString());
     else if (type == QLatin1String("webrtc_answer")) setRemoteAnswer(from, signal.value(QStringLiteral("sdp")).toString());
@@ -2120,10 +2133,10 @@ void PeerObserver::OnIceCandidate(const webrtc::IceCandidate* candidate) {
 void OfferObserver::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
     if (!desc || !m_owner) return;
     std::string sdp = desc->ToString();
-    // Thread de signaling: nunca use ensurePeer() aqui (toca o mapa sem lock
-    // e o ponteiro cru pode ser apagado pela GUI). A cópia ref-counted do
-    // PeerConnection mantém o objeto vivo; SetLocalDescription em pc já
-    // fechado apenas falha sem crashar.
+    // Signaling thread: never use ensurePeer() here (touches the map without
+    // a lock and the raw pointer can be deleted by the GUI). The ref-counted
+    // PeerConnection copy keeps the object alive; SetLocalDescription on an
+    // already-closed pc merely fails without crashing.
     if (auto pc = m_owner->peerConnection(m_peerId)) {
         pc->SetLocalDescription(new webrtc::RefCountedObject<NoopSetObserver>(), desc);
     } else {
@@ -2144,12 +2157,25 @@ void AnswerObserver::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
 }
 
 void RemoteOfferSetObserver::OnSuccess() {
-    if (!m_owner) return;
-    m_owner->remoteDescriptionReady(m_peerId);
-    m_owner->createAnswerForPeer(m_peerId);
+    // Signaling thread: never touch GUI state directly. Guard the owner with
+    // QPointer, confirm the peer still exists under peersMutex, then hop to
+    // the GUI thread for the answer creation.
+    QPointer<HallaWebRtcSession> owner = m_owner;
+    if (!owner || !owner->peerConnection(m_peerId)) return;
+    const int peerId = m_peerId;
+    QMetaObject::invokeMethod(owner, [owner, peerId] {
+        if (!owner) return;
+        owner->remoteDescriptionReady(peerId);
+        owner->createAnswerForPeer(peerId);
+    }, Qt::QueuedConnection);
 }
 
 void RemoteAnswerSetObserver::OnSuccess() {
-    if (m_owner) m_owner->remoteDescriptionReady(m_peerId);
+    QPointer<HallaWebRtcSession> owner = m_owner;
+    if (!owner || !owner->peerConnection(m_peerId)) return;
+    const int peerId = m_peerId;
+    QMetaObject::invokeMethod(owner, [owner, peerId] {
+        if (owner) owner->remoteDescriptionReady(peerId);
+    }, Qt::QueuedConnection);
 }
 #endif

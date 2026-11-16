@@ -6,7 +6,7 @@ set(old "add_definitions( /utf-8 -DUNICODE )")
 set(new "if(MSVC)\n        add_compile_options(/utf-8)\n    else()\n        add_compile_options(-finput-charset=UTF-8)\n    endif()\n    add_definitions(-DUNICODE)")
 string(FIND "${content}" "${old}" position)
 if(position EQUAL -1)
-    # Idempotência: uma árvore já corrigida não deve falhar na reconfiguração.
+    # Idempotency: an already patched tree must not fail on reconfiguration.
     string(FIND "${content}" "add_compile_options(-finput-charset=UTF-8)" patched_position)
     if(patched_position EQUAL -1)
         message(FATAL_ERROR "Trecho /utf-8 esperado não foi encontrado no QtKeychain pinado")

@@ -22,7 +22,7 @@ extern "C" {
 #include <opus.h>
 }
 
-// ------------------------------------------------------------------ construção
+// ---------------------------------------------------------------- construction
 VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     : QObject(parent), m_net(net), m_data(data) {
 
@@ -32,15 +32,15 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     if (m_encoder) {
         opus_encoder_ctl(m_encoder, OPUS_SET_BITRATE(32000));
         opus_encoder_ctl(m_encoder, OPUS_SET_VBR(1));
-        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1)); // suprime quadros de silêncio
+        opus_encoder_ctl(m_encoder, OPUS_SET_DTX(1)); // suppresses silence frames
 
-        // Registra o endpoint UDP do PC com um frame Opus válido. Alguns
-        // relays antigos ignoram o pacote HALL de 10 bytes sem payload; sem
-        // este aquecimento, o PC só se torna destinatário depois de falar.
+        // Registers the PC's UDP endpoint with a valid Opus frame. Some
+        // legacy relays ignore the 10-byte HALL packet without a payload; without
+        // this warm-up the PC only becomes a target after it speaks first.
         int16_t silence[960] = {};
         unsigned char registration[512];
-        // DTX pode suprimir silêncio e produzir um payload vazio. Durante o
-        // aquecimento do endpoint UDP forçamos um frame Opus não vazio.
+        // DTX may suppress silence and produce an empty payload. During the
+        // UDP endpoint warm-up we force a non-empty Opus frame.
         opus_encoder_ctl(m_encoder, OPUS_SET_DTX(0));
         const int encoded = opus_encode(m_encoder, silence, 960,
                                         registration, sizeof(registration));
@@ -50,9 +50,9 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
                 m_net->sendVoiceFrame(
                     QByteArray(reinterpret_cast<const char*>(registration), encoded), seq);
         }
-        // Reenvia periodicamente para atravessar NATs e perdas de pacotes no
-        // primeiro instante. Sem isso, o primeiro áudio podia depender de o
-        // PC falar antes para registrar novamente seu endpoint UDP.
+        // Re-sent periodically to traverse NATs and packet loss in the first
+        // moments. Without it, the first audio could depend on the PC speaking
+        // first to register its UDP endpoint again.
         m_endpointTimer = new QTimer(this);
         m_endpointTimer->setInterval(2000);
         connect(m_endpointTimer, &QTimer::timeout, this, &VoiceEngine::sendEndpointRegistration);
@@ -82,24 +82,24 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
     if (!inDev.isNull()) {
         m_source = new QAudioSource(inDev, inputFmt, this);
-        // Dá folga para a captura de voz sobreviver a pequenos picos de CPU
-        // causados pelo grab/encode de tela sem perder amostras. v1.1.34:
-        // 400 ms -> 800 ms — rajadas longas de GUI (encode de tela em
-        // máquina modesta) estouravam o buffer e perdiam amostras no MEIO
-        // da fala (o "mic cortando"); o leitor drena a cada 5 ms, então o
-        // buffer maior não adiciona latência em regime — é só folga.
+        // Slack so the voice capture survives small CPU spikes caused by
+        // screen grab/encode without dropping samples. v1.1.34: 400 ms ->
+        // 800 ms -- long GUI bursts (screen encoding on a modest machine)
+        // overflowed the buffer and dropped samples in the MIDDLE of speech
+        // (the "mic cutting out" reports); the reader drains every 5 ms, so
+        // the larger buffer adds no steady-state latency -- it is just slack.
         m_source->setBufferSize(960 * 2 * 40); // ~800 ms
         m_srcDev = m_source->start();
         m_captureBuf.reserve(960 * 2 * 40);
         m_lastCaptureDataMs = QDateTime::currentMSecsSinceEpoch();
-        watchSourceState(); // erro de dispositivo não pode ser silêncio eterno
+        watchSourceState(); // a device error cannot mean eternal silence
 
         m_capTimer = new QTimer(this);
         m_capTimer->setTimerType(Qt::PreciseTimer);
-        // v1.1.35: 5 ms -> 10 ms. O buffer do QAudioSource é de 800 ms — a
-        // drenagem a cada 10 ms segue sobrando folga; metade dos wakeups do
-        // event loop (200/s -> 100/s), que compartilha a thread com TODA a
-        // GUI. A latência adicionada é de no máximo 5 ms no início da fala.
+        // v1.1.35: 5 ms -> 10 ms. The QAudioSource buffer is 800 ms, so a
+        // 10 ms drain still leaves plenty of slack; this halves the event-loop
+        // wake-ups (200/s -> 100/s) on the thread shared with the whole GUI.
+        // The added latency is at most 5 ms at the start of speech.
         m_capTimer->setInterval(10);
         connect(m_capTimer, &QTimer::timeout, this, &VoiceEngine::captureTick);
         m_capTimer->start();
@@ -109,29 +109,29 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
 
     if (!outDev.isNull()) {
         m_sink = new QAudioSink(outDev, outputFmt, this);
-        // Buffer de ~240 ms: a GUI compartilha a thread do playback (o Qt
-        // entrega pacotes, decodifica e alimenta o sink no mesmo event
-        // loop), então rajadas de trabalho da interface — rebuild da
-        // árvore, pintura de frames de live, antivirus — de 100-200 ms
-        // secavam o antigo de 160 ms e o som "parava por milésimos" (o
-        // usuário ouvia o sink esvaziar de verdade). 240 ms + a graça de
-        // re-prime seguram essas rajadas sem o corte; o atraso extra só
-        // aparece em rajada, nunca em regime.
-        m_sink->setBufferSize(960 * 2 * 2 * 12); // ~240 ms estéreo
+        // ~240 ms buffer: the GUI shares the playback thread (Qt delivers
+        // packets, decodes and feeds the sink on the same event loop), so UI
+        // bursts -- tree rebuilds, live-frame painting, antivirus -- of
+        // 100-200 ms drained the former 160 ms buffer and the audio "stopped
+        // for milliseconds" (the user really heard the sink run dry). 240 ms
+        // plus the re-prime grace absorbs those bursts without the cut; the
+        // extra delay only appears during a burst, never in steady state.
+        m_sink->setBufferSize(960 * 2 * 2 * 12); // ~240 ms stereo
         m_sinkDev = m_sink->start();
 
         m_playTimer = new QTimer(this);
         m_playTimer->setTimerType(Qt::PreciseTimer);
-        // v1.1.35: 5 ms -> 10 ms (idem captura — o sink tem 240 ms de buffer
-        // e o jitter buffer por usuário por cima; o tick escreve 0-2 frames
-        // de 20 ms, a cadência de 10 ms cobre com folga).
+        // v1.1.35: 5 ms -> 10 ms (same as capture -- the sink has a 240 ms
+        // buffer plus the per-user jitter buffer on top; the tick writes 0-2
+        // frames of 20 ms, so a 10 ms cadence covers it comfortably).
         m_playTimer->setInterval(10);
         connect(m_playTimer, &QTimer::timeout, this, &VoiceEngine::playbackTick);
         m_playTimer->start();
 
-        // Decai o alvo do jitter buffer quando a rede está estável: underruns
-        // sobem o alvo na hora (em playbackTick); sem este decaimento lento a
-        // latência adquirida num momento ruim de rede ficaria para sempre.
+        // Decays the jitter-buffer target when the network is stable:
+        // underruns raise the target immediately (in playbackTick); without
+        // this slow decay, latency acquired during a bad network moment would
+        // stay forever.
         m_voiceAdaptTimer = new QTimer(this);
         m_voiceAdaptTimer->setInterval(15000);
         connect(m_voiceAdaptTimer, &QTimer::timeout, this, &VoiceEngine::adaptVoiceTarget);
@@ -157,19 +157,19 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
         }
     });
 
-    // Varredura periódica do indicador "falando" orientado a pacotes: apaga
-    // o anel de usuários cujo áudio parou de chegar (mantém um atraso de
-    // segurança que cobre a histerese de 500 ms do transmissor e o DTX).
+    // Periodic sweep of the packet-driven "speaking" indicator: clears the
+    // ring for users whose audio stopped arriving (keeps a safety delay that
+    // covers the transmitter's 500 ms hysteresis and DTX).
     m_remoteVoiceClock.start();
     m_remoteTalkingTimer = new QTimer(this);
     m_remoteTalkingTimer->setInterval(200);
     connect(m_remoteTalkingTimer, &QTimer::timeout, this, &VoiceEngine::sweepRemoteTalking);
     m_remoteTalkingTimer->start();
 
-    // DSP de voz (AEC3 + supressão de ruído neural do WebRTC): as Opções
-    // gravam direto no QSettings, então re-lemos periodicamente para as
-    // mudanças pegarem sem reiniciar a call. Aplicar configuração igual é
-    // barato (ApplyConfig curto-circuita o que não mudou).
+    // Voice DSP (WebRTC AEC3 + neural noise suppression): the Options dialog
+    // writes straight to QSettings, so we re-read them periodically to make
+    // changes apply without restarting the call. Applying an identical
+    // configuration is cheap (ApplyConfig short-circuits what did not change).
     m_speechClock.start();
     refreshDspSettings();
     m_dspTimer = new QTimer(this);
@@ -178,15 +178,24 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
     m_dspTimer->start();
 
     connect(m_net, &NetSession::voicePacketReceived, this,
-            [this](int fromId, quint16, const QByteArray& payload) {
+            [this](int fromId, quint16 seq, const QByteArray& payload) {
                 if (payload.isEmpty()) return;
-                // Indicador "falando" orientado a pacotes: o anel acende pelo
-                // áudio que realmente chega. A mensagem user_state (TCP)
-                // continua válida, mas qualquer atraso/perda nesse caminho
-                // — ou estado preso no servidor — não esconde mais o símbolo
-                // de quem está transmitindo de fato. Registra ANTES do mudo
-                // local: quem está com o alto-falante individual desligado
-                // continua sendo exibido como falando.
+                // Drop duplicate or replayed datagrams: UDP relays can deliver
+                // the same packet twice, and a replayed seq must never be
+                // decoded again (stale audio / amplification). Sequence space
+                // is 16-bit; "older" means behind the last accepted seq.
+                if (m_lastVoiceSeq.contains(fromId)) {
+                    const quint16 last = m_lastVoiceSeq.value(fromId);
+                    const quint16 diff = quint16(seq - last);
+                    if (diff == 0 || diff > 32768) return;
+                }
+                m_lastVoiceSeq[fromId] = seq;
+                // Packet-driven "speaking" indicator: the ring lights up from
+                // the audio that actually arrives. The user_state message (TCP)
+                // is still valid, but any delay/loss on that path -- or a state
+                // stuck on the server -- no longer hides who is really
+                // transmitting. Recorded BEFORE the local mute: someone with the
+                // individual speaker turned off is still shown as speaking.
                 if (m_data && m_data->users.contains(fromId)) {
                     m_remoteLastVoiceMs[fromId] = m_remoteVoiceClock.elapsed();
                     User& speaking = m_data->users[fromId];
@@ -216,7 +225,7 @@ VoiceEngine::VoiceEngine(NetSession* net, ServerData* data, QObject* parent)
                 if (stereo.isEmpty()) return;
                 auto& queue = m_remoteQueues[fromId];
                 queue.push_back(stereo);
-                while (queue.size() > 25) queue.pop_front(); // ~500 ms por usuário
+                while (queue.size() > 25) queue.pop_front(); // ~500 ms per user
             });
 }
 
@@ -247,11 +256,11 @@ QJsonObject VoiceEngine::diagnostics() const {
     d["voiceSheds"] = qint64(m_voiceSheds);
     d["primedVoices"] = m_voicePrimed.size();
     d["remoteDecoders"] = m_decoders.size();
-    // Diagnóstico do "mic travando, cortando" (v1.1.34): se os contadores do
-    // guarda sobem enquanto o usuário fala, a proteção de crosstalk está
-    // cortando fala legítima (desligável em Opções > Captura); se as
-    // reaberturas por travamento sobem, o dispositivo do usuário trava sem
-    // reportar erro (driver/USB/Bluetooth).
+    // Diagnosis of the "mic freezing, cutting out" reports (v1.1.34): if the
+    // guard counters rise while the user speaks, the crosstalk protection is
+    // cutting legitimate speech (can be disabled in Options > Capture); if the
+    // stall reopenings rise, the user's device freezes without reporting an
+    // error (driver/USB/Bluetooth).
     d["echoGuardBlocks"] = qint64(m_echoGuard.blockCount());
     d["echoGuardRevokes"] = qint64(m_echoGuard.revokeCount());
     d["captureStallReopens"] = qint64(m_captureStallReopens);
@@ -269,9 +278,10 @@ VoiceEngine::~VoiceEngine() {
 
 // ------------------------------------------------- dispositivo de captura
 QAudioDevice VoiceEngine::pickCaptureDevice() const {
-    // Mesma escolha do construtor: o dispositivo salvo em Opções > Captura
-    // quando ainda existe no sistema, senão o padrão. Reavaliar a cada
-    // reabertura cobre headset Bluetooth ligado/desligado e USB trocado.
+    // Same choice as in the constructor: the device saved in Options >
+    // Capture when it still exists, otherwise the default. Re-evaluating on
+    // every reopen covers Bluetooth headsets being switched on/off and USB
+    // devices being swapped.
     QAudioDevice dev = QMediaDevices::defaultAudioInput();
     const QString savedInId = S::str("capture/device");
     if (!savedInId.isEmpty()) {
@@ -292,8 +302,8 @@ void VoiceEngine::watchSourceState() {
         if (state != QtAudio::StoppedState || !m_source) return;
         const QtAudio::Error err = m_source->error();
         if (err == QtAudio::NoError) return; // stop() intencional (destrutor)
-        // IO falhou / dispositivo sumiu: sem isto a captura morria em
-        // silêncio — o app seguia "transmitindo" sem amostra nenhuma.
+        // IO failed / device disappeared: without this the capture died
+        // silently -- the app kept "transmitting" without a single sample.
         AppLog::warn(tr("A captura do microfone caiu (erro %1); reabrindo o dispositivo.")
                          .arg(int(err)));
         reopenAudioCapture();
@@ -335,8 +345,8 @@ void VoiceEngine::reopenAudioCapture() {
         return;
     }
 
-    // Dispositivo sumiu ou não abriu: tenta de novo em 5 s (headset volta a
-    // ficar disponível, dispositivo padrão muda etc.) — sem spam de log.
+    // Device disappeared or failed to open: retry in 5 s (headset becomes
+    // available again, default device changes, etc.) -- without log spam.
     if (m_source) {
         m_source->disconnect(this);
         m_source->deleteLater();
@@ -351,12 +361,12 @@ void VoiceEngine::reopenAudioCapture() {
     });
 }
 
-// Drena o dispositivo de captura e mantém o relógio de atividade em dia.
-// Todos os caminhos de leitura (transmissão, drenagem com voz fechada e
-// flush da rampa) passam por aqui — é o único ponto que sabe quando o
-// microfone entregou a última amostra.
+// Drains the capture device and keeps the activity clock up to date.
+// Every read path (transmission, draining with voice closed and ramp flush)
+// goes through here -- it is the single place that knows when the microphone
+// delivered its last sample.
 void VoiceEngine::drainCaptureDevice() {
-    if (!m_srcDev) return; // flushGateFade também chega aqui via setPttHeld
+    if (!m_srcDev) return; // flushGateFade also arrives here through setPttHeld
     const QByteArray chunk = m_srcDev->readAll();
     if (!chunk.isEmpty()) {
         m_lastCaptureDataMs = QDateTime::currentMSecsSinceEpoch();
@@ -367,18 +377,17 @@ void VoiceEngine::drainCaptureDevice() {
 void VoiceEngine::setTransmitEnabled(bool on) {
     if (m_txEnabled == on) return;
     m_txEnabled = on;
-    m_fadeInLeft = m_fadeOutLeft = 0; // corte limpo: sem transmissão não há rampa
-    m_echoPending.clear();            // quadros retidos não valem para outra sessão
+    m_fadeInLeft = m_fadeOutLeft = 0; // clean cut: no transmission, no ramp
+    m_echoPending.clear();            // held frames are not valid for another session
     if (!on) {
         if (m_talking) {
             m_talking = false;
             m_net->sendTalking(false);
             emit talkingChanged(false);
         }
-        // Microfone MUTADO: a detecção de fala do cue "ao falar" também
-        // desliga na hora. O analyzeCapturedSpeech() continua drenando o
-        // dispositivo (referência do EchoGuard), mas sem ele nenhum som de
-        // fala pode disparar — mutado é mutado.
+        // MICROPHONE MUTED: the "on speak" cue's voice detection also turns
+        // off immediately. analyzeCapturedSpeech() keeps draining the device
+        // (EchoGuard reference), but no speech sound may fire -- muted is muted.
         if (m_speechActive) {
             m_speechActive = false;
             emit speechActivityChanged(false);
@@ -428,8 +437,8 @@ bool VoiceEngine::playStreamPcm(int streamUserId, const int16_t* samples,
     auto& queue = m_streamQueues[streamUserId];
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     const qint64 previous = m_streamLastPacketMs.value(streamUserId, 0);
-    // Depois de uma interrupção real, reconstrua o prebuffer em vez de tocar
-    // cada pacote atrasado imediatamente e produzir cortes sucessivos.
+    // After a real interruption, rebuild the prebuffer instead of playing
+    // every late packet immediately and producing successive cuts.
     if (previous > 0 && now - previous > 120) {
         queue.clear();
         m_primedStreams.remove(streamUserId);
@@ -437,8 +446,8 @@ bool VoiceEngine::playStreamPcm(int streamUserId, const int16_t* samples,
     m_streamLastPacketMs[streamUserId] = now;
     if (!enqueueStereoPcm(queue, samples, frames, channels, gain)) return false;
 
-    // Evita acumular segundos de latência se a UI/dispositivo de áudio pausar.
-    // Ao ultrapassar 400 ms, mantenha apenas 120 ms dos quadros mais recentes.
+    // Avoids accumulating seconds of latency when the UI/audio device stalls.
+    // Above 400 ms, keep only 120 ms of the most recent frames.
     if (queue.size() > 20) {
         while (queue.size() > 6) queue.pop_front();
         m_primedStreams.insert(streamUserId);
@@ -506,11 +515,11 @@ QByteArray VoiceEngine::spatializeFrame(int userId, int16_t* mono, int frames) {
 }
 
 // ------------------------------------------------------------- config cache
-// v1.1.35: as chaves abaixo eram lidas do QSettings DENTRO do caminho por
-// quadro (até ~10 leituras a cada 20 ms de voz). O QSettings tem cache em
-// memória, mas cada leitura ainda constrói QString/QVariant — dezenas por
-// segundo durante a call. TTL de 250 ms: mudanças nas Opções continuam
-// pegando em tempo imperceptível e o hot path vira leitura de membro.
+// v1.1.35: the keys below used to be read from QSettings INSIDE the per-frame
+// path (up to ~10 reads every 20 ms of voice). QSettings caches in memory, but
+// each read still builds QString/QVariant -- dozens per second during a call.
+// A 250 ms TTL keeps Options changes applying at an imperceptible delay and
+// turns the hot path into a member read.
 void VoiceEngine::refreshCachedConfig() {
     if (m_cfgClock.isValid() && m_cfgClock.elapsed() < 250) return;
     m_cfgClock.restart();
@@ -523,17 +532,17 @@ void VoiceEngine::refreshCachedConfig() {
     m_cfgDuckingDb = S::num("capture/duckingDb", 10);
 }
 
-// ------------------------------------------------- DSP + detecção de fala
+// ------------------------------------------------------ DSP + speech detection
 void VoiceEngine::refreshDspSettings() {
-    // Opções > Captura > Processamento digital de sinal. Antes do v1.1.20
-    // estas chaves existiam na UI mas NÃO eram aplicadas em lugar nenhum —
-    // a "redução de ruído" era literalmente um checkbox sem efeito.
+    // Options > Capture > Digital signal processing. Before v1.1.20 these keys
+    // existed in the UI but were NOT applied anywhere -- the "noise reduction"
+    // was literally a checkbox with no effect.
     const bool denoise = S::flag("capture/denoise", true);
     const int level = S::num("capture/denoiseLevel", 50);
     const bool echo = S::flag("capture/echoCancellation", true);
     m_apm.configure(denoise, level, echo);
-    // Logging no lado do app: o módulo é moc-free para poder ser compilado
-    // standalone pelo gate de CI (tests/webrtc_apm_smoke.cpp).
+    // Logging on the app side: the module is moc-free so it can be compiled
+    // standalone by the CI gate (tests/webrtc_apm_smoke.cpp).
     if (!m_dspAnnounced || denoise != m_lastDspDenoise || echo != m_lastDspEcho) {
         m_dspAnnounced = true;
         m_lastDspDenoise = denoise;
@@ -549,8 +558,8 @@ void VoiceEngine::refreshDspSettings() {
                              .arg(echo ? tr("ligado") : tr("desligado")));
 #endif
         }
-        // Apenas quando o usuário pediu processamento e NADA está ativo é
-        // que existe algo para reclamar (falha de alocação do DSP).
+        // Only when the user asked for processing and NOTHING is active is
+        // there something to report (DSP allocation failure).
         if ((denoise || echo) && !m_apm.denoiseActive() && !m_apm.echoActive()) {
             AppLog::warn(tr("Não foi possível iniciar o processamento de voz."));
         }
@@ -558,10 +567,10 @@ void VoiceEngine::refreshDspSettings() {
 }
 
 void VoiceEngine::updateSpeechDetection(double rms) {
-    // Detecção de fala para o sinal sonoro "ao falar": o MESMO limiar do VAD
-    // (Opções > Captura > Atividade de voz), com histerese para não tremolar.
-    // Roda no sinal JÁ processado (ruído/eco removidos): com alto-falantes, a
-    // voz do outro lado captada pelo microfone não abre mais o cue.
+    // Speech detection for the "on speak" cue: the SAME VAD threshold
+    // (Options > Capture > Voice activity), with hysteresis to avoid flicker.
+    // Runs on the ALREADY processed signal (noise/echo removed): with speakers,
+    // the other side's voice picked up by the microphone no longer opens the cue.
     const int levelDb = m_cfgVoiceLevelDb; // v1.1.35: cache (ver refreshCachedConfig)
     const double onThreshold = qPow(10.0, levelDb / 20.0) * 32767.0;
     const double offThreshold = onThreshold * 0.45; // ~-7 dB de histerese
@@ -579,12 +588,12 @@ void VoiceEngine::updateSpeechDetection(double rms) {
     }
 }
 
-// Ganho de microfone "além do limite do dispositivo" (Opções > Captura >
-// Aumentar volume do microfone): 0 a +30 dB de amplificação por software.
-// Aplicado DEPOIS do APM (AEC3/supressão neural) e ANTES do VAD — microfone
-// mais alto também abre a detecção de voz mais fácil, que é o comportamento
-// esperado. A saturação é suave (soft-clip acima de ~-3 dBFS): o sinal
-// comprime em vez de estalar, para manter o áudio utilizável no extremo.
+// Microphone gain "beyond the device limit" (Options > Capture > Boost
+// microphone volume): 0 to +30 dB of software amplification. Applied AFTER
+// the APM (AEC3/neural suppression) and BEFORE the VAD -- a louder microphone
+// also trips voice detection more easily, which is the expected behavior.
+// Saturation is soft (soft-clip above ~-3 dBFS): the signal compresses instead
+// of crackling, keeping the audio usable at the extreme.
 static void applyMicGain(int16_t* pcm, int frames, double gainLin) {
     if (!pcm || frames <= 0) return;
     constexpr double kKnee = 4096.0;                 // ~-18 dBFS abaixo do teto
@@ -600,12 +609,12 @@ static void applyMicGain(int16_t* pcm, int frames, double gainLin) {
 }
 
 void VoiceEngine::analyzeCapturedSpeech() {
-    // Microfone drenado (voz fechada ou PTT solto): a transmissão está
-    // desligada, mas o sinal sonoro "ao falar" precisa refletir o usuário
-    // FALANDO — não a transmissão estar aberta. Processa e descarta.
-    // Exceção: com o microfone MUTADO (transmissão desativada pelo mute) o
-    // cue não toca de jeito nenhum — o usuário calou o microfone de
-    // propósito; o beep "ao falar" a cada frase seria só incômodo.
+    // Microphone drained (voice closed or PTT released): transmission is off,
+    // but the "on speak" cue must reflect the user SPEAKING -- not the
+    // transmission being open. Process and discard.
+    // Exception: with the microphone MUTED (transmission disabled by mute) the
+    // cue never fires -- the user muted the microphone on purpose; the "on
+    // speak" beep on every sentence would only be annoying.
     const bool cueAllowed = m_txEnabled;
     drainCaptureDevice();
     const double micGain = micGainLinear();
@@ -619,9 +628,9 @@ void VoiceEngine::analyzeCapturedSpeech() {
         m_apm.processCaptureFrame(pcm + 480);
         if (micGain > 1.0) applyMicGain(pcm, 960, micGain);
         if (!cueAllowed) {
-            // Mutado: mantém o anel de referência do EchoGuard alimentado
-            // (trocar de modo/mudo no meio da call não deixa buracos), mas a
-            // fala detectada não emite cue e não transmite nada.
+            // Muted: keeps the EchoGuard reference ring fed (switching
+            // mode/mute mid-call leaves no holes), but detected speech emits no
+            // cue and transmits nothing.
             m_echoGuard.noteCapture(rawPcm, 960, false, false);
             if (m_speechActive) {
                 m_speechActive = false;
@@ -633,14 +642,14 @@ void VoiceEngine::analyzeCapturedSpeech() {
         double sum = 0;
         for (int i = 0; i < 960; ++i) sum += double(pcm[i]) * double(pcm[i]);
         const double rms = qSqrt(sum / 960.0);
-        // Crosstalk do EchoGuard também com a voz fechada: o cue "ao falar"
-        // não pode disparar com a voz do parceiro no modo VAD. Nos outros
-        // modos o quadro apenas alimenta o anel do guarda.
+        // EchoGuard crosstalk also with voice closed: the "on speak" cue must
+        // not fire on the partner's voice in VAD mode. In the other modes the
+        // frame only feeds the guard's ring.
         double cueRms = rms;
-        // A proteção de crosstalk é opcional desde a v1.1.34: com alto-
-        // falantes em uso e a sala falando junto, falsos positivos do guarda
-        // picotavam a voz do próprio usuário ("mic travando, cortando"). O
-        // checkbox vive em Opções > Captura > Processamento digital de sinal.
+        // Crosstalk protection is optional since v1.1.34: with speakers in use
+        // and the room talking along, guard false positives chopped the user's
+        // own voice ("mic freezing, cutting out"). The checkbox lives in
+        // Options > Capture > Digital signal processing.
         const bool guardActive = m_cfgPttMode == 1 && m_cfgCrosstalkGuard;
         const EchoGuard::Decision d = m_echoGuard.noteCapture(
             rawPcm, 960, guardActive && rms > onThreshold, false);
@@ -648,12 +657,12 @@ void VoiceEngine::analyzeCapturedSpeech() {
         updateSpeechDetection(cueRms);
         m_captureBuf.remove(0, 960 * 2);
     }
-    if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // segurança
+    if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // safety
 }
 
-// Quadros retidos pela validação do EchoGuard: transmitidos em rajada
-// quando a fala é confirmada legítima (o jitter buffer do receptor absorve
-// a rajada — o começo da frase chega inteiro, apenas 400 ms depois).
+// Frames held back by the EchoGuard validation: transmitted in a burst when
+// the speech is confirmed legitimate (the receiver's jitter buffer absorbs the
+// burst -- the start of the sentence arrives whole, just 400 ms later).
 void VoiceEngine::transmitHeldEchoFrames() {
     if (m_echoPending.isEmpty() || !m_encoder) return;
     const uint32_t flags = (m_whisperHeld || m_whisperTargetsConfigured)
@@ -673,16 +682,15 @@ void VoiceEngine::transmitHeldEchoFrames() {
             ++m_opusSent;
             m_opusSentBytes += quint64(n);
         }
-        if (m_recFile) recWrite(reinterpret_cast<const char*>(heldPcm), 960 * 2);
     }
     m_echoPending.clear();
 }
 
 double VoiceEngine::micGainLinear() const {
-    // "capture/micGainDb" é gravado em DÉCIMOS de dB (padrão dos sliders de
-    // dB das Opções): 300 = +30 dB = ~31x. Default 0 = sem amplificação.
-    // v1.1.35: valor vem do cache de 250 ms (m_cfgMicGainX10) — era uma
-    // leitura de QSettings por quadro de 20 ms.
+    // "capture/micGainDb" is stored in TENTHS of dB (the convention of the
+    // Options dB sliders): 300 = +30 dB = ~31x. Default 0 = no amplification.
+    // v1.1.35: the value comes from the 250 ms cache (m_cfgMicGainX10) -- it
+    // used to be a QSettings read per 20 ms frame.
     const int gainX10 = m_cfgMicGainX10;
     if (gainX10 <= 0) return 1.0;
     return qPow(10.0, (qMin(gainX10, 300) / 10.0) / 20.0);
@@ -706,9 +714,9 @@ void VoiceEngine::applyGateFades(int16_t* pcm, int frames) {
 }
 
 void VoiceEngine::closeTransmissionGate() {
-    // Tecla solta / sussurro desligado: arma a rampa de fechamento. O corte
-    // seco no último quadro transmitido era audível como "clique" na outra
-    // ponta; com a rampa o áudio desce suavemente para zero em 60 ms.
+    // Key released / whisper disabled: arms the closing ramp. The hard cut on
+    // the last transmitted frame was audible as a "click" on the far end; with
+    // the ramp the audio fades smoothly to zero over 60 ms.
     m_fadeOutLeft = kFadeOutSamples;
     if (m_talking) {
         m_talking = false;
@@ -718,9 +726,9 @@ void VoiceEngine::closeTransmissionGate() {
 }
 
 void VoiceEngine::flushGateFade() {
-    // A transmissão acabou de calar por tecla (PTT solto): envia os até 60 ms
-    // da rampa de fechamento antes de o silêncio assumir. Sem isto, o último
-    // quadro transmitido terminaria em nível arbitrário (clique seco).
+    // Transmission just went silent by key (PTT released): sends the up to
+    // 60 ms closing ramp before silence takes over. Without it, the last
+    // transmitted frame would end at an arbitrary level (hard click).
     if (m_fadeOutLeft <= 0 || !m_encoder || !m_txEnabled) return;
     drainCaptureDevice();
     const double micGain = micGainLinear();
@@ -769,8 +777,8 @@ void VoiceEngine::updateCodecSettings() {
         app = OPUS_APPLICATION_AUDIO;
     }
 
-    // v1.1.35: isto rodava a CADA tick de captura aplicando os mesmos ctl's
-    // — agora aplica apenas quando canal/bitrate/codec mudam de fato.
+    // v1.1.35: this ran on EVERY capture tick applying the same ctl's
+    // -- now it applies only when channel/bitrate/codec actually change.
     if (myChanId == m_lastCodecChanId && bitrate == m_lastCodecBitrate
             && app == m_lastCodecApp)
         return;
@@ -786,14 +794,14 @@ void VoiceEngine::updateCodecSettings() {
 
 void VoiceEngine::captureTick() {
     if (!m_srcDev) return;
-    refreshCachedConfig(); // v1.1.35: hot path lê membros, não QSettings
+    refreshCachedConfig(); // v1.1.35: the hot path reads members, not QSettings
 
-    // Watchdog de travamento (v1.1.34): dispositivo aberto, estado "ativo",
-    // mas NENHUMA amostra há mais de 2 s. Glitch de driver, economia de
-    // energia USB e Bluetooth travam assim — sem erro, sem estado novo, o
-    // watchdog de erro da v1.1.32 nunca disparava e o mic ficava mudo até
-    // reconectar. Dispositivo sadio entrega amostra (ou silêncio) a cada
-    // ~10 ms; 2 s de nada é travamento. Reabre (com a guarda anti-loop).
+    // Stall watchdog (v1.1.34): device open, state "active", but NO samples for
+    // more than 2 s. Driver glitches, USB power saving and Bluetooth stall like
+    // this -- no error, no state change, so the v1.1.32 error watchdog never
+    // fired and the mic stayed silent until reconnecting. A healthy device
+    // delivers a sample (or silence) every ~10 ms; 2 s of nothing is a stall.
+    // Reopens (with the anti-loop guard).
     if (m_source && m_source->state() != QAudio::StoppedState) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         if (now - m_lastCaptureDataMs > 2000) {
@@ -806,19 +814,20 @@ void VoiceEngine::captureTick() {
     }
 
     if (!m_txEnabled || !m_encoder) {
-        // Voz fechada: drena o microfone mantendo a detecção de fala viva —
-        // o cue "ao falar" é sobre o usuário falar, não sobre transmitir.
+        // Voice closed: drains the microphone while keeping speech detection
+        // alive -- the "on speak" cue is about the user speaking, not about
+        // transmitting.
         analyzeCapturedSpeech();
         return;
     }
 
     updateCodecSettings();
 
-    // ativação de voz (Opções > Captura): 0 = PTT, 1 = detecção de voz, 2 = contínuo
-    // (obs.: "capture/mode" é o backend de áudio — não confundir)
+    // voice activation (Options > Capture): 0 = PTT, 1 = voice detection, 2 = continuous
+    // (note: "capture/mode" is the audio backend -- do not confuse the two)
     const int mode = m_cfgPttMode; // v1.1.35: cache (ver refreshCachedConfig)
     if (mode == 0 && !m_pttHeld && !m_whisperHeld) {
-        if (m_talking) closeTransmissionGate(); // tecla solta sem flush prévio
+        if (m_talking) closeTransmissionGate(); // key released without a previous flush
         flushGateFade();       // envia a rampa de fechamento, se pendente
         analyzeCapturedSpeech();
         return;
@@ -830,16 +839,16 @@ void VoiceEngine::captureTick() {
     while (m_captureBuf.size() >= 960 * 2) {
         int16_t* pcm = reinterpret_cast<int16_t*>(m_captureBuf.data());
 
-        // Cópia CRUA (pré-APM) para o EchoGuard: o AEC3 remove do sinal
-        // justamente a componente correlacionada com o playout — que é o
-        // que o guarda precisa enxergar para detectar crosstalk.
+        // RAW copy (pre-APM) for the EchoGuard: AEC3 removes from the signal
+        // exactly the component correlated with the playout -- which is what the
+        // guard needs to see in order to detect crosstalk.
         int16_t rawPcm[960];
         std::memcpy(rawPcm, pcm, 960 * 2);
 
-        // DSP de voz ANTES de tudo: o AEC3 subtrai o que está tocando no
-        // alto-falante e a supressão neural remove ruído de fundo. VAD,
-        // plugins e Opus passam a ver o sinal limpo — o que também melhora
-        // o limiar de detecção de voz (menos falsos positivos com ventoinha).
+        // Voice DSP BEFORE everything else: AEC3 subtracts what is playing on
+        // the speaker and neural suppression removes background noise. VAD,
+        // plugins and Opus then see the clean signal -- which also improves the
+        // voice-detection threshold (fewer false positives with a fan running).
         m_apm.processCaptureFrame(pcm);
         m_apm.processCaptureFrame(pcm + 480);
         if (micGain > 1.0) applyMicGain(pcm, 960, micGain);
@@ -850,7 +859,7 @@ void VoiceEngine::captureTick() {
             m_pluginConnectionId, m_data ? m_data->selfId : 0,
             HALLA_AUDIO_CAPTURE, flags, pcm, 960, 1, 48000);
 
-        // nível RMS p/ indicador "está falando"
+        // RMS level for the "is speaking" indicator
         double sum = 0;
         for (int i = 0; i < 960; ++i) sum += double(pcm[i]) * double(pcm[i]);
         const double rms = qSqrt(sum / 960.0);
@@ -859,29 +868,30 @@ void VoiceEngine::captureTick() {
         const double threshold = qPow(10.0, levelDb / 20.0) * 32767.0;
         bool voiceNow = rms > threshold;
         if (mode == 0) voiceNow = true;       // PTT segurado: envia tudo
-        else if (mode == 2) voiceNow = true;  // contínuo
-        if (m_whisperHeld) voiceNow = true;   // sussurro força transmissão também no VAD
+        else if (mode == 2) voiceNow = true;  // continuous
+        if (m_whisperHeld) voiceNow = true;   // whisper forces transmission in VAD mode too
 
-        // Guarda de crosstalk (v1.1.22): no modo VAD, a voz do PARCEIRO que
-        // toca no alto-falante (ou vaza no microfone compartilhado de um
-        // segundo cliente na mesma máquina) não pode abrir a transmissão
-        // como se fosse fala do usuário — era o anel de "falando" acendendo
-        // em dois usuários ao mesmo tempo, o sinal sonoro duplicado e o eco
-        // voltando audível. O guarda compara o microfone cru com o playout:
-        // cópia atrasada = crosstalk, não abre (e revoga se já abriu).
-        // PTT/contínuo são escolhas explícitas do usuário: sem decisão, mas
-        // o microfone continua alimentando o anel (trocar de modo no meio
-        // da call não deixa buracos na referência). Desde a v1.1.34 a
-        // proteção também pode ser desligada nas Opções > Captura (falsos
-        // positivos picotavam a voz de quem fala com alto-falantes).
+        // Crosstalk guard (v1.1.22): in VAD mode, the PARTNER's voice playing on
+        // the speaker (or leaking into the shared microphone of a second client
+        // on the same machine) must not open transmission as if it were the
+        // user speaking -- that was the "speaking" ring lighting up on two users
+        // at once, the duplicated sound cue and the echo coming back audible.
+        // The guard compares the raw microphone against the playout: a delayed
+        // copy = crosstalk, so it does not open (and revokes if already open).
+        // PTT/continuous are explicit user choices: no decision, but the
+        // microphone keeps feeding the ring (switching mode mid-call leaves no
+        // holes in the reference). Since v1.1.34 the protection can also be
+        // disabled in Options > Capture (false positives chopped the voice of
+        // users on speakers).
         const bool guardActive = (mode == 1 && !m_whisperHeld
             && m_cfgCrosstalkGuard);
         EchoGuard::Decision echo = m_echoGuard.noteCapture(
             rawPcm, 960, guardActive && voiceNow, guardActive && m_talking);
         if (guardActive) {
             if (echo == EchoGuard::Decision::Hold) {
-                // Validação em curso: retém o quadro processado — se a fala
-                // for confirmada legítima, o backfill devolve o começo.
+                // Validation in progress: holds the processed frame back -- if
+                // the speech is confirmed legitimate, the backfill returns its
+                // beginning.
                 m_echoPending.append(
                     QByteArray(reinterpret_cast<const char*>(pcm), 960 * 2));
                 while (m_echoPending.size() > 20) m_echoPending.removeFirst();
@@ -892,10 +902,10 @@ void VoiceEngine::captureTick() {
             if (echo == EchoGuard::Decision::Blocked) {
                 if (m_talking) closeTransmissionGate();
                 m_echoPending.clear();
-                // Rampa de fechamento da revogação: os quadros bloqueados
-                // que ainda têm rampa pendente seguem transmitidos (o corte
-                // seco no meio da palavra era o "clique" na outra ponta);
-                // esgotada a rampa, o bloqueio vira descarte puro.
+                // Revocation closing ramp: blocked frames that still have a
+                // pending ramp keep being transmitted (the hard cut mid-word was
+                // the "click" on the far end); once the ramp is exhausted the
+                // block becomes a plain discard.
                 if (m_fadeOutLeft > 0) {
                     applyGateFades(pcm, 960);
                     unsigned char out[1276];
@@ -907,24 +917,24 @@ void VoiceEngine::captureTick() {
                         m_opusSentBytes += quint64(n);
                     }
                 }
-                // v1.1.34: era m_captureBuf.clear() — jogava fora de uma vez
-                // até 7 quadros capturados (buraco de até 140 ms + clique na
-                // outra ponta, a rampa de fechamento nunca era transmitida).
-                // Agora derruba UM quadro por vez: o bloqueio continua o
-                // mesmo, mas a saída é contínua.
+                // v1.1.34: this used to be m_captureBuf.clear() -- it threw away
+                // up to 7 captured frames at once (a hole of up to 140 ms plus a
+                // click on the far end, and the closing ramp was never sent).
+                // Now it drops ONE frame at a time: the blocking behavior is the
+                // same, but the output stays continuous.
                 m_captureBuf.remove(0, 960 * 2);
                 updateSpeechDetection(0.0);
                 continue;
             }
-            // Open: a validação terminou sem casar. Se o VAD não abrir o
-            // gate AGORA, a fala que gerou os quadros retidos já passou —
-            // descarta (nada de backfill de fala velha na próxima).
+            // Open: the validation finished without a match. If the VAD does not
+            // open the gate NOW, the speech that produced the held frames is
+            // already gone -- discard (no backfill of stale speech next time).
             if (!voiceNow) m_echoPending.clear();
         }
 
-        // Cue "ao falar": detecta fala de verdade (independente do VAD
-        // transmitir), inclusive quando o sinal não passa do limiar no modo
-        // contínuo — e roda também no caminho de drenagem acima.
+        // "On speak" cue: detects real speech (regardless of the VAD
+        // transmitting), including when the signal stays below the threshold in
+        // continuous mode -- and it also runs on the drain path above.
         updateSpeechDetection(rms);
 
         if (voiceNow != m_talking) {
@@ -933,17 +943,17 @@ void VoiceEngine::captureTick() {
                 m_net->sendTalking(true);
                 emit talkingChanged(true);
                 m_fadeInLeft = kFadeInSamples;   // abertura suave (sem "pop")
-                // Rampa de fechamento que ficou pendente (ex.: transmissão
-                // revogada pelo guarda e a fala voltou) não pode comer o
-                // começo da retomada: o fadeIn de 4 ms já faz a abertura
-                // suave — a rampa descendente velha seria a voz "sumindo"
-                // nos primeiros 60 ms.
+                // A closing ramp left pending (e.g. transmission revoked by the
+                // guard and speech resumed) must not eat the start of the
+                // resumption: the 4 ms fadeIn already provides a smooth opening --
+                // the old downward ramp would make the voice "fade out" during
+                // the first 60 ms.
                 m_fadeOutLeft = 0;
-                // Backfill do EchoGuard: os quadros retidos durante a
-                // validação são transmitidos agora — a fala legítima não
-                // perde o começo nos 400 ms de confirmação.
+                // EchoGuard backfill: the frames held during validation are
+                // transmitted now -- legitimate speech does not lose its start
+                // during the 400 ms confirmation window.
                 if (echo == EchoGuard::Decision::Open) transmitHeldEchoFrames();
-            } else if (m_silenceClock.elapsed() > 500) { // histerese de ÁUDIO
+            } else if (m_silenceClock.elapsed() > 500) { // AUDIO hysteresis
                 m_talking = false;
                 m_net->sendTalking(false);
                 emit talkingChanged(false);
@@ -952,22 +962,22 @@ void VoiceEngine::captureTick() {
         }
         if (voiceNow) m_silenceClock.restart();
 
-        // Gate de transmissão com histerese de ÁUDIO: enquanto o gate está
-        // ABERTO (m_talking), todo quadro é codificado e enviado — o RMS de
-        // um quadro de 20 ms oscila o tempo todo durante a fala normal
-        // (consoantes fracas entre vogais fortes); descartar quadro a quadro
-        // pelo limiar picotava a voz e comia o fim das palavras. O descarte
-        // só volta com o gate fechado E a rampa de fechamento concluída.
+        // Transmission gate with AUDIO hysteresis: while the gate is OPEN
+        // (m_talking) every frame is encoded and sent -- the RMS of a 20 ms
+        // frame fluctuates constantly during normal speech (weak consonants
+        // between strong vowels); dropping frame by frame on the threshold
+        // chopped the voice and ate the ends of words. Discarding only returns
+        // with the gate closed AND the closing ramp finished.
         if (!m_talking && m_fadeOutLeft == 0 && m_captureBuf.size() < 960 * 2 * 4) {
             m_captureBuf.remove(0, 960 * 2);
             continue;
         }
 
-        // O filtro oficial de rádio é propositalmente aplicado depois do VAD:
-        // assim o chiado não abre o microfone sozinho, mas a voz já segue
-        // modificada para o encoder e para todos os destinatários. O estágio
-        // AFTER_VAD entrega o mesmo ponto do pipeline aos complementos em
-        // pacote (.halla-addon) sem que o AGC deles abra o VAD.
+        // The official radio filter is deliberately applied after the VAD: that
+        // way the hiss does not open the microphone by itself, but the voice is
+        // already modified for the encoder and for every recipient. The
+        // AFTER_VAD stage hands the same pipeline point to packaged addons
+        // (.halla-addon) so their AGC cannot open the VAD either.
         if (m_talking || m_fadeOutLeft > 0) {
             applyGateFades(pcm, 960);
             PluginManager::instance().processAudio(
@@ -975,9 +985,9 @@ void VoiceEngine::captureTick() {
                 HALLA_AUDIO_CAPTURE_AFTER_VAD, flags, pcm, 960, 1, 48000);
         }
 
-        // Um pacote Opus pode chegar a 1275 bytes. O limite anterior de
-        // 512 bytes falhava silenciosamente em canais com bitrate alto:
-        // o indicador "falando" acendia, mas nenhum frame era transmitido.
+        // An Opus packet can reach 1275 bytes. The previous 512-byte limit
+        // failed silently on high-bitrate channels: the "speaking" indicator lit
+        // up but no frame was transmitted.
         unsigned char out[1276];
         const int n = opus_encode(m_encoder, pcm, 960, out, sizeof(out));
         if (n > 0) {
@@ -986,7 +996,6 @@ void VoiceEngine::captureTick() {
             m_opusSentBytes += quint64(n);
         }
 
-        if (m_recFile) recWrite(reinterpret_cast<const char*>(pcm), 960 * 2); // próprio mic
 
         m_captureBuf.remove(0, 960 * 2);
     }
@@ -995,39 +1004,39 @@ void VoiceEngine::captureTick() {
 
 // ==================================================================== PTT
 void VoiceEngine::setPttHeld(bool held) {
-    const quint32 gen = ++m_pttGen; // marca esta transição (cancela timers velhos)
+    const quint32 gen = ++m_pttGen; // marks this transition (cancels stale timers)
 
     if (held) {
-        m_pttHeld = true; // uma nova pressão cancela qualquer soltura atrasada
+        m_pttHeld = true; // a new press cancels any delayed release
         return;
     }
     if (!m_pttHeld) return;
 
-    // "Atraso ao soltar a tecla do Push-to-Talk" (Opções > Capturar)
+    // "Delay when releasing the Push-to-Talk key" (Options > Capture)
     if (S::flag("capture/pttDelayEnabled", false)) {
         const int ms = S::num("capture/pttDelayMs", 300);
         if (ms > 0) {
             QTimer::singleShot(ms, this, [this, gen] {
-                if (gen != m_pttGen) return; // o usuário pressionou de novo
+                if (gen != m_pttGen) return; // the user pressed again
                 m_pttHeld = false;
                 if (m_talking) closeTransmissionGate();
                 flushGateFade();
             });
-            return; // continua "segurado" até o timer disparar
+            return; // stays "held" until the timer fires
         }
     }
 
     m_pttHeld = false;
-    if (m_talking) closeTransmissionGate(); // soltou a tecla: para de transmitir
+    if (m_talking) closeTransmissionGate(); // key released: stops transmitting
     flushGateFade();
 }
 
 void VoiceEngine::setWhisperHeld(bool held) {
     const bool changed = m_whisperHeld != held;
     m_whisperHeld = held;
-    // Se o VAD já estava transmitindo, a troca para sussurro não muda o
-    // booleano talking e, portanto, não passaria pelo sinal normal. Emita
-    // novamente o estado para que o ServerTab toque o cue de sussurro.
+    // If the VAD was already transmitting, switching to whisper does not change
+    // the talking boolean and therefore would not go through the normal signal.
+    // Emit the state again so ServerTab plays the whisper cue.
     if (held && changed && m_talking)
         emit talkingChanged(true);
     if (!held && m_talking && !m_pttHeld) {
@@ -1036,14 +1045,14 @@ void VoiceEngine::setWhisperHeld(bool held) {
     }
 }
 
-// ==================================================== gravação local (WAV)
+// ===================================================== local recording (WAV)
 bool VoiceEngine::startRecording(const QString& wavPath) {
     stopRecording();
     QFile* f = new QFile(wavPath, this);
     if (!f->open(QIODevice::WriteOnly)) { delete f; return false; }
     m_recFile = f;
     m_recBytes = 0;
-    // cabeçalho WAV de 44 bytes (tamanhos corrigidos em recFinalize)
+    // 44-byte WAV header (sizes corrected in recFinalize)
     QByteArray h(44, 0);
     memcpy(h.data() + 0, "RIFF", 4);
     memcpy(h.data() + 8, "WAVEfmt ", 8);
@@ -1083,14 +1092,13 @@ void VoiceEngine::stopRecording() {
     emit recordingChanged(false);
 }
 
-// ------------------------------------------------------------------ reprodução
-// Apaga o indicador "falando" de usuários cujos pacotes de voz pararam de
-// chegar. O atraso de segurança (700 ms) cobre integralmente a histerese de
-// 500 ms do transmissor (durante a qual o DTX não envia quadros) e o jitter
-// da rede; após isso, sem áudio não há anel. Isto também autocura qualquer
-// estado preso: se o servidor ficou com talking=true (app do falante
-// congelado no meio da fala), o anel some 700 ms após o último pacote em
-// vez de ficar aceso para sempre.
+// ------------------------------------------------------------------ playback
+// Clears the "speaking" indicator for users whose voice packets stopped
+// arriving. The safety delay (700 ms) fully covers the transmitter's 500 ms
+// hysteresis (during which DTX sends no frames) and network jitter; after that,
+// no audio means no ring. It also self-heals any stuck state: if the server
+// kept talking=true (speaker's app frozen mid-speech), the ring clears 700 ms
+// after the last packet instead of staying lit forever.
 void VoiceEngine::sweepRemoteTalking() {
     if (!m_data || m_remoteLastVoiceMs.isEmpty()) return;
     const qint64 now = m_remoteVoiceClock.elapsed();
@@ -1100,7 +1108,7 @@ void VoiceEngine::sweepRemoteTalking() {
          it != m_remoteLastVoiceMs.constEnd(); ++it) {
         const int userId = it.key();
         if (!m_data->users.contains(userId)) {
-            stale << userId; // saiu do servidor: limpa o registro
+            stale << userId; // left the server: clears the record
             continue;
         }
         if (m_data->users[userId].talking && now - it.value() > 700) {
@@ -1115,8 +1123,8 @@ void VoiceEngine::sweepRemoteTalking() {
 void VoiceEngine::adaptVoiceTarget() {
     if (m_voiceUnderruns == m_voiceUnderrunsAtAdapt && m_voiceDries == m_voiceDriesAtAdapt
             && m_voiceTargetFrames > 2) {
-        // 15 s sem um único underrun nem secagem além da graça: a rede e a
-        // GUI aguentam um alvo menor.
+        // 15 s without a single underrun and no dry spell beyond the grace: the
+        // network and the GUI can handle a smaller target.
         --m_voiceTargetFrames;
     }
     m_voiceUnderrunsAtAdapt = m_voiceUnderruns;
@@ -1125,7 +1133,7 @@ void VoiceEngine::adaptVoiceTarget() {
 
 void VoiceEngine::playbackTick() {
     if (!m_sinkDev) return;
-    refreshCachedConfig(); // v1.1.35: ganhos/ducking do spatializeFrame vêm daqui
+    refreshCachedConfig(); // v1.1.35: spatializeFrame gains/ducking come from here
     if (!m_spkEnabled) {
         m_remoteQueues.clear();
         m_voicePrimed.clear();
@@ -1135,45 +1143,45 @@ void VoiceEngine::playbackTick() {
         m_streamLastPacketMs.clear();
         return;
     }
-    // Se o dispositivo realmente ficou sem dados, volte a pré-carregar cada
-    // live. A chamada de voz continua sem esse atraso adicional.
+    // If the device really ran out of data, go back to pre-buffering each
+    // stream. Voice calls continue without this extra delay.
     if (m_sink && m_sink->state() == QAudio::IdleState) {
         m_primedStreams.clear();
-        // Underrun REAL de voz: o dispositivo secou enquanto havia usuários
-        // primados tocando. O jitter atual é maior que o alvo — cresce o alvo
-        // (até 8 quadros = 160 ms).
+        // REAL voice underrun: the device ran dry while primed users were
+        // playing. The current jitter is above the target -- raise the target
+        // (up to 8 frames = 160 ms).
         if (!m_voicePrimed.isEmpty()) {
             ++m_voiceUnderruns;
             if (m_voiceTargetFrames < 8) ++m_voiceTargetFrames;
-            // Sem re-prime forçado: o antigo clear() punia também quem
-            // ainda tinha fila — cortava ~80 ms de áudio de TODOS os
-            // falantes a cada underrun (a "pipocada" residual). Quem secou
-            // retoma no próximo quadro que chegar; o alvo maior reconstrói
-            // a folga para os próximos.
+            // No forced re-prime: the former clear() also punished users who
+            // still had a queue -- it cut ~80 ms of audio from ALL speakers on
+            // every underrun (the residual "popping"). Whoever ran dry resumes
+            // on the next frame that arrives; the higher target rebuilds the
+            // slack for the next ones.
         }
     }
-    // Graça de secagem: o pipeline de voz inteiro compartilha a thread da
-    // GUI, então soluços de dezenas de ms (interface, rede) são normais.
-    // Manter o prime durante a seca faz o áudio RETOMAR NA HORA quando o
-    // próximo quadro chega; desprimar na primeira fila vazia transformava
-    // cada soluço em "para por milésimos" (silêncio enquanto o prebuffer
-    // reconstruía). 300 ms cobre rajadas de GUI/rede sem segurar o prime
-    // por um silêncio/DTX real de fala (tipicamente >= 400 ms).
+    // Dry-spell grace: the whole voice pipeline shares the GUI thread, so
+    // hiccups of tens of ms (UI, network) are normal. Keeping the prime during
+    // the dry spell makes the audio RESUME IMMEDIATELY when the next frame
+    // arrives; unpriming on the first empty queue turned every hiccup into
+    // "stopping for milliseconds" (silence while the prebuffer rebuilt). 300 ms
+    // covers GUI/network bursts without holding the prime across a real
+    // speech silence/DTX (typically >= 400 ms).
     constexpr qint64 kVoiceDryGraceMs = 300;
-    // Shed PROFUNDO: descartar rajada acumulada só quando o atraso passa
-    // de ~400 ms, e então voltar para ~200 ms. O limiar antigo (alvo+5 =
-    // 7-13 quadros) jogava fora rajadas comuns de 100-200 ms — em música,
-    // TODO quadro descartado é audível (o "corte"); atraso que se acumula
-    // e some sozinho, não. 400 ms continua razão para conversa (o que o
-    // jitter buffer de referência usa em regime ruim).
+    // DEEP shed: drop an accumulated burst only when the delay passes ~400 ms,
+    // and then return to ~200 ms. The old threshold (target+5 = 7-13 frames)
+    // threw away ordinary 100-200 ms bursts -- in music, EVERY dropped frame is
+    // audible (the "cut"); accumulated delay that drains by itself is not.
+    // 400 ms remains acceptable for conversation (what the reference jitter
+    // buffer uses under bad conditions).
     constexpr int kVoiceShedCeilingFrames = 20;
     constexpr int kVoiceShedFloorFrames = 10;
     constexpr int kFrames = 960;
     constexpr int kChannels = 2;
     constexpr int kBytes = kFrames * kChannels * int(sizeof(int16_t));
     int free = int(m_sink->bytesFree());
-    // v1.1.35: alocações hoisted para fora do laço de frames (o laço roda
-    // por frame de 20 ms; QList/QDateTime por iteração era churn desnecessário).
+    // v1.1.35: allocations hoisted out of the frame loop (the loop runs per
+    // 20 ms frame; a QList/QDateTime per iteration was needless churn).
     QList<int> emptyUsers;
     const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
     while (free >= kBytes) {
@@ -1183,8 +1191,8 @@ void VoiceEngine::playbackTick() {
         for (auto it = m_remoteQueues.begin(); it != m_remoteQueues.end(); ++it) {
             const int uid = it.key();
             if (uid == std::numeric_limits<int>::min()) {
-                // Sons de complementos: fila local, latência mínima, sem
-                // prebuffer — não participa do jitter buffer de voz.
+                // Addon sounds: local queue, minimal latency, no prebuffer --
+                // they do not take part in the voice jitter buffer.
                 if (it.value().empty()) { emptyUsers << uid; continue; }
                 const QByteArray frame = it.value().front();
                 it.value().pop_front();
@@ -1196,21 +1204,21 @@ void VoiceEngine::playbackTick() {
                 continue;
             }
             auto& queue = it.value();
-            // Jitter buffer por usuário: segura os primeiros quadros até
-            // acumular o alvo e só então começa a tocar. Um usuário que
-            // ficou sem quadros por mais que a graça (DTX, silêncio) volta
-            // a acumular na próxima fala — o reinício de fala reconstrói o
+            // Per-user jitter buffer: holds the first frames until the target
+            // accumulates and only then starts playing. A user who went without
+            // frames for longer than the grace period (DTX, silence) accumulates
+            // again on the next speech -- the speech restart rebuilds the
             // prebuffer.
             if (!m_voicePrimed.contains(uid)) {
                 if (int(queue.size()) < m_voiceTargetFrames) continue;
                 m_voicePrimed.insert(uid);
             }
             if (queue.empty()) {
-                // GRAÇA: fila secou agora ou há menos de 300 ms — mantém o
-                // prime e espera o próximo quadro retomar na hora. Só
-                // depois da graça o prebuffer é reconstruído; a seca conta
-                // como sinal para o alvo crescer (o jitter existiu, mesmo
-                // que o buffer do sink tenha escondido o buraco).
+                // GRACE: the queue ran dry now or less than 300 ms ago -- keep
+                // the prime and wait for the next frame to resume immediately.
+                // Only after the grace period is the prebuffer rebuilt; the dry
+                // spell still counts as a signal to raise the target (the jitter
+                // existed, even if the sink buffer hid the hole).
                 const qint64 drySince = m_voiceDryMs.value(uid, 0);
                 if (drySince == 0) {
                     m_voiceDryMs.insert(uid, nowMs);
@@ -1224,9 +1232,9 @@ void VoiceEngine::playbackTick() {
                 continue;
             }
             m_voiceDryMs.remove(uid);
-            // Controle de latência (shed profundo): rajada acumulada acima
-            // de ~400 ms volta para ~200 ms em vez de tocar tudo atrasado
-            // — mas rajadas comuns de GUI/rede agora tocam inteiras.
+            // Latency control (deep shed): an accumulated burst above ~400 ms
+            // returns to ~200 ms instead of playing everything late -- but
+            // ordinary GUI/network bursts now play in full.
             if (int(queue.size()) > kVoiceShedCeilingFrames) {
                 while (int(queue.size()) > kVoiceShedFloorFrames) {
                     queue.pop_front();
@@ -1245,8 +1253,9 @@ void VoiceEngine::playbackTick() {
             m_voicePrimed.remove(userId);
         }
 
-        // 40 ms absorvem variações curtas sem deixar o áudio perceptivelmente
-        // atrás do vídeo, que já é sincronizado pelo jitter buffer WebRTC.
+        // 40 ms absorb short variations without leaving the audio perceptibly
+        // behind the video, which is already synchronized by the WebRTC jitter
+        // buffer.
         constexpr int kStreamPrebufferFrames = 2;
         for (auto it = m_streamQueues.begin(); it != m_streamQueues.end(); ++it) {
             if (!m_primedStreams.contains(it.key())) {
@@ -1271,24 +1280,24 @@ void VoiceEngine::playbackTick() {
             m_pluginConnectionId, 0, HALLA_AUDIO_MIXED_PLAYBACK, 0,
             samples, kFrames, kChannels, 48000);
 
-        // Referência far-end do cancelador de eco: exatamente o mix que vai
-        // para o alto-falante AGORA. O AEC3 do WebRTC usa isto para subtrair
-        // do microfone o que o alto-falante reproduzir — é o que faz a call
-        // funcionar sem fone de ouvido.
+        // Far-end reference for the echo canceller: exactly the mix that goes to
+        // the speaker NOW. WebRTC's AEC3 uses it to subtract from the microphone
+        // whatever the speaker reproduces -- that is what makes calls work
+        // without headphones.
         int16_t farEnd[kFrames];
         for (int i = 0; i < kFrames; ++i)
             farEnd[i] = int16_t((int(samples[i * 2]) + int(samples[i * 2 + 1])) / 2);
         m_apm.processReverseFrame(farEnd);
         m_apm.processReverseFrame(farEnd + 480);
-        // Referência do guarda de crosstalk: o mesmo mix que vai para o
-        // alto-falante — o que o microfone captar de parecido com isto
-        // (atrasado) é eco da rede, não fala do usuário local.
+        // Crosstalk-guard reference: the same mix that goes to the speaker --
+        // whatever the microphone picks up that resembles it (delayed) is network
+        // echo, not the local user speaking.
         m_echoGuard.notePlayout(farEnd, kFrames);
 
         const qint64 written = m_sinkDev->write(output.constData(), output.size());
         if (written != output.size()) break;
-        // Atraso de playout (far-end -> alto-falante) para o AEC: nível real
-        // do buffer do sink + folga fixa para a latência do dispositivo.
+        // Playout delay (far-end -> speaker) for the AEC: real sink buffer level
+        // plus a fixed allowance for the device latency.
         if (m_sink) {
             const int buffered = int(m_sink->bufferSize()) - int(m_sink->bytesFree());
             m_apm.setPlayoutDelayMs(buffered * 20 / kBytes + 40);

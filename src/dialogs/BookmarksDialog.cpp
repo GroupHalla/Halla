@@ -30,9 +30,9 @@ QList<Bookmark> BookmarksDialog::loadAll() {
     QList<Bookmark> out;
     const QString raw = S::str(QStringLiteral("bookmarks"));
     if (raw.trimmed().isEmpty()) {
-        // Primeira execução: o servidor oficial já vem pré-salvo, sem
-        // apelido — o app pergunta o nome na hora de conectar e o servidor
-        // recusa apelidos em uso (name_in_use).
+        // First run: the official server is pre-saved, without a nickname -- the app
+        // asks for the name at connect time and the server refuses nicknames already
+        // in use (name_in_use).
         Bookmark official;
         official.label = QStringLiteral("HALLA OFFICIAL SERVER");
         official.address = QStringLiteral("163.176.35.133");
@@ -83,7 +83,7 @@ void BookmarksDialog::saveAll(const QList<Bookmark>& list) {
         const QString key = bookmarkSecretKey(old);
         if (!retainedSecrets.contains(key)) SecureStore::remove(key);
     }
-    // Senhas nunca mais são serializadas em QSettings.
+    // Passwords are never serialized into QSettings again.
     S::set("bookmarks", QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
 }
 
@@ -121,7 +121,7 @@ BookmarksDialog::BookmarksDialog(QWidget* parent) : QDialog(parent) {
     lbtns->addStretch(1);
     llay->addLayout(lbtns);
 
-    // direita: formulário
+    // right: form
     QWidget* right = new QWidget(split);
     QVBoxLayout* rlay = new QVBoxLayout(right);
     rlay->setContentsMargins(4, 0, 10, 0);
@@ -158,7 +158,7 @@ BookmarksDialog::BookmarksDialog(QWidget* parent) : QDialog(parent) {
     bottom->addWidget(closeBtn);
     root->addLayout(bottom);
 
-    // ---- lógica
+    // ---- logic
     connect(add, &QPushButton::clicked, this, [this] {
         storeForm();
         Bookmark b;

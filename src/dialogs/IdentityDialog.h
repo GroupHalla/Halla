@@ -3,8 +3,8 @@
 #include <QDialog>
 #include <QTableWidget>
 
-// Janela "Identidades" — gerencia as identidades locais (ID único),
-// como a janela de identidades do Halla.
+// "Identities" window -- manages the local identities (unique ID), like Halla's
+// identities window.
 class IdentityDialog : public QDialog {
     Q_OBJECT
 public:
@@ -13,15 +13,15 @@ public:
     static QString generateUniqueId();
     static QByteArray publicKeyForUid(const QString& uid);
     static QByteArray signNonce(const QString& uid, const QByteArray& nonce);
-    // v6 E2EE: par X25519 persistente da identidade + binding assinado.
-    // Garante existência (gera na primeira chamada) e devolve o material.
+    // v6 E2EE: persistent X25519 pair of the identity + signed binding. Ensures
+    // existence (generates on the first call) and returns the material.
     static bool ensureDhKeyPair(const QString& uid);
     static QByteArray dhPrivateKeyForUid(const QString& uid);
     static QByteArray dhPublicKeyForUid(const QString& uid);
-    // Assinatura Ed25519 determinística que liga a X25519 à identidade —
-    // recalculada a cada uso, nunca persistida.
+    // Deterministic Ed25519 signature binding X25519 to the identity -- recomputed
+    // on every use, never persisted.
     static QByteArray dhSignatureForUid(const QString& uid);
-    static QList<QStringList> loadAll();     // [default, nome, fonético, id único]
+    static QList<QStringList> loadAll();     // [default, name, phonetic, unique id]
     static void saveAll(const QList<QStringList>& rows);
     static QString defaultNickname();
 

@@ -14,13 +14,13 @@ struct Bookmark {
     bool autoconnect = false;
 };
 
-// Janela "Gerenciar favoritos" (Bookmarks Manager do Halla)
+// "Manage bookmarks" window (Halla Bookmarks Manager)
 class BookmarksDialog : public QDialog {
     Q_OBJECT
 public:
     explicit BookmarksDialog(QWidget* parent = nullptr);
 
-    // pré-preenche o formulário com um novo favorito
+    // prefills the form with a new bookmark
     void prefill(const QString& label, const QString& address, quint16 port,
                  const QString& nickname);
 

@@ -69,13 +69,13 @@
 #include <QRandomGenerator>
 #include <functional>
 #include <utility>
-#include "gui/HotkeyVk.h" // núcleo portátil spec<->VK (v1.1.27)
+#include "gui/HotkeyVk.h" // portable spec<->VK core (v1.1.27)
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <QImage>
 #include <QPixmap>
 
-// Captura avançada de aplicativos com aceleração por hardware (GPU) via PrintWindow
+// Advanced application capture with hardware (GPU) acceleration via PrintWindow
 static QPixmap grabWindowsApp(HWND hwnd) {
     if (!hwnd) return QPixmap();
 
@@ -90,10 +90,10 @@ static QPixmap grabWindowsApp(HWND hwnd) {
     HBITMAP hbmMem = CreateCompatibleBitmap(hdcWindow, width, height);
     HGDIOBJ hOld = SelectObject(hdcMem, hbmMem);
 
-    // Flag 2 (PW_RENDERFULLCONTENT) força a renderização do conteúdo com aceleração gráfica!
+    // Flag 2 (PW_RENDERFULLCONTENT) forces rendering of hardware-accelerated content
     BOOL ok = PrintWindow(hwnd, hdcMem, 2);
     if (!ok) {
-        ok = PrintWindow(hwnd, hdcMem, 0); // fallback padrão
+        ok = PrintWindow(hwnd, hdcMem, 0); // default fallback
     }
 
     SelectObject(hdcMem, hOld);
@@ -109,10 +109,10 @@ static QPixmap grabWindowsApp(HWND hwnd) {
 }
 #endif
 
-// spec de atalho ("Ctrl+F2", "\", "Num+5", "ç"...) -> QKeySequence.
-// Tenta o parser do QKeySequence; se ele rejeitar — pontuação solta,
-// acentos Latin-1, "Num+"/"Meta+" — cai no parser manual do HotkeyVk.
-// v1.1.27: sem isto, teclas como "\" não voltavam do perfil NUNCA.
+// hotkey spec ("Ctrl+F2", "\\", "Num+5", accented keys...) -> QKeySequence.
+// Tries the QKeySequence parser; when it rejects the text -- bare punctuation,
+// Latin-1 accents, "Num+"/"Meta+" -- falls back to the manual HotkeyVk parser.
+// v1.1.27: without this, keys such as "\\" never came back from the profile.
 static QKeySequence hotkeySpecToSequence(const QString& spec) {
     const QString s = spec.trimmed();
     if (s.isEmpty()) return QKeySequence();
@@ -127,8 +127,8 @@ static QKeySequence hotkeySpecToSequence(const QString& spec) {
 #ifdef Q_OS_WIN
 // definidas mais abaixo (mesmo arquivo)
 bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods);
-// v1.1.27: converte a SPEC salva ("\", "Ctrl+\", "Num+5", "ç"...) direto
-// em VK+mods — tolera o que o QKeySequence::fromString rejeita
+// v1.1.27: converts the stored SPEC ("\\", "Ctrl+\\", "Num+5", accented keys...) straight
+// into VK+mods -- tolerates what QKeySequence::fromString rejects
 bool specToVkFromSpec(const QString& spec, UINT& vk, UINT& mods);
 #endif
 
@@ -167,9 +167,9 @@ public:
     int userId() const { return m_userId; }
     bool isAudioMuted() const { return m_audioMuted; }
 
-    // v1.1.28: a janela deixa de ser um poço "Aguardando transmissão..." sem
-    // fim. Erros de conexão/watch aparecem aqui, com opção de tentar de novo
-    // (reenvia o webrtc_watch_request e recria o peer).
+    // v1.1.28: the window is no longer an endless "Waiting for broadcast..." pit.
+    // Connection/watch errors show up here, with an option to retry (resends the
+    // webrtc_watch_request and recreates the peer).
     void setStatusMessage(const QString& message, bool isError,
                           std::function<void()> retry = {}) {
         m_retryCallback = std::move(retry);
@@ -181,9 +181,9 @@ public:
         else if (m_retryButton) m_retryButton->hide();
     }
 
-    // Volta ao estado de espera (usado ao iniciar uma nova tentativa).
+    // Returns to the waiting state (used when starting a new attempt).
     void resetWatchStatus() {
-        if (!m_currentPixmap.isNull()) return; // já há vídeo — nada a dizer
+        if (!m_currentPixmap.isNull()) return; // video is already there -- nothing to report
         m_label->setText(tr("Aguardando transmissão..."));
         m_label->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: bold; color: #8A939B;"));
         if (m_retryButton) m_retryButton->hide();
@@ -385,9 +385,9 @@ private:
 
     void scaleFrame() {
         if (m_currentPixmap.isNull()) return;
-        // SmoothTransformation em todos os frames 30 FPS bloqueava a thread da
-        // UI. O vídeo já chega escalado pelo WebRTC; FastTransformation evita
-        // backlog e mantém o frame mais recente na tela.
+        // SmoothTransformation on every 30 FPS frame blocked the UI thread. The
+        // video already arrives scaled from WebRTC; FastTransformation avoids
+        // backlog and keeps the most recent frame on screen.
         m_label->setPixmap(m_currentPixmap.scaled(
             m_label->size(), Qt::KeepAspectRatio, Qt::FastTransformation));
     }
@@ -647,12 +647,12 @@ private:
 };
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
-    // forceQuit é transitório (menu da bandeja/atualizador), nunca uma
-    // preferência persistente entre execuções.
+    // forceQuit is transient (tray menu/updater), never a preference persisted
+    // between runs.
     S::set("app/forceQuit", false);
     setWindowTitle(QString::fromUtf8(halla::kAppName));
-    // Mantém uma fonte grande para que o Windows escolha uma versão nítida
-    // na janela, na barra de tarefas e no Alt+Tab.
+    // Keeps a large source so Windows picks a crisp version in the window, on the
+    // taskbar and in Alt+Tab.
     setWindowIcon(QIcon(HIcons::appIcon(256)));
     setMinimumSize(1100, 700);
     resize(1706, 922);
@@ -695,11 +695,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         });
     m_bookmarksMenu->addAction(tr("Gerenciar marcadores..."), this,
                                [this] { openBookmarksDialog(); });
-    // entradas dinâmicas são inseridas por rebuildBookmarksMenu()
+    // dynamic entries are inserted by rebuildBookmarksMenu()
 
-    // ------------------------- Si mesmo (estado do próprio cliente) ------
-    // ações de estado criadas aqui: usadas no menu "Si mesmo", na barra de
-    // ferramentas e nos atalhos globais
+    // ------------------------- Self (own client state) -------------------
+    // state actions created here: used in the "Self" menu, on the toolbar and by
+    // the global shortcuts
     m_actAway = new QAction(HIcons::away(false), tr("Ausente"), this);
     m_actAway->setCheckable(true);
     m_actAway->setToolTip(tr("Definir como ausente"));
@@ -791,9 +791,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                          if (!t) return;
                          if (t->isNetworked()) {
                              const ServerData& d = t->data();
-                             // O campo "group" vem como linhas "<icone> <nome>"
-                             // (ex.: "rota.png ROTA"): o banner mostra só os
-                             // NOMES dos cargos, sem nomes de arquivo.
+                             // The "group" field arrives as "<icon> <name>" lines
+                             // (e.g. "rota.png ROTA"): the banner shows only the role
+                             // NAMES, without file names.
                              PermissionsOverviewDialog dlg(
                                  t->net()->myPerms(),
                                  GroupIconCache::cleanRoleNames(
@@ -857,7 +857,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                       });
     mTools->addSeparator();
 
-    // ---- gravação local (compartilhada com a barra de ferramentas)
+    // ---- local recording (shared with the toolbar)
     m_actRecord = mTools->addAction(HIcons::record(false), tr("Iniciar gravação"), this,
                                     [this] {
                                         ServerTab* t = currentTab();
@@ -882,17 +882,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     mTools->addAction(HIcons::contacts(), tr("Contatos..."), this,
                       [this] { ContactsDialog dlg(this); dlg.exec(); });
 
-    // ---- listas de sussurro: a lista ativa é aplicada automaticamente.
-    // Não há um segundo interruptor de "ativar", pois ele criava estado
-    // divergente entre a lista salva, a barra e o áudio.
+    // ---- whisper lists: the active list is applied automatically. There is no
+    // second "enable" switch, because it created diverging state between the saved
+    // list, the toolbar and the audio.
     mTools->addAction(tr("Listas de sussurro..."), this,
                       [this] {
                           ServerTab* t = currentTab();
                           WhisperDialog dlg(t ? &t->data() : nullptr, this);
                           connect(&dlg, &WhisperDialog::settingsSaved, this, [this] { applyHotkeys(); });
                           dlg.exec();
-                          // A lista apenas configura os destinos. O sussurro
-                          // só é transmitido enquanto sua tecla estiver pressionada.
+                          // The list only configures the targets. Whisper is only
+                          // transmitted while its key is held down.
                       });
     mTools->addAction(tr("Diagnóstico de voz..."), this, [this] {
         ServerTab* tab = currentTab();
@@ -947,7 +947,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                           connect(&dlg, &OptionsDialog::themeChanged, this,
                                   &MainWindow::applyTheme);
                           connect(&dlg, &OptionsDialog::designChanged, this, [this] {
-                              // transparência da janela (Opções > Aparência)
+                              // window transparency (Options > Appearance)
                               setWindowOpacity(S::num("design/opacity", 100) / 100.0);
                               for (int i = 0; i < m_tabs->count(); ++i)
                                   if (ServerTab* t = qobject_cast<ServerTab*>(m_tabs->widget(i)))
@@ -960,10 +960,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                           bool restartForLanguage = false;
                           connect(&dlg, &OptionsDialog::languageChanged, &dlg,
                                   [&dlg, &restartForLanguage] {
-                                      // Fecha primeiro o diálogo. A janela
-                                      // principal executará o fluxo normal de
-                                      // confirmação/desconexão antes de abrir
-                                      // a nova instância no idioma escolhido.
+                                      // Close the dialog first. The main window will run the
+                                      // normal confirmation/disconnect flow before opening the
+                                      // new instance in the chosen language.
                                       restartForLanguage = true;
                                       dlg.accept();
                                   });
@@ -975,11 +974,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                       });
     m_actOptions->setShortcut(QKeySequence(QStringLiteral("Alt+P")));
 
-    // Ações declaradas por complementos. A API continua Qt-free: plugins
-    // registram apenas id, texto, atalho e callback C.
+    // Actions declared by addons. The API stays Qt-free: plugins register only
+    // an id, text, shortcut and a C callback.
     m_pluginsMenu = menuBar()->addMenu(tr("Co&mplementos"));
-    // O menu é também a porta de entrada para o gerenciador. Antes ele ficava
-    // desabilitado quando nenhum plugin registrava ações, parecendo decorativo.
+    // The menu is also the entry point to the manager. It used to be disabled
+    // when no plugin registered actions, looking purely decorative.
     m_pluginsMenu->addAction(HIcons::addons(), tr("Gerenciar complementos..."), this, [this] {
         OptionsDialog dlg(this, currentTab() ? &currentTab()->data() : nullptr);
         connect(&dlg, &OptionsDialog::hotkeysChanged, this, &MainWindow::applyHotkeys);
@@ -1033,8 +1032,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             m_pluginGlobalHotkeys.remove(hotkeyId);
         }
 #endif
-        // "Gerenciar complementos..." permanece disponível mesmo quando o
-        // último plugin remove sua ação dinâmica.
+        // "Manage addons..." stays available even when the last plugin removes its
+        // dynamic action.
         m_pluginsMenu->setEnabled(true);
     });
     connect(&plugins, &PluginManager::pluginNotification, this,
@@ -1057,10 +1056,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     mHelp->addSeparator();
     mHelp->addAction(tr("Verificar atualizações"), this, [this] { checkUpdates(true); });
 
-    // ------------------------- barra de ferramentas ---------------------
-    // A referência usa dois grupos compactos de botões arredondados, em vez
-    // da antiga barra cheia de controles. As QAction continuam ligadas aos
-    // mesmos fluxos para não alterar nenhuma função do cliente.
+    // ------------------------- toolbar -----------------------------------
+    // The reference uses two compact groups of rounded buttons instead of the old
+    // bar full of controls. The QActions remain wired to the same flows so that no
+    // client feature changes.
     QToolBar* tb = addToolBar(tr("Principal"));
     tb->setObjectName(QStringLiteral("mainToolBar"));
     tb->setMovable(false);
@@ -1114,7 +1113,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     QHBoxLayout* utilityGroup = makeGroup();
     addButton(utilityGroup, m_actOptions, nullptr);
 
-    // O indicador de notificações fica isolado à direita, como na referência.
+    // The notification indicator sits isolated on the right, as in the reference.
     QWidget* toolbarSpacer = new QWidget(tb);
     toolbarSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     tb->addWidget(toolbarSpacer);
@@ -1127,7 +1126,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(notifications, &QToolButton::clicked, this, &MainWindow::showNotifications);
     tb->addWidget(notifications);
 
-    // ------------------------- área central -----------------------------
+    // ------------------------- central area ------------------------------
     m_stack = new QStackedWidget(this);
 
     m_welcome = new WelcomePage(m_stack);
@@ -1146,9 +1145,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_tabs->setTabsClosable(true);
     m_tabs->setMovable(true);
     m_tabs->setDocumentMode(true);
-    // A aba visual fica dentro do cartão da árvore, como na imagem de
-    // referência; o QTabBar continua existindo para manter a troca programática
-    // de conexões sem introduzir uma faixa extra no layout.
+    // The visual tab sits inside the tree card, as in the reference image; the
+    // QTabBar still exists so connections can be switched programmatically without
+    // adding an extra strip to the layout.
     m_tabs->tabBar()->hide();
     m_center->addWidget(m_tabs);
     m_center->setStretchFactor(0, 1);
@@ -1167,11 +1166,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         updateStatusBar();
         rebuildServerButtons();
         publishPluginState();
-        // v1.1.28: a sessão WebRTC é única e o m_net dela precisa seguir a
-        // aba ATIVA. Antes ele ficava preso à última aba CONECTADA: com dois
-        // servidores abertos, pedir para assistir numa aba mandava o
-        // webrtc_watch_request para o servidor da outra aba — nada acontecia
-        // e a janela ficava "Aguardando transmissão..." para sempre.
+        // v1.1.28: the WebRTC session is unique and its m_net must follow the ACTIVE
+        // tab. It used to stay bound to the last CONNECTED tab: with two servers open,
+        // asking to watch from one tab sent the webrtc_watch_request to the other
+        // tab's server -- nothing happened and the window stayed on "Waiting for
+        // broadcast..." forever.
         if (m_webrtcSession)
             if (ServerTab* t = currentTab())
                 if (t->net()) m_webrtcSession->setNetSession(t->net());
@@ -1199,10 +1198,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                 menu.exec(m_tabs->tabBar()->mapToGlobal(pos));
             });
 
-    // ------------------------- barra de status --------------------------
-    // três zonas, como no Halla:
-    // [aba do servidor atual]  |  [linha de notícias]  |  [ícone + conexão + ping]
-    // Fileira horizontal de servidores conectados (um botão por servidor).
+    // ------------------------- status bar --------------------------------
+    // three zones, as in Halla:
+    // [current server tab]  |  [news line]  |  [icon + connection + ping]
+    // Horizontal row of connected servers (one button per server).
     m_serverBar = new QWidget(this);
     m_serverBar->setObjectName(QStringLiteral("serverBar"));
     m_serverBarLayout = new QHBoxLayout(m_serverBar);
@@ -1224,8 +1223,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     statusBar()->addPermanentWidget(m_statusIcon, 0);
     m_statusText = new QLabel(tr("Desconectado"), this);
     statusBar()->addPermanentWidget(m_statusText, 0);
-    // v6 E2EE: cadeado — aceso quando as chaves de grupo do servidor atual
-    // estão disponíveis; “aguardando” enquanto o mestre embrulha.
+    // v6 E2EE: padlock -- lit when the current server's group keys are
+    // available; "waiting" while the master wraps them.
     m_e2eeLabel = new QLabel(this);
     m_e2eeLabel->setToolTip(tr("Criptografia de ponta a ponta"));
     statusBar()->addPermanentWidget(m_e2eeLabel, 0);
@@ -1261,7 +1260,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                 });
     }
 
-    // restaurar sessão anterior
+    // restore the previous session
     if (S::flag("app/restoreTabs", false)) {
         QJsonDocument doc = QJsonDocument::fromJson(S::str("session/tabs").toUtf8());
         if (doc.isArray()) {
@@ -1279,7 +1278,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     updateStatusBar();
     applyTheme();
     applyHotkeys();
-    // Transparência da janela (Opções → Aparência)
+    // Window transparency (Options > Appearance)
     setWindowOpacity(qBound(0.5, S::num("design/opacity", 100) / 100.0, 1.0));
 
     AppLog::info(tr("Halla %1 iniciado").arg(QString::fromUtf8(halla::kAppVersion)));
@@ -1295,9 +1294,9 @@ MainWindow::~MainWindow() {
     m_pluginGlobalHotkeys.clear();
     m_pluginHotkeyIds.clear();
 #endif
-    // Só cria o novo processo depois que esta janela, suas conexões e o loop
-    // atual já terminaram. Isso impede duas instâncias visíveis durante a
-    // confirmação de saída ou durante o áudio de desconexão.
+    // Only spawn the new process after this window, its connections and the
+    // current loop have finished. This prevents two visible instances during the
+    // exit confirmation or the disconnect sound.
     if (m_restartAfterClose) {
         QProcess::startDetached(QCoreApplication::applicationFilePath(),
                                 QCoreApplication::arguments().mid(1));
@@ -1307,8 +1306,8 @@ MainWindow::~MainWindow() {
 // ======================================================================
 void MainWindow::connectTo(const QString& address, quint16 port, const QString& nickname,
                            const QString& password) {
-    // Entrar sem nome não é permitido: o servidor oficial vem pré-salvo nos
-    // favoritos com o apelido vazio justamente para o app perguntar aqui.
+    // Joining without a name is not allowed: the official server comes pre-saved
+    // in the bookmarks with an empty nickname precisely so the app asks here.
     QString nick = nickname.trimmed();
     if (nick.isEmpty()) {
         bool ok = false;
@@ -1320,14 +1319,14 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
             QLineEdit::Normal, remembered, &ok).trimmed();
         if (!ok || nick.isEmpty()) return;
     }
-    // ID único da identidade PADRÃO (estável — gerado e persistido uma vez)
+    // Unique id of the DEFAULT identity (stable -- generated and persisted once)
     QString uid;
     for (const QStringList& r : IdentityDialog::loadAll())
         if (r.value(0) == "1") { uid = r.value(3); break; }
     if (uid.isEmpty()) uid = IdentityDialog::loadAll().value(0).value(3);
 
-    // A identidade precisa estar completa ANTES de conectar: sem a chave
-    // pública o servidor rejeitaria com bad_identity, sem dizer o porquê.
+    // The identity must be complete BEFORE connecting: without the public key the
+    // server would reject the login with bad_identity, without saying why.
     if (uid.isEmpty() || IdentityDialog::publicKeyForUid(uid).isEmpty()) {
         QMessageBox::warning(
             this, tr("Erro ao conectar"),
@@ -1341,7 +1340,7 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
     NetSession* net = new NetSession(this);
     net->connectToServer(address, port, nick, uid, password);
 
-    // falha de conexão / login recusado
+    // connection failure / login refused
     connect(net, &NetSession::connectionFailed, this, [this, net, address, port](const QString& reason) {
         HSound::play(QStringLiteral("error"));
         QMessageBox::warning(this, tr("Erro ao conectar"),
@@ -1365,11 +1364,11 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         connectTo(address, port, nick, password);
     });
 
-    // login aceito: cria a aba do servidor
+    // login accepted: creates the server tab
     connect(net, &NetSession::welcomeReceived, this, [this, net, address, port] {
         ServerTab* tab = new ServerTab(net->data(), m_tabs);
         ServerData& d = tab->data();
-        // copia tudo que o NetSession já descarregou no welcome
+        // copies everything NetSession already downloaded in the welcome
         d = net->data();
         tab->attachNetwork(net);
 
@@ -1383,9 +1382,9 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         // ping real -> barra de status
         connect(net, &NetSession::pingUpdated, this,
                 [this, net](int) { updateStatusBar(); });
-        // v6 E2EE: cadeado na barra acompanha a chegada/rotação de chaves;
-        // avisos de segurança (identidade trocada, channel_key forjado) são
-        // sempre visíveis — nunca só no log.
+        // v6 E2EE: the padlock in the bar follows key arrival/rotation; security
+        // warnings (identity changed, forged channel_key) are always visible --
+        // never only in the log.
         connect(net, &NetSession::e2eeStateChanged, this, [this] { updateStatusBar(); });
         connect(net, &NetSession::e2eeSecurityNotice, this, [this](const QString& text) {
             QMessageBox::warning(this, tr("Segurança da criptografia"), text);
@@ -1401,7 +1400,7 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
         HSpeech::say(tr("Conectado ao servidor"));
 
         S::set("connect/nickname", net->data().users[net->data().selfId].name);
-        // memoriza o apelido aceito por servidor: reconectar não perde mais
+        // remembers the nickname accepted per server: reconnecting no longer loses it
         S::ServerNicks::set(address, port, net->data().users[net->data().selfId].name);
         addRecent(address, port);
         saveSession();
@@ -1412,7 +1411,7 @@ void MainWindow::connectTo(const QString& address, quint16 port, const QString& 
     });
 }
 
-// fiações comuns de uma aba (local ou de rede)
+// common wiring for a tab (local or network)
 void MainWindow::wireTab(ServerTab* tab) {
     PluginManager::instance().registerSession(tab);
     connect(tab, &ServerTab::disconnectRequested, this, [this, tab] { disconnectTab(tab); });
@@ -1431,7 +1430,7 @@ void MainWindow::wireTab(ServerTab* tab) {
         }
     });
     if (tab->net()) {
-        // apelido renomeado em sessão: memoriza para este servidor
+        // nickname renamed during the session: remember it for this server
         connect(tab->net(), &NetSession::selfRenamed, this, [this, tab](const QString& name) {
             if (!tab->net()) return;
             S::ServerNicks::set(tab->net()->hostPort(), 0, name);
@@ -1440,10 +1439,10 @@ void MainWindow::wireTab(ServerTab* tab) {
         connect(tab->net(), &NetSession::screenshareStateChanged, this,
                 &MainWindow::handleScreenshareStateChanged);
         connect(tab->net(), &NetSession::screenshareFrameReceived, this, &MainWindow::handleScreenshareFrameReceived);
-        // v1.1.28: erros do servidor relativos ao "Assistir" (canal errado,
-        // transmissão já encerrada, sem permissão, canal com senha...) tinham
-        // destino único: uma linha no chat do servidor, fácil de não ver.
-        // Agora alimentam a janela da transmissão/dialog com feedback real.
+        // v1.1.28: server errors related to "Watch" (wrong channel, broadcast
+        // already finished, no permission, password-protected channel...) had a
+        // single destination: one line in the server chat, easy to miss. They now
+        // feed the broadcast window/dialog with real feedback.
         connect(tab->net(), &NetSession::errorOccurred, this,
                 [this](const QString& code, const QString& msg) {
                     handleWatchServerError(code, msg);
@@ -1464,10 +1463,10 @@ void MainWindow::wireTab(ServerTab* tab) {
                         markWatchAlive(userId);
                         if (m_screenShareWindows.contains(userId)) m_screenShareWindows[userId]->updateImage(image);
                     });
-            // v1.1.28: ICE/connection state do peer — "failed" vira mensagem
-            // de erro clara na janela do espectador (antes: silêncio eterno
-            // em "Aguardando transmissão..." quando o P2P não atravessava o
-            // NAT/CGNAT do par sem TURN).
+            // v1.1.28: peer ICE/connection state -- "failed" becomes a clear error
+            // message in the viewer window (previously: eternal silence on "Waiting
+            // for broadcast..." when the P2P link could not traverse the pair's
+            // NAT/CGNAT without TURN).
             connect(m_webrtcSession, &HallaWebRtcSession::peerStateChanged, this,
                     [this](int peerId, const QString& state) {
                         if (state != QLatin1String("failed")) return;
@@ -1495,17 +1494,17 @@ void MainWindow::wireTab(ServerTab* tab) {
                             return;
                         ScreenShareWindow* window = m_screenShareWindows.value(userId, nullptr);
                         if (!window || window->isAudioMuted()) return;
-                        // Cada live mantém fila própria: isso permite mutar uma
-                        // transmissão sem afetar vozes, plugins ou outras lives.
+                        // Each live stream keeps its own queue: this allows muting one
+                        // broadcast without affecting voices, plugins or other streams.
                         active->voice()->playStreamPcm(
                             userId, reinterpret_cast<const int16_t*>(pcm.constData()),
                             uint32_t(frames), uint32_t(channels), 1.0f);
                     });
         }
-        // A sessão WebRTC é única e sobrevive às abas: ao (re)conectar, aponte
-        // para o NetSession vivo desta aba. Sem isto, m_net ficava pendente
-        // para a sessão antiga (deletada) após reconectar, e a transmissão
-        // crashava o app (use-after-free) ou não fazia nada (estado preso).
+        // The WebRTC session is unique and survives tabs: on (re)connect, point it
+        // at this tab's live NetSession. Without this, m_net stayed bound to the old
+        // (deleted) session after reconnecting, and broadcasting crashed the app
+        // (use-after-free) or did nothing (stuck state).
         m_webrtcSession->setNetSession(tab->net());
         connect(tab->net(), &NetSession::webRtcSignalReceived,
                 m_webrtcSession, &HallaWebRtcSession::handleSignal);
@@ -1513,7 +1512,7 @@ void MainWindow::wireTab(ServerTab* tab) {
     connect(tab->tree(), &ServerTreeWidget::screenshareHovered, this, &MainWindow::handleScreenshareHovered);
 }
 
-// aba local offline (modo --demo para capturas de tela)
+// local offline tab (--demo mode for screenshots)
 void MainWindow::createLocalTab(const ServerData& initial) {
     ServerTab* tab = new ServerTab(initial, m_tabs);
     const int idx = m_tabs->addTab(tab, HIcons::server(), initial.name);
@@ -1531,8 +1530,8 @@ void MainWindow::disconnectTab(ServerTab* tab, bool notify) {
     if (!tab || m_tabs->indexOf(tab) < 0 || m_disconnectingTabs.contains(tab)) return;
     m_disconnectingTabs.insert(tab);
 
-    // O aviso começa primeiro; a conexão só é encerrada após um segundo para
-    // que o áudio não seja cortado junto com a aba/dispositivo de reprodução.
+    // The notice starts first; the connection is only closed after a second so the
+    // audio is not cut together with the tab/playback device.
     if (notify && S::flag("notify/disconnectSound", true))
         HSound::play(QStringLiteral("disconnected"));
     if (notify) HSpeech::say(tr("Desconectado do servidor"));
@@ -1582,10 +1581,9 @@ void MainWindow::finishDisconnectTab(ServerTab* tab) {
 
     NetSession* net = tab->net();
     if (net) {
-        // Encerra a transmissão/watch da sessão WebRTC ENQUANTO o NetSession
-        // ainda existe (o stream_stop precisa dele) e solta o ponteiro antes
-        // do deleteLater — evita use-after-free e broadcast preso no estado
-        // "ligado" ao reconectar.
+        // Ends the WebRTC session's broadcast/watch WHILE NetSession still exists
+        // (stream_stop needs it) and releases the pointer before deleteLater -- avoids
+        // use-after-free and a broadcast stuck in the "on" state after reconnecting.
         if (m_webrtcSession) m_webrtcSession->detachFromNet(net);
         net->quit();
         QTimer::singleShot(500, net, &QObject::deleteLater);
@@ -1608,8 +1606,8 @@ void MainWindow::publishPluginState() {
     PluginManager::instance().setActiveSession(currentTab());
 }
 
-// Abre (ou reabre) o "Registro do cliente" — o diálogo carrega o histórico do
-// halla.log, então mostra também decisões passadas (ex.: encoder GPU/CPU).
+// Opens (or reopens) the "Client log" -- the dialog loads the halla.log history, so
+// it also shows past decisions (e.g. GPU/CPU encoder).
 void MainWindow::openLogDialog() {
     if (!m_log) m_log = new LogDialog(this);
     m_log->show();
@@ -1623,7 +1621,7 @@ ServerTab* MainWindow::currentTab() const {
 
 // ======================================================================
 void MainWindow::openConnectDialog(bool newTab) {
-    Q_UNUSED(newTab); // cada conexão já abre em sua própria aba, como no Halla
+    Q_UNUSED(newTab); // each connection already opens in its own tab, as in Halla
     ConnectDialog dlg(this);
     dlg.setNickname(S::str("connect/nickname", IdentityDialog::defaultNickname()));
     if (dlg.exec() != QDialog::Accepted) return;
@@ -1634,8 +1632,8 @@ void MainWindow::openBookmarksDialog(const QString& prefillLabel, const QString&
     BookmarksDialog dlg(this);
     connect(&dlg, &BookmarksDialog::connectRequested, this,
             [this](const QString& a, quint16 p, const QString& n, const QString& pw) {
-                // Apelido vazio no favorito + nada memorizado -> connectTo
-                // pergunta o nome (não inventa um padrão).
+                // Empty nickname in the bookmark + nothing remembered -> connectTo asks
+                // for the name (it does not invent a default).
                 connectTo(a, p,
                           !n.trimmed().isEmpty()
                               ? n
@@ -1652,7 +1650,7 @@ void MainWindow::openBookmarksDialog(const QString& prefillLabel, const QString&
 
 // ======================================================================
 void MainWindow::rebuildBookmarksMenu() {
-    // remove entradas dinâmicas antigas (tudo após "Gerenciar favoritos...")
+    // remove old dynamic entries (everything after "Manage bookmarks...")
     const QList<QAction*> acts = m_bookmarksMenu->actions();
     for (int i = 2; i < acts.size(); ++i) m_bookmarksMenu->removeAction(acts[i]);
 
@@ -1668,9 +1666,9 @@ void MainWindow::rebuildBookmarksMenu() {
         QString text = b.label.isEmpty() ? b.address : b.label;
         m_bookmarksMenu->addAction(HIcons::bookmarkStar(), text, this,
                                    [this, b] {
-                                       // favorito com apelido próprio prevalece; sem um,
-                                       // usa a memória do servidor — e vazio faz
-                                       // connectTo perguntar o nome na hora
+                                       // bookmark with its own nickname wins; without one,
+                                       // the server memory is used -- and empty makes
+                                       // connectTo ask for the name right away
                                        const QString nick = !b.nickname.trimmed().isEmpty()
                                            ? b.nickname
                                            : S::ServerNicks::get(b.address, b.port, QString());
@@ -1720,7 +1718,7 @@ void MainWindow::rebuildRecentMenu() {
                                     [this, o] {
                                         const QString addr = o["addr"].toString();
                                         const quint16 port = quint16(o["port"].toInt(9987));
-                                        // último apelido usado neste servidor; sem memória, global
+                                        // last nickname used on this server; without memory, the global one
                                         connectTo(addr, port,
                                                   S::ServerNicks::get(addr, port,
                                                       S::str("connect/nickname",
@@ -1734,7 +1732,7 @@ void MainWindow::rebuildRecentMenu() {
     }
 }
 
-// Atualizações, notificações e persistência de sessão ficam em MainWindowUpdates.cpp.
+// Updates, notifications and session persistence live in MainWindowUpdates.cpp.
 
 
 void MainWindow::updateConnectionUi() {
@@ -1778,10 +1776,10 @@ void MainWindow::updateConnectionUi() {
 
 void MainWindow::updateStatusBar() {
     ServerTab* t = currentTab();
-    // zona esquerda: fileira com um botão por servidor conectado (rebuild abaixo)
+    // left zone: row with one button per connected server (rebuilt below)
     rebuildServerButtons();
 
-    // zona direita: estado da conexão + ping/perda
+    // right zone: connection state + ping/loss
     if (t) {
         m_statusIcon->setPixmap(HIcons::connectPlug().pixmap(14, 14));
         m_statusText->setText(tr("Conectado como %1")
@@ -1789,7 +1787,7 @@ void MainWindow::updateStatusBar() {
         if (NetSession* net = t->net()) {
             m_pingLabel->setText(tr("Ping: %1 ms   Perda de pacotes: %2%")
                                      .arg(net->pingMs()).arg(QStringLiteral("0,00")));
-            // v6 E2EE: estado das chaves de grupo da sessão atual
+            // v6 E2EE: current session's group key state
             m_e2eeLabel->setText(net->e2eeKeysReady()
                                      ? QStringLiteral("\U0001F512 E2EE")
                                      : QStringLiteral("\U0001F512 …"));
@@ -1816,13 +1814,13 @@ void MainWindow::updateStatusBar() {
     }
 }
 
-// Reconstrói a fileira horizontal de servidores conectados na barra de status.
-// Cada servidor conectado vira um botão clicável (nome ao lado dos demais) e o
-// servidor atualmente selecionado fica destacado (negrito + cor de fundo).
+// Rebuilds the horizontal row of connected servers in the status bar.
+// Each connected server becomes a clickable button (name next to the others) and
+// the currently selected server is highlighted (bold + background color).
 void MainWindow::rebuildServerButtons() {
     if (!m_serverBar || !m_serverBarLayout) return;
 
-    // Remove todos os botões anteriores.
+    // Removes every previous button.
     while (QLayoutItem* item = m_serverBarLayout->takeAt(0)) {
         if (QWidget* w = item->widget()) { w->deleteLater(); }
         delete item;
@@ -1846,7 +1844,7 @@ void MainWindow::rebuildServerButtons() {
             button->setCheckable(true);
             button->setChecked(selected);
             button->setAutoRaise(true);
-            // Estilo de destaque do servidor selecionado (negrito + fundo).
+            // Highlight style of the selected server (bold + background).
             QString css = selected
                 ? QStringLiteral(
                       "QToolButton#serverTabButton { font-weight: bold; "
@@ -1867,9 +1865,9 @@ void MainWindow::rebuildServerButtons() {
                     publishPluginState();
                 }
             });
-            // Botão direito no servidor da barra de status: mesmo menu da
-            // aba (Desconectar / Editar servidor virtual / Favoritos) —
-            // captura a ABA (estável), não o índice (muda ao fechar abas).
+            // Right click on the status-bar server: same menu as the tab (Disconnect /
+            // Edit virtual server / Bookmarks) -- captures the TAB (stable), not the
+            // index (which changes as tabs close).
             button->setContextMenuPolicy(Qt::CustomContextMenu);
             connect(button, &QToolButton::customContextMenuRequested, this,
                     [this, tab, button](const QPoint& p) {
@@ -1889,7 +1887,7 @@ void MainWindow::rebuildServerButtons() {
             m_serverBarLayout->addWidget(button);
         }
     } else {
-        // Nenhum servidor conectado: mostra apenas o rótulo neutro.
+        // No server connected: show only the neutral label.
         QToolButton* button = new QToolButton(m_serverBar);
         button->setObjectName(QStringLiteral("serverTabButton"));
         button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
@@ -1904,10 +1902,10 @@ void MainWindow::rebuildServerButtons() {
 
 // ======================================================================
 void MainWindow::applyTheme() {
-    // tema centralizado: estilo + paleta + stylesheet global (funciona
-    // também no Windows, onde stylesheet fixo ignorava a paleta)
+    // centralized theme: style + palette + global stylesheet (works on Windows
+    // too, where a fixed stylesheet ignored the palette)
     HTheme::apply();
-    // força repintura dos widgets que pintam manualmente e dos banners
+    // forces a repaint of the manually painted widgets and of the banners
     if (m_welcome) m_welcome->update();
     for (int i = 0; i < m_tabs->count(); ++i) {
         if (ServerTab* t = qobject_cast<ServerTab*>(m_tabs->widget(i))) {
@@ -1918,16 +1916,16 @@ void MainWindow::applyTheme() {
     }
 }
 
-// executa uma ação configurada em "Teclas de atalho" (independente da origem:
-// atalho local do Qt no Linux ou hotkey GLOBAL do sistema no Windows)
+// runs an action configured under "Hotkeys" (regardless of origin: a local Qt
+// shortcut on Linux or a system-wide GLOBAL hotkey on Windows)
 void MainWindow::runConfiguredAction(const QString& action) {
     if (isWhisperHotkeyAction(action)) {
-        // sussurro por TOGGLE (usado no Linux/atalhos de janela); no Windows
-        // o comportamento principal é "segurar para falar" (ver applyHotkeys).
-        // Detecção por isWhisperHotkeyAction(): o valor salvo no perfil é a
-        // string TRADUZIDA (EN "Whisper (hold to speak)", ES "Susurrar ...")
-        // e o match antigo por "ussurr" (PT) fazia o aperto não disparar
-        // NADA em outros idiomas — como se o botão nem tivesse sido pressionado.
+        // whisper by TOGGLE (used on Linux/window shortcuts); on Windows the main
+        // behavior is "hold to talk" (see applyHotkeys). Detection by
+        // isWhisperHotkeyAction(): the value stored in the profile is the TRANSLATED
+        // string (EN "Whisper (hold to speak)", ES "Susurrar ...") and the old match
+        // on "ussurr" (PT) made the press fire NOTHING in other languages -- as if the
+        // button had never been pressed.
         ServerTab* t = currentTab();
         if (!t) return;
         t->setWhisperHold(!t->whisperHoldActive(), S::num("hotkeys/whisperScope", 1));
@@ -1955,22 +1953,21 @@ void MainWindow::runConfiguredAction(const QString& action) {
         updateConnectionUi();
     } else if (action.contains(tr("transmissão contínua"))) {
         const int m = S::num("capture/pttMode", 1);
-        S::set("capture/pttMode", m == 2 ? 1 : 2); // contínuo <-> detecção
+        S::set("capture/pttMode", m == 2 ? 1 : 2); // continuous <-> detection
         statusBar()->showMessage(m == 2 ? tr("Transmissão contínua desativada")
                                         : tr("Transmissão contínua ativada"), 3000);
     }
 }
 
 void MainWindow::applyHotkeys() {
-    // Reconstruir as teclas com um sussurro ATIVO deixava o hold preso: os
-    // HoldKey antigos (com o estado "held") são descartados abaixo — se a
-    // tecla que SOLTA o sussurro sumiu no meio (lista importada sem a
-    // tecla, lista removida, atalhos regravados), o release nunca chegava e
-    // o cliente seguia "sussurrando" para sempre: anel laranja preso, voz
-    // saindo só para os alvos antigos e o usuário sem falar nem pelo
-    // sussurro nem no canal. Solta o hold AGORA; se a tecla ainda existir
-    // e continuar fisicamente pressionada, o polling de 50 ms volta a
-    // segurá-la em seguida.
+    // Rebuilding the keys with an ACTIVE whisper left the hold stuck: the old
+    // HoldKey entries (with the "held" state) are dropped below -- if the key that
+    // RELEASES the whisper disappeared in the meantime (imported list without the
+    // key, list removed, shortcuts rewritten), the release never arrived and the
+    // client kept "whispering" forever: orange ring stuck, voice going only to the
+    // old targets, and the user unable to speak through the whisper or the channel.
+    // Release the hold NOW; if the key still exists and is physically held down,
+    // the 50 ms polling holds it again right away.
     if (ServerTab* t = currentTab()) {
         if (t->whisperHoldActive()) t->setWhisperHold(false, 2);
     }
@@ -1985,13 +1982,13 @@ void MainWindow::applyHotkeys() {
     m_globalHotkeyActions.clear();
     m_whisperHolds.clear();
     m_mouseHotkeys.clear();
-    // atalhos cujo RegisterHotKey falhou (outro programa já usa a combinação
-    // — antes era silêncio total: o usuário via a tecla configurada e ela
-    // simplesmente não fazia nada). v1.1.27: avisado na barra de status.
+    // shortcuts whose RegisterHotKey failed (another program already owns the
+    // combination -- previously total silence: the user saw the configured key and
+    // it simply did nothing). v1.1.27: reported in the status bar.
     QStringList failedRegistrations;
 #endif
 
-    // lista do PERFIL ativo (migração da chave legada "hotkeys/list")
+    // list of the ACTIVE profile (migration of the legacy "hotkeys/list" key)
     const QString prof = S::str(QStringLiteral("hotkeys/profile"), tr("Padrão"));
     QString listJson = S::str(QStringLiteral("hotkeys/list.") + prof);
     if (listJson.isEmpty() && prof == tr("Padrão"))
@@ -2005,17 +2002,16 @@ void MainWindow::applyHotkeys() {
             const QString keyStr = o["key"].toString();
             if (keyStr.isEmpty()) continue;
 
-            // ---- Sussurro nas Teclas de Atalho: vira uma tecla de "segurar
-            // para sussurrar" com o alvo (escopo) escolhido na própria linha
-            // — o mesmo motor de polling das Listas de Sussurro. Regressão
-            // corrigida: a ação continuava sendo oferecida e salva pela UI,
-            // mas era descartada aqui em silêncio; para quem configurou o
-            // sussurro por este caminho, a tecla nunca disparava.
-            // Segunda regressão corrigida (1.1.26): o match era só pelo
-            // substring PT "ussurr" — clientes em EN/ES salvavam a ação
-            // traduzida, o que não casa, e o aperto caía no caminho genérico
-            // sem disparar nada. Agora: id canônico ("whisper") OU qualquer
-            // grafia PT/EN/ES (isWhisperHotkeyAction).
+            // ---- Whisper under Hotkeys: becomes a "hold to whisper" key with the
+            // target (scope) chosen in its own row -- the same polling engine as the
+            // Whisper Lists. Regression fixed: the action kept being offered and saved
+            // by the UI but was silently discarded here; for whoever configured whisper
+            // this way, the key never fired.
+            // Second regression fixed (1.1.26): the match was only the PT substring
+            // "ussurr" -- EN/ES clients saved the translated action, which does not
+            // match, and the press fell into the generic path without firing anything.
+            // Now: canonical id ("whisper") OR any PT/EN/ES spelling
+            // (isWhisperHotkeyAction).
             const bool isWhisperAction =
                 o.value("id").toString() == QLatin1String("whisper")
                 || isWhisperHotkeyAction(action);
@@ -2074,7 +2070,7 @@ void MainWindow::applyHotkeys() {
                     if (RegisterHotKey(HWND(winId()), id, mods | MOD_NOREPEAT, vk))
                         m_globalHotkeyActions[id] = action;
                     else
-                        failedRegistrations << keyStr; // conflito: outro app já usa
+                        failedRegistrations << keyStr; // conflict: another app already owns it
                 } else {
                     AppLog::info(tr("Tecla de atalho ignorada (não suportada): %1")
                                      .arg(keyStr));
@@ -2091,7 +2087,7 @@ void MainWindow::applyHotkeys() {
         }
     }
 
-    // Carrega as teclas de atalho configuradas nas Listas de Sussurros (Sussurro -> Lista de Sussurros)
+    // Loads the shortcuts configured in the Whisper Lists (Whisper -> Whisper List)
     QJsonDocument whisperDoc = QJsonDocument::fromJson(S::str("whispers").toUtf8());
     if (whisperDoc.isArray()) {
         for (const QJsonValue& v : whisperDoc.array()) {
@@ -2102,10 +2098,10 @@ void MainWindow::applyHotkeys() {
             if (keyStr.isEmpty() && replyStr.isEmpty()) continue;
 
 #ifdef Q_OS_WIN
-            // tecla principal da lista ("segurar para sussurrar")
+            // main list key ("hold to whisper")
             if (!keyStr.isEmpty()) {
                 HoldKey hk;
-                hk.scope = 2; // Lista de usuários
+                hk.scope = 2; // User list
                 hk.whisperListName = listName;
                 bool okKey = true;
                 if (keyStr == QLatin1String(HotkeyEdit::kMouse4))         hk.mouseBtn = 4;
@@ -2114,7 +2110,7 @@ void MainWindow::applyHotkeys() {
                 else {
                     UINT vk = 0, mods = 0;
                     if (!specToVkFromSpec(keyStr, vk, mods)) {
-                        okKey = false; // tecla não mapeável: segue só com a resposta
+                        okKey = false; // unmappable key: continue with the reply only
                     } else {
                         hk.vk = vk;
                         hk.mods = mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN);
@@ -2123,10 +2119,9 @@ void MainWindow::applyHotkeys() {
                 if (okKey) m_whisperHolds << hk;
             }
 
-            // Tecla de resposta: segura para sussurrar de volta para quem
-            // sussurrou por último. O campo era salvo pelo diálogo de
-            // listas e nunca era lido — configurar a tecla de resposta
-            // não fazia nada (vale para tecla e botão de mouse).
+            // Reply key: hold to whisper back to whoever whispered last. The field was
+            // saved by the lists dialog and never read -- configuring the reply key did
+            // nothing (applies to both keyboard key and mouse button).
             if (!replyStr.isEmpty()) {
                 HoldKey rk;
                 rk.scope = 2;
@@ -2162,9 +2157,9 @@ void MainWindow::applyHotkeys() {
     }
 
 #ifdef Q_OS_WIN
-    // timer global de 50 ms: detecta pressão/soltura de PTT (qualquer origem)
-    // e das teclas de sussurro — funciona com a janela em segundo plano,
-    // pois lê o estado físico das teclas/botões via GetAsyncKeyState
+    // global 50 ms timer: detects PTT press/release (from any source) and the
+    // whisper keys -- works with the window in the background, since it reads the
+    // physical key/button state via GetAsyncKeyState
     if (!m_pttPoll) {
         m_pttPoll = new QTimer(this);
         m_pttPoll->setInterval(50);
@@ -2172,8 +2167,8 @@ void MainWindow::applyHotkeys() {
     }
     m_pttPoll->start();
 
-    // v1.1.27: conflito de hotkey global deixa de ser invisível — o usuário
-    // fica sabendo POR QUE a tecla configurada não dispara
+    // v1.1.27: a global hotkey conflict is no longer invisible -- the user learns
+    // WHY the configured key does not fire
     if (!failedRegistrations.isEmpty()) {
         const QString msg = tr("Atalho global não registrado (em uso por outro programa): %1")
                                 .arg(failedRegistrations.join(QStringLiteral(", ")));
@@ -2182,7 +2177,7 @@ void MainWindow::applyHotkeys() {
     }
 #endif
 
-    // (re)registra a tecla PTT global do sistema (Windows) — tecla OU mouse
+    // (re)registers the system-wide PTT key (Windows) -- key OR mouse
     registerPttHotkey();
 }
 
@@ -2210,8 +2205,8 @@ void MainWindow::closeEvent(QCloseEvent* e) {
             tr("Você ainda está conectado a servidores.\nDeseja realmente sair?"),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (ret != QMessageBox::Yes) {
-            // A preferência de idioma fica salva para a próxima abertura, mas
-            // não deve surgir outra instância se o usuário cancelou a saída.
+            // The language preference stays saved for the next launch, but another
+            // instance must not appear if the user cancelled the exit.
             m_restartAfterClose = false;
             e->ignore();
             return;
@@ -2247,7 +2242,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
     return QMainWindow::eventFilter(obj, ev);
 }
 
-// "Minimizar na bandeja" (Opções > Aparência > Ícone da bandeja)
+// "Minimize to tray" (Options > Appearance > Tray icon)
 void MainWindow::changeEvent(QEvent* e) {
     if (e->type() == QEvent::WindowStateChange && isMinimized())
         savePlacementBeforeHide();
@@ -2264,23 +2259,23 @@ void MainWindow::changeEvent(QEvent* e) {
 }
 
 // ----------------------------------------------------------------------
-// v1.1.31 — restaurar na mesma tela depois da bandeja
+// v1.1.31 -- restore on the same screen after the tray
 //
-// Relato: com o app na tela 2, minimizar para a bandeja e voltar fazia a
-// janela reaparecer na tela 1. Causa: o Windows descarta o placement de
-// janelas escondidas ainda minimizadas (hide() do caminho da bandeja) e o
-// showNormal() puro devolve a janela na tela principal. Solução: guardar o
-// retângulo "normal" + o estado maximizado antes de esconder e reaplicar ao
-// voltar — inclusive remaximizando na tela certa (o Windows maximiza na
-// tela onde a janela se encontra no momento).
+// Report: with the app on screen 2, minimizing to the tray and coming back made
+// the window reappear on screen 1. Cause: Windows discards the placement of
+// hidden windows that are still minimized (the hide() of the tray path) and a
+// bare showNormal() returns the window on the primary screen. Solution: store
+// the "normal" rectangle + the maximized state before hiding and reapply them on
+// return -- including re-maximizing on the right screen (Windows maximizes on
+// the screen where the window currently is).
 void MainWindow::savePlacementBeforeHide() {
     const QRect g = normalGeometry();
     if (!g.isValid()) return;
     m_geometryBeforeHide = g;
     m_wasMaximizedBeforeHide = isMaximized();
-    // Maximizada: o retângulo "normal" pode ter ficado numa tela antiga (o
-    // usuário moveu a janela maximizada entre telas). Garante a remaximização
-    // na tela onde a janela estava no momento de esconder.
+    // Maximized: the "normal" rectangle may be left over from an old screen (the
+    // user moved the maximized window between screens). Ensures re-maximizing on
+    // the screen where the window was at hide time.
     if (m_wasMaximizedBeforeHide) {
         if (QScreen* s = screen()) {
             const QRect avail = s->availableGeometry();
@@ -2300,8 +2295,8 @@ void MainWindow::hideEvent(QHideEvent* e) {
 void MainWindow::showFromTray() {
     const QRect g = m_geometryBeforeHide;
     showNormal();
-    // Só reaplica se o retângulo salvo ainda cai numa tela existente — a
-    // segunda tela pode ter sido desconectada com o app na bandeja.
+    // Only reapplies when the saved rectangle still falls on an existing screen --
+    // the second screen may have been disconnected while the app was in the tray.
     if (!g.isNull() && QGuiApplication::screenAt(g.center()))
         setGeometry(g);
     if (m_wasMaximizedBeforeHide)
@@ -2311,22 +2306,23 @@ void MainWindow::showFromTray() {
 }
 
 // ======================================================================
-// PTT global: RegisterHotKey (teclado) + Raw Input (botões do mouse)
-// funcionam com a janela EM SEGUNDO PLANO (PTT global de voz)
+// Global PTT: RegisterHotKey (keyboard) + Raw Input (mouse buttons)
+// work with the window IN THE BACKGROUND (global voice PTT)
 // ======================================================================
 #ifdef Q_OS_WIN
-// adapta VkKeyScanW ao resolvedor do HotkeyVk: devolve o VK no byte baixo
-// com os bits 0x100/0x200/0x400 (shift/ctrl/alt que o LAYOUT ATUAL exige
-// para o caractere — inclui AltGr) ou -1 se o caractere não existe no layout
+// adapts VkKeyScanW to the HotkeyVk resolver: returns the VK in the low byte
+// with the 0x100/0x200/0x400 bits (shift/ctrl/alt that the CURRENT LAYOUT requires
+// for the character -- includes AltGr) or -1 if the character does not exist in
+// the layout
 static int vkScanAdapter(unsigned ch) {
     const SHORT r = VkKeyScanW(static_cast<WCHAR>(ch));
     if (r == SHORT(-1)) return -1;
     return int(static_cast<unsigned short>(r));
 }
 
-// converte QKeySequence (ex.: "Ctrl+F2", "Space") em VK + modificadores.
-// O trabalho de verdade está em gui/HotkeyVk.h (núcleo portátil, testado
-// em tests/hotkey_vk_smoke.cpp).
+// converts a QKeySequence (e.g. "Ctrl+F2", "Space") into VK + modifiers. The real
+// work lives in gui/HotkeyVk.h (portable core, tested by
+// tests/hotkey_vk_smoke.cpp).
 static bool specToVkImpl(const QKeySequence& ks, UINT& vk, UINT& mods) {
     if (ks.isEmpty()) return false;
     unsigned v = 0, m = 0;
@@ -2340,10 +2336,10 @@ bool specToVk(const QKeySequence& ks, UINT& vk, UINT& mods) {
     return specToVkImpl(ks, vk, mods);
 }
 
-// v1.1.27: o caminho principal — spec salva no perfil direto para VK+mods.
-// Cobre as teclas que o conversor antigo descartava em silêncio: pontuação
-// OEM ("\", ";", "'", "[", "]", ",", "/", "=", "`"...), acentos Latin-1
-// ("ç" em ABNT2), teclado numérico ("Num+5") e a tecla Windows ("Meta+X").
+// v1.1.27: the main path -- the spec stored in the profile straight to VK+mods.
+// Covers the keys the old converter silently dropped: OEM punctuation ("\\", ";",
+// "'", "[", "]", ",", "/", "=", "`"...), Latin-1 accents ("c" with cedilla on
+// ABNT2), the numeric keypad ("Num+5") and the Windows key ("Meta+X").
 bool specToVkFromSpec(const QString& spec, UINT& vk, UINT& mods) {
     const QKeySequence seq = hotkeySpecToSequence(spec);
     if (seq.isEmpty()) return false;
@@ -2356,8 +2352,8 @@ bool specToVkFromSpec(const QString& spec, UINT& vk, UINT& mods) {
 #endif
 
 #ifdef Q_OS_WIN
-// VKs candidatos de cada botão de mouse: cobre tanto o botão real (XButton)
-// quanto o que softwares de mouse (Logitech/Razer/etc.) emitem no lugar
+// Candidate VKs for each mouse button: covers both the real button (XButton) and
+// what mouse software (Logitech/Razer/etc.) emits in its place
 static QVector<int> mouseVkCandidates(int btn) {
     switch (btn) {
     case 3:  return { VK_MBUTTON };
@@ -2377,7 +2373,7 @@ static bool modsHeld(UINT mods) {
     if ((mods & MOD_CONTROL) && !(GetAsyncKeyState(VK_CONTROL) & 0x8000)) return false;
     if ((mods & MOD_SHIFT)   && !(GetAsyncKeyState(VK_SHIFT)   & 0x8000)) return false;
     if ((mods & MOD_ALT)     && !(GetAsyncKeyState(VK_MENU)    & 0x8000)) return false;
-    // v1.1.27: tecla Windows como modificador de sussurro/PTT ("Meta+X")
+    // v1.1.27: Windows key as whisper/PTT modifier ("Meta+X")
     if ((mods & MOD_WIN) &&
         !((GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000))
         return false;
@@ -2399,9 +2395,9 @@ bool MainWindow::isMouseDown(int btn) {
 #endif
 }
 
-// timer de 50 ms: lê o estado FÍSICO do PTT e das teclas de sussurro.
-// Detecta tanto a pressão quanto a soltura — inclusive em segundo plano —
-// sem depender de qual janela recebeu a mensagem do mouse.
+// 50 ms timer: reads the PHYSICAL state of PTT and of the whisper keys. Detects
+// both press and release -- including in the background -- without depending on
+// which window received the mouse message.
 void MainWindow::pollGlobalInputs() {
 #ifdef Q_OS_WIN
     // ---- PTT
@@ -2413,7 +2409,7 @@ void MainWindow::pollGlobalInputs() {
         pttSetHeld(down);
     }
 
-    // ---- sussurro (segurar para falar)
+    // ---- whisper (hold to talk)
     for (int i = 0; i < m_whisperHolds.size(); ++i) {
         HoldKey& h = m_whisperHolds[i];
         const bool down = h.mouseBtn != 0
@@ -2446,7 +2442,7 @@ void MainWindow::whisperSetHeld(int idx, bool held) {
 
     const HoldKey& h = m_whisperHolds.at(idx);
     if (h.reply) {
-        // tecla de resposta: o alvo é quem sussurrou por último
+        // reply key: the target is whoever whispered last
         t->setWhisperReplyHold(held);
         return;
     }
@@ -2477,8 +2473,8 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
             }
         } else if (msg->message == WM_INPUT &&
                    (msg->wParam == RIM_INPUT || msg->wParam == RIM_INPUTSINK)) {
-            // botão de mouse (PTT/sussurro/atalhos) pressionado em qualquer janela —
-            // caminho rápido; o timer de 50 ms cobre os demais casos
+            // mouse button (PTT/whisper/shortcuts) pressed in any window -- fast
+            // path; the 50 ms timer covers the remaining cases
             BYTE buf[64];
             UINT sz = sizeof(buf);
             if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam),
@@ -2494,11 +2490,11 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
                     hit(3, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
                     hit(4, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
                     hit(5, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
-                    // O raw input do mouse chega para TODO movimento (não só
-                    // botões): com RIDEV_INPUTSINK e um mouse de 1000 Hz eram
-                    // ~1000 WM_INPUT/s, cada um despertando a GUI e rodando o
-                    // poll completo. O estado só muda em evento de BOTÃO — o
-                    // movimento fica para o timer de 50 ms.
+                    // Mouse raw input arrives for EVERY movement (not only buttons):
+                    // with RIDEV_INPUTSINK and a 1000 Hz mouse that was ~1000
+                    // WM_INPUT/s, each one waking the GUI and running the full poll. The
+                    // state only changes on a BUTTON event -- movement stays with the
+                    // 50 ms timer.
                     if (f & (RI_MOUSE_MIDDLE_BUTTON_DOWN | RI_MOUSE_MIDDLE_BUTTON_UP |
                              RI_MOUSE_BUTTON_4_DOWN | RI_MOUSE_BUTTON_4_UP |
                              RI_MOUSE_BUTTON_5_DOWN | RI_MOUSE_BUTTON_5_UP)) {
@@ -2509,8 +2505,8 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
         } else if (msg->message == WM_XBUTTONDOWN || msg->message == WM_XBUTTONUP ||
                    msg->message == WM_MBUTTONDOWN || msg->message == WM_MBUTTONUP ||
                    msg->message == WM_APPCOMMAND) {
-            // caminho alternativo com a janela em foco (inclusive mouses
-            // cujo software envia "Voltar/Avançar" do navegador)
+            // alternative path with the window focused (including mice whose software
+            // sends the browser "Back/Forward" keys)
             pollGlobalInputs();
         }
     }
@@ -2526,42 +2522,42 @@ void MainWindow::registerPttHotkey() {
     m_pttVk = 0;
     m_pttMods = 0;
 
-    // ---- Sempre registre os dispositivos de Raw Input para o mouse para garantir que os botões do mouse e atalhos funcionem de forma ultra responsiva e global
+    // ---- Always register the mouse Raw Input devices so mouse buttons and shortcuts
+    // ---- work with maximum responsiveness and globally
     RAWINPUTDEVICE rid = {};
     rid.usUsagePage = 0x01;          // generic desktop
     rid.usUsage     = 0x02;          // mouse
-    rid.dwFlags     = RIDEV_INPUTSINK; // recebe mesmo sem foco
+    rid.dwFlags     = RIDEV_INPUTSINK; // receives even without focus
     rid.hwndTarget  = HWND(winId());
     if (RegisterRawInputDevices(&rid, 1, sizeof(rid)))
         m_rawInputRegistered = true;
 
-    // A tecla PTT só vira hotkey global no modo "pressionar para falar" (0).
-    // Nos modos por voz (1, PADRÃO) e contínuo (2), registrar a tecla engolia
-    // ela do sistema INTEIRO à toa: com o padrão Space, TODO usuário em modo
-    // por voz perdia a barra de espaço em TODOS os aplicativos enquanto o
-    // Halla estivesse aberto — era um dos motivadores dos relatos de
-    // "teclado parou de funcionar".
+    // The PTT key only becomes a global hotkey in "press to talk" mode (0). In
+    // voice-activated (1, DEFAULT) and continuous (2) modes, registering the key
+    // swallowed it from the ENTIRE system for nothing: with the default Space, EVERY
+    // user in voice mode lost the space bar in ALL applications while Halla was
+    // open -- one of the drivers behind the "keyboard stopped working" reports.
     if (S::num("capture/pttMode", 1) != 0) return;
 
     const QString spec = S::str("capture/pttKey", QStringLiteral("Space"));
     if (spec.isEmpty()) return;
 
-    // ---- botões do mouse: Raw Input (caminho rápido) + polling (garantido)
+    // ---- mouse buttons: Raw Input (fast path) + polling (guaranteed)
     int btn = 0;
     if (spec == QLatin1String(HotkeyEdit::kMouse4))        btn = 4;
     else if (spec == QLatin1String(HotkeyEdit::kMouse5))   btn = 5;
     else if (spec == QLatin1String(HotkeyEdit::kMouseMiddle)) btn = 3;
     if (btn != 0) {
-        m_mousePttButton = btn; // o timer de 50 ms lê o estado físico do botão
+        m_mousePttButton = btn; // the 50 ms timer reads the button's physical state
         AppLog::info(tr("PTT global registrado no mouse: %1").arg(spec));
         return;
     }
 
-    // ---- tecla: RegisterHotKey (caminho rápido) + polling de soltura/backup
+    // ---- key: RegisterHotKey (fast path) + release polling/backup
     UINT vk = 0, mods = 0;
     if (!specToVkFromSpec(spec, vk, mods)) {
-        // v1.1.27: teclas de pontuação ("\", ";", "ç"...) passaram a valer
-        // como PTT — e uma tecla realmente incompatível é LOGADA, não silêncio
+        // v1.1.27: punctuation keys ("\\", ";", accented keys...) became valid as PTT
+        // -- and a truly incompatible key is LOGGED, not silenced
         AppLog::info(tr("Não foi possível registrar a tecla PTT: %1").arg(spec));
         return;
     }
@@ -2576,22 +2572,10 @@ void MainWindow::registerPttHotkey() {
 #endif
 }
 
-void MainWindow::unregisterPttHotkey() {
-#ifdef Q_OS_WIN
-    if (m_pttRegistered) {
-        UnregisterHotKey(HWND(winId()), 1);
-        m_pttRegistered = false;
-    }
-    m_mousePttButton = 0;
-    m_pttVk = 0;
-    m_pttMods = 0;
-#endif
-    pttSetHeld(false);
-}
 
 void MainWindow::pttSetHeld(bool held) {
     if (m_pttHeld == held) return;
-    // só faz efeito no modo "Pressionar para falar" (Opções > Captura)
+    // only takes effect in "Press to talk" mode (Options > Capture)
     if (S::num("capture/pttMode", 1) != 0) return;
     m_pttHeld = held;
     if (ServerTab* t = currentTab())
@@ -2600,8 +2584,8 @@ void MainWindow::pttSetHeld(bool held) {
 
 // ======================================================================
 void MainWindow::loadDemoState() {
-    // Estado local usado pelas capturas: os nomes e proporções reproduzem
-    // exatamente a composição fornecida pelo usuário.
+    // Local state used by the captures: the names and proportions reproduce the
+    // exact composition provided by the user.
     ServerData init;
     init.name = QStringLiteral("Servidor Halla");
     init.address = QStringLiteral("163.176.35.133");
@@ -2679,7 +2663,7 @@ void MainWindow::toggleScreenShare() {
 
             if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
                 // v1.1.28: transmite pela aba ATIVA — o m_net podia estar
-                // apontando para outra aba conectada (multi-servidor).
+                // pointing at another connected tab (multi-server).
                 m_webrtcSession->setNetSession(t->net());
                 m_webrtcSession->setCaptureSource(m_screenShareSourceType, m_screenShareSourceId);
                 m_webrtcSession->setCaptureQuality(dlg.selectedWidth(), dlg.selectedHeight(),
@@ -2772,17 +2756,17 @@ void MainWindow::captureAndSendScreen() {
 
     if (pix.isNull()) return;
 
-    // Envia frames continuamente no FPS configurado. O antigo delta-skip por
-    // thumbnail 16x16 economizava upload, mas em clientes Mobile a transmissão
-    // aparentava ficar congelada quando mudanças pequenas/cursor não alteravam
-    // a miniatura. A fluidez da transmissão tem prioridade aqui.
+    // Sends frames continuously at the configured FPS. The old delta-skip based on a
+    // 16x16 thumbnail saved upload, but on Mobile clients the broadcast looked frozen
+    // when small changes/cursor movement did not alter the thumbnail. Stream
+    // smoothness takes priority here.
     m_keepAliveTicks = 0;
     m_prevThumbnail = QImage();
 
-    // Screen share usa UDP sem retransmissão. Em 1920x1080 cada frame vira
-    // centenas de datagramas; basta perder um chunk para o Mobile descartar o
-    // frame e a transmissão aparentar ficar travada. Limitamos o stream enviado
-    // para uma resolução mobile-friendly e qualidade moderada, mantendo fluidez.
+    // Screen share uses UDP without retransmission. At 1920x1080 each frame becomes
+    // hundreds of datagrams; losing a single chunk makes the Mobile client drop the
+    // frame and the broadcast look stuck. We cap the outgoing stream at a
+    // mobile-friendly resolution and moderate quality, keeping it smooth.
     const int targetW = qMin(t->net()->screenshareWidth(), 960);
     const int targetH = qMin(t->net()->screenshareHeight(), 540);
     QPixmap scaled = pix.scaled(targetW, targetH, Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -2800,12 +2784,11 @@ void MainWindow::captureAndSendScreen() {
 }
 
 void MainWindow::updateWebRtcPreviewState() {
-    // O pipeline de preview da transmissão (cópia GPU->CPU + redução suave)
-    // só pode rodar quando existe uma janela "Minha transmissão" para
-    // consumi-lo. Antes do v1.1.20, fechar a janela deixava o Halla gerando
-    // ~20 previews/segundo em resolução cheia no escuro — app pesado e
-    // comendo memória durante toda a transmissão, mesmo sem ninguém
-    // (nem o próprio usuário) assistindo.
+    // The broadcast preview pipeline (GPU->CPU copy + smooth downscale) may only run
+    // while a "My broadcast" window exists to consume it. Before v1.1.20, closing
+    // the window left Halla generating ~20 full-resolution previews per second into
+    // the void -- a heavy app burning memory for the whole broadcast, even with
+    // nobody (not even the user) watching.
     if (!m_webrtcSession) return;
     ServerTab* tab = currentTab();
     const int selfId = tab ? tab->data().selfId : 0;
@@ -2842,20 +2825,20 @@ void MainWindow::handleScreenshareStateChanged(int userId, bool on, const QStrin
     if (!tab) return;
 
     if (on) {
-        // v1.1.28: o modo reportado pelo servidor ("webrtc"/"jpeg"/vazio)
-        // já chegou armazenado em users[userId].screenshareMode pelo
-        // NetSession; aqui não há o que fazer além do fluxo visual.
+        // v1.1.28: the mode reported by the server ("webrtc"/"jpeg"/empty) already
+        // arrived stored in users[userId].screenshareMode from NetSession; there is
+        // nothing to do here beyond the visual flow.
         Q_UNUSED(mode);
-        // Estado "ao vivo" atualiza apenas a árvore/ícone. Uma transmissão
-        // remota só abre depois do clique explícito em Assistir.
+        // The "live" state updates only the tree/icon. A remote broadcast only opens
+        // after the explicit click on Watch.
         if (userId != tab->data().selfId) return;
-        // Preview local do WebRTC já é criado pelo fluxo de transmissão.
+        // The local WebRTC preview is already created by the broadcast flow.
         if (m_webrtcSession && m_webrtcSession->isBroadcasting()) return;
         openScreenShareWindow(userId); // preview do modo JPEG legado
         return;
     }
 
-    // Transmissão encerrou: solta watchdog e pendências daquele usuário.
+    // Broadcast finished: releases the watchdog and pending state for that user.
     cancelWatchdog(userId);
     if (m_pendingWatch.userId == userId) {
         m_pendingWatch = {};
@@ -2878,7 +2861,7 @@ void MainWindow::handleScreenshareFrameReceived(int userId, const QByteArray& jp
     }
 }
 
-// ---- v1.1.28: assistência a transmissões que não conectam ----------------
+// ---- v1.1.28: assistance for broadcasts that never connect ----------------
 
 void MainWindow::armWatchdog(int userId) {
     if (userId <= 0) return;
@@ -2890,17 +2873,17 @@ void MainWindow::armWatchdog(int userId) {
         m_watchNoFrameTimers.remove(userId);
         ScreenShareWindow* window = m_screenShareWindows.value(userId, nullptr);
         if (!window || !window->isVisible()) return;
-        // Sem erro explícito do ICE e sem frame algum em 12 s: algo no
-        // caminho engoliu o pedido/oferta (transmissão legado sem resposta,
-        // relay perdido, P2P que nunca acordou). Antes: silêncio eterno.
+        // No explicit ICE error and not a single frame in 12 s: something along the
+        // way swallowed the request/offer (legacy broadcast without a reply, lost
+        // relay, P2P that never woke up). Previously: eternal silence.
         window->setStatusMessage(
             tr("A transmissão não chegou.\n"
                "O transmissor pode estar em uma versão antiga do Halla ou a "
                "conexão direta foi bloqueada pela rede."),
             true,
             [this, userId] {
-                // Retry: só renegocia se a transmissão for WebRTC — modo
-                // JPEG legado não responde a watch_request algum.
+                // Retry: only renegotiates if the broadcast is WebRTC -- legacy JPEG
+                // mode does not answer any watch_request.
                 ServerTab* tab = currentTab();
                 const QString mode = tab && tab->data().users.contains(userId)
                     ? tab->data().users[userId].screenshareMode : QString();
@@ -2931,8 +2914,8 @@ void MainWindow::markWatchAlive(int userId) {
 
 void MainWindow::beginWatching(ServerTab* t, int userId) {
     if (!t || !t->net() || userId <= 0) return;
-    // v1.1.28: garante que a sessão WebRTC responde por ESTA aba/servidor
-    // (o m_net pode estar apontando para outra aba conectada).
+    // v1.1.28: guarantees that the WebRTC session answers for THIS tab/server (m_net
+    // may be pointing at another connected tab).
     if (m_webrtcSession) m_webrtcSession->setNetSession(t->net());
 
     const QString mode = t->data().users.contains(userId)
@@ -2941,27 +2924,27 @@ void MainWindow::beginWatching(ServerTab* t, int userId) {
 
     openScreenShareWindow(userId);
     if (native && mode != QLatin1String("jpeg")) {
-        // Transmissão WebRTC (ou modo desconhecido em servidor antigo):
-        // pede a negociação e arma o watchdog de 12 s.
+        // WebRTC broadcast (or unknown mode on an old server): requests the
+        // negotiation and arms the 12 s watchdog.
         m_webrtcSession->startWatching(userId);
         armWatchdog(userId);
     } else {
-        // Modo JPEG legado (transmissor em build antigo): os frames chegam
-        // por UDP do relay para quem está no canal — não há o que negociar.
-        // Pedir webrtc_watch_request aqui era inútil: o transmissor antigo
-        // nem respondia e a janela ficava "Aguardando..." para sempre.
+        // Legacy JPEG mode (transmitter on an old build): frames arrive over UDP
+        // from the relay for everyone in the channel -- there is nothing to
+        // negotiate. Sending webrtc_watch_request here was useless: the old
+        // transmitter never answered and the window stayed on "Waiting..." forever.
         armWatchdog(userId);
     }
 }
 
 void MainWindow::handleWatchServerError(const QString& code, const QString& msg) {
-    // Só interessa quando há um "Assistir" em andamento; os demais erros
-    // seguem o fluxo normal (mensagem no chat do servidor).
+    // Only relevant while a "Watch" is in progress; the other errors follow the
+    // normal flow (message in the server chat).
     const bool movePending = m_pendingWatch.userId > 0;
     if (!movePending && m_watchNoFrameTimers.isEmpty()) return;
-    // Códigos de MOVE (canal) só são nossos quando há um move pendente —
-    // no_permission/channel_full de outra ação qualquer não devem aparecer
-    // como "falha ao assistir".
+    // MOVE (channel) codes are only ours when there is a pending move --
+    // no_permission/channel_full from any other action must not show up as
+    // "failed to watch".
     if (!movePending && (code == QLatin1String("no_permission")
             || code == QLatin1String("invalid_channel")
             || code == QLatin1String("bad_channel_pass")
@@ -2975,8 +2958,9 @@ void MainWindow::handleWatchServerError(const QString& code, const QString& msg)
     };
     if (!kWatchCodes.contains(code)) return;
 
-    // Canal com senha: pergunta a senha e tenta entrar de novo — antes o
-    // moveToChannel ia SEM senha, o servidor negava e ninguém dizia nada.
+    // Password-protected channel: ask for the password and try again -- before, the
+    // moveToChannel went WITHOUT the password, the server refused and nobody said
+    // anything.
     if (code == QLatin1String("bad_channel_pass") && m_pendingWatch.channelId > 0) {
         ServerTab* watchTab = m_pendingWatchTab.data();
         if (!watchTab || !watchTab->net()) {
@@ -3001,8 +2985,8 @@ void MainWindow::handleWatchServerError(const QString& code, const QString& msg)
         return;
     }
 
-    // Demais causas: cancela o pendente e informa com clareza — na janela se
-    // ela já abriu, senão em diálogo.
+    // Other causes: cancel the pending state and report clearly -- in the window if
+    // it already opened, otherwise in a dialog.
     const int userId = m_pendingWatch.userId;
     m_pendingWatch = {};
     m_pendingWatchTab = nullptr;
@@ -3057,7 +3041,7 @@ void MainWindow::handleScreenshareHovered(int userId, int channelId, const QPoin
         return;
     }
 
-    // Evita flicker: se já existe botão para o mesmo usuário, não recria.
+    // Avoids flicker: if a button already exists for the same user, do not recreate it.
     for (QWidget* w : QApplication::topLevelWidgets()) {
         if (dynamic_cast<ScreenshareHoverPopup*>(w)) {
             if (w->property("streamUserId").toInt() == userId) return;
@@ -3116,9 +3100,9 @@ void MainWindow::watchStream(int userId, int channelId) {
 
     const int selfId = t->data().selfId;
     if (userId == selfId) {
-        // O servidor rejeita watch_request para si mesmo. Para a própria live,
-        // apenas abre/reabre a preview local; a transmissão continua controlada
-        // pelo botão principal de transmitir.
+        // The server rejects watch_request for yourself. For your own stream, just
+        // open/reopen the local preview; broadcasting stays controlled by the main
+        // broadcast button.
         if (!m_screenShareWindows.contains(selfId)) {
             QString userName = t->data().users.contains(selfId) ? t->data().users[selfId].name : tr("Minha transmissão");
             ScreenShareWindow* win = new ScreenShareWindow(
@@ -3138,10 +3122,10 @@ void MainWindow::watchStream(int userId, int channelId) {
         return;
     }
 
-    // v1.1.28: transmissão em modo WebRTC conhecido e este build sem WebRTC
-    // nativo? Aviso na hora — antes o pedido nem saía e a janela ficava
-    // "Aguardando transmissão..." para sempre (o transmissor WebRTC não
-    // envia frames JPEG legado).
+    // v1.1.28: broadcast in a known WebRTC mode and this build without native
+    // WebRTC? Warn immediately -- before, the request never left and the window
+    // stayed on "Waiting for broadcast..." forever (the WebRTC transmitter does not
+    // send legacy JPEG frames).
     const QString streamMode = t->data().users.contains(userId)
         ? t->data().users[userId].screenshareMode : QString();
     const bool nativeHere = m_webrtcSession && m_webrtcSession->isNativeAvailable();
@@ -3154,11 +3138,11 @@ void MainWindow::watchStream(int userId, int channelId) {
 
     int myChan = t->data().channelOfUser(t->data().selfId);
     if (myChan != channelId) {
-        // v1.1.28: NÃO dispare o webrtc_watch_request ainda! O servidor só
-        // aceita sinalização WebRTC entre usuários do MESMO canal — o pedido
-        // imediato era respondido com "webrtc_channel" (que aparecia só no
-        // chat) e a janela ficava eternamente aguardando. Guarda o pedido e
-        // dispara quando o estado local confirmar a entrada no canal.
+        // v1.1.28: do NOT fire webrtc_watch_request yet! The server only accepts
+        // WebRTC signaling between users of the SAME channel -- the immediate request
+        // was answered with "webrtc_channel" (which only appeared in the chat) and the
+        // window waited forever. Hold the request and fire it once the local state
+        // confirms the channel switch.
         t->net()->moveToChannel(channelId);
         m_pendingWatch = { userId, channelId };
         m_pendingWatchTab = t;
@@ -3201,4 +3185,4 @@ void MainWindow::watchStream(int userId, int channelId) {
     beginWatching(t, userId);
 }
 
-// -- restauração de sessão usa a rede (já era) ---------------------------
+// -- session restoration uses the network (as before) ---------------------

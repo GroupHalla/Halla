@@ -14,15 +14,15 @@ class QComboBox;
 class QLineEdit;
 class HotkeyEdit;
 
-// Janela "Listas de sussurro" (Whisper Lists) — destinos por ID único
+// "Whisper Lists" window -- targets by unique ID
 class WhisperDialog : public QDialog {
     Q_OBJECT
 public:
     explicit WhisperDialog(const ServerData* data, QWidget* parent = nullptr);
-    // uids da lista de sussurro ATIVA (0 se nenhuma)
+    // uids of the ACTIVE whisper list (0 when none)
     static QStringList activeWhisperUids();
 signals:
-    // Emitido após Aplicar/OK; permite registrar a tecla sem reiniciar.
+    // Emitted after Apply/OK; allows registering the key without restarting.
     void settingsSaved();
 private slots:
     void onNewList();
@@ -30,7 +30,6 @@ private slots:
     void onRenameList();
     void onReload();
     void onSelectedListChanged();
-    void onTargetsChanged();
     void onSearchTextChanged(const QString& text);
     void onFilterChanged(int index);
     void onServerTreeDoubleClicked(QTreeWidgetItem* item, int column);
@@ -71,7 +70,7 @@ private:
     void filterTree(QTreeWidgetItem* item, const QString& text);
 };
 
-// Janela "Contatos" — catálogo de amigos offline
+// "Contacts" window -- offline friends catalog
 class ContactsDialog : public QDialog {
     Q_OBJECT
 public:
@@ -86,7 +85,7 @@ class QProgressBar;
 class NetSession;
 struct ServerData;
 
-// Janela "Transferência de arquivos" — arquivos por canal no servidor (v3)
+// "File transfer" window -- per-channel files on the server (v3)
 class FileTransferDialog : public QDialog {
     Q_OBJECT
 public:

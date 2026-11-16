@@ -8,8 +8,8 @@
 #include <QScopeGuard>
 #include <QString>
 
-// pa_simple_* (gravação bloqueante do monitor no setup e no fallback do
-// loopback) vive em pulse/simple.h, que NÃO é puxado por pulseaudio.h.
+// pa_simple_* (blocking monitor recording in setup and in the loopback
+// fallback) lives in pulse/simple.h, which pulseaudio.h does NOT pull in.
 #include <pulse/simple.h>
 #include <pulse/pulseaudio.h>
 #include <unistd.h>
@@ -22,9 +22,9 @@
 
 namespace {
 
-// Nome do sink virtual que isola o Halla (único por processo: duas
-// instâncias do app não colidem e módulos órfãos de um crash são
-// identificáveis).
+// Name of the virtual sink isolating Halla (unique per process: two app
+// instances do not collide and orphaned modules from a crash are
+// identifiable).
 std::string isoSinkName()
 {
     char buffer[64] = {};
@@ -32,10 +32,10 @@ std::string isoSinkName()
     return std::string(buffer);
 }
 
-// Sincronização das operações Pulse (padrão threaded mainloop): cada
-// callback roda na thread da mainloop COM a lock; signal() acorda quem
-// espera em await() (que devolve a lock enquanto dorme e re-checa a
-// condição — sem lost wakeup).
+// Pulse operation synchronization (threaded-mainloop pattern): each
+// callback runs on the mainloop thread WITH the lock held; signal() wakes
+// whoever waits in await() (which releases the lock while sleeping and
+// re-checks the condition -- no lost wakeup).
 struct OpWait {
     pa_threaded_mainloop* ml = nullptr;
     bool done = false;
@@ -66,14 +66,14 @@ bool isOwnProcess(const pa_proplist* list)
 
 } // namespace
 
-// Infraestrutura de exclusão: mainloop dedicada + módulos carregados +
-// lista de sink-inputs do Halla movidos para o sink virtual. O destrutor
-// roda na thread que destrói o ADM (depois do join do captureLoop — nunca
-// de dentro da mainloop, o que seria deadlock no pa_threaded_mainloop_stop).
+// Exclusion infrastructure: dedicated mainloop + loaded modules + list of
+// Halla sink-inputs moved to the virtual sink. The destructor runs on the
+// thread destroying the ADM (after the captureLoop join -- never from inside
+// the mainloop, which would deadlock in pa_threaded_mainloop_stop).
 struct LinuxLoopbackAudioDeviceModule::PulseExclusion {
     pa_threaded_mainloop* ml = nullptr;
     pa_context* ctx = nullptr;
-    bool started = false; // stop() em mainloop nunca iniciada não é seguro
+    bool started = false; // stop() on a never-started mainloop is unsafe
     std::string defaultSink;
     bool connected = false;
     bool modulesLoaded = false;
@@ -82,16 +82,20 @@ struct LinuxLoopbackAudioDeviceModule::PulseExclusion {
     uint32_t isoSinkIndex = PA_INVALID_INDEX;
     std::vector<uint32_t> movedInputs;
     int pendingMoves = 0;
-    // Quando não-nulo, o último move a completar sinaliza este OpWait —
-    // tanto os moves do setup quanto os do teardown decrementam o MESMO
-    // contador; sem isto, se o último a completar fosse um move do setup,
-    // o await() do teardown esperaria para sempre (deadlock).
+    // When non-null, the last move to complete signals this OpWait -- both
+    // setup and teardown moves decrement the SAME counter; without this, if
+    // the last to complete were a setup move, the teardown await() would wait
+    // forever (deadlock).
     OpWait* moveWait = nullptr;
 
     ~PulseExclusion()
     {
         if (!ml) return;
         if (ctx) {
+            // Detach callbacks first: a late mainloop event must never fire
+            // into freed state during teardown.
+            pa_context_set_state_callback(ctx, nullptr, nullptr);
+            pa_context_set_subscribe_callback(ctx, nullptr, nullptr);
             pa_context_disconnect(ctx);
             pa_context_unref(ctx);
             ctx = nullptr;
@@ -106,15 +110,16 @@ struct LinuxLoopbackAudioDeviceModule::PulseExclusion {
 };
 
 // ---------------------------------------------------------------------------
-// Ciclo de vida do ADM
+// ADM lifecycle
 // ---------------------------------------------------------------------------
 
-// Construtor/destrutor out-of-line de propósito: o ADM nasce via
-// make_ref_counted<>, cujo RefCountedObject<T>::RefCountedObject() é um
-// template header-only do SDK — com o construtor implícito o GCC instancia,
-// no TU chamador, o caminho de cleanup de exceção que destrói o
-// unique_ptr<PulseExclusion> (sizeof de tipo incompleto lá). Fora de linha,
-// a instanciação fica só neste .cpp, onde PulseExclusion é completo.
+// Constructor/destructor out-of-line on purpose: the ADM is born via
+// make_ref_counted<>, whose RefCountedObject<T>::RefCountedObject() is a
+// header-only SDK template -- with an implicit constructor GCC instantiates,
+// in the calling TU, the exception-cleanup path that destroys the
+// unique_ptr<PulseExclusion> (sizeof of an incomplete type there). Out of
+// line, the instantiation stays only in this .cpp, where PulseExclusion is
+// complete.
 LinuxLoopbackAudioDeviceModule::LinuxLoopbackAudioDeviceModule() = default;
 
 LinuxLoopbackAudioDeviceModule::~LinuxLoopbackAudioDeviceModule()
@@ -157,9 +162,9 @@ int32_t LinuxLoopbackAudioDeviceModule::InitPlayout() { return 0; }
 
 int32_t LinuxLoopbackAudioDeviceModule::StartPlayout()
 {
-    // Start/Stop podem chegar de threads diferentes (GUI x signaling do
-    // libwebrtc): dois joins concorrentes no mesmo std::thread são UB e
-    // terminam o processo sem diálogo (mesma lição do ADM do Windows).
+    // Start/Stop can arrive from different threads (GUI x libwebrtc
+    // signaling): two concurrent joins on the same std::thread are UB and
+    // terminate the process without a word (same lesson as the Windows ADM).
     std::lock_guard<std::mutex> threadLock(m_threadMutex);
     if (m_playoutRunning.exchange(true)) return 0;
     if (m_playoutThread.joinable()) m_playoutThread.join();
@@ -239,15 +244,14 @@ void LinuxLoopbackAudioDeviceModule::pushSamples(const int16_t* samples,
         m_pcm.erase(m_pcm.begin(), m_pcm.begin() + ptrdiff_t(frameSamples));
         cb = m_audioCallback.load(std::memory_order_acquire);
     }
-    if (m_pcm.size() > sampleRate) m_pcm.clear(); // servidor travou: descarta
+    if (m_pcm.size() > sampleRate) m_pcm.clear(); // server stalled: discard
 }
 
 void LinuxLoopbackAudioDeviceModule::playoutLoop()
 {
-    // Idêntico ao ADM de loopback do Windows: puxa o decodificador do
-    // libwebrtc a cada 10 ms (NeedMorePlayData) para que os sinks de áudio
-    // remoto recebam PCM; a saída é descartada (o mixer Qt do Halla toca o
-    // áudio de verdade).
+    // Identical to the Windows loopback ADM: pulls the libwebrtc decoder
+    // every 10 ms (NeedMorePlayData) so remote audio sinks receive PCM; the
+    // output is discarded (the Halla Qt mixer actually plays the audio).
     constexpr uint32_t kSampleRate = 48000;
     constexpr size_t kChannels = 1;
     constexpr size_t kFrames = kSampleRate / 100; // 10 ms
@@ -274,7 +278,7 @@ void LinuxLoopbackAudioDeviceModule::moveSinkInput(PulseExclusion* excl,
                                                    uint32_t inputIndex)
 {
     if (excl->isoSinkIndex == PA_INVALID_INDEX) return;
-    // Já está no sink isolado (evento duplicado): ignora.
+    // Already on the isolated sink (duplicate event): ignore.
     if (std::find(excl->movedInputs.begin(), excl->movedInputs.end(), inputIndex)
             != excl->movedInputs.end())
         return;
@@ -302,7 +306,7 @@ void LinuxLoopbackAudioDeviceModule::moveSinkInput(PulseExclusion* excl,
 }
 
 // ---------------------------------------------------------------------------
-// Captura: exclusão do Halla (sink virtual) + monitor do sink default
+// Capture: Halla exclusion (virtual sink) + default sink monitor
 // ---------------------------------------------------------------------------
 
 void LinuxLoopbackAudioDeviceModule::captureLoop()
@@ -311,9 +315,9 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
     m_exclusion = std::make_unique<PulseExclusion>();
     QByteArray monitorSource = "@DEFAULT_MONITOR@";
 
-    // ---- Passo 1: conectar e descobrir o sink default (nomeia o monitor e
-    // permite devolver os sink-inputs no fim). Falha não é fatal: cai no
-    // macro @DEFAULT_MONITOR@ sem exclusão.
+    // ---- Step 1: connect and discover the default sink (names the monitor
+    // and allows returning the sink-inputs at the end). Failure is not fatal:
+    // falls back to the @DEFAULT_MONITOR@ macro without exclusion.
     if (pa_threaded_mainloop* ml = pa_threaded_mainloop_new()) {
         m_exclusion->ml = ml;
         pa_mainloop_api* api = pa_threaded_mainloop_get_api(ml);
@@ -385,7 +389,7 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
             "transmissão)"));
     }
 
-    // ---- Passo 2 (exclusão): sink virtual + loopback de retorno + moves.
+    // ---- Step 2 (exclusion): virtual sink + return loopback + moves.
     bool excluded = false;
     if (haveDefaultSink) {
         pa_threaded_mainloop* ml = m_exclusion->ml;
@@ -419,7 +423,7 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
             }
         };
 
-        // 2a. sink virtual "halla-iso-<pid>"
+        // 2a. virtual sink "halla-iso-<pid>"
         StepWait nullSink{m_exclusion.get(), false, PA_INVALID_INDEX, {ml}};
         {
             const std::string args = "sink_name=" + isoName
@@ -447,9 +451,9 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
             m_exclusion->nullSinkModule = nullSink.index;
             m_exclusion->modulesLoaded = true;
 
-            // 2b. devolver o áudio do sink virtual ao alto-falante do
-            // usuário. Sem este retorno o Halla ficaria MUDO enquanto
-            // transmite — se falhar, desfaz a exclusão inteira.
+            // 2b. return the virtual sink audio to the user's speaker.
+            // Without this return Halla would stay MUTED while streaming --
+            // if it fails, undo the whole exclusion.
             StepWait loopback{m_exclusion.get(), false, PA_INVALID_INDEX, {ml}};
             {
                 const std::string args = "source=" + monitorOfIso
@@ -477,7 +481,7 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
             } else {
                 m_exclusion->loopbackModule = loopback.index;
 
-                // 2c. index do sink virtual (alvo dos moves)
+                // 2c. virtual sink index (move target)
                 StepWait sinkInfo{m_exclusion.get(), false, PA_INVALID_INDEX, {ml}};
                 pa_operation* op = pa_context_get_sink_info_by_name(
                     ctx, isoName.c_str(),
@@ -501,8 +505,16 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
                     AppLog::warn(QStringLiteral(
                         "Áudio do PC SEM exclusão do Halla (sink virtual não "
                         "respondeu): sons do próprio Halla entram na transmissão"));
+                    // Roll back the partially loaded modules: leaving the
+                    // loopback + null sink behind would keep Halla streams
+                    // routed to a sink nobody unloads.
+                    unloadNow(m_exclusion->loopbackModule);
+                    unloadNow(m_exclusion->nullSinkModule);
+                    m_exclusion->loopbackModule = PA_INVALID_INDEX;
+                    m_exclusion->nullSinkModule = PA_INVALID_INDEX;
+                    m_exclusion->modulesLoaded = false;
                 } else {
-                    // 2d. mover os sink-inputs ATUAIS do Halla
+                    // 2d. move Halla's CURRENT sink-inputs
                     StepWait list{m_exclusion.get(), false, PA_INVALID_INDEX, {ml}};
                     op = pa_context_get_sink_input_info_list(
                         ctx,
@@ -519,8 +531,8 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
                     else pa_operation_unref(op);
                     list.wait.await();
 
-                    // 2e. assinar sink-inputs NOVOS do Halla (entrar em canal
-                    // depois de iniciar a transmissão)
+                    // 2e. subscribe to NEW Halla sink-inputs (joining a
+                    // channel after starting the stream)
                     struct SubscribeState {
                         PulseExclusion* excl;
                         OpWait wait;
@@ -538,8 +550,8 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
                             if ((type & PA_SUBSCRIPTION_EVENT_FACILITY_MASK)
                                     != PA_SUBSCRIPTION_EVENT_SINK_INPUT)
                                 return;
-                            // Consulta assíncrona: só move se for do nosso
-                            // processo (e ainda não estiver no sink virtual).
+                            // Async query: only move if it belongs to our
+                            // process (and is not already on the virtual sink).
                             struct InfoWait {
                                 PulseExclusion* excl;
                                 OpWait wait;
@@ -594,11 +606,11 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
         }
     }
 
-    // ---- Passo 3: gravar do monitor com pa_simple (a leitura bloqueante
-    // marca o ritmo de 10 ms; o servidor resampleia para a taxa pedida).
+    // ---- Step 3: record from the monitor with pa_simple (the blocking read
+    // sets the 10 ms pace; the server resamples to the requested rate).
     const int frameBytes = int(sampleRate / 100) * 2 /*channels*/ * 2 /*s16*/;
-    // static_cast evita tanto o vexing parse (parênteses com expr simples)
-    // quanto a initializer_list (braces com size_t = 1 elemento).
+    // static_cast avoids both the vexing parse (parentheses with a simple
+    // expression) and initializer_list (braces with size_t = 1 element).
     std::vector<char> buffer(static_cast<size_t>(frameBytes));
     std::vector<int16_t> mono(static_cast<size_t>(frameBytes) / 4 + 1);
     int error = 0;
@@ -609,8 +621,8 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
     pa_buffer_attr attr{};
     attr.maxlength = uint32_t(frameBytes * 4);
     attr.fragsize = uint32_t(frameBytes);
-    // Assinatura real: (server, name, dir, dev, STREAM_NAME, ss, map, attr, error)
-    // — 9 parâmetros; o stream_name é obrigatório e distinto do nome do client.
+    // Real signature: (server, name, dir, dev, STREAM_NAME, ss, map, attr, error)
+    // -- 9 parameters; stream_name is mandatory and distinct from the client name.
     pa_simple* record = pa_simple_new(nullptr, "halla-screenshare",
                                       PA_STREAM_RECORD, monitorSource.constData(),
                                       "halla-pc-audio",
@@ -619,9 +631,9 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
         AppLog::warn(QStringLiteral("Áudio da transmissão indisponível: %1")
                          .arg(QString::fromLatin1(pa_strerror(error))));
         m_running = false;
-        return;
-    }
-
+        // Fall through to the teardown below: returning here would leak the
+        // loaded modules and leave Halla streams on the virtual sink.
+    } else {
     AppLog::info(QStringLiteral(
         "Loopback PulseAudio ativo: todo o som do PC (%1); %2 Hz")
         .arg(excluded ? QStringLiteral("Halla excluído")
@@ -644,10 +656,11 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
     }
 
     pa_simple_free(record);
+    }
 
-    // ---- Passo 4: desfazer a exclusão (mover os sink-inputs de volta ANTES
-    // de descarregar os módulos, senão o áudio do Halla morre junto com o
-    // sink virtual).
+    // ---- Step 4: undo the exclusion (move the sink-inputs back BEFORE
+    // unloading the modules, otherwise Halla audio dies together with the
+    // virtual sink).
     if (m_exclusion->modulesLoaded && m_exclusion->ml && m_exclusion->ctx
             && !m_exclusion->defaultSink.empty()) {
         pa_threaded_mainloop* ml = m_exclusion->ml;
@@ -661,14 +674,15 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
         TeardownWait teardown{{ml}};
         m_exclusion->moveWait = &teardown.wait;
         auto clearMoveWait = qScopeGuard([this] { m_exclusion->moveWait = nullptr; });
-        // Espera os moves do SETUP terminarem antes de mover de volta: com
-        // lock held os callbacks não rodam concorrentemente com este código,
-        // e o reset de `done` abaixo é seguro. Sem isto, um move-para-iso
-        // ainda em voo podia chegar ao servidor DEPOIS do move-de-volta e
-        // deixar o stream do Halla num sink que está sendo descarregado.
+        // Wait for the SETUP moves to finish before moving back: with the
+        // lock held the callbacks do not run concurrently with this code, and
+        // the `done` reset below is safe. Without this, an in-flight
+        // move-to-iso could reach the server AFTER the move-back and leave
+        // the Halla stream on a sink being unloaded.
         if (m_exclusion->pendingMoves > 0) teardown.wait.await();
         teardown.wait.done = false;
         for (uint32_t input : m_exclusion->movedInputs) {
+            m_exclusion->pendingMoves++;
             pa_operation* op = pa_context_move_sink_input_by_name(
                 ctx, input, m_exclusion->defaultSink.c_str(),
                 [](pa_context*, int, void* userdata) {
@@ -701,7 +715,7 @@ void LinuxLoopbackAudioDeviceModule::captureLoop()
                 unload.wait.await();
             }
         };
-        // Primeiro o loopback (deixa de puxar do monitor), depois o sink.
+        // First the loopback (stops pulling from the monitor), then the sink.
         unloadNow(m_exclusion->loopbackModule);
         unloadNow(m_exclusion->nullSinkModule);
     }

@@ -124,7 +124,11 @@ webrtc::scoped_refptr<webrtc::I420BufferInterface> D3D11FrameBuffer::ToI420() {
 
     auto i420 = webrtc::I420Buffer::Create(m_impl->width, m_impl->height);
     const uint8_t* y = static_cast<const uint8_t*>(mapped.pData);
-    const uint8_t* uv = y + size_t(mapped.RowPitch) * m_impl->height;
+    // NV12 UV plane starts after the ALIGNED Y height (even), not the raw
+    // height: with an odd height the UV offset would land mid-Y-plane and
+    // chroma would be shifted/garbage.
+    const int alignedHeight = (m_impl->height + 1) & ~1;
+    const uint8_t* uv = y + size_t(mapped.RowPitch) * alignedHeight;
     const int converted = libyuv::NV12ToI420(
         y, int(mapped.RowPitch), uv, int(mapped.RowPitch),
         i420->MutableDataY(), i420->StrideY(),
@@ -229,8 +233,8 @@ bool enumerateHardwareEncoder(HardwareEncoderActivation& selected,
         selected = *it;
         return true;
     };
-    // A textura DXGI e o MFT devem usar o mesmo adaptador. Sem uma textura
-    // nativa, prefira GPU dedicada (NVIDIA/AMD) antes do encoder da iGPU.
+    // The DXGI texture and the MFT must use the same adapter. Without a native
+    // texture, prefer a dedicated GPU (NVIDIA/AMD) over the iGPU encoder.
     if (chooseVendor(preferredVendor)
             || chooseVendor(QStringLiteral("VEN_10DE"))
             || chooseVendor(QStringLiteral("VEN_1002"))) return true;

@@ -2,12 +2,12 @@
 
 #include <QString>
 
-// Texto-para-voz do Halla (estilo "Default Sound Pack" com voz do Halla):
-// narra eventos ("Fulano entrou", "Você foi cutucado") quando ativado em
-// Opções > Notificações. Usa QTextToSpeech (Windows: SAPI; Linux: speechd).
+// Halla text-to-speech (Halla-voice style of the "Default Sound Pack"):
+// narrates events ("So-and-so joined", "You were poked") when enabled in
+// Options > Notifications. Uses QTextToSpeech (Windows: SAPI; Linux: speechd).
 namespace HSpeech {
 
-void say(const QString& text); // assíncrono; ignora se desativado/sem engine
-bool available();              // existe engine de voz no sistema?
+void say(const QString& text); // asynchronous; ignored when disabled or without an engine
+bool available();              // is there a voice engine on the system?
 
 }

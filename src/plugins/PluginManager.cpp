@@ -423,22 +423,34 @@ struct PluginManager::Record {
                              HallaAudioProcessorFn processor, uint32_t stages) {
         Record* record = static_cast<Record*>(context);
         if (!record || !processor || !(stages & (HALLA_AUDIO_CAPTURE |
+                HALLA_AUDIO_CAPTURE_AFTER_VAD |
                 HALLA_AUDIO_REMOTE_BEFORE_SPATIAL | HALLA_AUDIO_MIXED_PLAYBACK)))
             return HALLA_RESULT_INVALID_ARGUMENT;
-        if ((stages & HALLA_AUDIO_CAPTURE) && !record->hasCapability("audio.capture"))
+        // AFTER_VAD reads the same microphone signal as CAPTURE: it requires
+        // the same "audio.capture" capability. Without this check a plugin
+        // without the capability could register for the post-VAD stage and
+        // receive microphone audio it was never granted.
+        if ((stages & (HALLA_AUDIO_CAPTURE | HALLA_AUDIO_CAPTURE_AFTER_VAD))
+                && !record->hasCapability("audio.capture"))
             return HALLA_RESULT_PERMISSION_DENIED;
         if ((stages & (HALLA_AUDIO_REMOTE_BEFORE_SPATIAL | HALLA_AUDIO_MIXED_PLAYBACK))
                 && !record->hasCapability("audio.playback"))
             return HALLA_RESULT_PERMISSION_DENIED;
-        record->audioProcessorContext = pluginContext;
-        record->audioProcessor = processor;
-        record->audioStages = stages;
+        {
+            std::unique_lock<std::shared_mutex> lock(
+                PluginManager::instance().m_audioMutex);
+            record->audioProcessorContext = pluginContext;
+            record->audioProcessor = processor;
+            record->audioStages = stages;
+        }
         return HALLA_RESULT_OK;
     }
 
     static void audioUnregister(void* context) {
         Record* record = static_cast<Record*>(context);
         if (!record) return;
+        std::unique_lock<std::shared_mutex> lock(
+            PluginManager::instance().m_audioMutex);
         record->audioProcessor = nullptr;
         record->audioProcessorContext = nullptr;
         record->audioStages = 0;
@@ -954,9 +966,9 @@ void PluginManager::scanInstalled() {
         }
         const QString id = manifest.value("id").toString();
         if (m_records.contains(id)) {
-            // O pacote oficial "official.radio-voice" substitui o complemento
-            // interno de mesmo id: é assim que o filtro de rádio é atualizado
-            // pelo catálogo sem publicar uma nova versão do aplicativo.
+            // The official "official.radio-voice" package replaces the
+            // built-in addon with the same id: that is how the radio filter is
+            // updated through the catalog without shipping a new app release.
             Record* builtIn = m_records.value(id);
             if (!builtIn || !builtIn->info.builtIn
                     || id != QLatin1String("official.radio-voice"))
@@ -1124,9 +1136,12 @@ void PluginManager::unload(Record* item) {
     if (item->api && item->info.loaded && item->api->shutdown) {
         try { item->api->shutdown(); } catch (...) {}
     }
-    item->audioProcessor = nullptr;
-    item->audioProcessorContext = nullptr;
-    item->audioStages = 0;
+    {
+        std::unique_lock<std::shared_mutex> lock(m_audioMutex);
+        item->audioProcessor = nullptr;
+        item->audioProcessorContext = nullptr;
+        item->audioStages = 0;
+    }
     item->dataHandler = nullptr;
     item->dataHandlerContext = nullptr;
     item->audioConnections.clear();
@@ -1343,8 +1358,13 @@ bool PluginManager::installPackage(const QString& packagePath, QWidget* parent,
         entry = entry.trimmed();
         entry.replace('\\', '/');
         const QString cleaned = QDir::cleanPath(entry);
-        if (entry.startsWith('/') || entry.contains(':') || cleaned == QLatin1String("..")
-                || cleaned.startsWith(QStringLiteral("../"))) {
+        // Pre-validate every entry BEFORE extraction (zip-slip defense): no
+        // absolute paths, no drive letters, and no ".." component anywhere --
+        // a single traversal entry must abort the whole install.
+        const QStringList parts = cleaned.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        if (entry.startsWith('/') || entry.contains(':')
+                || cleaned.startsWith(QStringLiteral("../"))
+                || cleaned == QLatin1String("..") || parts.contains(QStringLiteral(".."))) {
             if (error) *error = tr("O pacote contém caminhos inseguros.");
             return false;
         }
@@ -1364,11 +1384,25 @@ bool PluginManager::installPackage(const QString& packagePath, QWidget* parent,
     }
     qint64 extractedBytes = 0;
     int extractedFiles = 0;
+    const QString outputCanonical = QFileInfo(output).canonicalFilePath();
     QDirIterator extracted(output, QDir::Files | QDir::NoDotAndDotDot,
                            QDirIterator::Subdirectories);
     while (extracted.hasNext()) {
         extracted.next();
-        extractedBytes += extracted.fileInfo().size();
+        const QFileInfo info = extracted.fileInfo();
+        // Symlinks/hardlinks in the archive must never survive extraction:
+        // a link pointing outside the staging tree would let a later copy
+        // read or overwrite files outside the addon directory.
+        if (info.isSymLink()) {
+            if (error) *error = tr("O pacote contém links simbólicos, o que não é permitido.");
+            return false;
+        }
+        const QString canonical = info.canonicalFilePath();
+        if (!canonical.isEmpty() && !canonical.startsWith(outputCanonical + QLatin1Char('/'))) {
+            if (error) *error = tr("O pacote contém caminhos inseguros.");
+            return false;
+        }
+        extractedBytes += info.size();
         if (++extractedFiles > 2000 || extractedBytes > 250ll * 1024 * 1024) {
             if (error) *error = tr("O conteúdo extraído excede os limites de segurança.");
             return false;
@@ -1420,8 +1454,8 @@ bool PluginManager::installPackage(const QString& packagePath, QWidget* parent,
             if (error) *error = tr("O ID pertence a um complemento interno do Halla.");
             return false;
         }
-        // Instalar o pacote oficial de rádio substitui o complemento interno
-        // de mesmo id (atualização do efeito via catálogo).
+        // Installing the official radio package replaces the built-in addon
+        // with the same id (effect update via catalog).
         unload(existing);
         m_records.remove(id);
         delete existing;
@@ -1433,9 +1467,14 @@ bool PluginManager::installPackage(const QString& packagePath, QWidget* parent,
         if (error) *error = tr("Não foi possível substituir a versão instalada.");
         return false;
     }
-    if (!copyTree(root, destination, error)) {
+    if (!copyTree(root, destination, error)
+            || !QFileInfo(QDir(destination).filePath("manifest.json")).isFile()) {
+        // Staging swap failed: remove the partial tree and restore the
+        // previous version from the backup (atomic from the user's view).
         QDir(destination).removeRecursively();
         if (QFileInfo::exists(backup)) QDir().rename(backup, destination);
+        if (error && error->isEmpty())
+            *error = tr("Não foi possível instalar o pacote.");
         return false;
     }
     QDir(backup).removeRecursively();
@@ -1466,8 +1505,8 @@ bool PluginManager::removeAddon(const QString& id, QString* error) {
     m_records.remove(id);
     delete item;
     S::set(QStringLiteral("addons/%1/enabled").arg(id), false);
-    // Remover o pacote oficial de rádio devolve o complemento interno ao
-    // mesmo estado de ativação que ele tinha antes da substituição.
+    // Removing the official radio package returns the built-in addon to the
+    // same activation state it had before the replacement.
     if (officialRadio) {
         addOfficialRadioVoice();
         if (wasEnabled) setEnabled(id, true);
@@ -1517,9 +1556,9 @@ static QString hallaCatalogPlatformText(const QJsonObject& addon) {
 void PluginManager::showCatalog(QWidget* parent) {
     struct CatalogRow {
         QJsonObject addon;
-        bool compatible = true;   // disponível para Desktop
-        bool bundled = false;     // já incluído no aplicativo
-        bool installed = false;   // instalado (não embutido)
+        bool compatible = true;   // available for Desktop
+        bool bundled = false;     // already bundled in the app
+        bool installed = false;   // installed (not bundled)
         bool updateAvailable = false;
     };
     auto* dialog = new QDialog(parent);
@@ -1681,9 +1720,9 @@ void PluginManager::showCatalog(QWidget* parent) {
                 if (!installed->info.builtIn) {
                     catalogRow.installed = true;
                 }
-                // Também para complementos internos (bundled): se o catálogo
-                // publica uma versão mais nova em pacote, oferecer a
-                // atualização que substitui o interno pelo baixável.
+                // Also for bundled addons: when the catalog publishes a newer
+                // packaged version, offer the update that replaces the bundled
+                // one with the downloadable build.
                 catalogRow.updateAvailable = hallaCatalogIsNewer(
                     addon.value("version").toString(), installed->info.version);
             }
@@ -1741,7 +1780,7 @@ void PluginManager::showCatalog(QWidget* parent) {
                 status->setText(catalogRow.updateAvailable
                     ? tr("Complemento atualizado com sucesso.")
                     : tr("Complemento instalado. Ative-o na aba Complementos."));
-                // Atualiza o estado da linha recém-instalada.
+                // Refresh the state of the freshly installed row.
                 for (CatalogRow& rowRef : *entries) {
                     if (rowRef.addon.value("id").toString() == installedId) {
                         rowRef.installed = true;
@@ -1957,24 +1996,42 @@ void PluginManager::processAudio(quint64 connectionIdValue, int userId, uint32_t
                                  uint32_t flags, int16_t* samples, uint32_t frames,
                                  uint32_t channels, uint32_t sampleRate) {
     if (!samples || !frames || !channels) return;
-    // O DSP oficial interno roda na captura pós-VAD e nas vozes recebidas.
-    // Complementos externos registrados nesses estágios processam em seguida.
+    // The built-in official DSP runs on post-VAD capture and received voices.
+    // External addons registered for those stages process next.
     if (stage == HALLA_AUDIO_CAPTURE_AFTER_VAD
             || stage == HALLA_AUDIO_REMOTE_BEFORE_SPATIAL)
         processOfficialRadio(connectionIdValue, userId, stage, flags,
                              samples, frames, channels, sampleRate);
-    for (Record* item : m_records) {
-        if (!item || !item->info.loaded || !item->info.enabled
-                || !item->audioProcessor || !(item->audioStages & stage)) continue;
+    // Snapshot the processors under a shared lock, then invoke WITHOUT
+    // holding it: a plugin callback may unregister itself (exclusive lock)
+    // and holding the lock across the call would deadlock. unload() clears
+    // the fields under the exclusive lock, so a snapshot taken here can
+    // never race a half-cleared record.
+    struct AudioTarget { HallaAudioProcessorFn processor; void* context; QString name; };
+    QList<AudioTarget> targets;
+    {
+        std::shared_lock<std::shared_mutex> lock(m_audioMutex);
+        for (Record* item : m_records) {
+            if (!item || !item->info.loaded || !item->info.enabled
+                    || !item->audioProcessor || !(item->audioStages & stage)) continue;
+            targets << AudioTarget{item->audioProcessor, item->audioProcessorContext, item->info.name};
+        }
+    }
+    for (const AudioTarget& target : targets) {
         HallaAudioFrame frame{uint32_t(sizeof(HallaAudioFrame)), stage,
                               connectionIdValue, userId, samples, frames, channels,
                               sampleRate, flags};
-        try { item->audioProcessor(item->audioProcessorContext, &frame); }
+        try { target.processor(target.context, &frame); }
         catch (...) {
             AppLog::error(tr("O complemento %1 lançou uma exceção no processamento de áudio.")
-                          .arg(item->info.name));
-            item->audioProcessor = nullptr;
-            item->audioStages = 0;
+                          .arg(target.name));
+            std::unique_lock<std::shared_mutex> lock(m_audioMutex);
+            for (Record* item : m_records) {
+                if (item && item->info.name == target.name) {
+                    item->audioProcessor = nullptr;
+                    item->audioStages = 0;
+                }
+            }
         }
     }
 }

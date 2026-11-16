@@ -3,11 +3,11 @@ cmake_minimum_required(VERSION 3.21)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" HALLA_VERSION LIMIT_COUNT 1)
 string(STRIP "${HALLA_VERSION}" HALLA_VERSION)
 if (NOT HALLA_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-    message(FATAL_ERROR "VERSION inválida: '${HALLA_VERSION}'")
+    message(FATAL_ERROR "Invalid VERSION: '${HALLA_VERSION}'")
 endif()
-# C e CXX: o DSP de voz embutido (RNNoise + AEC do speex) é C puro — sem
-# "C" aqui os .c dos vendors ficam sem regra de compilação e o link falha
-# com undefined reference.
+string(TIMESTAMP HALLA_BUILD_DATE "%d/%m/%Y" UTC)
+
+# Enable both C and CXX so bundled C DSP sources (RNNoise and SpeexDSP AEC) compile cleanly.
 project(Halla VERSION ${HALLA_VERSION} LANGUAGES C CXX)
 
 set(HALLA_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -30,11 +30,10 @@ set(HALLA_WEBRTC_SDK_DIR "" CACHE PATH "Path to prebuilt Halla/libwebrtc SDK")
 
 find_package(OpenSSL REQUIRED)
 
-# Qt 6
 find_package(Qt6 6.2 QUIET COMPONENTS Widgets Network Multimedia TextToSpeech DBus)
 if (Qt6_FOUND)
     set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech Qt6::DBus)
-    message(STATUS "Halla: usando Qt ${Qt6_VERSION}")
+    message(STATUS "Halla: using Qt ${Qt6_VERSION}")
 else()
     find_package(Qt6 REQUIRED COMPONENTS Widgets Network Multimedia TextToSpeech DBus)
     set(QT_LIBS Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::TextToSpeech Qt6::DBus)
@@ -57,7 +56,6 @@ FetchContent_Declare(qtkeychain
 )
 FetchContent_MakeAvailable(qtkeychain)
 
-# Opus vem da toolchain/sistema. Não versionamos mais libopus.a no Git.
 find_path(OPUS_INCLUDE_DIR opus.h PATH_SUFFIXES opus third_party/opus/include REQUIRED)
 find_library(OPUS_LIBRARY opus REQUIRED)
 add_library(opus UNKNOWN IMPORTED GLOBAL)
@@ -79,11 +77,8 @@ set(HALLA_SOURCES
     src/audio/HallaAudioProcessing.h
     src/audio/EchoGuard.cpp
     src/audio/EchoGuard.h
-    # DSP embutido (funciona mesmo sem o SDK do libwebrtc): RNNoise (Xiph,
-    # supressão de ruído por rede neural) + cancelador de eco AUMDF do
-    # speexdsp (Xiph). O wrapper speex_aec.c compila os .c do vendor numa
-    # única unidade C com os símbolos kiss renomeados para não colidir com
-    # o kiss do RNNoise. Licenças e créditos nos COPYING de cada diretório.
+    # Bundled fallback DSP (RNNoise neural denoiser + SpeexDSP MDF echo canceller)
+    # used when building without the prebuilt libwebrtc SDK.
     src/audio/rnnoise/denoise.c
     src/audio/rnnoise/kiss_fft.c
     src/audio/rnnoise/pitch.c
@@ -130,10 +125,7 @@ set(HALLA_SOURCES
     src/webrtc/HallaWebRtcSession.h
     src/webrtc/MediaFoundationH264.cpp
     src/webrtc/MediaFoundationH264.h
-    # Captura de tela/áudio do PC no Linux (X11/PulseAudio). Compilam vazios
-    # (stubs) fora de "Linux + WebRTC nativo" — mesmo padrão do
-    # MediaFoundationH264; a enumeração de janelas X11 do ScreenShareDialog
-    # não depende do SDK e funciona até no build fallback.
+    # Linux X11 screen capture and PulseAudio loopback audio backends.
     src/webrtc/X11ScreenCapturer.cpp
     src/webrtc/X11ScreenCapturer.h
     src/webrtc/PulseLoopbackAudio.cpp
@@ -142,9 +134,7 @@ set(HALLA_SOURCES
 
 add_executable(Halla ${HALLA_SOURCES})
 
-# X11 é necessário no Linux mesmo sem o SDK WebRTC: a enumeração de
-# janelas do diálogo de compartilhamento (aba Aplicativos) usa Xlib direto
-# em qualquer build.
+# X11 is required on Linux even in non-WebRTC builds for window enumeration and global hotkeys.
 if (UNIX AND NOT APPLE)
     find_package(X11 REQUIRED COMPONENTS Xext Xrandr Xfixes)
     target_link_libraries(Halla PRIVATE X11::X11 X11::Xext X11::Xrandr X11::Xfixes)
@@ -177,7 +167,7 @@ if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
         set(HALLA_WEBRTC_LIBRARY "${HALLA_WEBRTC_SDK_DIR}/lib/linux-x64/libwebrtc.a")
     endif()
     if (EXISTS "${HALLA_WEBRTC_INCLUDE_DIR}" AND EXISTS "${HALLA_WEBRTC_LIBRARY}")
-        message(STATUS "Halla: WebRTC SDK encontrado em ${HALLA_WEBRTC_SDK_DIR}")
+        message(STATUS "Halla: WebRTC SDK found at ${HALLA_WEBRTC_SDK_DIR}")
         if (HALLA_ENABLE_WEBRTC_NATIVE)
             set(HALLA_WEBRTC_INCLUDE_DIRS "${HALLA_WEBRTC_INCLUDE_DIR}")
             foreach(extra_dir
@@ -195,9 +185,7 @@ if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
             else()
                 target_compile_definitions(Halla PRIVATE WEBRTC_POSIX=1)
             endif()
-            # WebRTC headers from current Chromium use C++20 features such as
-            # std::span and constrained templates. Keep the default project at
-            # C++17, but raise the target when native WebRTC is explicitly ON.
+            # Chromium/libwebrtc headers require C++20 features such as std::span.
             target_compile_features(Halla PRIVATE cxx_std_20)
             target_include_directories(Halla PRIVATE ${HALLA_WEBRTC_INCLUDE_DIRS})
             target_link_libraries(Halla PRIVATE "${HALLA_WEBRTC_LIBRARY}")
@@ -205,10 +193,7 @@ if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
                 target_link_libraries(Halla PRIVATE winmm mmdevapi secur32 crypt32 iphlpapi dmoguids strmiids msdmo wmcodecdspuuid ole32 oleaut32 user32 advapi32 d3d11 dxgi mf mfplat mfuuid propsys)
             endif()
             if (UNIX AND NOT APPLE)
-                # Loopback do áudio do PC (PulseAudio/pipewire-pulse) +
-                # pthread/dl/m exigidos pelo libwebrtc.a no Linux.
-                # pa_simple_* (gravação bloqueante do monitor no setup do
-                # loopback) vive na libpulse-simple, separada da libpulse.
+                # PulseAudio/PipeWire loopback capture and POSIX system libraries required by libwebrtc.a.
                 find_package(Threads REQUIRED)
                 find_path(PULSE_INCLUDE_DIR pulse/pulseaudio.h REQUIRED)
                 find_library(PULSE_LIBRARY NAMES pulse REQUIRED)
@@ -219,21 +204,21 @@ if (HALLA_ENABLE_WEBRTC AND HALLA_WEBRTC_SDK_DIR)
                     ${PULSE_LIBRARY} ${PULSE_SIMPLE_LIBRARY} ${M_LIBRARY}
                     Threads::Threads ${CMAKE_DL_LIBS})
             endif()
-            message(STATUS "Halla: WebRTC nativo habilitado (${HALLA_WEBRTC_LIBRARY})")
+            message(STATUS "Halla: native WebRTC enabled (${HALLA_WEBRTC_LIBRARY})")
         else()
-            message(STATUS "Halla: WebRTC SDK disponível, implementação nativa desligada; usando stub")
+            message(STATUS "Halla: WebRTC SDK available, native implementation disabled; using stub")
         endif()
     else()
-        message(WARNING "Halla: SDK WebRTC incompleto; usando stub WebRTC")
+        message(WARNING "Halla: incomplete WebRTC SDK; using stub")
     endif()
 else()
-    message(STATUS "Halla: WebRTC nativo desabilitado/sem SDK; usando stub")
+    message(STATUS "Halla: native WebRTC disabled or SDK missing; using stub")
 endif()
 
 if (NOT HALLA_WEBRTC_NATIVE_ACTIVE)
     target_link_libraries(Halla PRIVATE ${OPUS_LIBS} OpenSSL::Crypto)
 else()
-    message(STATUS "Halla: usando Opus/BoringSSL embutidos no SDK WebRTC para evitar símbolos duplicados")
+    message(STATUS "Halla: using Opus/BoringSSL bundled in WebRTC SDK")
 endif()
 
 if (MSVC)
@@ -242,7 +227,6 @@ else()
     target_compile_options(Halla PRIVATE -Wall -Wextra)
 endif()
 
-# App GUI nativo (sem console) no Windows / bundle no macOS
 set_target_properties(Halla PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE
@@ -251,11 +235,7 @@ set_target_properties(Halla PROPERTIES
 
 install(TARGETS Halla RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 
-# Complemento oficial "Voz de rádio policial" distribuído em pacote
-# .halla-addon pelo catálogo (https://grouphalla.github.io/Halla-Addons/).
-# Mesmo DSP do complemento embutido; a DLL permite atualizar o efeito sem
-# publicar uma nova versão do aplicativo. Não é linkada ao Halla.exe — o
-# PluginManager carrega a biblioteca instalada pelo catálogo.
+# Official "Police Radio Voice" add-on shared library distributed via Halla-Addons.
 add_library(radio_voice_plugin SHARED
     plugins/official/radio-voice/radio_voice_plugin.cpp)
 target_include_directories(radio_voice_plugin PRIVATE
@@ -267,7 +247,6 @@ set_target_properties(radio_voice_plugin PROPERTIES
     PREFIX ""
 )
 
-# Ícone e informações de versão embutidos no Halla.exe (Windows)
 if (WIN32)
     target_sources(Halla PRIVATE "${HALLA_GENERATED_DIR}/halla.rc")
     target_link_libraries(Halla PRIVATE user32)

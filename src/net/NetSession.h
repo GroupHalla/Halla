@@ -12,12 +12,13 @@
 #include <QSet>
 #include "core/Models.h"
 
-// Sessão de rede do cliente Halla: TCP (controle) + UDP (voz) com o Halla Server.
-// Mantém um ServerData sempre sincronizado com o que o servidor manda.
+// Halla client network session: TCP (control) + UDP (voice) with the Halla server.
+// Keeps a ServerData model always synchronized with what the server sends.
 //
-// v6 E2EE: chaves de grupo nascem AQUI (mestre = menor UID do componente),
-// viajam embrulhadas em e2e_key (X25519+HKDF+AES-GCM), e o servidor é só um
-// relay opaco. Chat/sussurro/poke/offline/voz/tela nunca saem em claro.
+// v6 E2EE: group keys are born HERE (master = lowest UID in the component),
+// travel wrapped in e2e_key (X25519 + HKDF + AES-GCM), and the server is only
+// an opaque relay. Chat, whisper, poke, offline messages, voice, and screen
+// sharing never leave the endpoints in plaintext.
 class NetSession : public QObject {
     Q_OBJECT
 public:
@@ -34,7 +35,7 @@ public:
     bool isConnected() const { return m_ready; }
     bool serverTerminatedSession() const { return m_serverTerminatedSession; }
 
-    // v3: permissões do meu grupo + grupos do servidor (vindos do welcome)
+    // v3: my group permissions + server groups (from the welcome message).
     QJsonObject myPerms() const { return m_myPerms; }
     QJsonArray  serverGroups() const { return m_groups; }
     bool        allowScreenShare() const { return m_allowScreenShare; }
@@ -45,10 +46,10 @@ public:
     QJsonArray  webRtcIceServers() const  { return m_webRtcIceServers; }
     qint64      bytesToWrite() const      { return m_tcp ? m_tcp->bytesToWrite() : 0; }
 
-    // ---- estrutura pública (aplicada em ServerData e emitindo stateChanged)
+    // ---- public structure (applied to ServerData, emitting stateChanged)
     void attachTo(ServerData* target) { m_target = target; }
 
-    // ---- ações do cliente (enviadas ao servidor)
+    // ---- client actions (sent to the server)
     void sendChat(const QString& scope, int to, const QString& text);
     void moveToChannel(int channelId, const QString& pass = QString());
     void moveOther(int userId, int channelId);
@@ -68,14 +69,14 @@ public:
     void usePrivilegeKey(const QString& key);
     void quit();
 
-    // ---- v3: avatares, offline, reclamações, sussurro, arquivos, banlist
-    void avatarSet(const QByteArray& imageBytes);       // vazio = remover
+    // ---- v3: avatars, offline messages, complaints, whisper, files, banlist
+    void avatarSet(const QByteArray& imageBytes);       // empty = remove
     void avatarGet(const QString& uid);
     void offlineSend(const QString& uid, const QString& text);
     void complaintAdd(int userId, const QString& text);
     void complaintList();
     void complaintClear(const QString& uid = QString());
-    void setWhisperIds(const QList<int>& ids);          // vazio = fala normal
+    void setWhisperIds(const QList<int>& ids);          // empty = normal speech
     void ftUpload(int channel, const QString& name, const QByteArray& data);
     void ftList(int channel);
     void ftDownload(int channel, const QString& name);
@@ -88,9 +89,9 @@ public:
     void groupSet(int id, const QString& name, const QJsonObject& perms,
                   const QString& sigla = QString(), int order = 0,
                   const QString& icon = QString(), int position = -1,
-                  bool siglaAfter = false, bool orderEnabled = true); // id 0 = criar, position=-1 = não alterar
-    // Reordenação em lote: uma única mensagem com {id, order, position} de
-    // cada cargo — o servidor grava e transmite UMA vez em vez de N.
+                  bool siglaAfter = false, bool orderEnabled = true); // id 0 = create, position=-1 = leave unchanged
+    // Batch reorder: a single message with {id, order, position} per group --
+    // the server stores and broadcasts ONCE instead of N times.
     void groupReorder(const QJsonArray& entries);
     void groupDelete(int id);
     void clientSetGroup(int userId, int gid, bool remove = false);
@@ -98,13 +99,13 @@ public:
     void serverEdit(const QString& name, const QString& motd,
                     const QByteArray& banner = QByteArray(), bool bannerChanged = false);
 
-    // ---- voz
+    // ---- voice
     void sendVoiceFrame(const QByteArray& opus, quint16 seq);
     void sendScreenShareStart();
     void sendScreenShareStop();
     void sendScreenShareFrame(const QByteArray& jpeg, quint16 seq);
 
-    // WebRTC signaling v1 (TCP/TLS signaling; media is negotiated by clients)
+    // WebRTC signaling v1 (TCP/TLS signaling; media is negotiated by clients).
     void sendWebRtcStreamStart(int width, int height, int fps, int bitrateKbps);
     void sendWebRtcStreamStop();
     void sendWebRtcWatchRequest(int userId);
@@ -114,45 +115,40 @@ public:
     void sendWebRtcIce(int toUserId, const QString& candidate,
                        const QString& sdpMid = QString(), int sdpMLineIndex = -1);
 
-    // Protocolo v5: transporte confiável e delimitado por complemento.
+    // Protocol v5: reliable, delimited plugin data transport.
     bool sendPluginData(const QString& pluginId, int target,
                         const QList<int>& targetUserIds, const QString& topic,
                         const QByteArray& data);
 
-    // ---- v6 E2EE (público para a UI)
-    // Chaves de grupo disponíveis (escopo servidor + meu canal): usado pelo
-    // indicador de cadeado da barra de status.
+    // ---- v6 E2EE (public, for the UI)
+    // Available group keys (server scope + my channel): used by the status
+    // bar lock indicator.
     bool e2eeKeysReady() const;
-    // Código SAS para verificação fora de banda com outro usuário (9 dígitos
-    // derivados das duas chaves públicas de identidade).
-    QString e2eeSasCodeFor(int userId) const;
-    // Estado de verificação persistido localmente (por UID).
-    bool e2eeUserVerified(int userId) const;
-    void e2eeMarkUserVerified(int userId);
-    // Minha chave pública de identidade (para diálogos de verificação).
+    // My identity public key (exposed so the E2EE binding and the backup
+    // machinery can reference the local identity).
     QByteArray e2eeMyIdPub() const;
 
 signals:
-    void welcomeReceived();                     // estado completo carregado
-    void selfRenamed(const QString& name);      // servidor confirmou nosso novo apelido (user_nick)
-    void stateChanged();                        // ServerData mudou (rebuild da UI)
-    // toId: destinatário real de mensagens privadas. O servidor ecoa a
-    // mensagem privada de volta ao remetente (from = eu) para ela aparecer
-    // na conversa; sem o "to" o cliente não distingue eco de mensagem nova.
+    void welcomeReceived();                     // full state loaded
+    void selfRenamed(const QString& name);      // server confirmed our new nickname (user_nick)
+    void stateChanged();                        // ServerData changed (UI rebuild)
+    // toId: the real recipient of private messages. The server echoes a
+    // private message back to the sender (from = me) so it appears in the
+    // conversation; without "to" the client cannot tell echo from new message.
     void chatReceived(const QString& scope, int fromId, int toId, const QString& fromName,
                       const QString& text);
-    void systemEvent(const QString& text);      // "* X entrou no canal Y" etc.
+    void systemEvent(const QString& text);      // "* X joined channel Y" etc.
     void pokeReceived(int fromUserId, const QString& fromName, const QString& msg);
     void kickedReceived(const QString& reason, bool ban, int minutes);
-    void errorOccurred(const QString& code, const QString& msg); // erro do servidor
-    void connectionFailed(const QString& reason);                // TCP falhou/negado
-    // Login recusado por apelido (name_in_use/bad_nick): o servidor fecha a
-    // conexão; a UI pede outro apelido e reconecta.
+    void errorOccurred(const QString& code, const QString& msg); // server error
+    void connectionFailed(const QString& reason);                // TCP failed/refused
+    // Login refused because of nickname (name_in_use/bad_nick): the server
+    // closes the connection; the UI asks for another nickname and reconnects.
     void nickRejected(const QString& message);
     void disconnectedUnexpected();
     void voicePacketReceived(int fromId, quint16 seq, const QByteArray& payload);
-    // v1.1.28: mode = "webrtc" | "jpeg" | vazio (desconhecido/servidor antigo).
-    // O viewer decide COMO assistir com base no modo do transmissor.
+    // v1.1.28: mode = "webrtc" | "jpeg" | empty (unknown/old server).
+    // The viewer decides HOW to watch based on the broadcaster mode.
     void screenshareStateChanged(int userId, bool on, const QString& mode);
     void screenshareFrameReceived(int userId, const QByteArray& jpegData);
     void webRtcSignalReceived(const QJsonObject& signal);
@@ -163,8 +159,8 @@ signals:
     // ---- v3
     void avatarDataReceived(const QString& uid, const QByteArray& bytes);
     void iconDataReceived(const QString& name, const QByteArray& bytes);
-    // Administrador enviou (ou substituiu) um ícone de cargo: o servidor
-    // faz broadcast de icon_uploaded para todos os clientes conectados.
+    // An administrator uploaded (or replaced) a group icon: the server
+    // broadcasts icon_uploaded to every connected client.
     void iconUploaded(const QString& name);
     void userAvatarChanged(int userId, const QString& hash);
     void offlineMsgReceived(const QString& fromName, const QString& text, const QString& ts);
@@ -173,8 +169,8 @@ signals:
     void banListReceived(const QJsonArray& bans);
     void groupListReceived(const QJsonArray& groups);
     void groupSetConfirmed(const QJsonObject& group);
-    // Lista de membros de um cargo mudou no servidor (atribuição/remoção):
-    // atualiza os painéis de grupos abertos em tempo real.
+    // A group membership list changed on the server (assignment/removal):
+    // updates open group panels in real time.
     void groupMembersUpdated(int gid, const QJsonArray& members);
     void ftListReceived(int channel, const QJsonArray& files);
     void ftDataReceived(int channel, const QString& name, const QByteArray& bytes);
@@ -183,10 +179,10 @@ signals:
     void whisperConfirmed(int count);
 
     // ---- v6 E2EE
-    // Aviso de segurança (identidade mudou, diretório inválido, servidor
-    // tentou enviar channel_key etc.). Exibido com destaque na UI.
+    // Security notice (identity changed, invalid directory, server tried to
+    // send channel_key, etc.). Shown prominently in the UI.
     void e2eeSecurityNotice(const QString& text);
-    // Disponibilidade de chaves mudou (indicador de cadeado na UI).
+    // Key availability changed (UI lock indicator).
     void e2eeStateChanged();
 
 private slots:
@@ -205,25 +201,29 @@ private:
     void applyUserJson(const QJsonObject& u);
     void refreshOperators();
     void scheduleChannelStateChanged();
+    // NAT/keepalive registration probe: a tiny encrypted frame that only
+    // teaches the relay our UDP endpoint. Kept separate from real media so
+    // sendVoiceFrame/sendScreenShareFrame never emit unencrypted payloads.
+    void sendUdpNatProbe(quint16 seq);
     ServerData& target() { return m_target ? *m_target : m_data; }
-    // v6 E2EE: as consultas de topo (componente/mestre/SAS) rodam em métodos
-    // const — a leitura do modelo não pode exigir mutabilidade.
+    // v6 E2EE: topology queries (component/master/SAS) run in const methods --
+    // reading the model must not require mutability.
     const ServerData& target() const { return m_target ? *m_target : m_data; }
 
-    // ============================ v6 E2EE — motor local
+    // ============================ v6 E2EE -- local engine
     struct E2eeGroupKey {
         QByteArray key;     // 32 bytes
-        qint64 epoch = 0;   // monotônica (ms Unix) — maior vence
+        qint64 epoch = 0;   // monotonic (Unix ms) -- highest wins
     };
-    bool e2eeLoadMaterial();                       // carrega/gera o par X25519 e assina o hello
-    QSet<int> e2eeComponentOf(int channelId) const; // vínculos em ambos os sentidos
+    bool e2eeLoadMaterial();                       // loads/generates the X25519 pair and signs the hello
+    QSet<int> e2eeComponentOf(int channelId) const; // links in both directions
     QStringList e2eeComponentMemberUids(const QSet<int>& comp) const;
-    bool e2eeIsMasterOfComponent(int channelId) const; // menor UID online do componente
-    bool e2eeIsServerScopeMaster() const;              // menor UID do servidor inteiro
-    QList<int> e2eeComponentMembers(const QSet<int>& comp) const; // ids de sessão
-    void e2eeBootstrap();                          // welcome: gera/pede chaves
-    void e2eeEnsureComponentKey(int channelId);    // gera se faltar + distribui (mestre)
-    void e2eeRotateComponentKey(int channelId);    // nova época + distribui (mestre)
+    bool e2eeIsMasterOfComponent(int channelId) const; // lowest online UID in the component
+    bool e2eeIsServerScopeMaster() const;              // lowest UID on the whole server
+    QList<int> e2eeComponentMembers(const QSet<int>& comp) const; // session ids
+    void e2eeBootstrap();                          // welcome: generate/request keys
+    void e2eeEnsureComponentKey(int channelId);    // generate if missing + distribute (master)
+    void e2eeRotateComponentKey(int channelId);    // new epoch + distribute (master)
     void e2eeDistributeComponentKey(const QSet<int>& comp, const E2eeGroupKey& gk);
     void e2eeShareKeyWith(int sessionId, const QSet<int>& comp, const E2eeGroupKey& gk);
     void e2eeRequestKey(int channelId);
@@ -231,16 +231,16 @@ private:
     void e2eeHandleKeyRequest(const QJsonObject& obj);
     void e2eeHandleIdentityData(const QJsonObject& obj);
     void e2eeApplyGroupKey(const QList<int>& channels, qint64 epoch, const QByteArray& key);
-    void e2eeDistributeWhisperKey();               // meu canal → alvos do sussurro
+    void e2eeDistributeWhisperKey();               // my channel -> whisper targets
     void e2eeOnUserJoined(const QJsonObject& user);
     void e2eeOnUserLeft(int userId, int oldChannel);
     void e2eeOnUserMoved(int userId, int newChannel, int oldChannel);
     void e2eeOnTopologyChanged();                  // chan_update/chan_removed
-    void e2eeSecurityCheckUser(const User& u);     // marcador local + detecção de troca
-    void e2eeFlushPending();                       // chats/offlines à espera de chave
-    void e2eeClearState();                         // desconexão: chaves e filas somem
-    // Decifra/entrega mensagem offline recebida (fila se o remetente não
-    // estiver no diretório local — identity_data resolve e reaplica).
+    void e2eeSecurityCheckUser(const User& u);     // local marker + change detection
+    void e2eeFlushPending();                       // chats/offlines waiting for a key
+    void e2eeClearState();                         // disconnect: keys and queues vanish
+    // Decrypts/delivers a received offline message (queued when the sender is
+    // not in the local directory -- identity_data resolves and reapplies it).
     void e2eeDeliverOfflineMsg(const QJsonObject& obj, qint64 receivedAt = 0);
 
     QSslSocket* m_tcp = nullptr;
@@ -250,7 +250,7 @@ private:
     ServerData m_data;
     ServerData* m_target = nullptr;
     QMap<int, QByteArray> m_channelKeys; // channelId -> AEAD key (32 bytes)
-    QMap<int, qint64> m_channelEpochs;   // channelId -> época vigente (v6)
+    QMap<int, qint64> m_channelEpochs;   // channelId -> current epoch (v6)
 
     QString m_host;
     QHostAddress m_udpHostAddress;
@@ -267,7 +267,7 @@ private:
     int         m_screenshareBitrateKbps = 8000;
     QJsonArray  m_webRtcIceServers;
     quint16 m_udpPort = 0;
-    QByteArray m_voiceToken; // protocolo v4: token CSPRNG de 128 bits
+    QByteArray m_voiceToken; // protocol v4: 128-bit CSPRNG token
     quint16 m_udpRegistrationSeq = 0;
     quint32 m_cryptoCounter = 0;
     QMap<int, QMap<quint16, QMap<int, QByteArray>>> m_reassembly;
@@ -279,14 +279,17 @@ private:
     int m_pingMs = 0;
     QElapsedTimer m_pingClock;
 
-    // ============================ v6 E2EE — estado
-    QByteArray m_e2eeDhPriv;                 // X25519 privada da sessão
-    QByteArray m_e2eeMyIdPub;                // Ed25519 pública local (confere o self)
-    QTimer* m_e2eeHousekeeper = nullptr;     // re-pedidos, filas, re-wrap do sussurro
-    QList<int> m_whisperIds;                 // alvos do sussurro ativo (re-wrap)
+    // ============================ v6 E2EE -- state
+    QByteArray m_e2eeDhPriv;                 // session X25519 private key
+    QByteArray m_e2eeMyIdPub;                // local Ed25519 public key (matches self)
+    QTimer* m_e2eeHousekeeper = nullptr;     // re-requests, queues, whisper re-wrap
+    QList<int> m_whisperIds;                 // active whisper targets (re-wrap)
     bool m_e2eeWhisperNeedsRewrap = false;
-    // Diretório por UID (entradas online + identity_data de quem está offline):
-    // uid -> {idPub, dhPub, dhSig} em base64.
+    // True while the current whisper target set includes at least one user
+    // outside my voice component (they hold my channel key via e2ee_key).
+    bool m_whisperSharedExternal = false;
+    // Directory by UID (online entries + identity_data for offline users):
+    // uid -> {idPub, dhPub, dhSig} in base64.
     QHash<QString, QJsonObject> m_e2eeDirectory;
     struct PendingChat { QString scope; int to; QString text; qint64 queuedAt; };
     QList<PendingChat> m_pendingChats;
@@ -295,49 +298,49 @@ private:
     struct PendingOfflineInbox { QString fromUid; QString fromName;
                                   QString blobB64; QString ts; qint64 receivedAt; };
     QList<PendingOfflineInbox> m_pendingOfflineInbox;
-    QMap<int, int> m_e2eeKeyRequestTries;    // channelId -> tentativas (backoff)
+    QMap<int, int> m_e2eeKeyRequestTries;    // channelId -> attempts (backoff)
     qint64 m_e2eeLastRequestAt = 0;
-    qint64 m_e2eeLastNoKeyWarnMs = 0;        // cadência (30 s) do aviso de chave ausente
-    // Anti-split-brain por clock skew: o mestre que gerou chave com época do
-    // relógio LOCAL também PERGUNTA aos demais — resposta com época maior é
-    // adotada (convergência); menor é descartada sem efeito.
+    qint64 m_e2eeLastNoKeyWarnMs = 0;        // cadence (30 s) of the missing-key warning
+    // Anti-split-brain for clock skew: the master that generated a key with a
+    // LOCAL-clock epoch also ASKS the others -- a reply with a higher epoch is
+    // adopted (convergence); a lower one is discarded without effect.
     QList<int> m_e2eeVerifyPending;
-    // Visibilidade do bloqueio de voz por chave ausente: início da espera
-    // atual e canal sobre o qual já avisamos. O usuário afetado precisa
-    // saber POR QUE está mudo nas duas direções, em vez de adivinhar.
+    // Visibility of the voice lock caused by a missing key: start of the
+    // current wait and the channel we already warned about. The affected user
+    // must know WHY they are muted in both directions instead of guessing.
     qint64 m_e2eeKeyWaitStartMs = 0;
     int m_e2eeWaitChan = -1;
     int m_e2eeVoiceKeyWarnedChan = -1;
-    bool m_e2eeSelfEntryWarned = false;      // aviso único: entrada própria inválida
-    // v1.1.36 — cura da chave STALE (o "tava funcionando e parou"): quando a
-    // chave do canal rotaciona (alguém entra/sai do componente) e o push da
-    // chave nova se perde, o cliente fica com a chave VELHA — o TX cifra com
-    // ela (ninguém ouve) e o RX não decifra nada (não ouve ninguém). O
-    // housekeeper não pede outra porque "tem" uma chave. Contador de falhas
-    // consecutivas de decifragem no MEU canal: no limiar, esquece a chave
-    // local (remove + zera tentativas) e deixa o housekeeper re-pedir ao
-    // grupo — a resposta aplica sem barreira de época (!contains) e a voz
-    // volta nos dois sentidos.
-    int m_e2eeDecryptFails = 0;              // falhas consecutivas (zera em sucesso)
-    qint64 m_e2eeDecryptRecoverMs = 0;       // última recuperação disparada (re-tentativa após 30 s)
+    bool m_e2eeSelfEntryWarned = false;      // one-shot warning: invalid self entry
+    // v1.1.36 -- stale-key healing (the "it worked and then stopped" case):
+    // when a channel key rotates (someone joins/leaves the component) and the
+    // new-key push is lost, the client keeps the OLD key -- TX encrypts with
+    // it (nobody hears) and RX decrypts nothing (hears nobody). The
+    // housekeeper never re-requests because it "has" a key. Consecutive
+    // decryption-failure counter on MY channel: at the threshold, forget the
+    // local key (remove + reset attempts) and let the housekeeper re-request
+    // from the group -- the reply applies without an epoch barrier
+    // (!contains) and voice returns in both directions.
+    int m_e2eeDecryptFails = 0;              // consecutive failures (reset on success)
+    qint64 m_e2eeDecryptRecoverMs = 0;       // last recovery triggered (retry after 30 s)
 
-    // v1.1.37 — contexto dos "move"/"move_other" recentes. Os erros do
-    // servidor chegam só com código (no_permission, channel_full...) e a
-    // mensagem genérica da tabela não diz a QUAL canal se refere: o usuário
-    // clicava num canal e lia "Você não tem permissão para realizar esta
-    // ação" sem entender o que fez de errado. Como o TCP preserva a ordem,
-    // um erro atribui-se ao move mais antigo ainda sem resposta (FIFO) —
-    // user_moved do canal correspondente consome a entrada. Janela curta
-    // (6 s) e lista pequena: atribuição errada é praticamente impossível.
+    // v1.1.37 -- context of recent "move"/"move_other" requests. Server errors
+    // arrive with only a code (no_permission, channel_full...) and the generic
+    // table message does not say WHICH channel it refers to: the user clicked
+    // a channel and read "You do not have permission to perform this action"
+    // without understanding what went wrong. Since TCP preserves order, an
+    // error is attributed to the oldest move still awaiting a reply (FIFO) --
+    // user_moved for the matching channel consumes the entry. Short window
+    // (6 s) and small list: a wrong attribution is practically impossible.
     struct PendingMove {
-        int channel;        // canal de destino
-        QString name;       // nome dele no instante do pedido
-        bool otherUser;     // move (próprio) ou move_other (arrastar/mover alguém)
-        qint64 atMs;        // quando foi enviado
+        int channel;        // destination channel
+        QString name;       // its name at request time
+        bool otherUser;     // move (self) or move_other (dragging/moving someone)
+        qint64 atMs;        // when it was sent
     };
     QList<PendingMove> m_pendingMoves;
-    // Constrói a mensagem de erro CONTEXTUAL para o move mais antigo sem
-    // resposta; devolve QString() quando não há candidato plausível (o
-    // chamador mostra a mensagem genérica da tabela).
+    // Builds the CONTEXTUAL error message for the oldest unanswered move;
+    // returns QString() when there is no plausible candidate (the caller
+    // shows the generic table message).
     QString consumeMoveErrorContext(const QString& code);
 };

@@ -34,8 +34,8 @@
 #include <openssl/x509.h>
 #include <openssl/pem.h>
 #ifdef Q_OS_WIN
-// Somente para CredEnumerateW (localizar identidades no cofre do Windows quando
-// o usuário não tem mais o ID completo). Leitura/escrita continuam via qtkeychain.
+// Only for CredEnumerateW (locating identities in the Windows vault when the user no
+// longer has the full ID). Reading/writing still go through qtkeychain.
 #define NOMINMAX
 #include <windows.h>
 #include <wincred.h>
@@ -45,24 +45,22 @@ static QString keyBase(const QString& uid, const QString& field) {
     return QStringLiteral("identityKeys/%1/%2").arg(uid, field);
 }
 
-// Cabeçalho PKCS#8 fixo (RFC 8410) para uma chave Ed25519: basta concatenar
-// a seed de 32 bytes. TODA a cripto de identidade desta janela usa caminhos
-// identificados por OID — este cabeçalho é parseado por d2i_AutoPrivateKey
-// tanto no OpenSSL quanto no BoringSSL. Nenhum NID numérico entra em cena:
-// o build Windows compila com os headers do OpenSSL 3 do vcpkg mas LINKA o
-// BoringSSL do webrtc.lib, e os dois discordam do número de Ed25519
-// (OpenSSL NID_ED25519=1087, BoringSSL NID_ED25519=949) — com o valor do
-// header, EVP_PKEY_CTX_new_id/EVP_PKEY_new_raw_private_key devolviam
-// UNSUPPORTED_ALGORITHM e NENHUMA identidade foi criada em nenhum build
-// WebRTC (era a causa raiz do ID único vazio e do bad_identity, confirmada
-// em runtime pelo smoke do CI).
+// Fixed PKCS#8 header (RFC 8410) for an Ed25519 key: appending the 32-byte seed is
+// enough. ALL identity cryptography in this window uses OID-identified paths -- this
+// header is parsed by d2i_AutoPrivateKey on both OpenSSL and BoringSSL. No numeric NID
+// is ever involved: the Windows build compiles against the OpenSSL 3 headers from vcpkg
+// but LINKS the BoringSSL from webrtc.lib, and the two disagree on the Ed25519 number
+// (OpenSSL NID_ED25519=1087, BoringSSL NID_ED25519=949) -- with the header value,
+// EVP_PKEY_CTX_new_id/EVP_PKEY_new_raw_private_key returned UNSUPPORTED_ALGORITHM and
+// NO identity was ever created on any WebRTC build (that was the root cause of the empty
+// unique ID and of bad_identity, confirmed at runtime by the CI smoke test).
 static const unsigned char kPkcs8SeedHeader[] = {
     0x30, 0x2E, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70,
     0x04, 0x22, 0x04, 0x20,
 };
 
-// Reconstrói a chave Ed25519 a partir da seed crua de 32 bytes, sem NID:
-// embrulha no PKCS#8 mínimo e deixa o parser identificar pelo OID.
+// Rebuilds the Ed25519 key from the raw 32-byte seed, without a NID: wraps it in the
+// minimal PKCS#8 and lets the parser identify it by OID.
 static EVP_PKEY* keyFromSeed(const unsigned char* seed) {
     unsigned char der[48];
     std::memcpy(der, kPkcs8SeedHeader, sizeof(kPkcs8SeedHeader));
@@ -71,11 +69,11 @@ static EVP_PKEY* keyFromSeed(const unsigned char* seed) {
     return d2i_AutoPrivateKey(nullptr, &p, sizeof(der));
 }
 
-// Último motivo pelo qual generateUniqueId()/storeIdentityKey() devolveram
-// vazio. Antes o diálogo só dizia "não pôde ser gerada ou salva" e era
-// impossível distinguir keygen quebrado, serialização quebrada ou cofre
-// bloqueado — cada relato de usuário virava um interrogatório. Guardado em
-// texto pronto para exibir/logar (a geração roda só na thread da GUI).
+// Last reason why generateUniqueId()/storeIdentityKey() returned empty. The dialog used
+// to say only "could not be generated or saved", making it impossible to tell a broken
+// keygen from broken serialization or a locked vault -- every user report became an
+// interrogation. Stored as ready-to-show/log text (generation only runs on the GUI
+// thread).
 static QString g_lastIdentityError;
 
 static QString sslErrorText() {
@@ -87,23 +85,23 @@ static QString sslErrorText() {
 }
 
 // ============================================================================
-// Restauração e backup portátil de identidade
+// Portable identity restore and backup
 // ----------------------------------------------------------------------------
-// O ID único é base64(SHA-256(chave pública SPKI DER)) — o MESMO cálculo do
-// servidor (uidForIdentityPublicKey) — então TODAS as permissões, cargos,
-// bans e apelidos por identidade vivem presos ao par de chaves. Apagar o
-// registro do Windows (regedit) destrói apenas o perfil QSettings (lista
-// "identities" + "identityKeys/<uid>/publicDer"): a chave privada, gravada
-// pelo qtkeychain no Credential Manager, SOBREVIVE — a identidade pode ser
-// recuperada a partir dela, e o ID volta a ser o mesmo sem tocar no servidor.
+// The unique ID is base64(SHA-256(SPKI DER public key)) -- the SAME computation as the
+// server (uidForIdentityPublicKey) -- so ALL permissions, roles, bans and per-identity
+// nicknames are bound to the key pair. Erasing the Windows registry entry (regedit)
+// destroys only the QSettings profile ("identities" list + "identityKeys/<uid>/publicDer"):
+// the private key, written by qtkeychain into the Credential Manager, SURVIVES -- the
+// identity can be recovered from it and the ID becomes the same again without touching
+// the server.
 // ============================================================================
 static QString uidForPublicDer(const QByteArray& pub) {
     return QString::fromLatin1(QCryptographicHash::hash(pub, QCryptographicHash::Sha256).toBase64());
 }
 
-// Backup portátil no MESMO formato do Halla Mobile (HallaCore.kt):
-// "halla-identity-backup" v1, PBKDF2-HMAC-SHA256 + AES-256-GCM — arquivos
-// cruzam Desktop <-> Mobile em qualquer direção.
+// Portable backup in the SAME format as Halla Mobile (HallaCore.kt):
+// "halla-identity-backup" v1, PBKDF2-HMAC-SHA256 + AES-256-GCM -- files cross Desktop <->
+// Mobile in either direction.
 static constexpr int kBackupIterations = 310000;
 static constexpr int kBackupMaxBytes = 128 * 1024;
 static constexpr int kBackupMinPassword = 10;
@@ -112,9 +110,9 @@ static QByteArray privateMaterialForUid(const QString& uid) {
     const QString privateKeyName = keyBase(uid, QStringLiteral("privateDer"));
     QByteArray priv = SecureStore::read(privateKeyName);
     if (!priv.isEmpty()) return priv;
-    // Perfil local legado (PKCS#8 em QSettings, ou fallback de quando o cofre
-    // estava indisponível): usa o material MESMO QUE a re-migração ao cofre
-    // volte a falhar — a restauração não pode depender do cofre duas vezes.
+    // Legacy local profile (PKCS#8 in QSettings, or the fallback used when the vault was
+    // unavailable): uses the material EVEN IF the re-migration to the vault fails again --
+    // restoring must not depend on the vault twice.
     const QByteArray legacy = QByteArray::fromBase64(S::str(privateKeyName).toLatin1());
     if (legacy.isEmpty()) return legacy;
     if (SecureStore::write(privateKeyName, legacy)) {
@@ -124,8 +122,8 @@ static QByteArray privateMaterialForUid(const QString& uid) {
     return legacy;
 }
 
-// Material pode ser a seed crua de 32 bytes (builds atuais) ou um PKCS#8
-// DER completo (instalações antigas com OpenSSL de verdade no cofre).
+// The material may be the raw 32-byte seed (current builds) or a full PKCS#8 DER (old
+// installations with real OpenSSL in the vault).
 static EVP_PKEY* keyFromMaterial(const QByteArray& priv) {
     if (priv.isEmpty()) return nullptr;
     if (priv.size() == 32)
@@ -142,25 +140,22 @@ static QByteArray backupAad(const QString& alias, const QString& algorithm,
 }
 
 // ---------------------------------------------------------------------------
-// PBKDF2-HMAC-SHA256 SEM PKCS5_PBKDF2_HMAC.
+// PBKDF2-HMAC-SHA256 WITHOUT PKCS5_PBKDF2_HMAC.
 //
-// A assinatura dessa função DIVERGE entre as bibliotecas que o Halla usa:
-// OpenSSL 3 declara (const char*, int passlen, ..., int saltlen, int iter,
-// ..., int keylen, ...) e o BoringSSL do webrtc.lib implementa com
-// (const char*, size_t password_len, ..., size_t salt_len, uint32_t
-// iterations, ..., size_t key_len, ...). O build Windows compila contra os
-// headers do OpenSSL e LINKA o BoringSSL — um passlen = -1 (convenção
-// "conte a senha" do OpenSSL) virava 4294967295 no size_t do BoringSSL e o
-// processo morria com access violation (flagrado pelo smoke do CI, run
-// 33026636018). A família HMAC()/HMAC_Init_ex tem a mesma divergência em
-// key_len.
+// The signature of that function DIVERGES between the libraries Halla uses: OpenSSL 3
+// declares (const char*, int passlen, ..., int saltlen, int iter, ..., int keylen, ...)
+// and the BoringSSL from webrtc.lib implements it with (const char*, size_t password_len,
+// ..., size_t salt_len, uint32_t iterations, ..., size_t key_len, ...). The Windows build
+// compiles against the OpenSSL headers and LINKS BoringSSL -- a passlen = -1 (the OpenSSL
+// "count the password" convention) became 4294967295 in BoringSSL's size_t and the
+// process died with an access violation (caught by the CI smoke test, run 33026636018).
+// The HMAC()/HMAC_Init_ex family has the same divergence in key_len.
 //
-// A saída abaixo usa SOMENTE primitivas cuja ABI é idêntica nas duas
-// bibliotecas: EVP_MD_CTX_new/free, EVP_DigestInit_ex, EVP_DigestUpdate
-// (size_t nas duas), EVP_DigestFinal_ex e EVP_sha256. O algoritmo é o
-// RFC 8018 — byte a byte o mesmo PBKDF2 do PKCS5_PBKDF2_HMAC e do
-// PBKDF2WithHmacSHA256 do Java (Halla Mobile), então os backups cruzam
-// plataformas como antes.
+// The output below uses ONLY primitives whose ABI is identical in both libraries:
+// EVP_MD_CTX_new/free, EVP_DigestInit_ex, EVP_DigestUpdate (size_t in both),
+// EVP_DigestFinal_ex and EVP_sha256. The algorithm is RFC 8018 -- byte for byte the same
+// PBKDF2 as PKCS5_PBKDF2_HMAC and as Java's PBKDF2WithHmacSHA256 (Halla Mobile), so
+// backups still cross platforms as before.
 // ---------------------------------------------------------------------------
 static bool hmacSha256(const unsigned char* key, int keyLen,
                        const unsigned char* msg1, int msg1Len,
@@ -211,8 +206,8 @@ static bool hmacSha256(const unsigned char* key, int keyLen,
     return ok;
 }
 
-// PBKDF2 (RFC 8018) com HMAC-SHA256: dkLen é sempre 32 aqui (chave de
-// AES-256-GCM), um único bloco de saída.
+// PBKDF2 (RFC 8018) with HMAC-SHA256: dkLen is always 32 here (AES-256-GCM key), a
+// single output block.
 static bool pbkdf2HmacSha256(const QByteArray& password, const QByteArray& salt,
                              int iterations, unsigned char out[32]) {
     if (iterations < 1) return false;
@@ -249,7 +244,7 @@ static bool deriveBackupKey(const QByteArray& password, const QByteArray& salt,
     return true;
 }
 
-// GCM: saída = texto cifrado || tag de 16 bytes (o mesmo layout do Java/Android).
+// GCM: output = ciphertext || 16-byte tag (the same layout as Java/Android).
 static bool aesGcmEncrypt(const QByteArray& key, const QByteArray& iv,
                           const QByteArray& aad, const QByteArray& plain,
                           QByteArray* out) {
@@ -323,9 +318,9 @@ static bool aesGcmDecrypt(const QByteArray& key, const QByteArray& iv,
 }
 
 #ifdef Q_OS_WIN
-// UIDs com chave privada ainda presente no Credential Manager — usado quando
-// o usuário não tem mais o ID completo para colar. Filtro por prefixo
-// "identityKeys/" é o mesmo espaçamento de nome do SecureStore/qtkeychain.
+// UIDs whose private key is still present in the Credential Manager -- used when the user
+// no longer has the full ID to paste. The "identityKeys/" prefix filter is the same name
+// spacing as SecureStore/qtkeychain.
 static QStringList vaultIdentityUids() {
     QStringList uids;
     PCREDENTIALW* creds = nullptr;
@@ -345,9 +340,9 @@ static QStringList vaultIdentityUids() {
 }
 #endif
 
-// Registra no perfil uma identidade cuja chave privada já existe no cofre.
-// A pública é re-derivada da privada e o hash é CONFERIDO contra o UID
-// colado — nunca se registra uma identidade com chave trocada.
+// Registers in the profile an identity whose private key already exists in the vault. The
+// public key is re-derived from the private one and the hash is CHECKED against the pasted
+// UID -- an identity with a swapped key is never registered.
 static bool restoreIdentityFromVault(QWidget* parent, const QString& uid) {
     QByteArray priv = privateMaterialForUid(uid);
     if (priv.isEmpty()) {
@@ -415,8 +410,8 @@ static bool exportIdentityBackupFile(QWidget* parent, const QString& uid,
                               QObject::tr("O material encontrado não gera este ID único."));
         return false;
     }
-    // PKCS#8 mínimo (RFC 8410) — o MESMO formato que Java/Android grava, então
-    // o Mobile importa backups gerados aqui (e vice-versa).
+    // Minimal PKCS#8 (RFC 8410) -- the SAME format Java/Android writes, so Mobile imports
+    // backups generated here (and vice versa).
     QByteArray pkcs8(48, 0);
     std::memcpy(pkcs8.data(), kPkcs8SeedHeader, sizeof(kPkcs8SeedHeader));
     std::memcpy(pkcs8.data() + sizeof(kPkcs8SeedHeader), seed, 32);
@@ -461,10 +456,10 @@ static bool exportIdentityBackupFile(QWidget* parent, const QString& uid,
         return false;
     }
 
-    // v6 E2EE: o par X25519 (estático) acompanha o backup em um blob CIFRADO
-    // próprio — em claro ele entregaria a chave que decifra chat privado,
-    // poke e mensagens offline de quem restaurar o arquivo. A mesma senha e
-    // os mesmos parâmetros de KDF do blob da identidade protegem os dois.
+    // v6 E2EE: the (static) X25519 pair travels with the backup in its own ENCRYPTED
+    // blob -- in the clear it would hand over the key that decrypts private chat, poke and
+    // offline messages to whoever restores the file. The same password and KDF parameters
+    // as the identity blob protect both.
     QJsonObject dhField;
     if (IdentityDialog::ensureDhKeyPair(uid)) {
         const QByteArray dhPriv = IdentityDialog::dhPrivateKeyForUid(uid);
@@ -589,9 +584,9 @@ static bool importIdentityBackupFile(QWidget* parent, QString* outUid,
                               QObject::tr("Senha incorreta."));
         return false;
     }
-    // v6 E2EE: decifra o par X25519 AINDA com a chave derivada válida — o
-    // blob opcional "dh" acompanha o backup com a mesma senha. Backups sem
-    // o campo (gerados antes do v6) deixam dhPlain vazio e seguem válidos.
+    // v6 E2EE: decrypts the X25519 pair WHILE the derived key is still valid -- the
+    // optional "dh" blob travels with the backup under the same password. Backups without
+    // the field (generated before v6) leave dhPlain empty and remain valid.
     QByteArray dhPlain;
     const QJsonObject dhField = o[QStringLiteral("dh")].toObject();
     if (!dhField.isEmpty()) {
@@ -653,9 +648,9 @@ static bool importIdentityBackupFile(QWidget* parent, QString* outUid,
     S::set(keyBase(uid, QStringLiteral("publicDer")), publicB64);
     S::store().sync();
 
-    // v6 E2EE: guarda o par X25519 restaurado. O par só é aceito se a
-    // pública declarada derivar exatamente da privada restaurada — blob
-    // adulterado não entra no cofre.
+    // v6 E2EE: stores the restored X25519 pair. The pair is only accepted if the declared
+    // public key derives exactly from the restored private key -- a tampered blob never
+    // enters the vault.
     if (dhPlain.size() == 64) {
         const QByteArray dhPriv = dhPlain.left(32);
         const QByteArray dhPub = dhPlain.right(32);
@@ -682,20 +677,19 @@ static bool importIdentityBackupFile(QWidget* parent, QString* outUid,
 }
 
 static QString storeIdentityKey(EVP_PKEY* key) {
-    // Chave pública em SPKI DER (i2d_PUBKEY) — suportado por OpenSSL e
-    // BoringSSL para todos os tipos de chave.
+    // Public key in SPKI DER (i2d_PUBKEY) -- supported by OpenSSL and BoringSSL for every
+    // key type.
     const int pubLen = i2d_PUBKEY(key, nullptr);
     if (pubLen <= 0) {
         g_lastIdentityError = QStringLiteral("i2d_PUBKEY (chave pública): %1").arg(sslErrorText());
         return QString();
     }
-    // Chave privada NO FORMATO CRU (seed Ed25519 de 32 bytes). O
-    // i2d_PrivateKey clássico só serializa RSA/EC/DSA: no BoringSSL
-    // embutido no SDK WebRTC (que o build Windows linka no lugar do
-    // OpenSSL) ele devolve -1 para Ed25519 — toda identidade nascia com
-    // ID único vazio e todo login caía em bad_identity. O formato cru
-    // existe e funciona igual nos dois (EVP_PKEY_get_raw_private_key),
-    // e a seed basta para reconstruir a chave ao assinar.
+    // Private key in the RAW FORMAT (32-byte Ed25519 seed). The classic i2d_PrivateKey only
+    // serializes RSA/EC/DSA: on the BoringSSL embedded in the WebRTC SDK (which the Windows
+    // build links instead of OpenSSL) it returns -1 for Ed25519 -- every identity was born
+    // with an empty unique ID and every login fell into bad_identity. The raw format exists
+    // and behaves the same in both (EVP_PKEY_get_raw_private_key), and the seed is enough
+    // to rebuild the key when signing.
     QByteArray priv(64, 0);
     size_t rawLen = priv.size();
     if (EVP_PKEY_get_raw_private_key(key, reinterpret_cast<unsigned char*>(priv.data()), &rawLen) != 1
@@ -711,11 +705,10 @@ static QString storeIdentityKey(EVP_PKEY* key) {
     const QString uid = QString::fromLatin1(QCryptographicHash::hash(pub, QCryptographicHash::Sha256).toBase64());
     QString secureError;
     if (!SecureStore::write(keyBase(uid, QStringLiteral("privateDer")), priv, &secureError)) {
-        // Sem cofre do sistema (keyring ausente/travado, Credential Manager
-        // bloqueado por política etc.) a identidade ainda assim precisa ser
-        // criável: cai no armazenamento local — o mesmo local legado que as
-        // instalações antigas usavam. signNonce() lê o SecureStore primeiro
-        // e migra de volta para o cofre assim que ele volta a funcionar.
+        // Without a system vault (keyring missing/locked, Credential Manager blocked by
+        // policy etc.) the identity still must be creatable: it falls back to local storage
+        // -- the same legacy location old installations used. signNonce() reads SecureStore
+        // first and migrates back to the vault as soon as it works again.
         AppLog::error(QObject::tr(
                           "Não foi possível salvar a identidade no cofre do sistema: %1 — "
                           "a chave privada será guardada apenas no perfil local (menos seguro).")
@@ -731,9 +724,9 @@ static QString storeIdentityKey(EVP_PKEY* key) {
 }
 
 QString IdentityDialog::generateUniqueId() {
-    // Geração sem NID e sem keygen da EVP: a seed nasce do CSPRNG da própria
-    // biblioteca linkada (RAND_bytes existe e é seguro em OpenSSL e
-    // BoringSSL) e a chave é reconstruída pelo parser OID (keyFromSeed).
+    // Generation without a NID and without EVP keygen: the seed comes from the CSPRNG of
+    // the linked library itself (RAND_bytes exists and is safe on OpenSSL and BoringSSL)
+    // and the key is rebuilt by the OID parser (keyFromSeed).
     unsigned char seed[32];
     QString uid;
     EVP_PKEY* key = nullptr;
@@ -758,18 +751,18 @@ QByteArray IdentityDialog::publicKeyForUid(const QString& uid) {
 }
 
 // ================================================================== v6 E2EE
-// Par X25519 persistente da identidade — a chave estática que alimenta os
-// acordos par-a-par (chat privado, poke, offline) e o recebimento de
-// envelopes de chave de canal. Privada no cofre do sistema (mesma política
-// e fallback da Ed25519); pública no perfil. Sem dhPub/dhPub válido o login
-// v6 é recusado pelo servidor — por isso ensureDhKeyPair existe: identidades
-// criadas antes do v6 ganham o par automaticamente na primeira listagem.
+// Persistent X25519 pair of the identity -- the static key behind the pair-to-pair
+// agreements (private chat, poke, offline) and the receipt of channel key envelopes.
+// Private in the system vault (same policy and fallback as Ed25519); public in the
+// profile. Without a valid dhPub the v6 login is refused by the server -- that is why
+// ensureDhKeyPair exists: identities created before v6 get the pair automatically on the
+// first listing.
 QByteArray IdentityDialog::dhPrivateKeyForUid(const QString& uid) {
     const QString privateKeyName = keyBase(uid, QStringLiteral("dhPrivate"));
     QByteArray priv = SecureStore::read(privateKeyName);
     if (priv.isEmpty()) {
-        // Fallback legado/local — igual ao da Ed25519, com migração de volta
-        // ao cofre quando ele volta a aceitar escritas.
+        // Legacy/local fallback -- same as Ed25519, with migration back to the vault once it
+        // accepts writes again.
         const QByteArray legacy = QByteArray::fromBase64(S::str(privateKeyName).toLatin1());
         if (!legacy.isEmpty()) {
             priv = legacy;
@@ -790,8 +783,8 @@ bool IdentityDialog::ensureDhKeyPair(const QString& uid) {
     if (uid.isEmpty()) return false;
     const QByteArray priv = dhPrivateKeyForUid(uid);
     const QByteArray storedPub = dhPublicKeyForUid(uid);
-    // Par existente só é aceito se a pública derivar exatamente da privada —
-    // par truncado/corrompido pelo cofre é regenerado, nunca reutilizado.
+    // An existing pair is only accepted if the public key derives exactly from the private
+    // one -- a truncated/corrupted pair from the vault is regenerated, never reused.
     if (priv.size() == 32 && storedPub == E2ee::dhPublicFromPrivate(priv))
         return true;
     E2ee::DhKeyPair kp;
@@ -820,7 +813,7 @@ QByteArray IdentityDialog::dhSignatureForUid(const QString& uid) {
     if (dhPub.size() != 32) return QByteArray();
     QByteArray idPriv = privateMaterialForUid(uid);
     const QByteArray sig = E2ee::ed25519Sign(idPriv, E2ee::dhBindingMessage(dhPub));
-    idPriv.fill(0); // material da identidade não permanece em cópia local
+    idPriv.fill(0); // identity material does not stay in a local copy
     return sig;
 }
 
@@ -828,13 +821,12 @@ QByteArray IdentityDialog::signNonce(const QString& uid, const QByteArray& nonce
     const QString privateKeyName = keyBase(uid, QStringLiteral("privateDer"));
     QByteArray priv = SecureStore::read(privateKeyName);
     if (priv.isEmpty()) {
-        // Migração de instalações legadas (PKCS#8 em QSettings) e de
-        // identidades gravadas pelo fallback de storeIdentityKey() quando o
-        // cofre do sistema estava indisponível: usa o material local MESMO
-        // QUE a re-gravação no cofre falhe de novo. Sem isso, em máquinas
-        // com o Credential Manager bloqueado, a identidade era criada pelo
-        // fallback mas o desafio de login falhava — a chave estava no
-        // perfil local e o signNonce se recusava a usá-la.
+        // Migration of legacy installations (PKCS#8 in QSettings) and of identities written by
+        // the storeIdentityKey() fallback when the system vault was unavailable: uses the
+        // local material EVEN IF the re-write to the vault fails again. Without this, on
+        // machines with a blocked Credential Manager the identity was created by the
+        // fallback but the login challenge failed -- the key was in the local profile and
+        // signNonce refused to use it.
         const QByteArray legacy = QByteArray::fromBase64(S::str(privateKeyName).toLatin1());
         if (!legacy.isEmpty()) {
             priv = legacy;
@@ -845,9 +837,9 @@ QByteArray IdentityDialog::signNonce(const QString& uid, const QByteArray& nonce
         }
     }
     if (priv.isEmpty() || nonce.isEmpty()) return QByteArray();
-    // A reconstrução da chave e a assinatura Ed25519 (determinística) vivem
-    // agora em E2ee::ed25519Sign — o mesmo caminho do binding E2EE, para
-    // nunca haver duas implementações de assinatura de identidade.
+    // Key rebuild and the (deterministic) Ed25519 signature now live in E2ee::ed25519Sign --
+    // the same path as the E2EE binding, so there are never two implementations of identity
+    // signing.
     const QByteArray sig = E2ee::ed25519Sign(priv, nonce);
     priv.fill(0);
     return sig;
@@ -862,7 +854,7 @@ QList<QStringList> IdentityDialog::loadAll() {
             QJsonObject o = v.toObject();
             QString uid = o["uid"].toString();
             if (uid.isEmpty() || publicKeyForUid(uid).isEmpty()) { uid = generateUniqueId(); migrated = true; }
-            // v6: identidades criadas antes do E2EE ganham o par X25519 aqui
+            // v6: identities created before E2EE get the X25519 pair here
             // — o login v6 recusa identidade sem chave de criptografia.
             if (!uid.isEmpty()) ensureDhKeyPair(uid);
             rows << QStringList{ o["def"].toBool() ? "1" : "0",
@@ -872,9 +864,8 @@ QList<QStringList> IdentityDialog::loadAll() {
     }
     if (migrated && !rows.isEmpty()) saveAll(rows);
     if (rows.isEmpty()) {
-        // identidade inicial: gerar UMA vez e persistir — o ID único precisa
-        // ser estável entre execuções (o servidor o usa para bans, grupos e
-        // chaves de privilégio)
+        // initial identity: generate ONCE and persist -- the unique ID must be stable across
+        // runs (the server uses it for bans, groups and privilege keys)
         rows << QStringList{ "1", tr("HallaUser"), QString(), generateUniqueId() };
         saveAll(rows);
     }
@@ -940,10 +931,10 @@ IdentityDialog::IdentityDialog(QWidget* parent) : QDialog(parent) {
     QPushButton* del = mkBtn(tr("Excluir"));
     QPushButton* def = mkBtn(tr("Definir como padrão"));
     QPushButton* copy = mkBtn(tr("Copiar ID único"));
-    // Recuperação de identidade: o registro do Windows limpo apaga a lista e
-    // a chave pública, mas a chave privada sobrevive no cofre do sistema —
-    // "Restaurar..." recupera a identidade pelo ID colado (ou procurando no
-    // cofre) sem gerar um ID novo, devolvendo cargos e permissões.
+    // Identity recovery: a wiped Windows registry erases the list and the public key, but
+    // the private key survives in the system vault -- "Restore..." recovers the identity
+    // from the pasted ID (or by searching the vault) without generating a new ID, bringing
+    // roles and permissions back.
     QPushButton* restore = mkBtn(tr("Restaurar..."),
                                  tr("Recuperar uma identidade deste computador pelo ID único"));
     QPushButton* exportB = mkBtn(tr("Exportar..."),
@@ -1203,8 +1194,8 @@ void IdentityDialog::reload() {
         m_table->setItem(i, 2, uid);
     }
     if (rows.size()) m_table->selectRow(0);
-    // Nota de rodapé vira alerta quando há identidade quebrada na lista: o
-    // usuário precisa saber POR QUE o ID está vazio, não apenas vê-lo vazio.
+    // The footnote becomes an alert when there is a broken identity in the list: the user
+    // must know WHY the ID is empty, not merely see it empty.
     if (m_note) {
         if (broken) {
             m_note->setText(tr("Atenção: há identidade com ID vazio — ao conectar "

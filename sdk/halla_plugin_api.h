@@ -9,9 +9,9 @@ extern "C" {
 #endif
 
 /*
- * A ABI-base permanece em 1. Recursos avançados são interfaces opcionais e
- * versionadas, obtidas por HallaHostApi::query_interface(). Isso permite que
- * plugins compilados para o SDK 1.0.63 continuem funcionando sem recompilação.
+ * The base ABI stays at 1. Advanced features are optional, versioned
+ * interfaces obtained through HallaHostApi::query_interface(). This keeps
+ * plugins built against SDK 1.0.63 working without recompilation.
  */
 #define HALLA_PLUGIN_ABI_VERSION 1u
 #define HALLA_PLUGIN_ENTRY_SYMBOL "halla_plugin_entry"
@@ -74,7 +74,7 @@ typedef struct HallaCoreApiV1 {
                       void* task_context);
 } HallaCoreApiV1;
 
-/* ----------------------------------------------------------- Conexões */
+/* ---------------------------------------------------------- Connections */
 typedef enum HallaChatScope {
     HALLA_CHAT_CHANNEL = 0,
     HALLA_CHAT_SERVER = 1,
@@ -92,7 +92,7 @@ typedef struct HallaConnectionApiV1 {
     uint32_t struct_size;
     void* context;
 
-    /* JSON UTF-8. connection_id 0 seleciona a conexão ativa. */
+    /* UTF-8 JSON. connection_id 0 selects the active connection. */
     size_t (*get_connections_json)(void* context, char* buffer,
                                    size_t buffer_size);
     size_t (*get_connection_json)(void* context, uint64_t connection_id,
@@ -126,7 +126,7 @@ typedef struct HallaConnectionApiV1 {
     int (*ban_user)(void* context, uint64_t connection_id,
                     int32_t user_id, uint32_t minutes,
                     const char* reason_utf8);
-    /* Objetos JSON com os mesmos campos documentados pelo protocolo Halla. */
+    /* JSON objects with the same fields documented by the Halla protocol. */
     int (*create_channel_json)(void* context, uint64_t connection_id,
                                const char* channel_json_utf8);
     int (*edit_channel_json)(void* context, uint64_t connection_id,
@@ -135,19 +135,19 @@ typedef struct HallaConnectionApiV1 {
                           int32_t channel_id);
 } HallaConnectionApiV1;
 
-/* --------------------------------------------------------------- Áudio */
+/* ----------------------------------------------------------------- Audio */
 typedef enum HallaAudioStage {
     HALLA_AUDIO_CAPTURE = 1u << 0,
     HALLA_AUDIO_REMOTE_BEFORE_SPATIAL = 1u << 1,
     HALLA_AUDIO_MIXED_PLAYBACK = 1u << 2,
     /*
-     * Aditivo (compatível com a ABI 1): captura do microfone local após a
-     * decisão de transmissão (VAD/PTT). Filtros com AGC podem elevar o ruído
-     * de fundo e abrir o detector de voz do host sozinho; neste estágio a
-     * decisão de transmitir já foi tomada, e o áudio já filtrado segue direto
-     * para o codificador. No Halla Mobile a decisão de transmissão acontece
-     * antes da camada nativa, então a captura é reportada como
-     * HALLA_AUDIO_CAPTURE e este estágio é aceito como sinônimo.
+     * Additive (ABI 1 compatible): capture of the local microphone after the
+     * transmission decision (VAD/PTT). AGC-style filters can raise the noise
+     * floor and trip the host's own voice detector; at this stage the decision
+     * to transmit has already been made and the filtered audio goes straight
+     * to the encoder. On Halla Mobile the transmission decision happens before
+     * the native layer, so capture is reported as HALLA_AUDIO_CAPTURE and this
+     * stage is accepted as a synonym.
      */
     HALLA_AUDIO_CAPTURE_AFTER_VAD = 1u << 3
 } HallaAudioStage;
@@ -160,8 +160,8 @@ typedef struct HallaAudioFrame {
     uint32_t struct_size;
     uint32_t stage;
     uint64_t connection_id;
-    int32_t user_id;          /* 0 na mixagem final; selfId na captura. */
-    int16_t* samples;         /* PCM S16 intercalado e mutável. */
+    int32_t user_id;          /* 0 in the final mix; selfId on capture. */
+    int16_t* samples;         /* Interleaved, mutable S16 PCM. */
     uint32_t frame_count;
     uint32_t channels;
     uint32_t sample_rate;
@@ -177,7 +177,7 @@ typedef struct HallaAudioApiV1 {
     uint32_t struct_size;
     void* context;
 
-    /* Uma callback por plugin; chamada na thread de áudio/UI e não pode bloquear. */
+    /* One callback per plugin; runs on the audio/UI thread and must not block. */
     int (*register_processor)(void* context, void* plugin_context,
                               HallaAudioProcessorFn processor,
                               uint32_t stage_mask);
@@ -199,7 +199,7 @@ typedef struct HallaAudioApiV1 {
     void (*reset_user)(void* context, uint64_t connection_id,
                        int32_t user_id);
     void (*reset_connection)(void* context, uint64_t connection_id);
-    /* Injeta PCM S16 de 48 kHz, mono/estéreo, por no máximo 10 segundos. */
+    /* Injects 48 kHz S16 PCM, mono/stereo, for at most 10 seconds. */
     int (*play_pcm)(void* context, uint64_t connection_id,
                     const int16_t* samples, uint32_t frame_count,
                     uint32_t channels, float linear_gain);
@@ -224,7 +224,7 @@ typedef struct HallaDataApiV1 {
     uint32_t struct_size;
     void* context;
 
-    /* Transporte TLS confiável. Payload máximo: 8 KiB; tópico: 64 bytes UTF-8. */
+    /* Trusted TLS transport. Max payload: 8 KiB; topic: 64 UTF-8 bytes. */
     int (*send)(void* context, uint64_t connection_id,
                 HallaPluginDataTarget target,
                 const int32_t* target_user_ids, size_t target_count,
@@ -248,7 +248,7 @@ typedef struct HallaUiApiV1 {
     int (*register_menu_action)(void* context, const char* action_id_utf8,
                                 const char* label_utf8, void* plugin_context,
                                 HallaUiActionFn callback);
-    /* Global no Windows quando a sequência puder ser registrada; fallback local. */
+    /* Global on Windows when the sequence can be registered; local fallback. */
     int (*register_hotkey)(void* context, const char* action_id_utf8,
                            const char* label_utf8,
                            const char* default_sequence_utf8,
@@ -258,8 +258,8 @@ typedef struct HallaUiApiV1 {
 
 /* --------------------------------------------------------------- Base */
 /*
- * Funções oferecidas pelo Halla ao plugin. Todos os ponteiros são válidos
- * somente entre initialize() e shutdown(). As strings são UTF-8.
+ * Functions offered by Halla to the plugin. Every pointer is valid only
+ * between initialize() and shutdown(). Strings are UTF-8.
  */
 typedef struct HallaHostApi {
     uint32_t abi_version;
@@ -269,26 +269,26 @@ typedef struct HallaHostApi {
     void (*log)(void* context, HallaPluginLogLevel level,
                 const char* utf8_message);
 
-    /* Retorna o tamanho necessário (incluindo NUL). buffer pode ser NULL. */
+    /* Returns the required size (NUL included). buffer may be NULL. */
     size_t (*get_settings_json)(void* context, char* buffer,
                                 size_t buffer_size);
 
     /* Solicita que o Halla envie novamente o evento client_state atual. */
     void (*request_client_state)(void* context);
 
-    /* Adicionado após o SDK 1.0.63; teste struct_size antes de usar. */
+    /* Added after SDK 1.0.63; check struct_size before use. */
     const void* (*query_interface)(void* context,
                                    const char* interface_id_utf8,
                                    uint32_t minimum_version);
 } HallaHostApi;
 
-/* Tamanho da parte do host existente no SDK 1.0.63. */
+/* Size of the host part that exists in SDK 1.0.63. */
 #define HALLA_HOST_API_BASE_SIZE \
     (offsetof(HallaHostApi, request_client_state) + sizeof(void (*)(void*)))
 
 /*
- * Tabela exportada pelo plugin. O plugin continua dono das strings e da
- * estrutura durante todo o período em que a DLL estiver carregada.
+ * Table exported by the plugin. The plugin keeps ownership of the strings and
+ * of the structure for as long as the DLL stays loaded.
  */
 typedef struct HallaPluginApi {
     uint32_t abi_version;
@@ -304,10 +304,10 @@ typedef struct HallaPluginApi {
     int (*initialize)(const HallaHostApi* host);
     void (*shutdown)(void);
 
-    /* JSON UTF-8. Consulte PLUGINS.md para a lista de eventos. */
+    /* UTF-8 JSON. See PLUGINS.md for the event list. */
     void (*on_event)(const char* utf8_json, size_t json_size);
 
-    /* Chamado depois que o usuário salva a configuração do complemento. */
+    /* Called after the user saves the addon settings. */
     void (*on_settings_changed)(const char* utf8_json, size_t json_size);
 } HallaPluginApi;
 
@@ -318,9 +318,9 @@ typedef struct HallaPluginApi {
 typedef const HallaPluginApi* (*HallaPluginEntryFn)(void);
 
 /*
- * Um plugin implementa e exporta `const HallaPluginApi*
- * halla_plugin_entry(void)` sem name mangling C++. A declaração não é emitida
- * aqui para que o executável host não tente exportar o mesmo símbolo.
+ * A plugin implements and exports `const HallaPluginApi*
+ * halla_plugin_entry(void)` without C++ name mangling. The declaration is not
+ * emitted here so the host executable never tries to export the same symbol.
  */
 
 #ifdef __cplusplus

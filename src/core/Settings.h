@@ -7,7 +7,7 @@
 #include <QString>
 #include <QVariant>
 
-// Acesso centralizado às configurações persistentes (estilo Halla: tudo guardado localmente)
+// Centralized persistent configuration helpers backed by QSettings.
 namespace S {
 
 inline QSettings& store() {
@@ -36,16 +36,11 @@ inline void set(const QString& key, const QVariant& value) {
     store().sync();
 }
 
-// ---- Apelido memorizado por servidor ----------------------------------
-// Guarda o último apelido aceito por "host:porta" para que reconectar a um
-// servidor não perca o apelido definido lá (connect/recentes/renomeação).
+// Per-server remembered nickname map keyed by normalized "host:port".
 namespace ServerNicks {
 
 constexpr int kMaxEntries = 50;
 
-// Normaliza endereço + porta em uma chave estável. Aceita "host",
-// "host:porta" (sempre reinterpretada quando a porta explícita vem em
-// separado) e ignora caixa/espaços. Porta ausente = 9987.
 inline QString key(const QString& address, quint16 port = 0) {
     QString a = address.trimmed().toLower();
     if (a.isEmpty()) return QString();

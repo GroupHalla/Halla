@@ -42,8 +42,8 @@ ConnectDialog::ConnectDialog(QWidget* parent) : QDialog(parent) {
     hw->setLayout(hostRow);
     form->addRow(tr("Endereço do servidor:"), hw);
 
-    // Apelido memorizado por servidor: ao digitar um endereço já visitado,
-    // o campo de apelido preenche sozinho com o último apelido usado lá.
+    // Nickname remembered per server: when an already visited address is typed, the
+    // nickname field fills itself with the last nickname used there.
     auto refreshSavedNick = [this] {
         const QString saved = S::ServerNicks::get(m_host->text(), m_port->text().toUShort());
         if (!saved.isEmpty()) m_nick->setText(saved);
@@ -57,7 +57,7 @@ ConnectDialog::ConnectDialog(QWidget* parent) : QDialog(parent) {
 
     root->addLayout(form);
 
-    // --------- seção "Mais >>" ---------
+    // --------- "More >>" section ---------
     m_moreBtn = new QPushButton(tr("Mais >>"), this);
     m_moreBtn->setFlat(false);
     m_moreBtn->setMaximumWidth(90);
@@ -67,19 +67,6 @@ ConnectDialog::ConnectDialog(QWidget* parent) : QDialog(parent) {
     QFormLayout* more = new QFormLayout(m_moreArea);
     more->setContentsMargins(0, 0, 0, 0);
     more->setSpacing(7);
-
-    m_phonetic = new QLineEdit(m_moreArea);
-    more->addRow(tr("Apelido fonético:"), m_phonetic);
-
-    m_captureProfile = new QComboBox(m_moreArea);
-    m_captureProfile->addItem(S::str("capture/profile", tr("Padrão")));
-    m_captureProfile->setEditable(true);
-    more->addRow(tr("Perfil de captura:"), m_captureProfile);
-
-    m_playbackProfile = new QComboBox(m_moreArea);
-    m_playbackProfile->addItem(S::str("playback/profile", tr("Padrão")));
-    m_playbackProfile->setEditable(true);
-    more->addRow(tr("Perfil de reprodução:"), m_playbackProfile);
 
     m_moreArea->setVisible(false);
     root->addWidget(m_moreArea);
@@ -93,7 +80,7 @@ ConnectDialog::ConnectDialog(QWidget* parent) : QDialog(parent) {
 
     root->addSpacing(8);
 
-    // --------- botões ---------
+    // --------- buttons ---------
     QHBoxLayout* brow = new QHBoxLayout;
     QPushButton* cancel = new QPushButton(tr("Cancelar"), this);
     QPushButton* connectBtn = new QPushButton(tr("Conectar"), this);
@@ -124,7 +111,6 @@ QString ConnectDialog::nickname() const { return m_nick->text().trimmed(); }
 QString ConnectDialog::address() const  { return m_host->text().trimmed(); }
 quint16 ConnectDialog::port() const     { return m_port->text().toUShort(); }
 QString ConnectDialog::password() const { return m_password->text(); }
-QString ConnectDialog::phoneticNickname() const { return m_phonetic->text(); }
 
 void ConnectDialog::setNickname(const QString& n) { m_nick->setText(n); }
 void ConnectDialog::setAddress(const QString& a, quint16 port) {

@@ -2,28 +2,28 @@
 
 #include <cstdint>
 
-// DSP de voz do microfone do Halla.
+// Halla microphone voice DSP.
 //
-// Duas implementações, mesmo contrato:
+// Two implementations, same contract:
 //
-//   * Com SDK do libwebrtc (HALLA_WEBRTC_NATIVE): cadeia completa do APM —
-//     AEC3 com estimador neural de eco residual + supressão de ruído
-//     neural + filtro passa-alta. É a mesma família de tecnologia de
-//     comunicação usada pelo Krisp/Discord.
+//   * With the libwebrtc SDK (HALLA_WEBRTC_NATIVE): the full APM chain --
+//     AEC3 with a neural residual-echo estimator + neural noise suppression
+//     + high-pass filter. The same family of voice-communication technology
+//     used by Krisp/Discord.
 //
-//   * Builds sem SDK (o release oficial atual): DSP EMBUTIDO, compilado
-//     junto do binário — os checkboxes de redução de ruído/eco deixam de
-//     ser enfeite. Supressão de ruído por rede neural via RNNoise (Xiph,
-//     BSD) + cancelador de eco acústico AUMDF do speexdsp (Xiph, BSD) +
-//     passa-alta de 80 Hz. Sem dependências externas.
+//   * Builds without the SDK (the current official release): EMBEDDED DSP,
+//     compiled into the binary -- the noise-reduction/echo checkboxes stop
+//     being decoration. Neural noise suppression via RNNoise (Xiph, BSD) +
+//     AUMDF acoustic echo canceller from speexdsp (Xiph, BSD) + 80 Hz
+//     high-pass. No external dependencies.
 //
-// Contrato:
-//   * Quadros de 480 amostras mono @ 48 kHz (10 ms), processados IN PLACE.
-//   * processCaptureFrame() = microfone (antes do VAD/plugins/encoder).
-//   * processReverseFrame() = far-end (o mix que está indo para o
-//     alto-falante) — referência que o AEC usa para subtrair o eco.
-//   * NÃO é thread-safe: todas as chamadas devem vir da mesma thread
-//     (no Halla, a thread da GUI, onde vivem captureTick/playbackTick).
+// Contract:
+//   * 480-sample mono frames @ 48 kHz (10 ms), processed IN PLACE.
+//   * processCaptureFrame() = microphone (before VAD/plugins/encoder).
+//   * processReverseFrame() = far-end (the mix going to the speaker) -- the
+//     reference the AEC uses to subtract echo.
+//   * NOT thread-safe: all calls must come from the same thread (in Halla,
+//     the GUI thread, where captureTick/playbackTick live).
 //
 class HallaAudioProcessing {
 public:
@@ -33,28 +33,28 @@ public:
     HallaAudioProcessing(const HallaAudioProcessing&) = delete;
     HallaAudioProcessing& operator=(const HallaAudioProcessing&) = delete;
 
-    // (Re)aplica as configurações. Pode ser chamado a qualquer momento para
-    // acompanhar mudanças nas Opções — ApplyConfig é barato quando nada muda.
-    // denoiseLevel0to100: 0-25 baixo, 26-50 moderado, 51-75 alto, 76-100 máximo.
+    // (Re)applies the configuration. May be called at any time to follow
+    // Options changes -- ApplyConfig is cheap when nothing changed.
+    // denoiseLevel0to100: 0-25 low, 26-50 moderate, 51-75 high, 76-100 maximum.
     void configure(bool denoiseEnabled, int denoiseLevel0to100, bool echoCancellation);
 
     bool denoiseActive() const;
     bool echoActive() const;
 
-    // Microfone, 10 ms, in place. Aplica HPF + AEC3 + NS na ordem do APM.
+    // Microphone, 10 ms, in place. Applies HPF + AEC3 + NS in APM order.
     void processCaptureFrame(int16_t* samples480);
-    // Far-end (o que toca no alto-falante), 10 ms. Alimenta o AEC3.
+    // Far-end (what plays on the speaker), 10 ms. Feeds the AEC3.
     void processReverseFrame(const int16_t* samples480);
-    // Atraso estimado entre o far-end entrar aqui e eco voltar no microfone
-    // (buffer do QAudioSink + latência do dispositivo). Melhora a convergência.
+    // Estimated delay between far-end entering here and echo returning on the
+    // microphone (QAudioSink buffer + device latency). Improves convergence.
     void setPlayoutDelayMs(int ms);
 
 private:
     struct Impl;
     Impl* m_impl = nullptr;
     int m_streamDelayMs = 100;
-    // Fallback embutido: arma um reset do AEC quando a referência far-end
-    // esteve ausente por um longo período (alto-falante mutado / silêncio
-    // total) e acabou de voltar — o caminho acústico pode ter mudado.
+    // Embedded fallback: arms an AEC reset when the far-end reference was
+    // absent for a long period (muted speaker / total silence) and just came
+    // back -- the acoustic path may have changed.
     bool m_restartArmed = false;
 };

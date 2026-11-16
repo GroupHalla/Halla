@@ -41,10 +41,10 @@ QVariant RichTextBrowser::loadResource(int type, const QUrl& name) {
                                      Qt::SmoothTransformation);
             }
             m_images.insert(name, image);
-            // v1.1.35: teto do cache de imagens (FIFO). Sem isto o hash
-            // crescia sem limite em sessões longas com muitas imagens — o
-            // "depois de um tempo o app fica pesado". 32 imagens já cobre
-            // a janela visível de um histórico com teto de blocos.
+            // v1.1.35: image cache cap (FIFO). Without it the hash grew without
+            // bound in long sessions with many images -- the "after a while the app
+            // gets heavy" reports. 32 images already cover the visible window of a
+            // history with a block cap.
             m_imageOrder.append(name);
             while (m_imageOrder.size() > 32) {
                 const QUrl oldest = m_imageOrder.takeFirst();

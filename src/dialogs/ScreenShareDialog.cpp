@@ -7,6 +7,7 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QMap>
+#include <QMessageBox>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -39,21 +40,57 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 
 namespace {
 
-// Equivalente X11 do EnumWindows do Windows: lista as janelas "de
-// aplicativo" (com título, mapeadas, sem override-redirect) para a aba
-// Aplicativos do diálogo de compartilhamento.
+// X11 counterpart of the Windows EnumWindows call: lists the "application"
+// windows (titled, mapped, not override-redirect) for the Applications tab of
+// the share dialog.
 struct LinuxWindowInfo {
     WId window = 0;
     QString title;
 };
 
+// Errors raised by a window that disappeared between XQueryTree and the
+// property queries are expected and must not abort the process with the
+// default Xlib handler. Scoped: the handler is only installed while the
+// enumeration is running.
+bool g_x11EnumerationError = false;
+
+int x11EnumerationErrorHandler(Display*, XErrorEvent*)
+{
+    g_x11EnumerationError = true;
+    return 0;
+}
+
+class X11ErrorScope final {
+public:
+    X11ErrorScope() { m_previous = XSetErrorHandler(x11EnumerationErrorHandler); }
+    ~X11ErrorScope() { XSync(nullptr, False); XSetErrorHandler(m_previous); }
+    static bool failed() { return g_x11EnumerationError; }
+private:
+    XErrorHandler m_previous = nullptr;
+};
+
+// Atoms are cached per Display connection: Xlib atom ids belong to one
+// connection only, so a process-wide static cache is invalid as soon as a
+// different Display* is used.
+QList<Atom> windowTypeAtoms(Display* display)
+{
+    return {
+        XInternAtom(display, "_NET_WM_WINDOW_TYPE", True),
+        XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", True),
+        XInternAtom(display, "_NET_WM_WINDOW_TYPE_DIALOG", True),
+        XInternAtom(display, "_NET_WM_WINDOW_TYPE_UTILITY", True),
+        XInternAtom(display, "_NET_WM_WINDOW_TYPE_TOOLBAR", True),
+    };
+}
+
 bool windowHasAcceptableType(Display* display, Window window)
 {
-    static const Atom typeAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE", True);
-    static const Atom normalAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", True);
-    static const Atom dialogAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DIALOG", True);
-    static const Atom utilityAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_UTILITY", True);
-    static const Atom toolbarAtom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_TOOLBAR", True);
+    const QList<Atom> atoms = windowTypeAtoms(display);
+    const Atom typeAtom = atoms.at(0);
+    const Atom normalAtom = atoms.at(1);
+    const Atom dialogAtom = atoms.at(2);
+    const Atom utilityAtom = atoms.at(3);
+    const Atom toolbarAtom = atoms.at(4);
     if (typeAtom == None) return true;
     Atom actualType = None;
     int actualFormat = 0;
@@ -62,7 +99,7 @@ bool windowHasAcceptableType(Display* display, Window window)
     if (XGetWindowProperty(display, window, typeAtom, 0, 64, False, XA_ATOM,
                            &actualType, &actualFormat, &itemCount, &bytesAfter,
                            &data) != Success || !data)
-        return true; // sem a propriedade: janela antiga/gerenciador simples
+        return true; // no such property: legacy window or simple window manager
     const Atom* types = reinterpret_cast<const Atom*>(data);
     bool acceptable = false;
     for (unsigned long i = 0; i < itemCount && !acceptable; ++i) {
@@ -84,8 +121,10 @@ QList<LinuxWindowInfo> enumerateLinuxWindows()
     Window* children = nullptr;
     unsigned int count = 0;
     if (XQueryTree(display, root, &root, &parent, &children, &count) && children) {
+        const X11ErrorScope errorScope;
         for (unsigned int i = 0; i < count; ++i) {
             const Window window = children[i];
+            if (window == None) continue;
             XWindowAttributes attributes;
             if (!XGetWindowAttributes(display, window, &attributes)) continue;
             if (attributes.map_state != IsViewable || attributes.override_redirect)
@@ -93,7 +132,7 @@ QList<LinuxWindowInfo> enumerateLinuxWindows()
             if (attributes.width < 50 || attributes.height < 50) continue;
             if (!windowHasAcceptableType(display, window)) continue;
 
-            // Título: XGetWMName cobre WM_NAME e _NET_WM_NAME.
+            // Title: XGetWMName covers WM_NAME and _NET_WM_NAME.
             XTextProperty textProperty;
             if (!XGetWMName(display, window, &textProperty) || !textProperty.value)
                 continue;
@@ -111,6 +150,7 @@ QList<LinuxWindowInfo> enumerateLinuxWindows()
         }
         XFree(children);
     }
+    XSync(display, False);
     XCloseDisplay(display);
     return windows;
 }
@@ -199,7 +239,7 @@ ScreenShareDialog::ScreenShareDialog(int maxWidth, int maxHeight, int maxFps,
     populateWindows(); // Mostra Aplicativos na aba "Aplicativos" (m_windowList)
     populateScreens(); // Mostra Telas na aba "Telas" (m_screenList)
 
-    // Controles de qualidade da transmissão WebRTC
+    // WebRTC broadcast quality controls
     QFrame* qualityBox = new QFrame(this);
     qualityBox->setStyleSheet(QStringLiteral("background-color: %1; border-radius: 8px; padding: 4px;").arg(qualityBoxBg));
     QGridLayout* qLayout = new QGridLayout(qualityBox);
@@ -292,17 +332,31 @@ ScreenShareDialog::ScreenShareDialog(int maxWidth, int maxHeight, int maxFps,
 
     QPushButton* shareBtn = new QPushButton(tr("Compartilhar"), this);
     connect(shareBtn, &QPushButton::clicked, this, [this]() {
+        // Tab order: Applications (0) selects a Window (1); Screens (1)
+        // selects a Screen (0). A missing/zero source id must never be
+        // accepted -- the WebRTC layer would otherwise start a capture of an
+        // invalid window and fail silently.
+        quintptr sourceId = 0;
+        int sourceType = 0;
+        bool valid = false;
         if (m_tabs->currentIndex() == 0) {
-            m_selectedSourceType = 1; // Na aba Aplicativos (0), selecionamos Window (1)
+            sourceType = 1;
             if (m_windowList->currentItem()) {
-                m_selectedSourceId = m_windowList->currentItem()->data(Qt::UserRole).toULongLong();
+                sourceId = quintptr(m_windowList->currentItem()->data(Qt::UserRole).toULongLong());
+                valid = sourceId != 0;
             }
-        } else {
-            m_selectedSourceType = 0; // Na aba Telas (1), selecionamos Screen (0)
-            if (m_screenList->currentItem()) {
-                m_selectedSourceId = m_screenList->currentItem()->data(Qt::UserRole).toULongLong();
-            }
+        } else if (m_screenList->currentItem()) {
+            // Screen sources are addressed by QScreen index (0 is valid).
+            sourceId = quintptr(m_screenList->currentItem()->data(Qt::UserRole).toULongLong());
+            valid = int(sourceId) < QGuiApplication::screens().size();
         }
+        if (!valid) {
+            QMessageBox::information(this, tr("Compartilhar Tela"),
+                                     tr("Selecione uma tela ou um aplicativo para compartilhar."));
+            return;
+        }
+        m_selectedSourceType = sourceType;
+        m_selectedSourceId = sourceId;
         accept();
     });
     btnRow->addWidget(shareBtn);
@@ -349,9 +403,9 @@ void ScreenShareDialog::populateResolutionOptions(int maxWidth, int maxHeight) {
         m_resolutionOptions.push_back({maxWidth, maxHeight, label});
         m_qualityCombo->addItem(label, 0);
     }
-    // 1080p é o padrão (v1.1.20): o antigo selecionava sempre o MAIOR item
-    // — 4K de cara em servidores que permitem, com encoder e bitrate para
-    // acompanhar. 2K e 4K continuam listados para quem escolher.
+    // 1080p is the default (v1.1.20): the old code always selected the LARGEST
+    // item -- 4K right away on servers that allow it, with the encoder and bitrate
+    // to match. 2K and 4K remain listed for whoever chooses them.
     int defaultIndex = m_resolutionOptions.size() - 1;
     for (int i = 0; i < m_resolutionOptions.size(); ++i) {
         if (m_resolutionOptions[i].height <= 1080) defaultIndex = i;
@@ -465,8 +519,8 @@ void ScreenShareDialog::populateWindows() {
         m_windowList->addItem(item);
     }
 #elif defined(Q_OS_LINUX)
-    // Enumeração X11 (XWayland incluso); Wayland nativo não expõe janelas
-    // de outros aplicativos sem o portal xdg-desktop-portal.
+    // X11 enumeration (XWayland included); native Wayland does not expose
+    // other applications' windows without the xdg-desktop-portal.
     const QList<LinuxWindowInfo> windows = enumerateLinuxWindows();
     QScreen* screen = QGuiApplication::primaryScreen();
     for (const LinuxWindowInfo& win : windows) {

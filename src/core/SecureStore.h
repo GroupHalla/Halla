@@ -3,8 +3,8 @@
 #include <QByteArray>
 #include <QString>
 
-// Armazenamento de segredos no cofre nativo do sistema operacional por QtKeychain:
-// Credential Manager (Windows), Secret Service/KWallet (Linux) e Keychain (macOS).
+// OS-native secret storage backed by QtKeychain: Credential Manager
+// (Windows), Secret Service/KWallet (Linux), and Keychain (macOS).
 namespace SecureStore {
 
 bool write(const QString& key, const QByteArray& value, QString* error = nullptr);

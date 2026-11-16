@@ -14,11 +14,11 @@
 #include <QScrollBar>
 
 static QPixmap serverBannerPixmap(const ServerData* data) {
-    // O refresh roda a cada segundo enquanto o servidor está selecionado —
-    // decodificar o banner (JPEG/PNG de até 512 KiB) a cada tick é CPU pura
-    // desperdiçada. O QByteArray é compartilhado (refcounted), guardar a
-    // última cópia custa nada; comparação de 512 KiB é memcpy rápido.
-    static QByteArray lastBytes(1, '\x01'); // nunca igual no primeiro uso
+    // The refresh runs every second while the server is selected -- decoding the
+    // banner (JPEG/PNG up to 512 KiB) on every tick is pure wasted CPU. The
+    // QByteArray is shared (refcounted), so keeping the last copy costs nothing;
+    // comparing 512 KiB is a fast memcpy.
+    static QByteArray lastBytes(1, '\x01'); // never equal on first use
     static QPixmap lastPixmap;
     const QByteArray b = data ? data->serverBanner : QByteArray();
     if (b == lastBytes && !lastPixmap.isNull()) return lastPixmap;
@@ -41,8 +41,8 @@ public:
 protected:
     void paintEvent(QPaintEvent* e) override {
         QTextBrowser::paintEvent(e);
-        // v1.1.35: marca d'água em cache — o appIcon(112) era redesenhado
-        // (gradiente + wave marks) a CADA paint do painel de informações.
+        // v1.1.35: cached watermark -- appIcon(112) was redrawn (gradient + wave
+        // marks) on EVERY paint of the information panel.
         static const QPixmap wm = HIcons::appIcon(112);
         if (wm.isNull()) return;
         QPainter p(viewport());
@@ -63,12 +63,12 @@ InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
     m_banner->setScaledContents(true);
     m_banner->setMinimumHeight(210);
     m_banner->setMaximumHeight(210);
-    // QLabel com scaledContents usa o TAMANHO DO PIXMAP como minimumSizeHint:
-    // com banner personalizado (até 1600px de largura) o cartão de informações
-    // ficava com largura mínima de 1600px — o QSplitter recusava o arraste, o
-    // painel cobria a lista de canais e só o banner padrão (820px) "funcionava"
-    // (e ainda assim limitado). Largura mínima explícita pequena devolve o
-    // controle total do splitter; o pixmap é esticado para o espaço disponível.
+    // A QLabel with scaledContents uses the PIXMAP SIZE as minimumSizeHint: with
+    // a custom banner (up to 1600px wide) the information card ended up with a
+    // 1600px minimum width -- the QSplitter refused the drag, the panel covered
+    // the channel list and only the default banner (820px) "worked" (and even
+    // then limited). A small explicit minimum width gives the splitter full
+    // control back; the pixmap stretches to the available space.
     m_banner->setMinimumWidth(1);
     lay->addWidget(m_banner);
 
@@ -81,16 +81,15 @@ InfoPanel::InfoPanel(QWidget* parent) : QWidget(parent) {
     m_timer = new QTimer(this);
     m_timer->setInterval(1000);
     connect(m_timer, &QTimer::timeout, this, [this] {
-        // v1.1.35: qualquer seleção (antes só o cartão do servidor). Como o
-        // refreshServerState agora só repinta o painel quando a ESTRUTURA
-        // muda (transições de fala vão pelo caminho leve da árvore), este
-        // timer é o responsável por manter vivo o que muda com o tempo —
-        // uptime do servidor, tempo online do cliente selecionado.
-        // v1.1.37: o cartão de CANAL não tem nenhum campo que varia com o
-        // tempo (contagem de clientes vem por user_moved/stateChanged) —
-        // pular o refresh por timer dele evita o setHtml por segundo que
-        // devolvia a descrição do canal para o topo enquanto o usuário a
-        // lia/arrastava.
+        // v1.1.35: any selection (previously only the server card). Since
+        // refreshServerState now repaints the panel only when the STRUCTURE
+        // changes (speech transitions go through the lightweight tree path), this
+        // timer is responsible for keeping alive what changes over time -- server
+        // uptime, online time of the selected client.
+        // v1.1.37: the CHANNEL card has no field that varies with time (the client
+        // count arrives via user_moved/stateChanged) -- skipping its timer refresh
+        // avoids the per-second setHtml that scrolled the channel description back
+        // to the top while the user was reading/dragging it.
         if (!m_data || m_kind == 1) return;
         refresh();
     });
@@ -176,13 +175,13 @@ QString InfoPanel::userHtml(const User& u) {
     h += row(tr("Tempo online:"), uptime(u.connectedAt));
     h += row(tr("Volume:"), QStringLiteral("%1 dB").arg(u.volumeDb));
 
-    // O servidor envia cada cargo como "<icone> <nome>" quando o cargo tem
-    // ícone (ex.: "rota.png ROTA") — cargo sem ícone vem só com o nome.
-    // Antes este campo era impresso como texto puro, e o painel mostrava
-    // literalmente "rota.png ROTA" em vez da imagem do ícone. Agora o
-    // MESMO GroupIconCache da árvore fornece o pixmap, que é embutido no
-    // HTML como recurso do documento (escopo por servidor, atualização na
-    // hora quando o admin troca a imagem).
+    // The server sends each role as "<icon> <name>" when the role has an icon
+    // (e.g. "rota.png ROTA") -- a role without an icon arrives with the name
+    // only. This field used to be printed as plain text and the panel literally
+    // showed "rota.png ROTA" instead of the icon image. Now the SAME
+    // GroupIconCache as the tree provides the pixmap, embedded in the HTML as a
+    // document resource (scoped per server, refreshed right away when an admin
+    // replaces the image).
     const QString serverKey = GroupIconCache::serverKey(m_data->address);
     QStringList roles = u.serverGroups.split(QStringLiteral("\n"));
     int printedIndex = 0;
@@ -212,28 +211,26 @@ QString InfoPanel::userHtml(const User& u) {
 }
 
 QString InfoPanel::roleHtml(const QString& roleLine, const QString& serverKey) {
-    // O servidor concatena "<icone> <nome>" (applyGroup) sem separador
-    // explícito. A separação ícone/nome vive no GroupIconCache (compartilhada
-    // com o tooltip da árvore): ícone de IMAGEM termina em extensão conhecida;
-    // emoji/letra/sigla e cargo sem ícone continuam como texto (o emoji
-    // renderiza nativamente no HTML).
+    // The server concatenates "<icon> <name>" (applyGroup) without an explicit
+    // separator. The icon/name split lives in GroupIconCache (shared with the tree
+    // tooltip): an IMAGE icon ends in a known extension; emoji/letter/tag and a
+    // role without an icon stay as text (the emoji renders natively in HTML).
     QString iconName, label;
     GroupIconCache::splitRoleLine(roleLine, &iconName, &label);
     if (!iconName.isEmpty() && !label.isEmpty()) {
         const QPixmap pm = GroupIconCache::instance().pixmap(serverKey, iconName);
         if (!pm.isNull()) {
-            // Recurso embutido no documento: URL interna do painel, sem
-            // espaços (espaço no src atravessa a resolução de QUrl do rich
-            // text de forma dependente de formato — '_' remove a dúvida).
-            // Mesma chave em cada refresh: quando o admin troca a imagem,
-            // iconDataReceived refaz o refresh e addResource sobrescreve o
-            // pixmap antigo pelo novo.
+            // Resource embedded in the document: an internal panel URL, without
+            // spaces (a space in src crosses rich text's QUrl resolution in a
+            // format-dependent way -- '_' removes the doubt). Same key on every
+            // refresh: when an admin replaces the image, iconDataReceived redoes
+            // the refresh and addResource overwrites the old pixmap with the new.
             const QUrl url(QStringLiteral("halla-role-icon:///")
                                + GroupIconCache::safeName(iconName)
                                      .replace(QLatin1Char(' '), QLatin1Char('_')));
             m_view->document()->addResource(QTextDocument::ImageResource, url, pm.toImage());
-            // Tamanho real do pixmap do cache (KeepAspectRatio): o ícone não
-            // estica — quadrado fica quadrado.
+            // Real pixmap size from the cache (KeepAspectRatio): the icon does not
+            // stretch -- a square stays a square.
             return QStringLiteral(
                        "<img src=\"%1\" width=\"%2\" height=\"%3\" "
                        "style=\"vertical-align:middle\"/> %4")
@@ -241,11 +238,10 @@ QString InfoPanel::roleHtml(const QString& roleLine, const QString& serverKey) {
                 .arg(pm.width()).arg(pm.height())
                 .arg(label.toHtmlEscaped());
         }
-        // Ainda não temos os bytes (ex.: primeira exibição antes do
-        // icon_data chegar): pede ao servidor e mostra só o nome do
-        // cargo — o nome do ARQUIVO é detalhe interno e não deve vazar
-        // para a interface. Quando o dado chega, o ServerTab chama
-        // refresh() e a linha ganha a imagem.
+        // The bytes are not here yet (e.g. first paint before icon_data arrives):
+        // request them from the server and show only the role name -- the FILE
+        // name is an internal detail and must not leak into the interface. Once
+        // the data arrives, ServerTab calls refresh() and the row gets the image.
         if (GroupIconCache::shouldRequest(serverKey + QLatin1Char('|') + iconName, false))
             emit iconRequested(iconName);
         return label.toHtmlEscaped();
@@ -267,12 +263,12 @@ void InfoPanel::refresh() {
     } else {
         html = serverHtml();
     }
-    // v1.1.37: setHtml reseta a rolagem para o TOPO — e o refresh roda a
-    // cada mudança de estado (alguém entra/sai/muda), além do timer de 1 s.
-    // Quem estava lendo a descrição do canal (ou do usuário) mais abaixo
-    // viaja de volta ao topo a cada evento: "arrasto para baixo e ele volta
-    // sozinho para cima". Preservar a posição da barra devolve o controle —
-    // setValue faz clamp no novo máximo se o conteúdo encolher.
+    // v1.1.37: setHtml resets the scroll to the TOP -- and the refresh runs on
+    // every state change (someone joins/leaves/changes), on top of the 1 s timer.
+    // Whoever was reading the channel (or user) description further down jumped
+    // back to the top on every event: "I drag it down and it goes back up by
+    // itself". Preserving the scrollbar position gives control back -- setValue
+    // clamps to the new maximum if the content shrinks.
     QScrollBar* sb = m_view->verticalScrollBar();
     const int scrollPos = sb->value();
     m_view->setHtml(html);

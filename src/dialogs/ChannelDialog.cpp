@@ -62,7 +62,7 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
 
     m_codec = new QComboBox(this);
     m_codec->addItems(codecNames());
-    m_codec->setCurrentIndex(4); // Opus Voice (padrão do Halla)
+    m_codec->setCurrentIndex(4); // Opus Voice (Halla default)
     form->addRow(tr("Codec:"), m_codec);
 
     QHBoxLayout* qrow = new QHBoxLayout;
@@ -99,7 +99,7 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     m_maxClients->setSpecialValueText(tr("ilimitado"));
     form->addRow(tr("Máx. de clientes:"), m_maxClients);
 
-    // tipo do canal — radio buttons como no Halla
+    // channel type -- radio buttons as in Halla
     QHBoxLayout* typerow = new QHBoxLayout;
     m_temp = new QRadioButton(tr("Temporário"), this);
     m_semi = new QRadioButton(tr("Semi-permanente"), this);
@@ -117,10 +117,10 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
         tr("Receber canais temporários como subcanais"), this);
     m_tempChannelParent->setToolTip(tr(
         "Quando qualquer usuário criar um canal temporário, o servidor o colocará automaticamente dentro deste canal."));
-    // Não bloqueie esta opção usando o snapshot local de myPerms: chaves de
-    // privilégio concedem poder individual no servidor sem trocar o cargo do
-    // usuário. O servidor continua sendo a autoridade e rejeita alterações de
-    // quem realmente não possui chanEdit.
+    // Do not gate this option on the local myPerms snapshot: privilege keys grant
+    // individual power on the server without changing the user's role. The server
+    // continues being the authority and rejects changes from whoever really lacks
+    // chanEdit.
     m_tempChannelParent->setEnabled(true);
     connect(m_temp, &QRadioButton::toggled, this,
             [this](bool temporary) {
@@ -145,13 +145,13 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     propPage->setLayout(propLayout);
     m_tabs->addTab(propPage, tr("Propriedades"));
 
-    // ---- Tab 2: Permissões — regras de acesso no estilo LCA do Halla
+    // ---- Tab 2: Permissions -- access rules in Halla's LCA style
     QWidget* permPage = new QWidget(m_tabs);
     QHBoxLayout* pLayout = new QHBoxLayout(permPage);
     pLayout->setContentsMargins(8, 8, 8, 8);
     pLayout->setSpacing(8);
 
-    // Coluna esquerda: grupos que possuem uma regra específica neste canal.
+    // Left column: groups that hold a specific rule in this channel.
     QVBoxLayout* left = new QVBoxLayout;
     left->setSpacing(6);
     left->addWidget(new QLabel(tr("Grupos ativos"), permPage));
@@ -174,7 +174,7 @@ ChannelDialog::ChannelDialog(const QString& title, const ServerData* server, Net
     left->addWidget(subject);
     pLayout->addLayout(left, 1);
 
-    // Coluna direita: matriz Negar/Permitir para as permissões existentes.
+    // Right column: Deny/Allow matrix for the existing permissions.
     QVBoxLayout* right = new QVBoxLayout;
     right->setSpacing(6);
     right->addWidget(new QLabel(tr("Permissões"), permPage));
@@ -305,7 +305,7 @@ void ChannelDialog::setChannel(const Channel& c) {
     m_hideSymbol->setChecked(c.noSymbol);
     m_tempChannelParent->setChecked(c.tempChannelParent && c.type != 0);
     const int idx = m_sortAfter->findData(c.id);
-    if (idx >= 0) m_sortAfter->removeItem(idx); // não pode classificar abaixo de si mesmo
+    if (idx >= 0) m_sortAfter->removeItem(idx); // cannot be sorted below itself
 
     m_localGroupPerms = c.groupPerms;
     m_lastGid = -1;
@@ -351,7 +351,7 @@ void ChannelDialog::setTemporaryOwnerMode(bool enabled) {
 
 Channel ChannelDialog::resultChannel() const {
     Channel c;
-    c.name = m_name->text(); // preserva espaços iniciais para canais decorativos
+    c.name = m_name->text(); // preserves leading spaces for decorative channels
     c.topic = m_topic->text().trimmed();
     c.description = m_desc->toPlainText();
     c.passwordHash = m_password->text();

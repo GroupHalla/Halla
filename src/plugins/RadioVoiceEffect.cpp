@@ -43,8 +43,8 @@ bool RadioVoiceEffect::process(quint64 connectionId, int userId, uint32_t stage,
                                uint32_t channels, uint32_t sampleRate) {
     if (!samples || frames == 0 || channels == 0 || channels > 8 || sampleRate != 48000)
         return false;
-    // AFTER_VAD é a captura após a decisão de transmissão — o mesmo efeito
-    // do envio, disparado pelo host depois do detector de voz.
+    // AFTER_VAD is the capture that follows the transmission decision -- the
+    // same send-path effect, triggered by the host after the voice detector.
     const bool capture = stage == HALLA_AUDIO_CAPTURE
         || stage == HALLA_AUDIO_CAPTURE_AFTER_VAD;
     const bool remote = stage == HALLA_AUDIO_REMOTE_BEFORE_SPATIAL;

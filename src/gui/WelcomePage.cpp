@@ -8,7 +8,7 @@
 #include <QStyle>
 
 WelcomePage::WelcomePage(QWidget* parent) : QWidget(parent) {
-    // fundo/cores vêm do tema global (HTheme) via objectName
+    // background/colors come from the global theme (HTheme) through objectName
     setObjectName(QStringLiteral("welcomePage"));
     setAutoFillBackground(true);
 
@@ -60,7 +60,7 @@ void WelcomePage::paintEvent(QPaintEvent* e) {
     QWidget::paintEvent(e);
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    // marca d'água sutil no canto inferior direito
+    // subtle watermark in the bottom-right corner
     QPixmap wm = HIcons::waveMark(220, QColor(90, 107, 122, 14));
     p.drawPixmap(width() - wm.width() - 30, height() - wm.height() - 20, wm);
 }

@@ -75,8 +75,8 @@ QString HTheme::styleSheet(bool dark) {
     css += QStringLiteral("QTreeWidget#serverTree::item:selected { background: ") + selected
            + QStringLiteral("; color: ") + text + QStringLiteral("; }");
     css += QStringLiteral("QTreeWidget#serverTree::branch { background: transparent; }");
-    // Indicadores explícitos: seta para a direita quando os usuários/subcanais
-    // estão ocultos e seta para baixo quando o conteúdo está visível.
+    // Explicit indicators: right arrow when users/subchannels are hidden and down
+    // arrow when the content is visible.
     css += QStringLiteral("QTreeWidget#serverTree::branch:closed:has-children { image: url(:/halla/assets/tree-arrow-right.svg); }");
     css += QStringLiteral("QTreeWidget#serverTree::branch:open:has-children { image: url(:/halla/assets/tree-arrow-down.svg); }");
 
@@ -149,9 +149,9 @@ QString HTheme::styleSheet(bool dark) {
     css += QStringLiteral("QWidget#optionsSep { background: ") + border + QStringLiteral("; }");
 
     // ------------------------------------------------------------------
-    // Tema branco fiel à referência: superfícies quase brancas, separadores
-    // cinza-azulados, tipografia compacta e cartões sem o roxo do tema atual.
-    // O ramo escuro continua usando a identidade escura existente.
+    // White theme faithful to the reference: near-white surfaces, blue-gray
+    // separators, compact typography and cards without the purple of the current
+    // theme. The dark branch keeps using the existing dark identity.
     if (!dark) {
         css += QStringLiteral("QMainWindow, QWidget#mainSurface, QStackedWidget, QSplitter, QWidget { background: #F4F5F7; color: #263238; }");
         css += QStringLiteral("QMenuBar { background: #FFFFFF; color: #263238; border-bottom: 1px solid #DDE2E8; padding: 0 10px; min-height: 34px; font-size: 12px; }");
@@ -202,8 +202,8 @@ QString HTheme::styleSheet(bool dark) {
     }
 
     if (dark) {
-        // Tema escuro equivalente à referência: azul-marinho quase preto,
-        // cartões discretos e roxo reservado para seleção/estado ativo.
+        // Dark theme equivalent to the reference: near-black navy, discreet cards
+        // and purple reserved for selection/active state.
         css += QStringLiteral("QMainWindow, QWidget#mainSurface, QStackedWidget, QSplitter, QWidget { background: #070B14; color: #E7EDF5; }");
         css += QStringLiteral("QMenuBar { background: #060A12; color: #E7EDF5; border-bottom: 1px solid #17263A; padding: 0 10px; min-height: 34px; font-size: 12px; }");
         css += QStringLiteral("QMenuBar::item { padding: 8px 13px 7px 13px; margin: 0; }");

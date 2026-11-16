@@ -17,10 +17,10 @@ class NetSession;
 struct ServerData;
 
 // ============================================================================
-// Diálogos de administração do Halla (protocolo v3) — estilo Halla
+// Halla administration dialogs (protocol v3) -- Halla style
 // ============================================================================
 
-// "Lista de banidos" — mostra banimentos ativos e permite removê-los
+// "Ban list" -- shows active bans and allows removing them
 class BanListDialog : public QDialog {
     Q_OBJECT
 public:
@@ -31,7 +31,7 @@ private:
     QTableWidget* m_table;
 };
 
-// "Reclamações" — reclamações registradas pelos usuários (requer banList)
+// "Complaints" -- complaints filed by users (requires banList)
 class ComplaintsDialog : public QDialog {
     Q_OBJECT
 public:
@@ -42,8 +42,8 @@ private:
     QTreeWidget* m_tree;
 };
 
-// "Grupos de servidores" — editor completo: criar/excluir grupos,
-// editar permissões (checkbox + poder de fala) e atribuir grupo a usuário
+// "Server groups" -- full editor: create/delete groups, edit permissions
+// (checkbox + talk power) and assign a group to a user
 class ServerGroupsDialog : public QDialog {
     Q_OBJECT
 public:
@@ -63,20 +63,20 @@ private:
     QTreeWidget* m_members = nullptr;
     QWidget* m_editor = nullptr;
     QLabel* m_groupLabel = nullptr;
-    QJsonObject m_cur;         // grupo em edição (id, name, perms)
-    QJsonObject m_pendingGroup; // valores aguardando confirmação do servidor
-    QList<QPair<QString, QCheckBox*>> m_checks; // permissões booleanas
+    QJsonObject m_cur;         // group being edited (id, name, perms)
+    QJsonObject m_pendingGroup; // values awaiting server confirmation
+    QList<QPair<QString, QCheckBox*>> m_checks; // boolean permissions
     QSpinBox* m_talkPower = nullptr;
     QLineEdit* m_sigla = nullptr;
     QComboBox* m_siglaPlacement = nullptr;
     QSpinBox* m_order = nullptr;
     QCheckBox* m_orderEnabled = nullptr;
-    QSpinBox* m_position = nullptr;  // Pilar 1: posição hierárquica dos cargos
+    QSpinBox* m_position = nullptr;  // Pillar 1: hierarchical position of the roles
     QLineEdit* m_icon = nullptr;
     QComboBox* m_userCombo = nullptr;
 };
 
-// "Mostrar permissões do usuário" — visão somente-leitura das minhas permissões
+// "Show user permissions" -- read-only view of my own permissions
 class PermissionsOverviewDialog : public QDialog {
     Q_OBJECT
 public:
@@ -85,10 +85,10 @@ public:
                                        QWidget* parent = nullptr);
 };
 
-// Item de mensagem offline recebida nesta sessão
+// Offline message item received in this session
 struct OfflineMsgItem { QString fromName; QString text; QString ts; };
 
-// "Mensagens offline" — caixa de entrada + envio de novas mensagens
+// "Offline messages" -- inbox + sending new messages
 class OfflineMessagesDialog : public QDialog {
     Q_OBJECT
 public:

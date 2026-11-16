@@ -5,7 +5,7 @@
 #include <QComboBox>
 #include "AppLog.h"
 
-// Janela "Registro do cliente" (Client Log) — nivel filtrável, cores e exportação.
+// "Client log" window -- filterable level, colors and export.
 class LogDialog : public QDialog {
     Q_OBJECT
 public:
@@ -13,9 +13,9 @@ public:
 
     void append(int level, const QString& timestamp, const QString& text);
 
-    // Carrega o histórico persistido em halla.log (as mensagens anteriores à
-    // abertura da janela). Útil para diagnosticar decisões que aconteceram
-    // antes do diálogo existir (ex.: encoder GPU/CPU no início da transmissão).
+    // Loads the history persisted in halla.log (messages written before the window
+    // opened). Useful to diagnose decisions taken before the dialog existed (e.g.
+    // the GPU/CPU encoder at the start of a broadcast).
     void loadFromFile();
 
 private:

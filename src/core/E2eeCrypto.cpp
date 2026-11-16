@@ -6,29 +6,18 @@
 #include <cstring>
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
-#include <openssl/hmac.h>
 #include <openssl/rand.h>
-#include <openssl/x509.h> // d2i_PUBKEY/i2d_PUBKEY/d2i_AutoPrivateKey (caminho livre de NID)
+#include <openssl/x509.h>
 
-// Compatibilidade de backends (LEIA ANTES DE MEXAR EM EVP):
-//
-// O Windows compila contra os headers do OpenSSL 3 (vcpkg) mas LINKA o
-// BoringSSL embutido no webrtc.lib do SDK. As ASSINATURAS das funções EVP
-// abaixo são idênticas nas duas bibliotecas — mas as CONSTANTES de tipo
-// NÃO são: os headers do OpenSSL declaram NID_X25519=1034/NID_ED25519=1087
-// enquanto o BoringSSL espera 948/949. Por isso EVP_PKEY_new_raw_private_key
-// e EVP_PKEY_new_raw_public_key (que recebem o NID por parâmetro) DEVOLVEM
-// NULL em runtime no app Windows — o gate e2ee_crypto_smoke do release pega
-// exatamente isso (o IdentityDialog teve o mesmo problema com Ed25519; ver
-// o cabeçalho do tests/ed25519_identity_smoke.cpp).
-//
-// A solução é o caminho DER/OID, livre de NID: a chave crua de 32 bytes é
-// embrulhada em PKCS#8/SPKI mínimos do RFC 8410 (cabeçalho fixo + chave) e
-// interpretada por d2i_AutoPrivateKey/d2i_PUBKEY/i2d_PUBKEY — o tipo correto
-// fica DENTRO do EVP_PKEY, e tanto o OpenSSL real quanto o BoringSSL aceitam
-// os mesmos bytes (é o formato canônico do `openssl genpkey -algorithm
-// X25519`/Ed25519). EVP_PKEY_CTX_new/derive, EVP_DigestSign/Verify, HMAC,
-// RAND_bytes e a camada EVP_CIPHER (AES-GCM) têm ABI idêntica nas duas.
+// Cross-library ABI safety notes:
+// Windows WebRTC builds compile against OpenSSL 3 headers while linking against
+// BoringSSL embedded in webrtc.lib:
+//   1. Numeric NID constants (e.g., NID_X25519 / NID_ED25519) differ between
+//      OpenSSL 3 and BoringSSL, so all keys are loaded via OID-tagged RFC 8410 DER.
+//   2. OpenSSL's HMAC() / HMAC_Init_ex() take `int key_len`, whereas BoringSSL
+//      declares `size_t key_len`. HMAC-SHA256 is therefore implemented directly
+//      over EVP_DigestInit_ex / EVP_DigestUpdate / EVP_DigestFinal_ex, whose
+//      signatures match byte-for-byte in both libraries.
 
 namespace E2ee {
 
@@ -40,29 +29,81 @@ const char kDhBindingDomain[] = "HALLA-DH-V1";
 
 namespace {
 
-// Aparição de -Wold-style-cast em EVP_CIPHER_CTX_ctrl é padrão da API OpenSSL;
-// o elenco aqui é o uso documentado da biblioteca.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 
+void cleanseBytes(QByteArray& buf) {
+    if (!buf.isEmpty()) {
+        OPENSSL_cleanse(buf.data(), size_t(buf.size()));
+        buf.clear();
+    }
+}
+
+// RFC 2104 HMAC-SHA256 built solely on ABI-identical EVP_Digest* primitives.
 QByteArray hmacSha256(const QByteArray& key, const QByteArray& data) {
+    unsigned char block[64];
+    std::memset(block, 0, sizeof(block));
+
+    if (key.size() > 64) {
+        EVP_MD_CTX* kctx = EVP_MD_CTX_new();
+        if (!kctx) return QByteArray();
+        unsigned int kdLen = 0;
+        const bool hashed = EVP_DigestInit_ex(kctx, EVP_sha256(), nullptr) == 1
+            && EVP_DigestUpdate(kctx, key.constData(), size_t(key.size())) == 1
+            && EVP_DigestFinal_ex(kctx, block, &kdLen) == 1;
+        EVP_MD_CTX_free(kctx);
+        if (!hashed) {
+            OPENSSL_cleanse(block, sizeof(block));
+            return QByteArray();
+        }
+    } else if (!key.isEmpty()) {
+        std::memcpy(block, key.constData(), size_t(key.size()));
+    }
+
+    unsigned char ipad[64];
+    unsigned char opad[64];
+    for (int i = 0; i < 64; ++i) {
+        ipad[i] = block[i] ^ 0x36;
+        opad[i] = block[i] ^ 0x5c;
+    }
+    OPENSSL_cleanse(block, sizeof(block));
+
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    if (!ctx) {
+        OPENSSL_cleanse(ipad, sizeof(ipad));
+        OPENSSL_cleanse(opad, sizeof(opad));
+        return QByteArray();
+    }
+
+    unsigned char inner[32];
+    unsigned int innerLen = 0;
     QByteArray out(32, 0);
     unsigned int outLen = 0;
-    if (HMAC(EVP_sha256(),
-             key.constData(), int(key.size()),
-             reinterpret_cast<const unsigned char*>(data.constData()), size_t(data.size()),
-             reinterpret_cast<unsigned char*>(out.data()), &outLen) == nullptr)
+
+    bool ok = EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1
+        && EVP_DigestUpdate(ctx, ipad, sizeof(ipad)) == 1
+        && (data.isEmpty() || EVP_DigestUpdate(ctx, data.constData(), size_t(data.size())) == 1)
+        && EVP_DigestFinal_ex(ctx, inner, &innerLen) == 1;
+    if (ok) {
+        ok = EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) == 1
+            && EVP_DigestUpdate(ctx, opad, sizeof(opad)) == 1
+            && EVP_DigestUpdate(ctx, inner, sizeof(inner)) == 1
+            && EVP_DigestFinal_ex(ctx, reinterpret_cast<unsigned char*>(out.data()), &outLen) == 1;
+    }
+
+    EVP_MD_CTX_free(ctx);
+    OPENSSL_cleanse(ipad, sizeof(ipad));
+    OPENSSL_cleanse(opad, sizeof(opad));
+    OPENSSL_cleanse(inner, sizeof(inner));
+
+    if (!ok || outLen != 32) {
+        cleanseBytes(out);
         return QByteArray();
-    out.resize(int(outLen));
+    }
     return out;
 }
 
-// ------------------------------------------------------------ NID-free keys
-//
-// Conversões entre bytes crus de 32 bytes e EVP_PKEY pelos envelopes mínimos
-// do RFC 8410 — NENHUMA constante EVP_PKEY_* do compilador entra no binário.
-
-// PKCS#8 v2 (PrivateKeyInfo): 30 2E 02 01 00 30 05 06 03 <OID> 04 22 04 20 || key
+// RFC 8410 minimal PKCS#8 and SubjectPublicKeyInfo prefixes for X25519 and Ed25519.
 const unsigned char kX25519Pkcs8Prefix[] = {
     0x30, 0x2E, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x6E,
     0x04, 0x22, 0x04, 0x20,
@@ -71,12 +112,8 @@ const unsigned char kEd25519Pkcs8Prefix[] = {
     0x30, 0x2E, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70,
     0x04, 0x22, 0x04, 0x20,
 };
-// SPKI (SubjectPublicKeyInfo): 30 2A 30 05 06 03 <OID> 03 21 00 || key
 const unsigned char kX25519SpkiPrefix[] = {
     0x30, 0x2A, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x6E, 0x03, 0x21, 0x00,
-};
-const unsigned char kEd25519SpkiPrefix[] = {
-    0x30, 0x2A, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70, 0x03, 0x21, 0x00,
 };
 
 QByteArray wrapRfc8410(const unsigned char* prefix, int prefixLen, const QByteArray& raw32) {
@@ -86,15 +123,15 @@ QByteArray wrapRfc8410(const unsigned char* prefix, int prefixLen, const QByteAr
     return der;
 }
 
-// Chave privada crua (32) → EVP_PKEY via parser PKCS#8 DER.
 EVP_PKEY* privateKeyFromRaw(const unsigned char* pkcs8Prefix, int prefixLen,
                             const QByteArray& raw32) {
-    const QByteArray der = wrapRfc8410(pkcs8Prefix, prefixLen, raw32);
+    QByteArray der = wrapRfc8410(pkcs8Prefix, prefixLen, raw32);
     const unsigned char* p = reinterpret_cast<const unsigned char*>(der.constData());
-    return d2i_AutoPrivateKey(nullptr, &p, long(der.size()));
+    EVP_PKEY* key = d2i_AutoPrivateKey(nullptr, &p, long(der.size()));
+    cleanseBytes(der);
+    return key;
 }
 
-// Chave pública crua (32) → EVP_PKEY via parser SPKI DER.
 EVP_PKEY* publicKeyFromRaw(const unsigned char* spkiPrefix, int prefixLen,
                            const QByteArray& raw32) {
     const QByteArray der = wrapRfc8410(spkiPrefix, prefixLen, raw32);
@@ -102,8 +139,6 @@ EVP_PKEY* publicKeyFromRaw(const unsigned char* spkiPrefix, int prefixLen,
     return d2i_PUBKEY(nullptr, &p, long(der.size()));
 }
 
-// EVP_PKEY → pública crua (32): i2d_PUBKEY emite o SPKI RFC 8410 completo
-// (exatamente 44 bytes para X25519/Ed25519 — os 32 finais são a chave).
 QByteArray rawPublicFromKey(EVP_PKEY* key) {
     if (!key) return QByteArray();
     unsigned char* der = nullptr;
@@ -115,18 +150,26 @@ QByteArray rawPublicFromKey(EVP_PKEY* key) {
     return pub;
 }
 
-} // namespace
+QByteArray pairwiseKey(const QByteArray& myPriv, const QByteArray& theirPub,
+                       const QByteArray& domain) {
+    QByteArray shared = x25519SharedSecret(myPriv, theirPub);
+    if (shared.isEmpty()) return QByteArray();
+    QByteArray derived = hkdfSha256(shared, QByteArray(domain), QByteArray(domain), 32);
+    cleanseBytes(shared);
+    return derived;
+}
 
-// ------------------------------------------------------------------ X25519
+} // namespace
 
 bool generateDhKeyPair(DhKeyPair& out) {
     QByteArray priv(32, 0);
     if (RAND_bytes(reinterpret_cast<unsigned char*>(priv.data()), 32) != 1)
         return false;
-    // pública = privada · G — derivada pelo próprio par de curvas, nunca
-    // transmitida em claro na geração.
     const QByteArray pub = dhPublicFromPrivate(priv);
-    if (pub.size() != 32) return false;
+    if (pub.size() != 32) {
+        cleanseBytes(priv);
+        return false;
+    }
     out.priv = priv;
     out.pub = pub;
     return true;
@@ -148,7 +191,7 @@ QByteArray x25519SharedSecret(const QByteArray& myPriv, const QByteArray& theirP
             secret.resize(32);
             if (EVP_PKEY_derive(ctx, reinterpret_cast<unsigned char*>(secret.data()), &len) != 1
                     || len != 32)
-                secret.clear();
+                cleanseBytes(secret);
         }
     }
     EVP_PKEY_CTX_free(ctx);
@@ -166,15 +209,12 @@ QByteArray dhPublicFromPrivate(const QByteArray& priv) {
     return pub;
 }
 
-// ------------------------------------------------------------- HKDF-SHA256
-
 QByteArray hkdfSha256(const QByteArray& ikm, const QByteArray& salt,
                       const QByteArray& info, int length) {
     if (length <= 0 || length > 255 * 32 || ikm.isEmpty()) return QByteArray();
-    // Extract: PRK = HMAC(salt, IKM)
-    const QByteArray prk = hmacSha256(salt.isEmpty() ? QByteArray(32, 0) : salt, ikm);
+    QByteArray prk = hmacSha256(salt.isEmpty() ? QByteArray(32, 0) : salt, ikm);
     if (prk.isEmpty()) return QByteArray();
-    // Expand: T(1) = HMAC(PRK, info|0x01); T(n) = HMAC(PRK, T(n-1)|info|n)
+
     QByteArray out;
     out.reserve(length);
     QByteArray t;
@@ -183,16 +223,22 @@ QByteArray hkdfSha256(const QByteArray& ikm, const QByteArray& salt,
         QByteArray block = t;
         block.append(info);
         block.append(char(counter));
+        cleanseBytes(t);
         t = hmacSha256(prk, block);
-        if (t.isEmpty()) return QByteArray();
+        cleanseBytes(block);
+        if (t.isEmpty()) {
+            cleanseBytes(prk);
+            cleanseBytes(out);
+            return QByteArray();
+        }
         out.append(t.left(qMin(remaining, t.size())));
         remaining = length - out.size();
     }
+    cleanseBytes(t);
+    cleanseBytes(prk);
     out.resize(length);
     return out;
 }
-
-// ----------------------------------------------------------- AES-256-GCM
 
 bool aeadSeal(const QByteArray& key, const QByteArray& nonce, const QByteArray& aad,
               const QByteArray& plain, QByteArray& out) {
@@ -258,27 +304,35 @@ bool aeadOpen(const QByteArray& key, const QByteArray& nonce, const QByteArray& 
         const_cast<char*>(ctTag.constData() + ctLen)) == 1;
     if (ok) ok = EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(plain.data()) + total, &outLen) == 1;
     EVP_CIPHER_CTX_free(ctx);
-    if (!ok) return false; // tag inválida ou ciphertext adulterado
+    if (!ok) {
+        cleanseBytes(plain);
+        return false;
+    }
     plain.resize(total);
     out = plain;
     return true;
 }
 
-// ------------------------------------------------------------- Envelope e2e_key
-
 QByteArray envelopeWrap(const QByteArray& recipientDhPub, const QByteArray& aad,
                         const QByteArray& plain) {
     DhKeyPair eph;
     if (!generateDhKeyPair(eph)) return QByteArray();
-    const QByteArray shared = x25519SharedSecret(eph.priv, recipientDhPub);
+    QByteArray shared = x25519SharedSecret(eph.priv, recipientDhPub);
+    cleanseBytes(eph.priv);
     if (shared.isEmpty()) return QByteArray();
-    // O ECDH já vincula o envelope ao destinatário (só ele deriva o segredo);
-    // o HKDF vincula ao domínio do protocolo (AAD).
-    const QByteArray wrapKey = hkdfSha256(shared, QByteArray(aad), QByteArray(aad), 32);
-    if (wrapKey.size() != 32) return QByteArray();
+
+    QByteArray wrapKey = hkdfSha256(shared, QByteArray(aad), QByteArray(aad), 32);
+    cleanseBytes(shared);
+    if (wrapKey.size() != 32) {
+        cleanseBytes(wrapKey);
+        return QByteArray();
+    }
     const QByteArray nonce = randomBytes(12);
     QByteArray ct;
-    if (!aeadSeal(wrapKey, nonce, aad, plain, ct)) return QByteArray();
+    const bool sealed = aeadSeal(wrapKey, nonce, aad, plain, ct);
+    cleanseBytes(wrapKey);
+    if (!sealed) return QByteArray();
+
     QByteArray out;
     out.reserve(32 + 12 + ct.size());
     out.append(eph.pub);
@@ -293,33 +347,30 @@ QByteArray envelopeUnwrap(const QByteArray& myDhPriv, const QByteArray& aad,
     const QByteArray ephPub = envelope.left(32);
     const QByteArray nonce = envelope.mid(32, 12);
     const QByteArray ctTag = envelope.mid(32 + 12);
-    const QByteArray shared = x25519SharedSecret(myDhPriv, ephPub);
+    QByteArray shared = x25519SharedSecret(myDhPriv, ephPub);
     if (shared.isEmpty()) return QByteArray();
-    const QByteArray wrapKey = hkdfSha256(shared, QByteArray(aad), QByteArray(aad), 32);
+
+    QByteArray wrapKey = hkdfSha256(shared, QByteArray(aad), QByteArray(aad), 32);
+    cleanseBytes(shared);
     QByteArray plain;
-    if (wrapKey.size() != 32 || !aeadOpen(wrapKey, nonce, aad, ctTag, plain))
-        return QByteArray();
-    return plain;
+    const bool opened = (wrapKey.size() == 32) && aeadOpen(wrapKey, nonce, aad, ctTag, plain);
+    cleanseBytes(wrapKey);
+    return opened ? plain : QByteArray();
 }
-
-// ---------------------------------------------------------- Chave par-a-par
-
-namespace {
-QByteArray pairwiseKey(const QByteArray& myPriv, const QByteArray& theirPub,
-                       const QByteArray& domain) {
-    const QByteArray shared = x25519SharedSecret(myPriv, theirPub);
-    if (shared.isEmpty()) return QByteArray();
-    return hkdfSha256(shared, QByteArray(domain), QByteArray(domain), 32);
-}
-} // namespace
 
 QByteArray pairwiseEncrypt(const QByteArray& myDhPriv, const QByteArray& theirDhPub,
                            const QByteArray& domain, const QByteArray& plain) {
-    const QByteArray key = pairwiseKey(myDhPriv, theirDhPub, domain);
-    if (key.size() != 32) return QByteArray();
+    QByteArray key = pairwiseKey(myDhPriv, theirDhPub, domain);
+    if (key.size() != 32) {
+        cleanseBytes(key);
+        return QByteArray();
+    }
     const QByteArray nonce = randomBytes(12);
     QByteArray ct;
-    if (!aeadSeal(key, nonce, domain, plain, ct)) return QByteArray();
+    const bool sealed = aeadSeal(key, nonce, domain, plain, ct);
+    cleanseBytes(key);
+    if (!sealed) return QByteArray();
+
     QByteArray out;
     out.reserve(12 + ct.size());
     out.append(nonce);
@@ -330,22 +381,23 @@ QByteArray pairwiseEncrypt(const QByteArray& myDhPriv, const QByteArray& theirDh
 QByteArray pairwiseDecrypt(const QByteArray& myDhPriv, const QByteArray& theirDhPub,
                            const QByteArray& domain, const QByteArray& blob) {
     if (blob.size() < 12 + 16) return QByteArray();
-    const QByteArray key = pairwiseKey(myDhPriv, theirDhPub, domain);
-    if (key.size() != 32) return QByteArray();
+    QByteArray key = pairwiseKey(myDhPriv, theirDhPub, domain);
+    if (key.size() != 32) {
+        cleanseBytes(key);
+        return QByteArray();
+    }
     const QByteArray nonce = blob.left(12);
     const QByteArray ctTag = blob.mid(12);
     QByteArray plain;
-    if (!aeadOpen(key, nonce, domain, ctTag, plain)) return QByteArray();
-    return plain;
+    const bool opened = aeadOpen(key, nonce, domain, ctTag, plain);
+    cleanseBytes(key);
+    return opened ? plain : QByteArray();
 }
-
-// --------------------------------------------------------------- Ed25519
 
 QByteArray ed25519Sign(const QByteArray& privMaterial, const QByteArray& msg) {
     if (privMaterial.isEmpty() || msg.isEmpty()) return QByteArray();
     EVP_PKEY* key = nullptr;
     if (privMaterial.size() == 32) {
-        // seed crua → PKCS#8 mínimo (mesmo embrulho do IdentityDialog).
         key = privateKeyFromRaw(kEd25519Pkcs8Prefix,
                                 int(sizeof(kEd25519Pkcs8Prefix)), privMaterial);
     } else {
@@ -389,7 +441,7 @@ bool ed25519Verify(const QByteArray& pubSpkiDer, const QByteArray& msg, const QB
 QByteArray dhBindingMessage(const QByteArray& dhPub) {
     QByteArray m;
     m.reserve(int(sizeof(kDhBindingDomain)) + dhPub.size());
-    m.append(kDhBindingDomain, int(sizeof(kDhBindingDomain)) - 1); // sem NUL
+    m.append(kDhBindingDomain, int(sizeof(kDhBindingDomain)) - 1);
     m.append(dhPub);
     return m;
 }
@@ -398,7 +450,19 @@ bool verifyDhBinding(const QByteArray& idPub, const QByteArray& dhPub, const QBy
     return ed25519Verify(idPub, dhBindingMessage(dhPub), dhSig);
 }
 
-// ------------------------------------------------------------- Utilidades
+QByteArray keyEnvelopeSignaturePayload(int toSessionId, const QByteArray& envelope) {
+    QByteArray m;
+    m.reserve(int(sizeof(kDomainKeyWrap)) + 4 + envelope.size());
+    m.append(kDomainKeyWrap, int(sizeof(kDomainKeyWrap)) - 1);
+    const quint32 beTo =
+        ((quint32(toSessionId) & 0x000000FFu) << 24) |
+        ((quint32(toSessionId) & 0x0000FF00u) << 8)  |
+        ((quint32(toSessionId) & 0x00FF0000u) >> 8)  |
+        ((quint32(toSessionId) & 0xFF000000u) >> 24);
+    m.append(reinterpret_cast<const char*>(&beTo), 4);
+    m.append(envelope);
+    return m;
+}
 
 QByteArray randomBytes(int n) {
     QByteArray out(n, 0);
@@ -417,8 +481,6 @@ QString uidForIdPub(const QByteArray& idPubSpkiDer) {
 
 QString sasCode(const QByteArray& idPubA, const QByteArray& idPubB) {
     if (idPubA.isEmpty() || idPubB.isEmpty()) return QString();
-    // Ordem canônica: ambas as pontas ordenam as MESMAS chaves da mesma
-    // forma, sem saber quem é "eu" e quem é "o outro".
     const QByteArray lo = idPubA < idPubB ? idPubA : idPubB;
     const QByteArray hi = idPubA < idPubB ? idPubB : idPubA;
     QByteArray input;
@@ -426,7 +488,6 @@ QString sasCode(const QByteArray& idPubA, const QByteArray& idPubB) {
     input.append(lo);
     input.append(hi);
     const QByteArray digest = sha256(input);
-    // 30 bits → 9 dígitos: código curto, memorizável, colisão 1/10^9.
     quint32 v = 0;
     for (int i = 0; i < 4; ++i)
         v = (v << 8) | quint8(digest[digest.size() - 1 - i]);

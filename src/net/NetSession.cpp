@@ -43,7 +43,7 @@ public:
     static QByteArray encrypt(const QByteArray& plain, const QByteArray& key,
                               quint32 senderId, quint16 seq, quint32 counter) {
 #ifdef HALLA_WEBRTC_NATIVE
-        if (plain.isEmpty() || key.size() < 32) return plain;
+        if (plain.isEmpty() || key.size() < 32) return QByteArray();
         QByteArray nonce = makeNonce(senderId, counter, seq);
         QByteArray sealed(plain.size() + 16, 0);
         size_t outLen = 0;
@@ -63,7 +63,7 @@ public:
         out.append(sealed);
         return out;
 #else
-        if (plain.isEmpty() || key.size() < 32) return plain;
+        if (plain.isEmpty() || key.size() < 32) return QByteArray();
         QByteArray nonce = makeNonce(senderId, counter, seq);
         QByteArray cipher(plain.size(), 0);
         QByteArray tag(16, 0);
@@ -116,11 +116,11 @@ public:
                 return plain;
             }
         }
-        // Protocolo v4+: falha de autenticação AEAD é terminal. Nunca tente
-        // reinterpretar ciphertext adulterado como o XOR legado.
+        // Protocol v4+: AEAD authentication failure is terminal. Never try to
+        // reinterpret tampered ciphertext as the legacy XOR.
         return QByteArray();
 #else
-        if (key.size() < 32) return packet;
+        if (key.size() < 32) return QByteArray();
         if (packet.size() < 4 + 16) return QByteArray();
         quint32 counter = 0;
         memcpy(&counter, packet.constData(), 4);
@@ -157,16 +157,7 @@ private:
         return n;
     }
 
-    static QByteArray legacyXor(const QByteArray& data, const QByteArray& key, quint16 seq) {
-        if (data.isEmpty() || key.size() < 16) return data;
-        QByteArray output = data;
-        quint32 state[4];
-        memcpy(state, key.constData(), 16);
-        state[0] ^= seq;
-        state[1] ^= (quint32(seq) << 16);
-        state[2] ^= 0xDEADBEEF;
-        state[3] ^= 0xCAFEBABE;
-        auto rotl = [](quint32 x, int k) -> quint32 { return (x << k) | (x >> (32 - k)); };
+};
         auto next = [&]() -> quint32 {
             const quint32 result = rotl(state[0] + state[3], 7) * 9;
             const quint32 t = state[1] << 9;
@@ -252,9 +243,9 @@ static QString localizedServerError(const QString& code, const QString& serverTe
 }
 
 namespace {
-// v6 E2EE — helpers de formato do protocolo.
-// Layout do plaintext do envelope de chave de grupo:
-//   época(8 BE) | chave(32) | nº canais(4 BE) | channelId(4 BE)×n
+// v6 E2EE -- protocol format helpers.
+// Group key envelope plaintext layout:
+//   epoch(8 BE) | key(32) | channel count(4 BE) | channelId(4 BE) x n
 constexpr int kGroupKeyFixedBytes = 8 + 32 + 4;
 
 inline QByteArray encodeGroupKeyPlain(qint64 epoch, const QByteArray& key, const QList<int>& chans) {
@@ -326,8 +317,8 @@ NetSession::NetSession(QObject* parent) : QObject(parent) {
     m_pingTimer->setInterval(3000);
     connect(m_pingTimer, &QTimer::timeout, this, &NetSession::onPingTimer);
 
-    // v6 E2EE: manutenção periódica — re-pedido de chaves que não chegaram,
-    // filas que expiram e re-embrulho do sussurro após rotação.
+    // v6 E2EE: periodic housekeeping -- re-request keys that never arrived,
+    // expire queues and re-wrap whisper state after a rotation.
     m_e2eeHousekeeper = new QTimer(this);
     m_e2eeHousekeeper->setInterval(2000);
     connect(m_e2eeHousekeeper, &QTimer::timeout, this, &NetSession::onE2eeHousekeeping);
@@ -373,10 +364,10 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
     m_pendingHello["uid"] = uid;
     const QByteArray publicKey = IdentityDialog::publicKeyForUid(uid);
     if (publicKey.isEmpty()) {
-        // Sem chave pública o servidor responderia bad_identity ("identidade
-        // ausente") — falha antes do round-trip com um erro acionável.
-        // Emitido adiado: o chamador ancora connectionFailed depois deste
-        // retorno (ver MainWindow::connectTo).
+        // Without a public key the server would answer bad_identity ("missing
+        // identity") -- fail before the round-trip with an actionable error.
+        // Emitted deferred: the caller anchors connectionFailed after this
+        // return (see MainWindow::connectTo).
         QMetaObject::invokeMethod(
             this,
             [this] {
@@ -389,9 +380,9 @@ void NetSession::connectToServer(const QString& host, quint16 port, const QStrin
         return;
     }
     m_pendingHello["idPub"] = QString::fromLatin1(publicKey.toBase64());
-    // v6 E2EE: par X25519 + assinatura Ed25519 que liga a X25519 à
-    // identidade. Sem isto o servidor recusa o login (bad_identity) — a
-    // promessa de E2EE não admite cliente sem chave de criptografia.
+    // v6 E2EE: X25519 pair plus an Ed25519 signature that binds the X25519 key
+    // to the identity. Without it the server refuses the login (bad_identity) --
+    // the E2EE promise does not allow a client without a crypto key.
     if (!e2eeLoadMaterial()) {
         QMetaObject::invokeMethod(
             this,
@@ -467,10 +458,10 @@ void NetSession::onSslErrors(const QList<QSslError>& errors) {
 }
 
 void NetSession::onConnected() {
-    // Use o endpoint realmente escolhido pelo TCP/TLS também para UDP. Uma
-    // resolução DNS independente podia selecionar IPv6 enquanto a conexão real
-    // usava IPv4 (ou endereço IPv4-mapeado), fazendo o cliente descartar toda a
-    // voz recebida — observado principalmente com remetentes Mobile.
+    // Use the endpoint actually chosen by TCP/TLS for UDP as well. An
+    // independent DNS resolution could select IPv6 while the real connection
+    // used IPv4 (or an IPv4-mapped address), making the client drop all
+    // received voice -- observed mostly with Mobile senders.
     const QHostAddress peer = normalizedPeerAddress(m_tcp->peerAddress());
     if (!peer.isNull()) m_udpHostAddress = peer;
     send(m_pendingHello);
@@ -511,8 +502,8 @@ void NetSession::onDisconnected() {
     m_udpPort = 0;
     m_voiceToken.clear();
     m_udpRegistrationSeq = 0;
-    // v6 E2EE: chaves/filas de grupo morrem com a sessão — nova conexão gera
-    // ou pede chaves novas (forward secrecy entre sessões).
+    // v6 E2EE: group keys/queues die with the session -- a new connection
+    // generates or requests fresh keys (forward secrecy between sessions).
     e2eeClearState();
     if (!m_intentionalDisconnect) {
         if (!m_ready && !m_fatalError)
@@ -528,20 +519,20 @@ void NetSession::onPingTimer() {
     m_pingClock.restart();
     send(p);
 
-    // Mantém o endpoint UDP do PC conhecido no relay mesmo quando o usuário
-    // não abriu o microfone/encoder. O servidor registra o endereço antes de
-    // validar o payload, então este frame não audível também atravessa NAT e
-    // impede que a primeira fala do Mobile dependa de o PC falar antes.
+    // Keeps the PC's UDP endpoint known to the relay even when the user has not
+    // opened the microphone/encoder. The server records the address before
+    // validating the payload, so this silent frame also traverses NAT and keeps
+    // the first Mobile speech from depending on the PC speaking first.
     if (!m_voiceToken.isEmpty() && m_udpPort) {
-        sendVoiceFrame(QByteArray(1, '\0'), ++m_udpRegistrationSeq);
+        sendUdpNatProbe(++m_udpRegistrationSeq);
     }
 }
 
 void NetSession::onUdpReadyRead() {
     while (m_udp->hasPendingDatagrams()) {
         QNetworkDatagram dg = m_udp->receiveDatagram();
-        // O relay oficial é o único emissor UDP aceito. Sem esta verificação,
-        // qualquer host que descobrisse a porta local poderia injetar HALL/HALF.
+        // The official relay is the only accepted UDP sender. Without this check
+        // any host that discovered the local port could inject HALL/HALF packets.
         if (dg.senderPort() != m_udpPort || (!m_udpHostAddress.isNull()
                 && normalizedPeerAddress(dg.senderAddress())
                     != normalizedPeerAddress(m_udpHostAddress))) continue;
@@ -560,10 +551,10 @@ void NetSession::onUdpReadyRead() {
             const QByteArray encryptedPayload = data.mid(10);
             QByteArray payload;
             const int chanId = m_target ? m_target->channelOfUser(int(fromId)) : 0;
-            // v6 E2EE: voz chega SEMPRE cifrada — sem chave conhecida não há
-            // o que fazer com o pacote (passar ciphertext ao decodificador só
-            // produz ruído). Tenta a chave do canal do remetente e as demais
-            // (rotações recentes / sussurro cross-canal).
+            // v6 E2EE: voice ALWAYS arrives encrypted -- without a known key there
+            // is nothing to do with the packet (handing ciphertext to the decoder
+            // only produces noise). Tries the sender's channel key and then the
+            // others (recent rotations / cross-channel whisper).
             {
                 QList<QByteArray> candidates;
                 if (chanId > 0 && m_channelKeys.contains(chanId))
@@ -575,16 +566,16 @@ void NetSession::onUdpReadyRead() {
                     if (!payload.isEmpty()) break;
                 }
                 if (payload.isEmpty()) {
-                    // v1.1.36 — chave STALE: pacotes de voz do MEU canal que
-                    // não abrem com NENHUMA chave local em sequência = a chave
-                    // local é antiga (a rotação do canal não chegou até aqui).
-                    // O usuário fica mudo duplo para sempre: o TX cifra com a
-                    // chave velha (ninguém ouve) e isto aqui descarta tudo (não
-                    // ouve ninguém) — o housekeeper não pede outra porque
-                    // "tem" uma chave. Limiar de 15 pacotes (~300 ms de fala
-                    // contínua) para não disparar com perda comum de UDP:
-                    // esquece a chave local e o housekeeper re-pede ao grupo
-                    // nos próximos 2 s. Perda isolada zera no próximo sucesso.
+                    // v1.1.36 -- STALE key: voice packets from MY channel that do
+                    // not open with ANY local key in sequence means the local key is
+                    // old (the channel rotation never reached this client). The user
+                    // is doubly muted forever: TX encrypts with the old key (nobody
+                    // hears it) and this path drops everything (hears nobody) -- the
+                    // housekeeper does not ask again because it "has" a key. Threshold
+                    // of 15 packets (~300 ms of continuous speech) so ordinary UDP
+                    // loss does not trigger it: forget the local key and the
+                    // housekeeper re-requests it from the group within the next 2 s.
+                    // An isolated loss resets on the next success.
                     const int myCh = m_target
                         ? m_target->channelOfUser(m_target->selfId) : 0;
                     if (chanId > 0 && chanId == myCh) {
@@ -628,8 +619,8 @@ void NetSession::onUdpReadyRead() {
 
             const int uid = int(fromId);
             const int chanId = m_target ? m_target->channelOfUser(uid) : 0;
-            // v6 E2EE: tela compartilhada também chega sempre cifrada — sem
-            // chave, descarta (mesma política da voz).
+            // v6 E2EE: the shared screen always arrives encrypted too -- without a
+            // key, drop it (same policy as voice).
             {
                 QList<QByteArray> candidates;
                 if (chanId > 0 && m_channelKeys.contains(chanId))
@@ -677,42 +668,57 @@ void NetSession::onUdpReadyRead() {
     }
 }
 
+void NetSession::sendUdpNatProbe(quint16 seq) {
+    // NAT/keepalive registration probe: a tiny encrypted frame whose only job
+    // is to teach the relay our UDP endpoint. It carries no audio and is kept
+    // strictly separate from real media so that sendVoiceFrame and
+    // sendScreenShareFrame can refuse to emit anything without a channel key.
+    if (m_voiceToken.isEmpty() || m_udpPort == 0 || !m_target) return;
+    const QHostAddress destination = m_udpHostAddress.isNull()
+        ? QHostAddress(m_host) : m_udpHostAddress;
+    if (destination.isNull()) return;
+    const int chanId = m_target->channelOfUser(m_target->selfId);
+    if (chanId <= 0 || !m_channelKeys.contains(chanId)) return;
+    const QByteArray probe = AeadVoiceCipher::encrypt(
+        QByteArray(1, '\0'), m_channelKeys[chanId],
+        quint32(m_target->selfId), seq, ++m_cryptoCounter);
+    if (probe.isEmpty()) return;
+    m_udp->writeDatagram(HProto::encodeVoiceClient(m_voiceToken, seq, probe),
+                         destination, m_udpPort);
+}
+
 void NetSession::sendVoiceFrame(const QByteArray& opus, quint16 seq) {
     if (m_voiceToken.isEmpty() || m_udpPort == 0) return;
     const QHostAddress destination = m_udpHostAddress.isNull()
         ? QHostAddress(m_host) : m_udpHostAddress;
     if (destination.isNull()) return;
-    
-    QByteArray encryptedOpus = opus;
-    if (m_target) {
-        int chanId = m_target->channelOfUser(m_target->selfId);
-        if (chanId > 0) {
-            // v6 E2EE: sem chave de canal o frame NÃO SAI — a rota UDP não
-            // tem TLS, então um frame em claro seria audível por qualquer
-            // ouvinte da rede. Descarta até a chave chegar (milissegundos).
-            if (!m_channelKeys.contains(chanId)) {
-                const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
-                if (nowMs - m_e2eeLastNoKeyWarnMs > 30000) {
-                    m_e2eeLastNoKeyWarnMs = nowMs;
-                    AppLog::warn(tr("Frame de voz descartado: chave E2EE do canal ainda "
-                                    "não recebida (a fala volta quando a chave chegar)."));
-                }
-                return;
-            }
-            encryptedOpus = AeadVoiceCipher::encrypt(opus, m_channelKeys[chanId],
-                                                     quint32(m_target->selfId), seq, ++m_cryptoCounter);
-            if (encryptedOpus.isEmpty()) return;
+
+    // v6 E2EE: voice frames are ALWAYS encrypted. Without a channel key the
+    // frame does not leave -- the UDP route has no TLS, so a plaintext frame
+    // would be audible to any network listener. Drop until the key arrives.
+    if (!m_target) return;
+    const int chanId = m_target->channelOfUser(m_target->selfId);
+    if (chanId <= 0 || !m_channelKeys.contains(chanId)) {
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        if (nowMs - m_e2eeLastNoKeyWarnMs > 30000) {
+            m_e2eeLastNoKeyWarnMs = nowMs;
+            AppLog::warn(tr("Voice frame dropped: channel E2EE key not received yet "
+                            "(speech returns when the key arrives)."));
         }
+        return;
     }
-    
+    const QByteArray encryptedOpus = AeadVoiceCipher::encrypt(
+        opus, m_channelKeys[chanId], quint32(m_target->selfId), seq, ++m_cryptoCounter);
+    if (encryptedOpus.isEmpty()) return;
+
     m_udp->writeDatagram(HProto::encodeVoiceClient(m_voiceToken, seq, encryptedOpus),
                          destination, m_udpPort);
 }
 
-// ==================================================================== ações
+// ==================================================================== actions
 void NetSession::sendChat(const QString& scope, int to, const QString& text) {
-    // v6 E2EE: nenhum chat sai em claro — o servidor só relata metadados
-    // (escopo/destinatário/apelido), o texto vai cifrado.
+    // v6 E2EE: no chat leaves in plaintext -- the server only sees metadata
+    // (scope/recipient/nickname); the text travels encrypted.
     ServerData& d = target();
     QJsonObject m = HProto::msg("chat");
     m["scope"] = scope;
@@ -735,19 +741,20 @@ void NetSession::sendChat(const QString& scope, int to, const QString& text) {
         send(m);
         return;
     }
-    // Escopos de grupo ("server" = canal lógico 0; "channel" = meu canal)
+    // Group scopes ("server" = logical channel 0; "channel" = my channel)
     const int myCh = d.channelOfUser(d.selfId);
     const int keyChannel = scope == QLatin1String("server") ? 0 : myCh;
     if (scope != QLatin1String("server") && myCh <= 0) {
-        // Sem canal não existe "meu canal" para cifrar o chat de escopo
-        // canal — o servidor nem distribuiria. Recusa em vez de cifrar com a
-        // chave errada (a do escopo servidor).
+        // Without a channel there is no "my channel" to encrypt channel-scope
+        // chat with -- the server would not distribute it anyway. Refuse instead
+        // of encrypting with the wrong key (the server-scope one).
         emit errorOccurred("bad_scope", tr("Entre em um canal para conversar no chat do canal."));
         return;
     }
     if (keyChannel < 0 || !m_channelKeys.contains(keyChannel)) {
-        // Chave ainda não chegou: enfileira e pede (a fila reenvia no arrival
-        // da chave; expira com aviso claro se o mestre não responder).
+        // Key not received yet: queue and request it (the queue is resent when
+        // the key arrives; it expires with a clear warning if the master does not
+        // answer).
         PendingChat pc;
         pc.scope = scope;
         pc.to = to;
@@ -776,7 +783,7 @@ void NetSession::moveToChannel(int channelId, const QString& pass) {
     m["channel"] = channelId;
     if (!pass.isEmpty()) m["pass"] = pass;
     send(m);
-    // v1.1.37: contexto para atribuir erros ao canal clicado (ver
+    // v1.1.37: context to attribute errors to the clicked channel (see
     // consumeMoveErrorContext) — o TCP preserva a ordem pedido/resposta.
     const QString chanName = m_target
         ? m_target->channels.value(channelId).name : QString();
@@ -795,8 +802,8 @@ void NetSession::moveOther(int userId, int channelId) {
     m["id"] = userId;
     m["channel"] = channelId;
     send(m);
-    // v1.1.37: idem moveToChannel — “mover para o seu canal”/arrastar tem
-    // os mesmos códigos de erro e merece mensagem específica.
+    // v1.1.37: same as moveToChannel -- "move to your channel"/dragging produce
+    // the same error codes and deserve a specific message.
     const QString chanName = m_target
         ? m_target->channels.value(channelId).name : QString();
     PendingMove pm;
@@ -859,8 +866,8 @@ void NetSession::sendTalking(bool on) {
 
 void NetSession::rename(const QString& newName, int targetUserId) {
     QJsonObject m = HProto::msg("nick");
-    // Sem id: renomeia a si mesmo. Com id: renomeia outro cliente (o
-    // servidor exige permissão de moderação e hierarquia compatível).
+    // Without an id: renames yourself. With an id: renames another client (the
+    // server requires moderation permission and compatible hierarchy).
     if (targetUserId > 0) m["id"] = targetUserId;
     m["name"] = newName;
     send(m);
@@ -873,7 +880,7 @@ void NetSession::setDescription(const QString& desc) {
 }
 
 void NetSession::poke(int userId, const QString& msg) {
-    // v6 E2EE: poke cifrado par-a-par — o servidor relê apenas quem cutucou quem.
+    // v6 E2EE: poke encrypted pair-to-pair -- the server only relays who poked whom.
     ServerData& d = target();
     const User& u = d.users.value(userId);
     QJsonObject m = HProto::msg("poke");
@@ -888,8 +895,8 @@ void NetSession::poke(int userId, const QString& msg) {
         m["msg"] = QString::fromLatin1(blob.toBase64());
         m["e2ee"] = true;
     } else {
-        // Sem chave pública do alvo não há como cifrar — e poke em claro
-        // quebraria a promessa. Recusa com erro acionável.
+        // Without the target's public key there is no way to encrypt -- and a
+        // plaintext poke would break the promise. Refuse with an actionable error.
         emit errorOccurred("e2ee_nokey",
             tr("Não foi possível cifrar o poke: a chave pública de %1 não está "
                "disponível/verificada.")
@@ -945,16 +952,15 @@ void NetSession::quit() {
     m_intentionalDisconnect = true;
     send(HProto::msg("quit"));
     m_tcp->flush();
-    // Nunca bloqueie a thread da interface esperando o socket. O pequeno
-    // atraso permite que a mensagem quit saia e evita reentrância/crash no
-    // fechamento da aba.
+    // Never block the UI thread waiting on the socket. The short delay lets the
+    // quit message leave and avoids re-entrancy/crash while closing the tab.
     QTimer::singleShot(250, m_tcp, [socket = m_tcp] {
         if (socket->state() != QAbstractSocket::UnconnectedState)
             socket->disconnectFromHost();
     });
 }
 
-// ================================================== ações v3
+// ================================================== v3 actions
 void NetSession::avatarSet(const QByteArray& imageBytes) {
     QJsonObject m = HProto::msg("avatar_set");
     m["data"] = QString::fromLatin1(imageBytes.toBase64());
@@ -981,17 +987,17 @@ void NetSession::iconSet(const QString& name, const QByteArray& bytes) {
 }
 
 void NetSession::offlineSend(const QString& uid, const QString& text) {
-    // v6 E2EE: mensagem offline cifrada par-a-par (X25519 estático-estático).
-    // O destinatário decifra no login com o fromUid — funciona mesmo com as
-    // duas pontas nunca online juntas. Se a pública do alvo não estiver no
-    // diretório local, pede ao servidor (identity_data) e enfileira.
+    // v6 E2EE: offline message encrypted pair-to-pair (static-static X25519).
+    // The recipient decrypts at login with fromUid -- it works even when both
+    // ends are never online together. If the target's public key is missing from
+    // the local directory, request it from the server (identity_data) and queue.
     QByteArray theirDhPub;
     ServerData& d = target();
     for (const User& u : d.users)
         if (u.uniqueId == uid && u.e2eeValid) { theirDhPub = u.dhPub; break; }
     if (theirDhPub.isEmpty() && m_e2eeDirectory.contains(uid)) {
         const QJsonObject entry = m_e2eeDirectory[uid];
-        // "#bad" é marcador de entrada rejeitada, não um diretório de verdade.
+        // "#bad" marks a rejected entry, not a real directory.
         if (!entry.isEmpty())
             theirDhPub = QByteArray::fromBase64(entry["dhPub"].toString().toLatin1());
     }
@@ -1046,12 +1052,26 @@ void NetSession::setWhisperIds(const QList<int>& ids) {
     for (int id : ids) arr << id;
     m["ids"] = arr;
     send(m);
-    // v6 E2EE: guarda os alvos para (re-)embrulhar a chave do MEU canal — os
-    // frames de voz do sussurro seguem cifrados com a chave do canal em que
-    // o remetente ESTÁ, e o alvo fora do componente precisa dela.
+    // v6 E2EE: keeps the targets to (re-)wrap MY channel key -- whisper voice
+    // frames stay encrypted with the key of the channel the sender IS in, and a
+    // target outside the component needs it.
+    const ServerData& d = target();
+    const int myCh = d.channelOfUser(d.selfId);
+    const QSet<int> comp = myCh > 0 ? e2eeComponentOf(myCh) : QSet<int>{};
+    const QList<int> memberList = e2eeComponentMembers(comp);
+    const QSet<int> members(memberList.cbegin(), memberList.cend());
+    const bool wasSharedExternal = m_whisperSharedExternal;
     m_whisperIds = ids;
+    m_whisperSharedExternal = false;
+    for (int tid : ids)
+        if (!members.contains(tid)) { m_whisperSharedExternal = true; break; }
     m_e2eeWhisperNeedsRewrap = true;
     e2eeDistributeWhisperKey();
+    // External whisper targets just cleared: they still hold our channel key
+    // from the previous sharing window. Rotate it so they lose access.
+    if (wasSharedExternal && !m_whisperSharedExternal && myCh > 0
+            && e2eeIsMasterOfComponent(myCh))
+        e2eeRotateComponentKey(myCh);
 }
 
 void NetSession::ftUpload(int channel, const QString& name, const QByteArray& data) {
@@ -1104,7 +1124,7 @@ void NetSession::groupSet(int id, const QString& name, const QJsonObject& perms,
     m["order"] = order;
     m["orderEnabled"] = orderEnabled;
     m["icon"] = icon;
-    if (position >= 0) m["position"] = position;  // Pilar 1: position hierárquica
+    if (position >= 0) m["position"] = position;  // Pillar 1: hierarchical position
     send(m);
 }
 
@@ -1146,12 +1166,12 @@ void NetSession::serverEdit(const QString& name, const QString& motd,
     send(m);
 }
 
-// ==================================================================== estado
-// v1.1.36: predicado único de mudança ESTRUTURAL de usuário (nome, cargos,
-// mutes, away, permissões...) — usado pela applyUserJson (ficha completa) E
-// pelo handler incremental de user_state. Transições de fala (talking/
-// whispering/screensharing) não contam: alta frequência, só afetam o ícone
-// (caminho leve updateUserVisuals da árvore).
+// ==================================================================== state
+// v1.1.36: single predicate for a STRUCTURAL user change (name, roles, mutes,
+// away, permissions...) -- used by applyUserJson (full record) AND by the
+// incremental user_state handler. Speech transitions (talking/whispering/
+// screensharing) do not count: high frequency, they only affect the icon (the
+// lightweight updateUserVisuals path of the tree).
 static bool userStructuralChanged(const User& a, const User& b) {
     return a.name != b.name
         || a.uniqueId != b.uniqueId
@@ -1184,18 +1204,18 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.groupOrder = u["order"].toInt(0);
     usr.groupOrderEnabled = u["orderEnabled"].toBool(true);
     usr.groupId = u["gid"].toInt(0);
-    usr.groupPosition = u["position"].toInt(0);  // Pilar 1: posição hierárquica
-    usr.groupSiglaPosition = u["siglaPosition"].toInt(0); // hierarquia da tag visível
+    usr.groupPosition = u["position"].toInt(0);  // Pillar 1: hierarchical position
+    usr.groupSiglaPosition = u["siglaPosition"].toInt(0); // visible tag hierarchy
     usr.inputMuted = u["mic"].toBool();
     usr.outputMuted = u["spk"].toBool();
     usr.away = u["away"].toBool();
     usr.recording = u["rec"].toBool();
     usr.commander = u["cc"].toBool();
     usr.avatarHash = u["av"].toString();               // v3
-    // v6 E2EE: diretório de chaves públicas + verificação LOCAL completa
-    // (uid == SHA-256(idPub) e dhSig abre com idPub). O servidor publica o
-    // diretório, mas a confiança vem da criptografia — uma entrada forjada
-    // não passa daqui e não é usada para cifrar/decifrar nada.
+    // v6 E2EE: public key directory + full LOCAL verification
+    // (uid == SHA-256(idPub) and dhSig opens with idPub). The server publishes
+    // the directory, but trust comes from cryptography -- a forged entry never
+    // gets past this point and is never used to encrypt/decrypt anything.
     usr.idPub = QByteArray::fromBase64(u["idPub"].toString().toLatin1());
     usr.dhPub = QByteArray::fromBase64(u["dhPub"].toString().toLatin1());
     usr.dhSig = QByteArray::fromBase64(u["dhSig"].toString().toLatin1());
@@ -1205,8 +1225,8 @@ void NetSession::applyUserJson(const QJsonObject& u) {
         && E2ee::uidForIdPub(usr.idPub) == usr.uniqueId
         && E2ee::verifyDhBinding(usr.idPub, usr.dhPub, usr.dhSig);
     if (!usr.e2eeValid && !usr.uniqueId.isEmpty()) {
-        // Entrada inválida/ausente: avisa uma vez por sessão — em servidor v6
-        // isso só acontece se o diretório foi adulterado em trânsito.
+        // Invalid/missing entry: warn once per session -- on a v6 server this
+        // only happens if the directory was tampered with in transit.
         if (!m_e2eeDirectory.contains(usr.uniqueId + QStringLiteral("#bad"))) {
             m_e2eeDirectory[usr.uniqueId + QStringLiteral("#bad")] = QJsonObject();
             emit e2eeSecurityNotice(
@@ -1224,8 +1244,8 @@ void NetSession::applyUserJson(const QJsonObject& u) {
         m_e2eeDirectory[usr.uniqueId] = entry;
         e2eeSecurityCheckUser(usr);
     }
-    // A MINHA entrada é conferida contra o material local — o servidor
-    // adulterando o próprio diretório do usuário quebraria o par-a-par dele.
+    // MY entry is checked against the local material -- a server tampering with
+    // the user's own directory entry would break their pair-to-pair channel.
     if (usr.id == d.selfId && usr.e2eeValid && m_e2eeDhPriv.size() == 32
             && (usr.idPub != m_e2eeMyIdPub
                 || usr.dhPub != E2ee::dhPublicFromPrivate(m_e2eeDhPriv))) {
@@ -1234,11 +1254,11 @@ void NetSession::applyUserJson(const QJsonObject& u) {
                "locais. Mensagens privadas podem não decifrar; confira o "
                "certificado TLS do servidor e reconecte."));
     }
-    // A MINHA entrada inválida era o ponto cego: o aviso acima só existia
-    // para o caso e2eeValid=TRUE. Quando a própria entrada não passa na
-    // verificação, NINGUÉM consegue embrulhar chaves para mim — não falo (o
-    // frame nem sai sem chave) e não ouço (nada decifra) — e o cliente não
-    // dizia absolutamente nada para a vítima do mudo duplo.
+    // An invalid entry for MYSELF was the blind spot: the warning above only
+    // existed for the e2eeValid=TRUE case. When my own entry fails
+    // verification, NOBODY can wrap keys for me -- I cannot speak (the frame
+    // never leaves without a key) and cannot hear (nothing decrypts) -- and the
+    // client said absolutely nothing to the victim of the double mute.
     if (usr.id == d.selfId && !usr.e2eeValid && !m_e2eeSelfEntryWarned
             && m_e2eeDhPriv.size() == 32) {
         m_e2eeSelfEntryWarned = true;
@@ -1252,12 +1272,12 @@ void NetSession::applyUserJson(const QJsonObject& u) {
         emit systemEvent(text);
     }
     usr.op = d.users.value(usr.id).op;                 // preserva flag de operador
-    // Volume individual e mudo local sobrevivem ao user_state: o servidor
-    // reenvia a ficha do usuário a cada transição de fala (VAD liga/desliga),
-    // e o objeto reconstruído aqui zerava volumeDb/locallyMuted — o volume
-    // "não ficava salvo" segundos depois de definir. Preserva em memória e,
-    // na primeira aparição da pessoa, restaura o valor persistido por
-    // uniqueId (o que o usuário definiu em sessões anteriores).
+    // Per-user volume and local mute survive user_state: the server resends the
+    // user record on every speech transition (VAD on/off), and the object rebuilt
+    // here zeroed volumeDb/locallyMuted -- the volume "was not saved" seconds
+    // after being set. Preserved in memory and, on the person's first appearance,
+    // restored from the value persisted by uniqueId (what the user set in earlier
+    // sessions).
     if (!d.users.contains(usr.id) && !usr.uniqueId.isEmpty()
             && usr.uniqueId != d.users.value(d.selfId).uniqueId) {
         QSettings settings;
@@ -1269,34 +1289,33 @@ void NetSession::applyUserJson(const QJsonObject& u) {
     usr.locallyMuted = d.users.value(usr.id).locallyMuted;
     if (usr.id == d.selfId) {
         usr.talking = d.users.value(d.selfId).talking; // preserva estado de fala local ultra responsivo
-        usr.whispering = d.users.value(d.selfId).whispering; // preserva estado de sussurro local
-        usr.screensharing = d.users.value(d.selfId).screensharing; // transmissão local iniciada pelo usuário
+        usr.whispering = d.users.value(d.selfId).whispering; // preserves local whisper state
+        usr.screensharing = d.users.value(d.selfId).screensharing; // local broadcast started by the user
         usr.screenshareMode = d.users.value(d.selfId).screenshareMode; // idem: modo (v1.1.28)
     } else {
         usr.talking = u["talking"].toBool();
         usr.whispering = u["whispering"].toBool();
-        // Sem isto, quem conectasse DEPOIS de alguém começar a transmitir não
-        // via o selo LIVE dessa pessoa: o welcome/user_joined trazem o campo
-        // "screensharing" de cada usuário (toJson), mas ele era ignorado
-        // aqui — só o broadcast user_screenshare_state (ao INICIAR/PARAR a
-        // transmissão) atualizava o estado.
+        // Without this, whoever connected AFTER someone started broadcasting did
+        // not see that person's LIVE badge: welcome/user_joined carry each user's
+        // "screensharing" field (toJson), but it was ignored here -- only the
+        // user_screenshare_state broadcast (on START/STOP) updated the state.
         usr.screensharing = u["screensharing"].toBool();
-        // v1.1.28: servidores novos também publicam o MODO da transmissão
-        // ("webrtc"/"jpeg"). Quem conecta depois do início continua sabendo
-        // como assistir; servidor antigo não manda o campo e o modo fica
-        // desconhecido (watchdog do viewer cobre esse caso).
+        // v1.1.28: newer servers also publish the broadcast MODE
+        // ("webrtc"/"jpeg"). Whoever connects after it starts still knows how to
+        // watch; an old server does not send the field and the mode stays unknown
+        // (the viewer watchdog covers that case).
         usr.screenshareMode = u["ssmode"].toString();
     }
-    // v1.1.35: revisão do registro. user_state chega a CADA transição de
-    // fala (o servidor reenvia a ficha inteira do usuário quando o VAD liga
-    // ou desliga) — então a revisão só sobe quando um campo ESTRUTURAL mudou
-    // de fato (v1.1.36: predicado compartilhado userStructuralChanged).
+    // v1.1.35: revision of the record. user_state arrives on EVERY speech
+    // transition (the server resends the whole user record when the VAD turns on
+    // or off) -- so the revision only bumps when a STRUCTURAL field actually
+    // changed (v1.1.36: shared predicate userStructuralChanged).
     {
         const User prev = d.users.value(usr.id);
         usr.rev = userStructuralChanged(usr, prev) ? prev.rev + 1 : prev.rev;
     }
     d.users[usr.id] = usr;
-    refreshOperators();                                // recalcula ops por canal
+    refreshOperators();                                // recomputes ops per channel
 }
 
 void NetSession::applyChanJson(const QJsonObject& c) {
@@ -1316,9 +1335,9 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     ch.tempChannelParent = c.contains("tempParent")
         ? c["tempParent"].toBool()
         : d.channels.value(ch.id).tempChannelParent;
-    ch.type = c["type"].toInt(2);
+    ch.type = qBound(0, c["type"].toInt(2), 2);
     ch.moderated = c["moderated"].toBool();
-    ch.codec = c["codec"].toInt(4);
+    ch.codec = qBound(0, c["codec"].toInt(4), 5);
     ch.codecQuality = c["quality"].toInt(6);
     ch.bitrate = c["bitrate"].toInt(96);
     ch.groupPerms = c["groupPerms"].toObject();  // Pilar 3: Allow/Deny/Inherit
@@ -1335,15 +1354,15 @@ void NetSession::applyChanJson(const QJsonObject& c) {
     ch.opUids.clear();
     for (const QJsonValue& v : c["ops"].toArray()) ch.opUids << v.toString(); // v3
     ch.temporaryOwnerUid = c["tempOwner"].toString();
-    // v1.1.35: chan_update é sempre estrutural (nome/perms/tópicos/membership)
-    // — revisão incondicional alimenta a assinatura da árvore (ServerTab).
+    // v1.1.35: chan_update is always structural (name/permissions/topics/
+    // membership) -- an unconditional revision feeds the tree signature (ServerTab).
     ch.rev = d.channels.value(ch.id).rev + 1;
     d.channels[ch.id] = ch;
     if (ch.id >= d.nextChannelId) d.nextChannelId = ch.id + 1;
     refreshOperators();
 }
 
-// v3: marca user.op conforme a lista de operadores (UID) do canal em que ele está
+// v3: marks user.op according to the channel's operator list (UID) for the channel the user is in
 void NetSession::refreshOperators() {
     ServerData& d = target();
     for (User& u : d.users) u.op = false;
@@ -1357,9 +1376,10 @@ void NetSession::refreshOperators() {
 void NetSession::scheduleChannelStateChanged() {
     if (m_channelStateEmitPending) return;
     m_channelStateEmitPending = true;
-    // readyRead pode trazer dezenas de chan_update da mesma operação. Aplique
-    // todos ao modelo, mas redesenhe a árvore somente uma vez ao voltar ao loop
-    // de eventos. O contexto QObject cancela o callback se a sessão morrer.
+    // readyRead can deliver dozens of chan_update messages from the same
+    // operation. Apply all of them to the model, but repaint the tree only once
+    // when returning to the event loop. The QObject context cancels the callback
+    // if the session dies.
     QTimer::singleShot(0, this, [this] {
         m_channelStateEmitPending = false;
         emit stateChanged();
@@ -1391,15 +1411,15 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const QString code = obj["code"].toString();
         const QString serverText = obj["msg"].toString();
         QString msg = localizedServerError(code, serverText);
-        // v1.1.37: erro de "move"/"move_other" vira mensagem CONTEXTUAL —
-        // “sem permissão PARA ENTRAR NO CANAL X” em vez do genérico "realizar
-        // esta ação" (o usuário clicou num canal e merece saber qual e por
-        // quê). Só quando há um move recente sem resposta na janela (TCP
-        // preserva a ordem; user_moved consome a entrada no sucesso).
+        // v1.1.37: a "move"/"move_other" error becomes a CONTEXTUAL message --
+        // "no permission to ENTER CHANNEL X" instead of the generic "perform this
+        // action" (the user clicked a channel and deserves to know which one and
+        // why). Only when there is a recent unanswered move in the window (TCP
+        // preserves order; user_moved consumes the entry on success).
         const QString moveContext = consumeMoveErrorContext(code);
         if (!moveContext.isEmpty()) msg = moveContext;
-        // O detalhe do servidor distingue causas do mesmo código (ex.:
-        // bad_identity por chave ausente vs. assinatura inválida).
+        // The server detail distinguishes causes of the same code (e.g.
+        // bad_identity for a missing key vs. an invalid signature).
         AppLog::warn(serverText.isEmpty()
                          ? tr("Erro do servidor: %1 (código: %2)").arg(msg, code)
                          : tr("Erro do servidor: %1 (código: %2; servidor: %3)")
@@ -1407,8 +1427,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         if (!m_ready) {
             m_fatalError = true;
             m_data = ServerData();
-            // Apelido recusado no login: sinal dedicado para a UI pedir outro
-            // nome e reconectar, em vez do aviso genérico de falha.
+            // Nickname rejected at login: dedicated signal so the UI can ask for
+            // another name and reconnect, instead of the generic failure warning.
             if (code == QLatin1String("name_in_use") || code == QLatin1String("bad_nick")) {
                 emit nickRejected(msg.isEmpty() ? code : msg);
                 return;
@@ -1443,7 +1463,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         d.nextChannelId = 1;
         for (const QJsonValue& v : obj["channels"].toArray()) applyChanJson(v.toObject());
 
-        // v3: minhas permissões + lista de grupos do servidor
+        // v3: my permissions + the server's group list
         m_myPerms = obj["myPerms"].toObject();
         m_groups  = obj["groups"].toArray();
 
@@ -1452,26 +1472,26 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         m_voiceToken = QByteArray::fromHex(voice["token"].toString().toLatin1());
         if (m_voiceToken.size() != HProto::kVoiceTokenBytes) m_voiceToken.clear();
 
-        // v6 E2EE: o welcome NÃO traz chaves — o servidor não as conhece.
-        // Chaves de grupo chegam embrulhadas (e2e_key) do mestre do
-        // componente/escopo, geradas localmente no bootstrap abaixo.
+        // v6 E2EE: the welcome message does NOT carry keys -- the server does not
+        // know them. Group keys arrive wrapped (e2e_key) from the component/scope
+        // master, generated locally in the bootstrap below.
 
         m_ready = true;
         m_pingTimer->start();
 
-        // Registra o endpoint UDP com um payload não vazio. Relays antigos
-        // ignoravam datagramas HALL de apenas 10 bytes; nesse cenário o PC
-        // só passava a ser destino válido depois de falar uma vez.
+        // Registers the UDP endpoint with a non-empty payload. Legacy relays
+        // ignored 10-byte HALL datagrams; in that scenario the PC only became a
+        // valid target after speaking once.
         if (!m_voiceToken.isEmpty() && m_udpPort) {
             for (quint16 seq = 1; seq <= 3; ++seq)
-                sendVoiceFrame(QByteArray(1, '\0'), seq);
+                sendUdpNatProbe(seq);
             m_udpRegistrationSeq = 3;
         }
 
         AppLog::info(tr("Conectado a %1 como %2")
                          .arg(m_hostPort, d.users[d.selfId].name));
-        // v6 E2EE: provisão de chaves (mestre gera; demais pedem) já com o
-        // estado completo de usuários/canais aplicado.
+        // v6 E2EE: key provisioning (master generates; others request) already
+        // with the full user/channel state applied.
         e2eeBootstrap();
         m_e2eeHousekeeper->start();
         emit welcomeReceived();
@@ -1480,9 +1500,9 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
 
     if (t == "channel_key") {
-        // v6: o servidor não gera/distribui chaves de canal — a mensagem não
-        // existe mais no protocolo. Aceitar uma aqui devolveria ao servidor o
-        // controle da chave de grupo (= fim do E2EE). Ignora e avisa.
+        // v6: the server neither generates nor distributes channel keys -- the
+        // message no longer exists in the protocol. Accepting one here would hand
+        // group key control back to the server (= the end of E2EE). Ignore and warn.
         emit e2eeSecurityNotice(
             tr("O servidor enviou \"channel_key\" — impossível no protocolo v6 "
                "(o servidor não conhece chaves). A mensagem foi descartada; a "
@@ -1511,8 +1531,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         if (!effective.isEmpty()) m_myPerms = effective;
         if (obj["individual"].toBool(false))
             m_myPerms[QStringLiteral("*")] = true;
-        // Atualiza imediatamente menus e diálogos que dependem das permissões,
-        // sem exigir reconexão depois de usar uma privilege key.
+        // Immediately refreshes menus and dialogs that depend on permissions,
+        // without requiring a reconnect after using a privilege key.
         emit stateChanged();
         return;
     }
@@ -1523,24 +1543,31 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "chat") {
-        // v6 E2EE: decifra ANTES de subir para a UI. O texto em claro nunca
+        // v6 E2EE: decrypts BEFORE handing it to the UI. The plaintext never
         // existe fora das pontas.
         const QString scope = obj["scope"].toString();
         const int fromId = obj["from"].toInt();
         QString text = obj["text"].toString();
-        if (obj["e2ee"].toBool(false)) {
+        if (!obj["e2ee"].toBool(false)) {
+            // Plaintext chat downgrade: v6 never emits plaintext chat. Drop
+            // the message instead of displaying server-readable content.
+            emit e2eeSecurityNotice(
+                tr("O servidor enviou uma mensagem de chat sem criptografia "
+                   "ponta a ponta — ela foi descartada."));
+            return;
+        }
+        {
             const QByteArray aad = chatDomainAad(scope).toLatin1();
             const QByteArray blob = QByteArray::fromBase64(obj["text"].toString().toLatin1());
             QByteArray plain;
             bool ok = false;
             if (scope == QLatin1String("private")) {
-                // Eco da própria mensagem: o servidor devolve o chat privado
-                // ao remetente para ela aparecer na conversa. O par de chaves
-                // correto é o DESTINATÁRIO ("to"), não o remetente — o
-                // X25519 estático-estático é simétrico, então a própria ponta
-                // decifra o que ela mesma cifrou. Antes o eco usava o dhPub
-                // de "from" (o próprio remetente) e virava "[mensagem cifrada
-                // que não pôde ser decifrada]" para os DOIS lados da conversa.
+                // Echo of our own message: the server sends the private chat back to
+                // the sender so it shows up in the conversation. The correct key pair
+                // is the RECIPIENT's ("to"), not the sender's -- static-static X25519
+                // is symmetric, so our own end decrypts what it encrypted. The echo
+                // used to use the dhPub of "from" (the sender itself) and turned into
+                // "[encrypted message that could not be decrypted]" for BOTH sides.
                 const bool selfEcho = (fromId == d.selfId);
                 const int peerId = selfEcho ? obj["to"].toInt(0) : fromId;
                 const User& u = d.users.value(peerId);
@@ -1548,8 +1575,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
                     plain = E2ee::pairwiseDecrypt(m_e2eeDhPriv, u.dhPub, aad, blob);
                 ok = !plain.isEmpty();
             } else {
-                // Grupo: tenta a chave do escopo e, por robustez a rotações
-                // recentes, todas as chaves conhecidas.
+                // Group: try the scope key and, for robustness against recent
+                // rotations, every known key.
                 const int keyChannel = scope == QLatin1String("server")
                     ? 0 : d.channelOfUser(d.selfId);
                 QList<QByteArray> candidates;
@@ -1586,7 +1613,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "server_edit") {
-        // v2: nome/MOTD alterados por um administrador, em tempo real
+        // v2: name/MOTD changed by an administrator, in real time
         const QString newName = obj["name"].toString().trimmed();
         if (!newName.isEmpty() && newName != d.name) {
             d.name = newName;
@@ -1601,13 +1628,13 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     if (t == "user_left") {
         const int id = obj["id"].toInt();
         const QString name = d.users.value(id).name;
-        // v6 E2EE: captura o canal ANTES da remoção — o mestre do componente
-        // precisa saber de onde a pessoa saiu para rotacionar a chave.
+        // v6 E2EE: capture the channel BEFORE the removal -- the component master
+        // needs to know where the person left from in order to rotate the key.
         const int oldChan = d.channelOfUser(id);
         emit systemEvent(tr("%1 saiu do servidor").arg(name));
-        // v1.1.36: membership mudou fora do applyChanJson — bumpa a revisão
-        // de cada canal afetado, senão a assinatura estrutural da árvore
-        // (v1.1.35) não vê a saída e a lista não atualiza.
+        // v1.1.36: membership changed outside applyChanJson -- bump the revision of
+        // every affected channel, otherwise the structural tree signature (v1.1.35)
+        // does not see the departure and the list is not updated.
         for (Channel& c : d.channels) {
             if (c.users.removeAll(id) > 0) ++c.rev;
         }
@@ -1620,21 +1647,21 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const int id = obj["id"].toInt();
         const int chan = obj["channel"].toInt();
         const int old = d.channelOfUser(id);
-        // v1.1.37: o move teve SUCESSO — consome a entrada pendente de
-        // contexto de erro correspondente a este canal (FIFO: a resposta de
-        // um move anterior já chegou antes desta, em ordem TCP).
+        // v1.1.37: the move SUCCEEDED -- consume the pending error-context entry
+        // that corresponds to this channel (FIFO: the reply of an earlier move
+        // already arrived before this one, in TCP order).
         for (int i = 0; i < m_pendingMoves.size(); ++i) {
             if (m_pendingMoves[i].channel == chan) {
                 m_pendingMoves.removeAt(i);
                 break;
             }
         }
-        // v1.1.36: A troca de canal muta a membership DIRETAMENTE (sem
-        // applyChanJson) — sem bumpar a revisão dos canais afetados, a
-        // assinatura estrutural da árvore (v1.1.35) não mudava e a árvore
-        // NUNCA era reconstruída: o app anunciava "Você entrou no canal",
-        // mas a linha do usuário continuava no canal antigo (regressão da
-        // v1.1.35 — a v1.1.34 reconstruía incondicionalmente e escondia).
+        // v1.1.36: the channel switch mutates membership DIRECTLY (without
+        // applyChanJson) -- without bumping the revision of the affected channels
+        // the structural tree signature (v1.1.35) did not change and the tree was
+        // NEVER rebuilt: the app announced "You joined the channel", but the user's
+        // row stayed in the old channel (a v1.1.35 regression -- v1.1.34 rebuilt
+        // unconditionally and hid the bug).
         if (d.channels.contains(old)) {
             Channel& oldCh = d.channels[old];
             if (oldCh.users.removeAll(id) > 0) ++oldCh.rev;
@@ -1660,11 +1687,10 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const int id = obj["id"].toInt();
         if (d.users.contains(id)) {
             User& u = d.users[id];
-            // v1.1.36: snapshot pré-mutação para bumpar a revisão quando um
-            // campo ESTRUTURAL muda neste handler INCREMENTAL (renomear,
-            // trocar cargo, mutar...) — sem isto a assinatura da árvore não
-            // via a mudança e o texto/ícone da linha ficava velho (a v1.1.34
-            // reconstruía incondicionalmente a cada stateChanged).
+            // v1.1.36: pre-mutation snapshot to bump the revision when a STRUCTURAL
+            // field changes in this INCREMENTAL handler (rename, role change, mute...)
+            // -- without it the tree signature missed the change and the row text/icon
+            // stayed stale (v1.1.34 rebuilt unconditionally on every stateChanged).
             const User before = u;
             if (obj.contains("mic")) u.inputMuted = obj["mic"].toBool();
             if (obj.contains("spk")) u.outputMuted = obj["spk"].toBool();
@@ -1692,8 +1718,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             if (obj.contains("position")) u.groupPosition = obj["position"].toInt(0);
             if (obj.contains("siglaPosition")) u.groupSiglaPosition = obj["siglaPosition"].toInt(0);
             if (userStructuralChanged(u, before)) ++u.rev;
-            // renomeação confirmada pelo servidor: avisa para memorizar o
-            // apelido deste servidor (persistência por host:porta)
+            // rename confirmed by the server: signal it so the nickname for this
+            // server is remembered (persistence per host:port)
             if (t == "user_nick" && id == d.selfId && obj.contains("name"))
                 emit selfRenamed(u.name);
         }
@@ -1702,13 +1728,13 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     }
     if (t == "chan_update") {
         applyChanJson(obj["chan"].toObject());
-        e2eeOnTopologyChanged(); // v6: vínculos mudaram o componente de voz
+        e2eeOnTopologyChanged(); // v6: links changed the voice component
         scheduleChannelStateChanged();
         return;
     }
     if (t == "chan_removed") {
-        // v6 E2EE: canal sumiu — a chave deixa de ter uso (um canal recriado
-        // com o mesmo id ganha chave nova no próximo mestre/bootstrap).
+        // v6 E2EE: the channel is gone -- the key has no further use (a channel
+        // recreated with the same id gets a new key from the next master/bootstrap).
         const int goneId = obj["id"].toInt();
         m_channelKeys.remove(goneId);
         m_channelEpochs.remove(goneId);
@@ -1717,12 +1743,20 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "poke") {
-        // "self" marca o eco de confirmação do próprio poke enviado — não é
-        // um poke recebido de outra pessoa.
+        // "self" marks the confirmation echo of a poke we sent -- it is not a poke
+        // received from someone else.
         if (obj.contains("self") && obj["self"].toBool()) return;
         QString msg = obj["msg"].toString();
-        // v6 E2EE: decifra antes de exibir (par-a-par com o remetente).
-        if (obj["e2ee"].toBool(false)) {
+        if (!obj["e2ee"].toBool(false)) {
+            // Plaintext poke downgrade: v6 pokes are always pairwise
+            // encrypted. Drop instead of displaying plaintext.
+            emit e2eeSecurityNotice(
+                tr("O servidor enviou um poke sem criptografia ponta a ponta "
+                   "— ele foi descartado."));
+            return;
+        }
+        // v6 E2EE: decrypt before displaying (pairwise with the sender).
+        {
             const int fromId = obj["from"].toInt();
             const User& u = d.users.value(fromId);
             QByteArray plain;
@@ -1741,8 +1775,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
     if (t == "user_avatar") {
         const int id = obj["id"].toInt();
         if (d.users.contains(id)) {
-            // v1.1.36: avatarHash é estrutural (faz parte da assinatura da
-            // árvore via userStructuralChanged) — bumpa junto.
+            // v1.1.36: avatarHash is structural (part of the tree signature via
+            // userStructuralChanged) -- bump along with it.
             User& u = d.users[id];
             const QString av = obj["av"].toString();
             if (u.avatarHash != av) {
@@ -1765,15 +1799,15 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "icon_uploaded") {
-        // Broadcast do servidor quando um admin envia/substitui um ícone —
-        // sem isto o cliente jamais ficava sabendo que o ícone passou a
-        // existir (ou que a imagem mudou) durante a sessão.
+        // Server broadcast when an admin uploads/replaces an icon -- without it the
+        // client never learned that the icon started to exist (or that the image
+        // changed) during the session.
         emit iconUploaded(obj["name"].toString());
         return;
     }
     if (t == "offline_msg") {
-        // v6 E2EE: entrega cifrada — decifra aqui (fila + identity_data se o
-        // remetente não estiver no diretório local).
+        // v6 E2EE: encrypted delivery -- decrypt here (queue + identity_data if the
+        // sender is not in the local directory).
         e2eeDeliverOfflineMsg(obj);
         return;
     }
@@ -1800,9 +1834,9 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "group_list") {
-        // A resposta ao nosso pedido traz "members" em cada cargo; o
-        // broadcast de mudança NÃO traz. Sem o merge, qualquer broadcast
-        // apagaria a lista de membros dos painéis abertos.
+        // The reply to our request carries "members" in each role; the change
+        // broadcast does NOT. Without the merge, any broadcast would wipe the
+        // member list of open panels.
         QJsonArray incoming = obj["groups"].toArray();
         for (int i = 0; i < incoming.size(); ++i) {
             QJsonObject g = incoming.at(i).toObject();
@@ -1822,8 +1856,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         return;
     }
     if (t == "group_member_update") {
-        // Atribuição/remoção de membro: atualiza o cargo afetado em cache e
-        // avisa os painéis abertos — sem fechar e reabrir a aba de grupos.
+        // Member assignment/removal: refresh the affected role in cache and notify
+        // the open panels -- without closing and reopening the groups tab.
         const int gid = obj["gid"].toInt();
         const QJsonArray members = obj["members"].toArray();
         for (int i = 0; i < m_groups.size(); ++i) {
@@ -1845,7 +1879,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
             if (cached["id"].toInt() != confirmedId) continue;
             for (auto it = confirmed.begin(); it != confirmed.end(); ++it)
                 cached[it.key()] = it.value();
-            m_groups[i] = cached; // preserva membros, ausentes na confirmação
+            m_groups[i] = cached; // preserves members, absent in the confirmation
             replaced = true;
             break;
         }
@@ -1880,8 +1914,8 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         const QString mode = obj["mode"].toString();
         if (d.users.contains(id)) {
             d.users[id].screensharing = on;
-            // v1.1.28: guarda o modo reportado pelo servidor ("webrtc" do
-            // webrtc_stream_start; "jpeg" do screenshare_start em servidor
+            // v1.1.28: stores the mode reported by the server ("webrtc" from
+            // webrtc_stream_start; "jpeg" from screenshare_start on a
             // novo; vazio = legado desconhecido).
             if (on) d.users[id].screenshareMode = mode;
             else d.users[id].screenshareMode.clear();
@@ -1917,7 +1951,7 @@ void NetSession::handleMessage(const QJsonObject& obj) {
         if (m_voiceToken.size() != HProto::kVoiceTokenBytes) m_voiceToken.clear();
         if (!m_voiceToken.isEmpty() && m_udpPort) {
             for (quint16 seq = 1; seq <= 3; ++seq)
-                sendVoiceFrame(QByteArray(1, '\0'), seq);
+                sendUdpNatProbe(seq);
             m_udpRegistrationSeq = 3;
         }
         return;
@@ -2014,11 +2048,12 @@ void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
     const int totalChunks = (jpeg.size() + maxChunkSize - 1) / maxChunkSize;
     if (totalChunks > 255) return;
 
-    int chanId = m_target ? m_target->channelOfUser(m_target->selfId) : 0;
-    // v6: tela compartilhada segue a MESMA regra da voz — sem chave de canal
-    // o frame não sai (a rota UDP não tem TLS: em claro seria audível/vizível
-    // a qualquer ouvinte da rede).
-    if (chanId > 0 && !m_channelKeys.contains(chanId)) {
+    if (!m_target) return;
+    const int chanId = m_target->channelOfUser(m_target->selfId);
+    // v6: screen sharing follows the SAME rule as voice -- without a channel
+    // key the frame does not leave (the UDP route has no TLS: in plaintext it
+    // would be visible to any network listener).
+    if (chanId <= 0 || !m_channelKeys.contains(chanId)) {
         const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
         if (nowMs - m_e2eeLastNoKeyWarnMs > 30000) {
             m_e2eeLastNoKeyWarnMs = nowMs;
@@ -2033,11 +2068,9 @@ void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
         int size = qMin(maxChunkSize, jpeg.size() - offset);
         QByteArray chunkData = jpeg.mid(offset, size);
 
-        if (chanId > 0 && m_channelKeys.contains(chanId)) {
-            chunkData = AeadVoiceCipher::encrypt(chunkData, m_channelKeys[chanId],
-                                                 quint32(m_target ? m_target->selfId : 0), seq, ++m_cryptoCounter);
-            if (chunkData.isEmpty()) continue;
-        }
+        chunkData = AeadVoiceCipher::encrypt(chunkData, m_channelKeys[chanId],
+                                             quint32(m_target->selfId), seq, ++m_cryptoCounter);
+        if (chunkData.isEmpty()) continue;
 
         QByteArray framed;
         quint8 idx = quint8(i);
@@ -2050,14 +2083,14 @@ void NetSession::sendScreenShareFrame(const QByteArray& jpeg, quint16 seq) {
     }
 }
 
-// ============================================================ v6 E2EE — motor
-// Toda a criptografia de conteúdo do cliente vive nesta seção. O servidor:
-//   * publica o diretório de chaves públicas (user objects / identity_data);
-//   * retransmite envelopes e2e_key/e2e_key_request sem conseguir abri-los;
-//   * NUNCA conhece chave de grupo (channel_key não existe mais no v6).
-// A eleição de mestre é determinística (menor UID do componente): qualquer
-// cliente calcula o mesmo vencedor sem negociação. UID, e não id de sessão,
-// porque sessão muda a cada reconexão — UID é a identidade estável.
+// ====================================================== v6 E2EE -- engine
+// All content cryptography on the client lives in this section. The server:
+//   * publishes the public key directory (user objects / identity_data);
+//   * relays e2e_key/e2e_key_request envelopes without being able to open them;
+//   * NEVER knows a group key (channel_key no longer exists in v6).
+// Master election is deterministic (lowest UID in the component): every client
+// computes the same winner without negotiation. UID, not session id, because the
+// session changes on every reconnection -- the UID is the stable identity.
 
 
 bool NetSession::e2eeKeysReady() const {
@@ -2152,24 +2185,24 @@ bool NetSession::e2eeIsServerScopeMaster() const {
 void NetSession::e2eeBootstrap() {
     if (!m_ready || m_e2eeDhPriv.size() != 32) return;
     const ServerData& d = target();
-    // Escopo servidor (chat público, canal lógico 0)
+    // Server scope (public chat, logical channel 0)
     if (e2eeIsServerScopeMaster()) {
         e2eeEnsureComponentKey(0);
-        // Clock skew: a época gerada vem do relógio LOCAL. Se algum outro
-        // cliente tem chave com época "futura" (relógio adiantado), a nossa
-        // seria rejeitada em silêncio por quem já a tem — mudo duplo sem
-        // cura, porque ambos os lados "têm" uma chave. O mestre também
-        // pergunta: resposta com época maior é adotada (convergência).
+        // Clock skew: the generated epoch comes from the LOCAL clock. If some other
+        // client holds a key with a "future" epoch (clock ahead), ours would be
+        // silently rejected by everyone who already has one -- a double mute with no
+        // cure, because both sides "have" a key. The master asks too: a reply with a
+        // higher epoch is adopted (convergence).
         m_e2eeVerifyPending << 0;
     } else if (!m_channelKeys.contains(0)) {
         e2eeRequestKey(0);
     }
-    // Meu canal (componente de voz)
+    // My channel (voice component)
     const int myCh = d.channelOfUser(d.selfId);
     if (myCh > 0) {
         if (e2eeIsMasterOfComponent(myCh)) {
             e2eeEnsureComponentKey(myCh);
-            m_e2eeVerifyPending << myCh; // idem: conferir a época contra os demais
+            m_e2eeVerifyPending << myCh; // same: check the epoch against the others
         } else {
             const QSet<int> comp = e2eeComponentOf(myCh);
             bool missing = false;
@@ -2194,9 +2227,9 @@ void NetSession::e2eeEnsureComponentKey(int channelId) {
         if (!m_channelKeys.contains(ch)) { have = false; break; }
     }
     if (have) {
-        // Chave já vigente (eu entrei de novo, ou re-bootstrap): distribui
-        // para quem estiver sem — idempotente, o receptor só aceita épocas
-        // maiores (mesma época não retrocede nada).
+        // Key already current (I joined again, or re-bootstrap): distribute to those
+        // who lack it -- idempotent, the receiver only accepts higher epochs (the same
+        // epoch never rolls anything back).
         gk.key = m_channelKeys.value(*comp.constBegin());
         gk.epoch = m_channelEpochs.value(*comp.constBegin());
         if (gk.key.size() != 32 || gk.epoch == 0) return;
@@ -2217,8 +2250,8 @@ void NetSession::e2eeEnsureComponentKey(int channelId) {
             : tr("Chave E2EE do canal %1 gerada (mestre).").arg(channelId));
     }
     e2eeDistributeComponentKey(comp, gk);
-    // Chave de canal gerada/re-partilhada com sussurro ativo: re-embrulha a
-    // vigente para os alvos na hora (mesma urgência da rotação).
+    // Channel key generated/re-shared with whisper active: re-wraps the current key
+    // to the targets right away (same urgency as a rotation).
     if (!m_whisperIds.isEmpty()) e2eeDistributeWhisperKey();
     e2eeFlushPending();
     emit e2eeStateChanged();
@@ -2245,9 +2278,9 @@ void NetSession::e2eeRotateComponentKey(int channelId) {
         ? tr("Chave E2EE do escopo servidor rotacionada (membro saiu).")
         : tr("Chave E2EE do canal %1 rotacionada (membro saiu).").arg(channelId));
     e2eeDistributeComponentKey(comp, gk);
-    // Rotação com sussurro ativo: quem sussurra precisa re-embrulhar a chave
-    // nova para os alvos IMEDIATAMENTE — os frames de sussurro seguintes já
-    // saem cifrados com ela.
+    // Rotation with whisper active: the whisperer must re-wrap the new key to the
+    // targets IMMEDIATELY -- the following whisper frames already leave encrypted
+    // with it.
     if (!m_whisperIds.isEmpty()) e2eeDistributeWhisperKey();
     e2eeFlushPending();
     emit e2eeStateChanged();
@@ -2255,7 +2288,7 @@ void NetSession::e2eeRotateComponentKey(int channelId) {
 
 void NetSession::e2eeDistributeComponentKey(const QSet<int>& comp, const E2eeGroupKey& gk) {
     if (gk.key.size() != 32) return;
-    // Escopo servidor: todos os conectados. Canal: membros do componente.
+    // Server scope: everyone connected. Channel: component members.
     QList<int> targets;
     if (comp.contains(0)) {
         const ServerData& d = target();
@@ -2281,19 +2314,25 @@ void NetSession::e2eeShareKeyWith(int sessionId, const QSet<int>& comp, const E2
     QJsonObject m = HProto::msg("e2e_key");
     m["to"] = sessionId;
     m["enc"] = QString::fromLatin1(envelope.toBase64());
+    // Sender authentication: sign the (recipient, envelope) transcript with
+    // our Ed25519 identity key so the recipient can prove the envelope came
+    // from the claimed master and not from the server or a third party.
+    const QByteArray sig = IdentityDialog::signNonce(
+        m_identityUid, E2ee::keyEnvelopeSignaturePayload(sessionId, envelope));
+    if (!sig.isEmpty())
+        m["sig"] = QString::fromLatin1(sig.toBase64());
     send(m);
 }
 
 void NetSession::e2eeRequestKey(int channelId) {
     if (channelId < 0) return;
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    // v1.1.37: 2000 -> 2500 ms. O servidor aceita 1 e2e_key_request por
-    // janela de 2 s, mas despeja o registro antigo só quando a diferença é
-    // ESTRITAMENTE maior que 2000 ms — dois pedidos espaçados em exatamente
-    // 2000 ms (limite antigo, <=) eram REJEITADOS com "você está enviando
-    // mensagens rápido demais" exatamente quando o usuário trocava de canal
-    // (cada entrada pede a chave do canal novo). 2500 ms dá margem segura
-    // sem mudar o protocolo.
+    // v1.1.37: 2000 -> 2500 ms. The server accepts 1 e2e_key_request per 2 s window,
+    // but only drops the old record when the difference is STRICTLY greater than
+    // 2000 ms -- two requests exactly 2000 ms apart (the old limit, <=) were
+    // REJECTED with "you are sending messages too fast" exactly when the user
+    // switched channels (each entry asks for the new channel's key). 2500 ms gives
+    // a safe margin without changing the protocol.
     if (now - m_e2eeLastRequestAt < 2500) return; // o servidor limita 1/2s
     m_e2eeLastRequestAt = now;
     QJsonObject m = HProto::msg("e2e_key_request");
@@ -2311,21 +2350,41 @@ void NetSession::e2eeHandleKeyEnvelope(const QJsonObject& obj) {
     if (plain.isEmpty()
             || !decodeGroupKeyPlain(plain, &epoch, &key, &chans)
             || key.size() != 32 || epoch <= 0) {
-        // Envelope que não abre com a MINHA chave: ou é de outro destinatário
-        // (servidor mal configurado), ou adulteração — AEAD já rejeitou.
+        // Envelope that does not open with MY key: either it belongs to another
+        // recipient (misconfigured server) or it was tampered with -- AEAD already
+        // rejected it.
         return;
     }
-    // Épocas no futuro distante são impossíveis de clientes honestos — mas
-    // o limite precisa tolerar clock skew real entre máquinas (minutos em
-    // PCs sem NTP). O antigo 60 s punia quem tinha relógio atrasado com mudo
-    // duplo permanente: a chave "futura" do outro lado nunca era adotada e
-    // a local sempre perdia a comparação de época. 15 minutos mantém a
-    // barreira anti-injeção e cobre o desvio crível de relógio.
-    if (epoch > QDateTime::currentMSecsSinceEpoch() + 900'000) return;
+    // Epochs far in the future are impossible from honest clients. The cap
+    // must still tolerate real clock skew between machines (minutes on PCs
+    // without NTP): 120 s keeps the anti-injection barrier while covering
+    // credible clock drift.
+    if (epoch > QDateTime::currentMSecsSinceEpoch() + 120'000) return;
     const ServerData& d = target();
     for (int ch : chans) {
-        // Só aceita chaves de canais que existem aqui (ou do escopo 0).
+        // Only accept keys for channels that exist here (or scope 0).
         if (ch != 0 && !d.channels.contains(ch)) return;
+    }
+    // Sender authentication (wire-compatible): the server stamps "from" with
+    // the sender session id. The sender must be a verified member of the
+    // component the key belongs to, and -- when a signature is present -- the
+    // Ed25519 signature over the envelope transcript must verify against the
+    // sender identity key. Envelopes without a signature are accepted only
+    // from verified component members (legacy peers).
+    const int fromId = obj["from"].toInt();
+    if (fromId <= 0 || fromId == d.selfId) return;
+    const User& sender = d.users.value(fromId);
+    if (!sender.e2eeValid || sender.idPub.isEmpty()) return;
+    for (int ch : chans) {
+        if (ch == 0) continue;
+        if (!e2eeComponentOf(ch).contains(d.channelOfUser(fromId))) return;
+    }
+    const QByteArray sig = QByteArray::fromBase64(obj["sig"].toString().toLatin1());
+    if (!sig.isEmpty()) {
+        if (sig.size() != 64
+                || !E2ee::ed25519Verify(sender.idPub,
+                    E2ee::keyEnvelopeSignaturePayload(obj["to"].toInt(), envelope), sig))
+            return;
     }
     e2eeApplyGroupKey(chans, epoch, key);
 }
@@ -2341,11 +2400,10 @@ void NetSession::e2eeApplyGroupKey(const QList<int>& chans, qint64 epoch, const 
         }
     }
     if (chans.contains(myCh)) m_e2eeWhisperNeedsRewrap = true; // sussurro ativo: re-embrulha
-    // Sussurro ativo: a chave do MEU canal acabou de mudar — os alvos fora
-    // do componente precisam da nova chave JÁ (cada frame de voz do sussurro
-    // sai cifrado com ela). Sem isto o re-embrulho esperava o housekeeper de
-    // 2 s: o alvo ficava até 2 s sem conseguir decifrar o sussurro a cada
-    // rotação.
+    // Whisper active: my channel key just changed -- targets outside the component
+    // need the new key NOW (every whisper voice frame leaves encrypted with it).
+    // Without this the re-wrap waited for the 2 s housekeeper: the target spent up
+    // to 2 s unable to decrypt the whisper after every rotation.
     if (!m_whisperIds.isEmpty()) e2eeDistributeWhisperKey();
     e2eeFlushPending();
     emit e2eeStateChanged();
@@ -2358,12 +2416,13 @@ void NetSession::e2eeHandleKeyRequest(const QJsonObject& obj) {
     if (channelId < 0 || from <= 0 || from == d.selfId) return;
     if (!m_channelKeys.contains(channelId) || m_channelKeys[channelId].size() != 32)
         return;
-    // Só responde quem o servidor deixou perguntar (membro do componente ou
-    // escopo servidor). Verificação local extra: o solicitante existe.
+    // Only answer requesters that belong to the component (or the server
+    // scope). Extra local check: the requester exists and is a member.
     if (!d.users.contains(from)) return;
     QSet<int> comp = channelId == 0
         ? QSet<int>{0}
         : e2eeComponentOf(channelId);
+    if (channelId != 0 && !comp.contains(d.channelOfUser(from))) return;
     E2eeGroupKey gk;
     gk.key = m_channelKeys[channelId];
     gk.epoch = m_channelEpochs.value(channelId);
@@ -2380,7 +2439,7 @@ void NetSession::e2eeHandleIdentityData(const QJsonObject& obj) {
     if (idPub.isEmpty() || dhPub.size() != 32 || dhSig.size() != 64) return;
     if (E2ee::uidForIdPub(idPub) != uid
             || !E2ee::verifyDhBinding(idPub, dhPub, dhSig))
-        return; // entrada adulterada: o AEAD/verificação já barrou
+        return; // tampered entry: AEAD/verification already blocked it
     QJsonObject entry;
     entry["idPub"] = QString::fromLatin1(idPub.toBase64());
     entry["dhPub"] = QString::fromLatin1(dhPub.toBase64());
@@ -2401,9 +2460,9 @@ void NetSession::e2eeDistributeWhisperKey() {
     gk.key = m_channelKeys[myCh];
     gk.epoch = m_channelEpochs.value(myCh);
     for (int tid : m_whisperIds) {
-        // Alvo fora do componente precisa da chave do MEU canal para decifrar
-        // a voz do sussurro (o relay entrega o pacote; a chave não decifra
-        // tráfego que o relay não encaminharia de outra forma).
+        // A target outside the component needs MY channel key to decrypt the whisper
+        // voice (the relay delivers the packet; the key does not decrypt traffic the
+        // relay would not forward otherwise).
         if (members.contains(tid)) continue;
         e2eeShareKeyWith(tid, comp, gk);
     }
@@ -2412,10 +2471,10 @@ void NetSession::e2eeDistributeWhisperKey() {
 
 void NetSession::e2eeOnUserJoined(const QJsonObject& user) {
     if (!m_ready) return;
-    // Escopo servidor: quem era mestre continua (menor UID não mudou, só
-    // entrou alguém MAIOR — se tivesse entrado menor, ELE é o mestre agora e
-    // se auto-provisiona no próprio welcome). Basta embrulhar para o novato;
-    // quem já estava pede se faltar algo (housekeeper).
+    // Server scope: whoever was master stays (the lowest UID did not change, someone
+    // HIGHER just joined -- had a lower one joined, HE is the master now and
+    // self-provisions in his own welcome). Wrapping for the newcomer is enough;
+    // those already present request what they miss (housekeeper).
     const int newcomerId = user["id"].toInt();
     if (newcomerId > 0 && e2eeIsServerScopeMaster() && m_channelKeys.contains(0)) {
         QSet<int> comp;
@@ -2430,8 +2489,8 @@ void NetSession::e2eeOnUserJoined(const QJsonObject& user) {
 void NetSession::e2eeOnUserLeft(int userId, int oldChannel) {
     if (!m_ready) return;
     Q_UNUSED(userId)
-    // Forward secrecy: quem saiu não pode continuar lendo o chat público nem
-    // o canal de onde saiu — o mestre ROTACIONA imediatamente.
+    // Forward secrecy: whoever left may not keep reading the public chat or the
+    // channel they left -- the master ROTATES immediately.
     if (e2eeIsServerScopeMaster() && m_channelKeys.contains(0))
         e2eeRotateComponentKey(0);
     if (oldChannel > 0 && e2eeIsMasterOfComponent(oldChannel))
@@ -2441,7 +2500,7 @@ void NetSession::e2eeOnUserLeft(int userId, int oldChannel) {
 void NetSession::e2eeOnUserMoved(int userId, int newChannel, int oldChannel) {
     if (!m_ready) return;
     const ServerData& d = target();
-    // Entrei num canal (eu mesmo): mestre provisiona; senão pede.
+    // I joined a channel (myself): the master provisions; otherwise request.
     if (userId == d.selfId && newChannel > 0) {
         if (e2eeIsMasterOfComponent(newChannel)) {
             e2eeEnsureComponentKey(newChannel);
@@ -2453,16 +2512,16 @@ void NetSession::e2eeOnUserMoved(int userId, int newChannel, int oldChannel) {
             if (missing) e2eeRequestKey(newChannel);
         }
     }
-    // Outro entrou no meu componente: se eu sou o mestre, embrulho para ele
-    // (e para os demais — idempotente).
+    // Someone joined my component: if I am the master, I wrap the key for them
+    // (and for the others -- idempotent).
     if (userId != d.selfId && newChannel > 0) {
         const QSet<int> comp = e2eeComponentOf(newChannel);
         const int myCh = d.channelOfUser(d.selfId);
         if (comp.contains(myCh) && e2eeIsMasterOfComponent(newChannel))
             e2eeEnsureComponentKey(newChannel);
     }
-    // Saiu de um componente (eu ou outro): o mestre REMANESCENTE do componente
-    // antigo rotaciona (o que saiu não volta a ouvir).
+    // Left a component (me or someone else): the REMAINING master of the old
+    // component rotates (whoever left does not hear it again).
     if (oldChannel > 0 && oldChannel != newChannel) {
         if (e2eeIsMasterOfComponent(oldChannel))
             e2eeRotateComponentKey(oldChannel);
@@ -2475,9 +2534,9 @@ void NetSession::e2eeOnTopologyChanged() {
     const int myCh = d.channelOfUser(d.selfId);
     if (myCh > 0) {
         if (e2eeIsMasterOfComponent(myCh)) {
-            // Vínculos mudaram o conjunto de ouvintes: rotação para forward
-            // secrecy (quem entrou no componente sem passar por user_moved
-            // ganha a chave nova; quem saiu perde).
+            // Links changed the set of listeners: rotation for forward secrecy
+            // (whoever joined the component without going through user_moved gets the
+            // new key; whoever left loses it).
             e2eeRotateComponentKey(myCh);
         } else {
             const QSet<int> comp = e2eeComponentOf(myCh);
@@ -2496,74 +2555,48 @@ void NetSession::e2eeSecurityCheckUser(const User& u) {
     const QString marker = settings.value(key).toString();
     const QString current = QString::fromLatin1(E2ee::sha256(u.idPub).toBase64());
     if (marker.isEmpty()) {
-        // Confiança automática (TOFU — trust on first use): a primeira chave
-        // da pessoa que passa na verificação local (uid + assinatura Ed25519
-        // da binding X25519) já é marcada como confiável. Ninguém precisa
-        // clicar em nada; a criptografia continua íntegra de ponta a ponta.
+        // Automatic trust (TOFU -- trust on first use): the person's first key that
+        // passes local verification (uid + Ed25519 signature over the X25519 binding)
+        // is marked as trusted. Nobody has to click anything; cryptography stays
+        // end-to-end intact.
         settings.setValue(key, current);
         return;
     }
     if (marker != current) {
-        // Troca de identidade desde a última vez: o único alerta que sobra
-        // (e é o que importa). A conversa permanece cifrada; a nova chave é
-        // re-confiada automaticamente (TOFU) no próximo contato.
+        // Identity change since the last time: the only alert that remains (and
+        // the one that matters). The conversation stays encrypted; the new key is
+        // re-trusted automatically (TOFU) on the next contact.
         const QString text = tr("A identidade de criptografia de %1 mudou "
                                 "(novo aparelho ou chave reinstalada). Se você "
                                 "não esperava isso, redobre cuidado com esta pessoa.")
                                  .arg(u.name);
         emit e2eeSecurityNotice(text);
         emit systemEvent(text);
-        settings.remove(key); // TOFU re-confia na nova chave no próximo contato
+        settings.remove(key); // TOFU re-trusts the new key on the next contact
     }
 }
 
-QString NetSession::e2eeSasCodeFor(int userId) const {
-    const ServerData& d = target();
-    const User& u = d.users.value(userId);
-    if (u.idPub.isEmpty() || m_e2eeMyIdPub.isEmpty()) return QString();
-    return E2ee::sasCode(m_e2eeMyIdPub, u.idPub);
-}
-
-bool NetSession::e2eeUserVerified(int userId) const {
-    const ServerData& d = target();
-    const User& u = d.users.value(userId);
-    if (u.uniqueId.isEmpty() || u.idPub.isEmpty()) return false;
-    QSettings settings;
-    const QString marker = settings.value(
-        QStringLiteral("e2ee/verified/%1").arg(u.uniqueId)).toString();
-    return marker == QString::fromLatin1(E2ee::sha256(u.idPub).toBase64());
-}
-
-void NetSession::e2eeMarkUserVerified(int userId) {
-    ServerData& d = target();
-    const User& u = d.users.value(userId);
-    if (u.uniqueId.isEmpty() || u.idPub.isEmpty()) return;
-    QSettings settings;
-    settings.setValue(QStringLiteral("e2ee/verified/%1").arg(u.uniqueId),
-                      QString::fromLatin1(E2ee::sha256(u.idPub).toBase64()));
-}
-
 void NetSession::e2eeFlushPending() {
-    // Chats à espera de chave de grupo
+    // Chats waiting for a group key
     if (!m_pendingChats.isEmpty()) {
         QList<PendingChat> retry = m_pendingChats;
         m_pendingChats.clear();
         for (const PendingChat& pc : retry)
             sendChat(pc.scope, pc.to, pc.text);
     }
-    // Offlines à espera do diretório (identity_data / user online)
+    // Offline messages waiting for the directory (identity_data / user online)
     if (!m_pendingOffline.isEmpty()) {
         QList<PendingOffline> retry = m_pendingOffline;
         m_pendingOffline.clear();
         for (const PendingOffline& po : retry)
             offlineSend(po.uid, po.text);
     }
-    // Mensagens offline recebidas cujo remetente não estava no diretório
+    // Received offline messages whose sender was not in the directory
     if (!m_pendingOfflineInbox.isEmpty()) {
         QList<PendingOfflineInbox> retry = m_pendingOfflineInbox;
         m_pendingOfflineInbox.clear();
         for (const PendingOfflineInbox& pi : retry) {
-            // Reaplica o caminho de recebimento agora que o diretório cresceu.
+            // Replays the receive path now that the directory has grown.
             QJsonObject fake;
             fake["fromUid"] = pi.fromUid;
             fake["fromName"] = pi.fromName;
@@ -2600,21 +2633,21 @@ void NetSession::onE2eeHousekeeping() {
     const ServerData& d = target();
     const int myCh = d.channelOfUser(d.selfId);
 
-    // Mestre recém-chegado confere a própria época contra os demais (anti
-    // split-brain por clock skew). Um pedido por tick respeita o limitador
-    // do servidor (1 e2e_key_request / 2 s); só confere quem JÁ tem chave —
-    // quem não tem cai no re-pedido normal logo abaixo.
+    // A newly arrived master checks its own epoch against the others (anti
+    // split-brain for clock skew). One request per tick respects the server's
+    // rate limiter (1 e2e_key_request / 2 s); only those who ALREADY have a key
+    // check -- those without fall into the normal re-request right below.
     if (!m_e2eeVerifyPending.isEmpty()) {
         const int verifyCh = m_e2eeVerifyPending.takeFirst();
         if (m_channelKeys.contains(verifyCh))
             e2eeRequestKey(verifyCh);
     }
 
-    // Falta de chave de canal = mudo duplo (não fala: o frame nem sai;
-    // não ouve: nada decifra). Desistir após 5 tentativas deixava o usuário
-    // bloqueado PARA SEMPRE até reconectar — cada reconexão virava loteria.
-    // Agora: 10 tentativas a cada ~3 s e depois 1 a cada 15 s, para sempre —
-    // o pedido é minúsculo e o servidor limita a 1/2 s mesmo.
+    // Missing channel key = double mute (cannot speak: the frame never leaves;
+    // cannot hear: nothing decrypts). Giving up after 5 attempts left the user
+    // blocked FOREVER until reconnecting -- every reconnection became a lottery.
+    // Now: 10 attempts every ~3 s and then 1 every 15 s, forever -- the request
+    // is tiny and the server already limits it to 1 per 2 s.
     const bool missingScope0 = !m_channelKeys.contains(0);
     bool missingVoiceKey = false;
     if (myCh > 0) {
@@ -2633,10 +2666,10 @@ void NetSession::onE2eeHousekeeping() {
     if (missingScope0) requestMissing(0);
     if (missingVoiceKey) requestMissing(myCh);
 
-    // Visibilidade do bloqueio: 12 s conectado, dentro de um canal e sem
-    // chave é hora de avisar COM O QUE FAZER. Sem isto o usuário só sabe
-    // que "não fala nem ouve de jeito nenhum" — trocar de canal força novo
-    // bootstrap E2EE e reconectar refaz a sessão inteira.
+    // Blocking visibility: 12 s connected, inside a channel and without a key is
+    // time to warn WITH WHAT TO DO. Without it the user only knows that "it does
+    // not speak or hear at all" -- switching channels forces a new E2EE bootstrap
+    // and reconnecting rebuilds the whole session.
     if (myCh != m_e2eeWaitChan) {
         m_e2eeWaitChan = myCh;
         m_e2eeKeyWaitStartMs = 0;
@@ -2651,7 +2684,7 @@ void NetSession::onE2eeHousekeeping() {
                    "reconecte-se ao servidor."));
         }
     } else if (m_e2eeVoiceKeyWarnedChan != -1) {
-        const bool recovered = myCh > 0; // em canal E com chave = voz voltou
+        const bool recovered = myCh > 0; // in a channel AND with a key = voice is back
         m_e2eeVoiceKeyWarnedChan = -1;
         m_e2eeKeyWaitStartMs = 0;
         if (recovered)
@@ -2660,7 +2693,7 @@ void NetSession::onE2eeHousekeeping() {
     } else {
         m_e2eeKeyWaitStartMs = 0;
     }
-    // Expira filas que nunca resolveram
+    // Expires queues that never resolved
     if (!m_pendingChats.isEmpty()) {
         QStringList scopes;
         for (auto it = m_pendingChats.begin(); it != m_pendingChats.end();) {
@@ -2699,7 +2732,7 @@ void NetSession::onE2eeHousekeeping() {
             }
         }
     }
-    // Sussurro ativo: re-embrulha a chave vigente para os alvos após rotação
+    // Whisper active: re-wraps the current key to the targets after a rotation
     if (m_e2eeWhisperNeedsRewrap && !m_whisperIds.isEmpty())
         e2eeDistributeWhisperKey();
 }
@@ -2710,10 +2743,21 @@ void NetSession::e2eeDeliverOfflineMsg(const QJsonObject& obj, qint64 receivedAt
     const QString ts = obj["ts"].toString();
     const QString blobB64 = obj["text"].toString();
     if (!obj["e2ee"].toBool(false)) {
-        emit offlineMsgReceived(fromName, blobB64, ts);
+        // Plaintext offline downgrade: v6 offline messages are always
+        // pairwise encrypted. Drop instead of displaying plaintext.
+        emit e2eeSecurityNotice(
+            tr("O servidor entregou uma mensagem offline sem criptografia "
+               "ponta a ponta — ela foi descartada."));
         return;
     }
-    // Decifra com a X25519 do remetente (diretório local ou identidade conhecida)
+    // The sender, when currently online, must have a verified identity entry;
+    // otherwise the directory lookup below could be fed by a forged entry.
+    {
+        const ServerData& dd = target();
+        for (const User& u : dd.users)
+            if (u.uniqueId == fromUid && !u.e2eeValid) return;
+    }
+    // Decrypt with the sender X25519 (local directory or known identity).
     const QByteArray myPriv = m_e2eeDhPriv;
     QByteArray theirDhPub;
     const ServerData& d = target();
@@ -2731,7 +2775,7 @@ void NetSession::e2eeDeliverOfflineMsg(const QJsonObject& obj, qint64 receivedAt
             return;
         }
     }
-    // Sem chave do remetente agora: pede ao registro do servidor e decifra
+    // No sender key right now: request it from the server registry and decrypt
     // quando a resposta chegar (flushPending reaplica).
     if (!m_e2eeDirectory.contains(fromUid)) {
         QJsonObject q = HProto::msg("identity_get");
@@ -2748,9 +2792,9 @@ void NetSession::e2eeDeliverOfflineMsg(const QJsonObject& obj, qint64 receivedAt
 }
 
 QString NetSession::consumeMoveErrorContext(const QString& code) {
-    // v1.1.37 — ver comentário do struct PendingMove no cabeçalho. Os códigos
-    // que handleMove/handleMoveOther podem devolver (rate_limited acontece
-    // ANTES do handler: o move morreu no limitador e nunca executou).
+    // v1.1.37 -- see the PendingMove struct comment in the header. The codes that
+    // handleMove/handleMoveOther may return (rate_limited happens BEFORE the
+    // handler: the move died in the rate limiter and never executed).
     static const QSet<QString> moveCodes = {
         QStringLiteral("no_permission"), QStringLiteral("hierarchy"),
         QStringLiteral("channel_full"), QStringLiteral("bad_channel_pass"),
@@ -2758,7 +2802,7 @@ QString NetSession::consumeMoveErrorContext(const QString& code) {
     };
     if (!moveCodes.contains(code)) return QString();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    // Janela curta: expirou, descarta sem consumir (o erro NÃO é deste move).
+    // Short window: expired, drop without consuming (the error is NOT from this move).
     while (!m_pendingMoves.isEmpty() && now - m_pendingMoves.first().atMs > 6000)
         m_pendingMoves.removeFirst();
     if (m_pendingMoves.isEmpty()) return QString();
@@ -2773,7 +2817,7 @@ QString NetSession::consumeMoveErrorContext(const QString& code) {
         return tr("O canal \"%1\" está cheio.").arg(name);
     if (code == QLatin1String("bad_channel_pass"))
         return tr("A senha do canal \"%1\" está incorreta.").arg(name);
-    // no_permission / hierarchy: entrar (move) ou levar alguém (move_other).
+    // no_permission / hierarchy: entering (move) or taking someone along (move_other).
     return pm.otherUser
         ? tr("Você não tem permissão para mover este cliente para o canal \"%1\".").arg(name)
         : tr("Você não tem permissão para entrar no canal \"%1\".").arg(name);

@@ -17,8 +17,8 @@ class QTableWidget;
 class QPushButton;
 class QTabWidget;
 
-// Diálogo "Criar canal" / "Editar canal" — editor de propriedades e das
-// permissões de canal já suportadas pelo protocolo Halla.
+// "Create channel" / "Edit channel" dialog -- editor for the properties and for
+// the channel permissions already supported by the Halla protocol.
 class ChannelDialog : public QDialog {
     Q_OBJECT
 public:
@@ -53,8 +53,8 @@ private:
     QTabWidget* m_tabs = nullptr;
     bool m_temporaryOwnerMode = false;
 
-    // Editor visual em duas colunas para as permissões específicas de canal
-    // que o servidor Halla aplica por grupo, incluindo visibilidade.
+    // Two-column visual editor for the channel-specific permissions that the Halla
+    // server applies per group, including visibility.
     QListWidget* m_lcaList = nullptr;
     QTableWidget* m_permTable = nullptr;
     QComboBox* m_permGroupCombo = nullptr;

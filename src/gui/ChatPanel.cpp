@@ -21,8 +21,8 @@ ChatPanel::ChatPanel(QWidget* parent) : QWidget(parent) {
     m_tabs->setDocumentMode(true);
     m_tabs->setTabsClosable(true);
     m_tabs->setMovable(false);
-    // O tema branco segue a disposição da referência: as abas ficam abaixo
-    // do histórico e imediatamente acima da caixa de mensagem.
+    // The white theme follows the reference layout: the tabs sit below the history
+    // and immediately above the message box.
     m_tabs->setTabPosition(QTabWidget::South);
     m_tabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
@@ -34,7 +34,7 @@ ChatPanel::ChatPanel(QWidget* parent) : QWidget(parent) {
     m_tabs->tabBar()->setTabButton(1, QTabBar::RightSide, nullptr);
     lay->addWidget(m_tabs, 1);
 
-    // A barra de edição reproduz a faixa de ícones da referência.
+    // The edit bar reproduces the icon strip of the reference.
     QToolBar* fmt = new QToolBar(this);
     fmt->setObjectName(QStringLiteral("chatFormatBar"));
     fmt->setIconSize(QSize(16, 16));
@@ -135,11 +135,11 @@ void ChatPanel::updateSendTarget() {}
 
 void ChatPanel::addLine(QTextBrowser* browser, const QString& html) {
     browser->append(html);
-    // v1.1.35: teto no histórico. O QTextDocument cresce PARA SEMEIRA e
-    // cada append (e cada paint) fica mais lento conforme milhares de
-    // blocos se acumulam — o chat "pesava" a GUI depois de horas de
-    // sessão, e a GUI divide a thread com o pipeline de áudio (voz
-    // picotando). Mantém os últimos 500 blocos (mensagens + quebras).
+    // v1.1.35: history cap. QTextDocument grows WITHOUT BOUND and every append
+    // (and every paint) gets slower as thousands of blocks pile up -- the chat
+    // "weighed down" the GUI after hours of session, and the GUI shares the thread
+    // with the audio pipeline (voice chopping). Keeps the last 500 blocks
+    // (messages + breaks).
     constexpr int kMaxChatBlocks = 500;
     QTextDocument* doc = browser->document();
     const int excess = doc->blockCount() - kMaxChatBlocks;
@@ -155,8 +155,8 @@ void ChatPanel::addLine(QTextBrowser* browser, const QString& html) {
 }
 
 QString ChatPanel::bbToHtml(const QString& text) {
-    // As descrições usam um subconjunto seguro de BBCode/Markdown. O texto
-    // comum é escapado primeiro; somente imagens e links HTTP(S) viram HTML.
+    // Descriptions use a safe subset of BBCode/Markdown. Plain text is escaped
+    // first; only images and HTTP(S) links become HTML.
     QString h = text.toHtmlEscaped();
 
     static const QRegularExpression reImageBb("\\[img\\]\\s*(https?://[^\\s\\]]+)\\s*\\[/img\\]");
@@ -173,8 +173,8 @@ QString ChatPanel::bbToHtml(const QString& text) {
     static const QRegularExpression reMarkdownLink("\\[([^\\]]+)\\]\\((https?://[^\\s\\)]+)\\)");
     h.replace(reMarkdownLink, QStringLiteral("<a href=\"\\2\" style=\"color:#8B5CF6\">\\1</a>"));
 
-    // URLs coladas sem marcação também ficam clicáveis, sem tocar nos src/href
-    // que acabaram de ser gerados para imagens e links.
+    // URLs pasted without markup also become clickable, without touching the
+    // src/href just generated for images and links.
     static const QRegularExpression reBareUrl("(?<![\\\"'=])(https?://[^\\s<\\\"\\)\\]]+)");
     h.replace(reBareUrl, QStringLiteral("<a href=\"\\1\" style=\"color:#8B5CF6\">\\1</a>"));
 

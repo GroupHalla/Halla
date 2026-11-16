@@ -6,7 +6,7 @@
 
 class QFile;
 
-// Registro de eventos do cliente (equivale ao "Client Log" do Halla)
+// Centralized client event logger with persistent log-file rotation.
 class AppLog : public QObject {
     Q_OBJECT
 public:
@@ -15,6 +15,7 @@ public:
     static AppLog& instance();
 
     void write(Level lvl, const QString& msg);
+    void clearLogFile();
 
     static void info(const QString& msg)    { instance().write(Info, msg); }
     static void warn(const QString& msg)    { instance().write(Warning, msg); }
@@ -25,10 +26,9 @@ public:
 
 signals:
     void message(int level, const QString& timestamp, const QString& text);
+    void cleared();
 
 private:
     AppLog() = default;
-    // v1.1.35: handle persistente — abrir/fechar o arquivo (e rodar mkpath)
-    // a CADA linha de log era I/O puramente desperdiçado.
     QFile* m_file = nullptr;
 };
