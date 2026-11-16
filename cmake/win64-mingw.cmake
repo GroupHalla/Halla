@@ -16,7 +16,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
-# Ferramentas de build do Qt (moc/uic/rcc) rodam no host Linux.
+# Qt build tools (moc/uic/rcc) run on the Linux host.
 # The shim points at Debian's own Qt6 packages.
-set(QT_HOST_PATH "/home/user/qt-host-shim" CACHE PATH "Qt do host (moc/uic/rcc)")
+set(QT_HOST_PATH "/home/user/qt-host-shim" CACHE PATH "Host Qt (moc/uic/rcc)")
 set(QT_HOST_PATH_CMAKE_DIR "${QT_HOST_PATH}/lib/cmake" CACHE PATH "")

@@ -50,8 +50,8 @@ public:
         else if (vk >= '0' && vk <= '9') key = Qt::Key_0 + int(vk - '0');
         else if (vk >= VK_F1 && vk <= VK_F24) key = Qt::Key_F1 + int(vk - VK_F1);
         else if (vk >= VK_NUMPAD0 && vk <= VK_NUMPAD9) {
-            // v1.1.27: numpad deixa de colidir com a fileira de cima —
-            // "Num+5" resolve VK_NUMPAD5 no runtime (ver gui/HotkeyVk.h)
+            // v1.1.27: numpad no longer collides with the top row --
+            // "Num+5" resolves to VK_NUMPAD5 at runtime (see gui/HotkeyVk.h)
             key = Qt::Key_0 + int(vk - VK_NUMPAD0);
             extraMods = int(Qt::KeypadModifier);
         }
@@ -289,7 +289,7 @@ void HotkeyEdit::setArmed(bool on) {
     if (m_armed == on) return;
     m_armed = on;
     if (on) {
-        // enquanto armado, cliques de mouse em QUALQUER widget do app contam
+        // while armed, mouse clicks on ANY widget in the app count
         qApp->installEventFilter(this);
         setPlaceholderText(tr("Pressione uma tecla ou botão do mouse...  (Esc limpa)"));
         setStyleSheet(QStringLiteral("HotkeyEdit { border: 1px solid #0078D7; }"));

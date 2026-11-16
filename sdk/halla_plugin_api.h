@@ -165,7 +165,7 @@ typedef struct HallaAudioFrame {
     uint32_t frame_count;
     uint32_t channels;
     uint32_t sample_rate;
-    /* Campo aditivo: teste struct_size antes de ler. */
+    /* Additive field: check struct_size before reading it. */
     uint32_t flags;
 } HallaAudioFrame;
 
@@ -300,7 +300,7 @@ typedef struct HallaPluginApi {
     const char* author;
     const char* description;
 
-    /* Retorne 1 em caso de sucesso e 0 em caso de falha. */
+    /* Return 1 on success and 0 on failure. */
     int (*initialize)(const HallaHostApi* host);
     void (*shutdown)(void);
 

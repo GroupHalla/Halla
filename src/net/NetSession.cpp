@@ -769,7 +769,7 @@ void NetSession::moveToChannel(int channelId, const QString& pass) {
     if (!pass.isEmpty()) m["pass"] = pass;
     send(m);
     // v1.1.37: context to attribute errors to the clicked channel (see
-    // consumeMoveErrorContext) — o TCP preserva a ordem pedido/resposta.
+    // consumeMoveErrorContext) -- TCP preserves request/response order.
     const QString chanName = m_target
         ? m_target->channels.value(channelId).name : QString();
     PendingMove pm;

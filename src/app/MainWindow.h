@@ -124,7 +124,7 @@ private:
     QMap<int, QTimer*> m_watchNoFrameTimers;
     void beginWatching(ServerTab* t, int userId);  // opens the window + requests the watch
     void armWatchdog(int userId);                  // arma o watchdog de 12 s
-    void cancelWatchdog(int userId);               // 1º frame chegou — tudo bem
+    void cancelWatchdog(int userId);               // first frame arrived -- all good
     void markWatchAlive(int userId);               // frame: cancela + limpa erro
     void handleWatchServerError(const QString& code, const QString& msg);
     QAction* m_actRecord = nullptr;

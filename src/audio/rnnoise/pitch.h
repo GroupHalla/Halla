@@ -38,8 +38,9 @@
 //#include "cpu_support.h"
 #include "arch.h"
 
-/* Halla: prefixo rn_ nos símbolos exportados para não colidir com o Opus
- * embutido no webrtc.lib (mesma política do celt_lpc.h e do kiss do speex). */
+/* Halla: rn_ prefix on the exported symbols so they do not collide with the
+ * Opus build embedded in webrtc.lib (same policy as celt_lpc.h and the speex
+ * kiss symbols). */
 void rn_pitch_downsample(celt_sig *x[], opus_val16 *x_lp,
       int len, int C);
 

@@ -297,9 +297,9 @@ void rn_pitch_search(const opus_val16 *x_lp, opus_val16 *y,
    celt_assert(max_pitch>0);
    lag = len+max_pitch;
 
-   /* Halla: MSVC sem VLA — fixo nos limites do rnnoise: len = PITCH_FRAME_SIZE
+   /* Halla: MSVC has no VLA -- fixed at the rnnoise bounds: len = PITCH_FRAME_SIZE
     * (960), max_pitch <= PITCH_MAX_PERIOD (768), lag <= len+PITCH_MAX_PERIOD.
-    * Declaração após statements segue o estilo do arquivo (C99). */
+    * Declarations after statements follow the file style (C99). */
    opus_val16 x_lp4[960>>2];
    opus_val16 y_lp4[(960+768)>>2];
    opus_val32 xcorr[768>>1];
@@ -446,7 +446,7 @@ opus_val16 rn_remove_doubling(opus_val16 *x, int maxperiod, int minperiod,
       *T0_=maxperiod-1;
 
    T = T0 = *T0_;
-   /* Halla: MSVC sem VLA — maxperiod = PITCH_MAX_PERIOD (768) no rnnoise. */
+   /* Halla: MSVC has no VLA -- maxperiod = PITCH_MAX_PERIOD (768) in rnnoise. */
    opus_val32 yy_lookup[768+1];
    dual_inner_prod(x, x, x-T0, N, &xx, &xy);
    yy_lookup[0] = xx;

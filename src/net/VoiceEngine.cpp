@@ -748,7 +748,7 @@ void VoiceEngine::flushGateFade() {
         }
         m_captureBuf.remove(0, 960 * 2);
     }
-    if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // segurança
+    if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // safety cap
 }
 
 // ------------------------------------------------------------------ captura
@@ -999,7 +999,7 @@ void VoiceEngine::captureTick() {
 
         m_captureBuf.remove(0, 960 * 2);
     }
-    if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // segurança
+    if (m_captureBuf.size() > 960 * 2 * 8) m_captureBuf.clear(); // safety cap
 }
 
 // ==================================================================== PTT

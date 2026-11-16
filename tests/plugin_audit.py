@@ -23,9 +23,9 @@ installer = (root / "packaging/halla-setup.nsi").read_text(encoding="utf-8")
 catalog = json.loads((root / "addons/catalog.json").read_text(encoding="utf-8"))
 
 assert "HALLA_PLUGIN_ABI_VERSION 1u" in api
-# O SDK é livre para uso não comercial: vender/explorar comercialmente
-# exige autorização escrita dos mantenedores. (Espaços normalizados porque
-# a frase pode quebrar linha no arquivo.)
+# The SDK is free for non-commercial use: selling or commercially exploiting
+# it requires written permission from the maintainers. (Whitespace is
+# normalized because the sentence may wrap inside the file.)
 _sdk_flat = " ".join(sdk_license.lower().split())
 assert "non-commercial" in _sdk_flat
 assert "written permission" in _sdk_flat
@@ -57,8 +57,8 @@ assert "official.radio-voice" in manager
 assert "HALLA_AUDIO_FLAG_WHISPER" in api
 assert "sendMode" in manager and "receiveMode" in manager
 assert "RadioVoiceDsp" in radio and "m_noise" in radio
-# O DSP de rádio vive num header compartilhado com o Halla Mobile: o audit
-# garante que a cadeia completa continua presente e integrada nos dois caminhos.
+# The radio DSP lives in a header shared with Halla Mobile: this audit makes
+# sure the full chain is still present and wired on both paths.
 assert "std::tanh" in radio_dsp and "squelch" in radio_dsp.lower()
 assert "src/plugins/RadioVoiceDsp.h" in (root / "CMakeLists.txt").read_text(encoding="utf-8")
 assert "RadioVoiceDsp" in voice
@@ -95,9 +95,9 @@ assert manifest["type"] == "native"
 library = manifest["platforms"]["windows-x64"]["library"]
 assert not library.startswith(("/", "\\")) and ".." not in Path(library).parts
 
-# Pacote oficial "Voz de rádio policial" (.halla-addon do catálogo): mesmo
-# DSP do complemento interno, substituindo-o ao instalar — atualização do
-# efeito sem release do aplicativo.
+# Official "Police radio voice" package (.halla-addon from the catalog): the
+# same DSP as the built-in add-on, replacing it on install -- the effect can be
+# updated without an application release.
 radio_pkg = (root / "plugins/official/radio-voice/radio_voice_plugin.cpp").read_text(encoding="utf-8")
 radio_pkg_manifest = json.loads(
     (root / "plugins/official/radio-voice/manifest.json").read_text(encoding="utf-8"))
@@ -114,8 +114,8 @@ for platform in ("windows-x64", "android-arm64", "android-arm",
                  "android-x86_64", "android-x86"):
     pkg_library = radio_pkg_manifest["platforms"][platform]["library"]
     assert not pkg_library.startswith(("/", "\\")) and ".." not in Path(pkg_library).parts
-# O PluginManager substitui o complemento interno pelo pacote oficial e o
-# devolve quando o pacote é removido.
+# PluginManager replaces the built-in add-on with the official package and
+# hands it back when the package is removed.
 assert 'id != QLatin1String("official.radio-voice")' in manager
 
 print("Plugin API/package audit OK")

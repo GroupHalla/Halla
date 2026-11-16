@@ -35,10 +35,11 @@
 #include "x86/celt_lpc_sse.h"
 #endif
 
-/* Halla: as funções públicas deste arquivo (e do pitch.c) levam o prefixo
- * rn_ para NÃO colidir com os símbolos C do Opus embutido no webrtc.lib
- * (LNK2005/LNK1169 no MSVC: celt_lpc.obj e pitch.obj existem nos dois
- * lados do link). Mesma política já usada para os símbolos kiss do speex. */
+/* Halla: the public functions of this file (and of pitch.c) carry the rn_
+ * prefix so they do NOT collide with the C symbols of the Opus build embedded
+ * in webrtc.lib (LNK2005/LNK1169 on MSVC: celt_lpc.obj and pitch.obj exist on
+ * both sides of the link). Same policy already used for the speex kiss
+ * symbols. */
 #define LPC_ORDER 24
 
 void rn_celt_lpc(opus_val16 *_lpc, const opus_val32 *ac, int p);

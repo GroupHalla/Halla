@@ -1209,7 +1209,7 @@ QWidget* OptionsDialog::pageCapture() {
 
     right->addWidget(gbDsp);
 
-    // ============ grupo "Diversos" — sinais sonoros de fala ============
+    // ============ "Miscellaneous" group -- speech cue sounds ============
     QGroupBox* gbSpeechCue = new QGroupBox(tr("Diversos"), w);
     QVBoxLayout* cueLayout = new QVBoxLayout(gbSpeechCue);
     cueLayout->setSpacing(6);

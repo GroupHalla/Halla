@@ -1,24 +1,23 @@
-/* Halla — unidade de tradução única que embute o AEC do speexdsp.
+/* Halla -- single translation unit that embeds the speexdsp AEC.
  *
- * Compila mdf.c + fftwrap.c + kiss_fft.c + kiss_fftr.c do vendor
- * (src/audio/speex_aec/, importado de https://gitlab.xiph.org/xiph/speexdsp
- * — BSD-like, ver COPYING no mesmo diretório) num único objeto:
+ * Builds mdf.c + fftwrap.c + kiss_fft.c + kiss_fftr.c from the vendor tree
+ * (src/audio/speex_aec/, imported from https://gitlab.xiph.org/xiph/speexdsp
+ * -- BSD-like, see COPYING in the same directory) into a single object:
  *
- *  * FLOATING_POINT/USE_KISS_FFT: mesma configuração que o speexdsp usa em
- *    desktops (ponto flutuante, FFT via kiss), sem dependência de FFTW.
- *  * EXPORT vazio: símbolos ficam internos ao objeto; a única API pública é
- *    a do speex_aec.h (prefixo halla_).
- *  * Símbolos kiss_* RENOMEADOS para spx_kiss_*: o RNNoise embutido
- *    (src/audio/rnnoise/) também carrega uma cópia do kiss_fft e os dois
- *    vendedores precisam coexistir no mesmo binário sem colisão de linker.
- *    Macros de preprocessador renomeiam os identificadores de forma
- *    consistente em declarações e definições (typedefs como kiss_fft_cfg são
- *    tokens distintos e não são afetados).
- *  * Sem HAVE_CONFIG_H: os .c ficam no estado "sem config.h" e recebem as
- *    definições deste wrapper. Sem VAR_ARRAYS o fftwrap usa buffers fixos
- *    MAX_FFT_SIZE — funciona até em MSVC (sem VLA).
+ *  * FLOATING_POINT/USE_KISS_FFT: the same configuration speexdsp uses on
+ *    desktops (floating point, kiss FFT), with no FFTW dependency.
+ *  * Empty EXPORT: symbols stay internal to the object; the only public API is
+ *    the one in speex_aec.h (halla_ prefix).
+ *  * kiss_* symbols RENAMED to spx_kiss_*: the embedded RNNoise
+ *    (src/audio/rnnoise/) also carries a copy of kiss_fft and both vendors
+ *    must coexist in the same binary without a linker collision. Preprocessor
+ *    macros rename the identifiers consistently in declarations and
+ *    definitions (typedefs such as kiss_fft_cfg are distinct tokens and are
+ *    not affected).
+ *  * No HAVE_CONFIG_H: the .c files stay in the "no config.h" state and take
+ *    their definitions from this wrapper. Without VAR_ARRAYS, fftwrap uses
+ *    fixed MAX_FFT_SIZE buffers -- works even on MSVC (no VLA).
  */
-
 #define FLOATING_POINT 1
 #define USE_KISS_FFT 1
 #define EXPORT

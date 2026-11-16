@@ -29,8 +29,8 @@
 #include "config.h"
 #endif
 
-/* Halla: MSVC não define M_PI sem _USE_MATH_DEFINES (upstream assume
- * gcc/clang). Guard equivalente ao que o mdf.c do speex já faz. */
+/* Halla: MSVC does not define M_PI without _USE_MATH_DEFINES (upstream
+ * assumes gcc/clang). Guard equivalent to the one speex mdf.c already uses. */
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif

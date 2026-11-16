@@ -1,16 +1,18 @@
-// Smoke do EchoGuard: detector de crosstalk/eco de rede do gate de
-// transmissão. Cenários sintéticos que reproduzem o bug real:
+// EchoGuard smoke test: network echo/crosstalk detector of the transmit gate.
+// Synthetic scenarios that reproduce the real bug:
 //
-//  1. Crosstalk puro — o microfone capta a voz que ESTÁ sendo recebida da
-//     rede (mesma forma de onda, atenuada, atrasada no playout): a abertura
-//     do gate é bloqueada e a transmissão aberta por colisão de início é
-//     revogada assim que o playout recebe o correspondente.
-//  2. Fala legítima com o canal ativo — outra voz no playout: a validação
-//     completa (400 ms) sem casamento e o gate abre (falar por cima).
-//  3. Mistura eco + fala própria — o eco não domina: não bloqueia.
-//  4. Canal em silêncio — abertura instantânea (sem fonte de crosstalk).
+//  1. Pure crosstalk -- the microphone picks up the voice that IS being
+//     received from the network (same waveform, attenuated, delayed by the
+//     playout): opening the gate is blocked and a transmission opened by a
+//     start collision is revoked as soon as the playout receives the matching
+//     frame.
+//  2. Genuine speech while the channel is active -- another voice in the
+//     playout: the full validation window (400 ms) finds no match and the gate
+//     opens (talking over the other side).
+//  3. Echo plus own speech -- the echo does not dominate: no blocking.
+//  4. Silent channel -- instant opening (no crosstalk source).
 //
-// Build standalone (sem Qt): cl /std:c++20 src\audio\EchoGuard.cpp
+// Standalone build (no Qt): cl /std:c++20 src\audio\EchoGuard.cpp
 // tests\echo_guard_smoke.cpp
 
 #include "../src/audio/EchoGuard.h"
@@ -25,7 +27,7 @@ static int g_failures = 0;
 #define CHECK(cond, msg)                                                     \
     do {                                                                     \
         if (!(cond)) {                                                       \
-            std::printf("FALHOU: %s (linha %d)\n", msg, __LINE__);           \
+            std::printf("FAILED: %s (line %d)\n", msg, __LINE__);           \
             ++g_failures;                                                    \
         }                                                                    \
     } while (0)
@@ -35,11 +37,11 @@ constexpr int kRate = 48000;
 constexpr int kFrame = 960;
 constexpr double kPi = 3.14159265358979323846;
 
-// "Voz" sintética: f0 modulada por "sílabas", harmônicos e envelope. Duas
-// instâncias com pitch diferente não correlacionam entre si.
+// Synthetic "voice": f0 modulated by "syllables", harmonics and envelope. Two
+// instances with different pitch do not correlate with each other.
 struct VoiceGen {
     double pitchBase = 140.0, pitchWobble = 40.0;   // f0 ~ 100-180 Hz
-    double syllablePeriod = 0.12;                   // cadência das sílabas
+    double syllablePeriod = 0.12;                   // syllable rate
     double h2 = 0.35, h3 = 0.12;                    // timbre
     double phase = 0.0;
     int16_t sample(int n) {
@@ -55,7 +57,7 @@ struct VoiceGen {
         const double v = env * (std::sin(phase)
                                 + h2 * std::sin(2 * phase)
                                 + h3 * std::sin(3 * phase));
-        // Distorção suave (microfone real não é linear).
+        // Gentle distortion (a real microphone is not linear).
         return int16_t(9000.0 * std::tanh(v * 0.9));
     }
     void fillFrame(int16_t* out, int frameIndex) {
@@ -64,7 +66,7 @@ struct VoiceGen {
     }
 };
 
-// Voz "do usuário local": timbre/pitch/cadência claramente distintos.
+// "Local user" voice: clearly distinct timbre/pitch/syllable rate.
 static void makeLocalVoice(VoiceGen& v) {
     v.pitchBase = 290.0;
     v.pitchWobble = 20.0;
@@ -74,15 +76,15 @@ static void makeLocalVoice(VoiceGen& v) {
 }
 
 int16_t g_noiseState = 12345;
-int16_t noise() { // LCG leve, ±~120
+int16_t noise() { // light LCG, about +-120
     g_noiseState = int16_t((g_noiseState * 75) % 65537);
     return int16_t((g_noiseState % 241) - 120);
 }
 } // namespace
 
-// Simula um cliente: o mic capta crosstalk (voz do parceiro que toca no
-// alto-falante do PC dele / mic compartilhado) e o playout recebe a mesma
-// voz pela rede com delay.
+// Simulates one client: the microphone picks up crosstalk (the partner voice
+// playing on their PC speaker / a shared microphone) and the playout receives
+// the same voice over the network with a delay.
 static void runCrosstalkScenario() {
     EchoGuard guard;
     VoiceGen remote;                     // voz do parceiro (o que a rede entrega)
@@ -126,27 +128,29 @@ static void runCrosstalkScenario() {
             }
         }
     }
-    std::printf("crosstalk: abriu no quadro %d, revogado no %d (lag %d ms, score %.2f)\n",
+    std::printf("crosstalk: opened at frame %d, revoked at %d (lag %d ms, score %.2f)\n",
                 openedAtFrame, revokedAtFrame, guard.lastMatchLagMs(),
                 double(guard.lastMatchScore()));
     CHECK(openedAtFrame == 0,
-          "crosstalk: colisao de inicio abre no primeiro quadro (fast-path)");
+          "crosstalk: start collision opens on the first frame (fast path)");
     CHECK(revokedAtFrame >= delayFrames && revokedAtFrame <= delayFrames + 8,
-          "crosstalk: revogacao ~200 ms apos o inicio (playout recebe o correspondente)");
+          "crosstalk: revoked ~200 ms after opening (playout receives the match)");
     CHECK(guard.lastMatchLagMs() >= 180 && guard.lastMatchLagMs() <= 220,
-          "crosstalk: lag do casamento ~= 200 ms");
-    // Depois da revogacao + eco persistente, nenhuma reabertura se sustenta:
-    // o mic continua acima do limiar ate o fim e o gate termina FECHADO.
-    CHECK(!gateOpen, "crosstalk: gate fechado no fim (eco bloqueado)");
+          "crosstalk: match lag ~= 200 ms");
+    // After the revocation and with the echo persisting, no reopening holds:
+    // the microphone stays above the threshold until the end and the gate
+    // finishes CLOSED.
+    CHECK(!gateOpen, "crosstalk: gate closed at the end (echo blocked)");
 }
 
-// Fala legítima por cima de um canal ativo (playout com a voz de outro):
-// segura 400 ms para casar (ou nao) e abre — e a transmissão aberta NÃO é
-// revogada (a mistura com a voz do parceiro não domina o microfone).
+// Genuine speech on top of an active channel (playout carrying another voice):
+// holds for 400 ms looking for a match and then opens -- and the transmission
+// that was opened is NOT revoked (the mix with the partner voice does not
+// dominate the microphone).
 static void runLegitOverActiveChannel() {
     EchoGuard guard;
-    VoiceGen remote;                     // voz do parceiro tocando
-    VoiceGen mine;                       // voz propria (outra voz)
+    VoiceGen remote;                     // partner voice playing
+    VoiceGen mine;                       // own voice (a different voice)
     makeLocalVoice(mine);
 
     const int totalFrames = 80;
@@ -155,15 +159,15 @@ static void runLegitOverActiveChannel() {
     bool gateOpen = false;
     for (int f = 0; f < totalFrames; ++f) {
         int16_t play[kFrame], mic[kFrame];
-        remote.fillFrame(play, f);       // canal ativo o tempo todo
-        mine.fillFrame(mic, f + 999);    // outra voz
+        remote.fillFrame(play, f);       // channel active the whole time
+        mine.fillFrame(mic, f + 999);    // another voice
         guard.notePlayout(play, kFrame);
         const EchoGuard::Decision d =
             guard.noteCapture(mic, kFrame, true, gateOpen);
         if (gateOpen) {
-            // Revogação de fala legítima: NÃO pode acontecer aqui.
+            // Revoking genuine speech: must NOT happen here.
             CHECK(d != EchoGuard::Decision::Blocked,
-                  "legitima: fala propria nao e revogada");
+                  "genuine speech: own voice is not revoked");
         } else if (d == EchoGuard::Decision::Hold) {
             ++holdFrames;
         } else if (d == EchoGuard::Decision::Open) {
@@ -171,15 +175,15 @@ static void runLegitOverActiveChannel() {
             if (openFrame < 0) openFrame = f;
         }
     }
-    std::printf("legitima: hold de %d quadros, abriu no quadro %d, gate=%d\n",
+    std::printf("genuine echo: %d-frame hold, opened at frame %d, gate=%d\n",
                 holdFrames, openFrame, gateOpen ? 1 : 0);
     CHECK(openFrame == 20,
-          "legitima: abre apos a validacao completa (20 quadros = 400 ms)");
-    CHECK(holdFrames == 20, "legitima: exatamente uma validacao de 400 ms");
-    CHECK(gateOpen, "legitima: gate aberto no fim (fala legitima)");
+          "genuine speech: opens after the full validation (20 frames = 400 ms)");
+    CHECK(holdFrames == 20, "genuine speech: exactly one 400 ms validation");
+    CHECK(gateOpen, "genuine speech: gate open at the end (genuine speech)");
 }
 
-// Mistura: fala propria dominante + eco fraco — nao pode bloquear.
+// Mix: own speech dominant plus weak echo -- must not block.
 static void runMixedEchoScenario() {
     EchoGuard guard;
     VoiceGen remote, mine;
@@ -198,13 +202,13 @@ static void runMixedEchoScenario() {
         if (d == EchoGuard::Decision::Blocked) ++blocked;
         if (d == EchoGuard::Decision::Open && openFrame < 0) openFrame = f;
     }
-    std::printf("mistura 35%% eco: blocked=%d, abriu no quadro %d\n",
+    std::printf("35%% echo mix: blocked=%d, opened at frame %d\n",
                 blocked, openFrame);
-    CHECK(blocked == 0, "mistura: eco minoritario nao bloqueia");
-    CHECK(openFrame == 20, "mistura: valida 400 ms e abre");
+    CHECK(blocked == 0, "mix: a minority echo does not block");
+    CHECK(openFrame == 20, "mix: validates 400 ms and opens");
 }
 
-// Canal silencioso: abertura instantânea (sem fonte de crosstalk).
+// Silent channel: instant opening (no crosstalk source).
 static void runSilentChannelScenario() {
     EchoGuard guard;
     VoiceGen mine;
@@ -213,8 +217,8 @@ static void runSilentChannelScenario() {
     mine.fillFrame(mic, 7);
     guard.notePlayout(silence, kFrame);
     const EchoGuard::Decision d = guard.noteCapture(mic, kFrame, true, false);
-    std::printf("silencio: decisao %d\n", int(d));
-    CHECK(d == EchoGuard::Decision::Open, "silencio: abre no primeiro quadro");
+    std::printf("silence: decision %d\n", int(d));
+    CHECK(d == EchoGuard::Decision::Open, "silence: opens on the first frame");
 }
 
 int main() {
@@ -226,6 +230,6 @@ int main() {
         std::printf("EchoGuard smoke: OK\n");
         return 0;
     }
-    std::printf("EchoGuard smoke: %d falhas\n", g_failures);
+    std::printf("EchoGuard smoke: %d failure(s)\n", g_failures);
     return 1;
 }

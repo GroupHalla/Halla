@@ -1,13 +1,14 @@
 // ============================================================================
-// Smoke do mapeamento hotkey spec -> VK (HotkeyVk.h, v1.1.27).
+// Smoke test for the hotkey spec -> VK mapping (HotkeyVk.h, v1.1.27).
 //
-// Compila SEM Qt e SEM windows.h: os resolvedores de layout são mocks
-// (US, ABNT2 e um "layout que não responde"). Valida:
-//  - a reprodução do bug original: "\" (e toda pontuação OEM) caía fora da
-//    tabela do conversor antigo e a tecla morria em silêncio;
-//  - regressão: tudo o que o switch antigo mapeava continua igual;
-//  - teclado numérico, Meta/Win, acentos Latin-1, fallback US;
-//  - o parser manual "Mods+Tecla" (o que o QKeySequence::fromString rejeita).
+// Compiles WITHOUT Qt and WITHOUT windows.h: the layout resolvers are mocks
+// (US, ABNT2 and a "layout that never answers"). It validates:
+//  - the original bug: "\\" (and all OEM punctuation) fell outside the old
+//    converter table and the key died silently;
+//  - regression: everything the old switch mapped is still identical;
+//  - numeric keypad, Meta/Win, Latin-1 accents, US fallback;
+//  - the hand-written "Mods+Key" parser (what QKeySequence::fromString
+//    rejects).
 // ============================================================================
 #include "gui/HotkeyVk.h"
 
@@ -17,12 +18,12 @@ static int g_fail = 0;
 static int g_ok = 0;
 #define CHECK(cond) do { \
     if (cond) { ++g_ok; } \
-    else { ++g_fail; std::printf("FALHOU: %s (linha %d)\n", #cond, __LINE__); } \
+    else { ++g_fail; std::printf("FAILED: %s (line %d)\n", #cond, __LINE__); } \
 } while (0)
 
-// ---- mocks de VkKeyScanW ---------------------------------------------------
+// ---- VkKeyScanW mocks ------------------------------------------------------
 
-// layout US: pontuação nas posições OEM clássicas; '+' e '?' exigem shift
+// US layout: punctuation on the classic OEM positions; '+' and '?' need shift
 static int vkScanUS(unsigned ch) {
     switch (ch) {
     case '\\': return 0xDC;
@@ -42,22 +43,22 @@ static int vkScanUS(unsigned ch) {
         if (ch >= 'a' && ch <= 'z') return int(ch) - 0x20; // 'a' -> VK 'A'
         if (ch >= '0' && ch <= '9') return int(ch);
         if (ch == ' ') return 0x20;
-        // ç e acentos Latin-1 altos não existem como digitação única no US
+        // 'c' cedilla and high Latin-1 accents are not single-key input on US
         return -1;
     }
 }
 
-// layout ABNT2 (Brasil): 'ç' direto na tecla VK_OEM_1; '/' na tecla extra
+// ABNT2 layout (Brazil): 'c' cedilla on the VK_OEM_1 key; '/' on the extra key
 // VK_ABNT_C1 ao lado do Shift direito
 static int vkScanABNT(unsigned ch) {
     switch (ch) {
-    case 0xE7: return 0xBA;  // ç -> VK_OEM_1 (posição do ';' no US)
+    case 0xE7: return 0xBA;  // c cedilla -> VK_OEM_1 (where ';' sits on US)
     case '/':  return 0xC1;  // '/' -> VK_ABNT_C1 (tecla extra)
     default:   return vkScanUS(ch);
     }
 }
 
-// "layout que não responde" (força o fallback US embutido)
+// "layout that never answers" (forces the built-in US fallback)
 static int vkScanNone(unsigned) { return -1; }
 
 // helper: spec (string crua) -> vk/mods pelo caminho completo
@@ -71,8 +72,8 @@ int main() {
     unsigned vk = 0, mods = 0;
 
     // ------------------------------------------------------------------
-    // 1) O BUG ORIGINAL: "\" configurado como tecla (sussurro/PTT/atalho)
-    //    era descartado em silêncio — "como se não apertasse a tecla".
+    // 1) THE ORIGINAL BUG: "\" bound as a key (whisper/PTT/hotkey) was
+    //    silently discarded -- "as if the key was never pressed".
     // ------------------------------------------------------------------
     CHECK(hvk::parseSpec("\\") == 0x5C);                    // Qt::Key_Backslash
     CHECK(specToVk("\\", &vkScanUS, vk, mods) && vk == 0xDC && mods == 0);
@@ -81,7 +82,7 @@ int main() {
           (mods & hvk::kModControl));
 
     // ------------------------------------------------------------------
-    // 2) Toda a pontuação OEM que faltava (layout US)
+    // 2) All the OEM punctuation that was missing (US layout)
     // ------------------------------------------------------------------
     CHECK(specToVk(";", &vkScanUS, vk, mods)  && vk == 0xBA);
     CHECK(specToVk("'", &vkScanUS, vk, mods)  && vk == 0xDE);
@@ -94,29 +95,29 @@ int main() {
     CHECK(specToVk("-", &vkScanUS, vk, mods)  && vk == 0xBD);
     CHECK(specToVk("=", &vkScanUS, vk, mods)  && vk == 0xBB);
 
-    // '+' e '?' exigem shift no layout: os mods vêm do resolvedor
+    // '+' and '?' need shift in the layout: the mods come from the resolver
     CHECK(specToVk("+", &vkScanUS, vk, mods) && vk == 0xBB && (mods & hvk::kModShift));
     CHECK(specToVk("?", &vkScanUS, vk, mods) && vk == 0xBF && (mods & hvk::kModShift));
 
     // ------------------------------------------------------------------
-    // 3) Acentos Latin-1: 'ç' no ABNT2 (tecla direta, VK_OEM_1);
-    //    no layout US o caractere não existe -> tecla recusada (não morta)
+    // 3) Latin-1 accents: 'c' cedilla on ABNT2 (direct key, VK_OEM_1); on the
+    //    US layout the character does not exist -> key refused (not dead)
     // ------------------------------------------------------------------
-    CHECK(hvk::parseSpec("\xC3\xA7") == 0xE7);              // "ç" em UTF-8
+    CHECK(hvk::parseSpec("\xC3\xA7") == 0xE7);              // cedilla as UTF-8
     CHECK(specToVk("\xC3\xA7", &vkScanABNT, vk, mods) && vk == 0xBA && mods == 0);
     CHECK(!specToVk("\xC3\xA7", &vkScanUS, vk, mods));
     CHECK(hvk::parseSpec("Ctrl+\xC3\xA7") == (hvk::kCtrlMod | 0xE7));
 
     // ------------------------------------------------------------------
-    // 4) Fallback US embutido (resolvedor indisponível/falhou)
+    // 4) Built-in US fallback (resolver unavailable/failed)
     // ------------------------------------------------------------------
     CHECK(specToVk("\\", &vkScanNone, vk, mods) && vk == 0xDC);
     CHECK(specToVk(",", &vkScanNone, vk, mods) && vk == 0xBC);
     CHECK(specToVk(";", &vkScanNone, vk, mods) && vk == 0xBA);
-    CHECK(!specToVk("\xC3\xA7", &vkScanNone, vk, mods));    // ç não existe no US
+    CHECK(!specToVk("\xC3\xA7", &vkScanNone, vk, mods));    // no cedilla on US
 
     // ------------------------------------------------------------------
-    // 5) Teclado numérico (Num+) — distinto da fileira principal
+    // 5) Numeric keypad (Num+) -- distinct from the top row
     // ------------------------------------------------------------------
     CHECK(hvk::parseSpec("Num+5") == (hvk::kKeypadMod | 0x35));
     CHECK(specToVk("Num+5", &vkScanUS, vk, mods) && vk == 0x65);       // VK_NUMPAD5
@@ -130,7 +131,7 @@ int main() {
     CHECK(hvk::parseSpec("+") == 0x2B);                                // '+' puro
 
     // ------------------------------------------------------------------
-    // 6) Meta/Win: capturável e mapeável (MOD_WIN)
+    // 6) Meta/Win: capturable and mappable (MOD_WIN)
     // ------------------------------------------------------------------
     CHECK(hvk::parseSpec("Meta+X") == (hvk::kMetaMod | 0x58));
     CHECK(hvk::parseSpec("Win+X") == (hvk::kMetaMod | 0x58));
@@ -138,7 +139,7 @@ int main() {
           (mods & hvk::kModWin) && !(mods & hvk::kModControl));
 
     // ------------------------------------------------------------------
-    // 7) REGRESSÃO: cobertura do conversor antigo continua idêntica
+    // 7) REGRESSION: the old converter coverage is still identical
     // ------------------------------------------------------------------
     CHECK(specToVk("A", &vkScanUS, vk, mods) && vk == 0x41);
     CHECK(specToVk("Z", &vkScanUS, vk, mods) && vk == 0x5A);
@@ -173,8 +174,8 @@ int main() {
           (mods & hvk::kModShift));
     CHECK(specToVk("Alt+Q", &vkScanUS, vk, mods) && vk == 'Q' &&
           (mods & hvk::kModAlt));
-    // tecla minúscula numa spec antiga: cai no caminho imprimível e resolve
-    // a MESMA tecla física ('a' -> VK 'A')
+    // lowercase key in an old spec: falls through the printable path and
+    // resolves to the SAME physical key ('a' -> VK 'A')
     CHECK(specToVk("a", &vkScanUS, vk, mods) && vk == 0x41);
 
     // ------------------------------------------------------------------
@@ -184,7 +185,7 @@ int main() {
     CHECK(hvk::parseSpec("Ctrl+") == 0);          // sem tecla
     CHECK(hvk::parseSpec("Foo") == 0);            // nome desconhecido
     CHECK(hvk::parseSpec("Ctrl+Foo") == 0);
-    CHECK(hvk::parseSpec("Dead Acute") == 0);     // tecla morta nunca é spec
+    CHECK(hvk::parseSpec("Dead Acute") == 0);     // a dead key is never a spec
     CHECK(hvk::parseSpec("Backspace") == hvk::kKeyBackspace);
     CHECK(hvk::parseSpec("Enter") == hvk::kKeyEnter);
     CHECK(hvk::parseSpec("NumLock") == hvk::kKeyNumLock);
@@ -204,9 +205,9 @@ int main() {
           (mods & hvk::kModControl));
 
     // ------------------------------------------------------------------
-    std::printf("%d verificacoes OK, %d falhas\n", g_ok, g_fail);
+    std::printf("%d checks OK, %d failures\n", g_ok, g_fail);
     if (g_fail) {
-        std::printf("SMOKE FALHOU\n");
+        std::printf("SMOKE FAILED\n");
         return 1;
     }
     std::printf("hotkey_vk_smoke: OK\n");

@@ -1,13 +1,13 @@
-/* Halla — cancelador de eco acústico embutido (AUMDF do speexdsp).
+/* Halla -- embedded acoustic echo canceller (speexdsp AUMDF).
  *
- * O build sem o SDK nativo do libwebrtc precisa de um AEC que funcione em
- * QUALQUER binário distribuído: este módulo embute o echo canceller clássico
- * do speexdsp (mdf.c, Jean-Marc Valin / Xiph.Org) — o mesmo algoritmo usado
- * em produção por softphones livres há duas décadas — compilado junto com o
- * aplicativo, sem dependências externas.
+ * Builds without the native libwebrtc SDK still need an AEC that works in
+ * EVERY distributed binary: this module embeds the classic speexdsp echo
+ * canceller (mdf.c, Jean-Marc Valin / Xiph.Org) -- the same algorithm free
+ * softphones have run in production for two decades -- compiled into the
+ * application itself, with no external dependency.
  *
- * API enxuta com prefixo halla_ para não vazar símbolos do speex no resto do
- * binário. Quadros de 480 amostras mono @ 48 kHz (10 ms), o mesmo contrato do
+ * Small halla_-prefixed API so speex symbols do not leak into the rest of the
+ * binary. Mono 480-sample frames at 48 kHz (10 ms), the same contract as
  * HallaAudioProcessing.
  */
 
@@ -20,23 +20,23 @@
 extern "C" {
 #endif
 
-/* Cria o cancelador. frame_size em amostras (use 480 @ 48 kHz);
- * filter_length em amostras de eco a cancelar — 250 ms (12000) cobre o
- * buffer do alto-falante (~160 ms) + o caminho acústico da sala.
- * Retorna NULL em caso de falha de alocação. */
+/* Creates the canceller. frame_size in samples (480 at 48 kHz);
+ * filter_length is the echo tail to cancel in samples -- 250 ms (12000)
+ * covers the speaker buffer (~160 ms) plus the room acoustic path.
+ * Returns NULL when allocation fails. */
 void* halla_speex_aec_init(int frame_size, int filter_length);
 
 void halla_speex_aec_destroy(void* st);
 
-/* Zera o filtro adaptativo (após troca de dispositivo, por exemplo). */
+/* Clears the adaptive filter (after a device change, for example). */
 void halla_speex_aec_reset(void* st);
 
-/* Alimenta a referência far-end: o mix que está indo para o alto-falante.
- * Chamar ANTES do capture correspondente ao mesmo instante lógico. */
+/* Feeds the far-end reference: the mix that is going to the speaker.
+ * Must be called BEFORE the capture of the same logical instant. */
 void halla_speex_aec_playback(void* st, const int16_t* play);
 
-/* Processa o microfone e devolve em out[] o sinal sem o eco. rec e out
- * podem apontar para o mesmo buffer. */
+/* Processes the microphone and writes the echo-reduced signal to out[].
+ * rec and out may point to the same buffer. */
 void halla_speex_aec_capture(void* st, const int16_t* rec, int16_t* out);
 
 #ifdef __cplusplus

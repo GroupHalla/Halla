@@ -1,23 +1,22 @@
-// Smoke de runtime para a sequência EXATA de src/dialogs/IdentityDialog.cpp
-// (geração de identidade Ed25519 + assinatura de desafio), executada contra
-// o BoringSSL embutido no webrtc.lib do SDK — no MESMO ambiente misto do
-// build de release Windows: headers do OpenSSL 3 (vcpkg) + implementação
-// BoringSSL linkada estaticamente do webrtc.lib.
+// Runtime smoke for the EXACT sequence of src/dialogs/IdentityDialog.cpp
+// (Ed25519 identity generation + challenge signing), executed against the
+// BoringSSL embedded in the SDK webrtc.lib -- in the SAME mixed environment as
+// the Windows release build: OpenSSL 3 headers (vcpkg) plus the BoringSSL
+// implementation linked statically from webrtc.lib.
 //
-// O teste existe porque o CI de e2e (MinGW) usa OpenSSL de verdade e nunca
-// exercitou o caminho BoringSSL. Foi assim que o build WebRTC passou meses
-// sem criar UMA única identidade: os headers do OpenSSL declaram
-// NID_ED25519=1087, o BoringSSL linkado espera NID_ED25519=949, e
-// EVP_PKEY_CTX_new_id(1087) devolvia UNSUPPORTED_ALGORITHM.
+// The test exists because the MinGW e2e CI uses real OpenSSL and never
+// exercised the BoringSSL path. That is how the WebRTC build spent months
+// without creating a SINGLE identity: the OpenSSL headers declare
+// NID_ED25519=1087, the linked BoringSSL expects NID_ED25519=949, and
+// EVP_PKEY_CTX_new_id(1087) returned UNSUPPORTED_ALGORITHM.
 //
-// Por isso a sequência testada aqui é 100% LIVRE DE NID — igual ao
-// IdentityDialog: RAND_bytes para a seed, chave reconstruída pelo parser
-// OID (d2i_AutoPrivateKey sobre um PKCS#8 mínimo), i2d_PUBKEY para a chave
-// pública e EVP_DigestSign/EVP_DigestVerify para a assinatura.
+// That is why the sequence tested here is 100% NID-FREE -- same as
+// IdentityDialog: RAND_bytes for the seed, the key rebuilt by the OID parser
+// (d2i_AutoPrivateKey over a minimal PKCS#8), i2d_PUBKEY for the public key
+// and EVP_DigestSign/EVP_DigestVerify for the signature.
 //
-// Cada etapa devolve um código de saída distinto: quando este teste falha,
-// o número aponta exatamente qual chamada quebrou.
-
+// Every stage returns a distinct exit code: when this test fails, the number
+// points exactly at the call that broke.
 #include <cstdio>
 #include <cstring>
 
@@ -35,15 +34,15 @@ static int fail(int code, const char* what) {
     return code;
 }
 
-// Cabeçalho PKCS#8 fixo (RFC 8410) — o MESMO do IdentityDialog.
+// Fixed PKCS#8 header (RFC 8410) -- the SAME one IdentityDialog uses.
 static const unsigned char kPkcs8SeedHeader[] = {
     0x30, 0x2E, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70,
     0x04, 0x22, 0x04, 0x20,
 };
 
-// PKCS#8 DER completo de uma chave Ed25519 (openssl genpkey) — o formato
-// que instalações antigas, construídas com OpenSSL de verdade, guardaram no
-// cofre do sistema. signNonce() precisa continuar parseando.
+// Complete PKCS#8 DER of an Ed25519 key (openssl genpkey) -- the format that
+// older installations, built against real OpenSSL, stored in the system vault.
+// signNonce() must keep parsing it.
 static const unsigned char kLegacyPkcs8[] = {
     0x30, 0x2E, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70,
     0x04, 0x22, 0x04, 0x20, 0xBF, 0x91, 0x6E, 0x89, 0xDD, 0x7B, 0x0B, 0xB6,
@@ -51,9 +50,9 @@ static const unsigned char kLegacyPkcs8[] = {
     0x84, 0x57, 0xFF, 0xD5, 0xB3, 0x57, 0x3F, 0x13, 0x5A, 0xD5, 0xED, 0x6A,
 };
 
-// 32 bytes que NÃO são ASN.1 válido (tag 0xAB + comprimento 171 > 30
-// restantes): a seed crua gravada por storeIdentityKey() tem que ser
-// rejeitada pelo parser PKCS#8 direto — por isso o embrulho no cabeçalho.
+// 32 bytes that are NOT valid ASN.1 (tag 0xAB plus length 171 > the 30
+// remaining): the raw seed written by storeIdentityKey() must be rejected by
+// the direct PKCS#8 parser -- hence the header wrap.
 static const unsigned char kRawSeedNotAsn1[32] = {
     0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB,
     0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB, 0xAB,
@@ -69,20 +68,20 @@ static EVP_PKEY* keyFromSeed(const unsigned char* seed) {
 }
 
 // ---------------------------------------------------------------------------
-// PBKDF2-HMAC-SHA256 manual — espelho EXATO do IdentityDialog.cpp.
+// Hand-written PBKDF2-HMAC-SHA256 -- EXACT mirror of IdentityDialog.cpp.
 //
-// NÃO usar PKCS5_PBKDF2_HMAC aqui nem no app: os headers do OpenSSL 3
-// declaram (int passlen, int saltlen, int iter, int keylen) e o BoringSSL
-// do webrtc.lib implementa (size_t password_len, size_t salt_len,
-// uint32_t iterations, size_t key_len). O build Windows compila contra os
-// headers do OpenSSL e LINKA o BoringSSL — passlen = -1 (convenção "strlen"
-// do OpenSSL) virava 4294967295 no size_t do BoringSSL e o processo morria
-// com ACCESS VIOLATION sem imprimir linha alguma (run 33026636018; o pwsh
-// engoliu o stderr do cl, diagnóstico capturado na run 33028370189).
-// Abaixo, somente primitivas de ABI idêntica nas duas bibliotecas
+// Do NOT use PKCS5_PBKDF2_HMAC here or in the app: the OpenSSL 3 headers
+// declare (int passlen, int saltlen, int iter, int keylen) while the BoringSSL
+// in webrtc.lib implements (size_t password_len, size_t salt_len,
+// uint32_t iterations, size_t key_len). The Windows build compiles against the
+// OpenSSL headers and LINKS BoringSSL -- passlen = -1 (the OpenSSL "strlen"
+// convention) became 4294967295 on the BoringSSL size_t and the process died
+// with an ACCESS VIOLATION without printing a single line (run 33026636018;
+// pwsh swallowed the cl stderr, diagnosed in run 33028370189).
+// Below, only primitives with an identical ABI in both libraries
 // (EVP_MD_CTX_new/free, EVP_DigestInit_ex, EVP_DigestUpdate size_t,
-// EVP_DigestFinal_ex, EVP_sha256) — e o resultado é conferido contra
-// vetores públicos do RFC 8018.
+// EVP_DigestFinal_ex, EVP_sha256) -- and the result is checked against public
+// RFC 8018 vectors.
 // ---------------------------------------------------------------------------
 static bool smokeHmacSha256(const unsigned char* key, int keyLen,
                             const unsigned char* msg1, int msg1Len,
@@ -127,7 +126,7 @@ static bool smokeHmacSha256(const unsigned char* key, int keyLen,
     return ok;
 }
 
-// PBKDF2 (RFC 8018), um único bloco de 32 bytes — igual ao IdentityDialog.
+// PBKDF2 (RFC 8018), a single 32-byte block -- same as IdentityDialog.
 static bool smokePbkdf2(const unsigned char* pass, int passLen,
                         const unsigned char* salt, int saltLen,
                         int iterations, unsigned char out[32]) {
@@ -155,7 +154,7 @@ static bool smokeHexEq(const unsigned char* got, const char* expectedHex) {
     return true;
 }
 
-// Vetores públicos do PBKDF2-HMAC-SHA256 (RFC 7914 §11 / suites padrão).
+// Public PBKDF2-HMAC-SHA256 vectors (RFC 7914 section 11 / standard suites).
 static const char kPbkdf2Vec1[] =
     "120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b"; // c=1
 static const char kPbkdf2Vec2[] =
@@ -164,7 +163,7 @@ static const char kPbkdf2Vec3[] =
     "c5e478d59288c841aa530db6845c4c8d962893a001ce4e11a4963873aa98134a"; // c=4096
 
 int main() {
-    std::printf("ed25519_identity_smoke: inicio (sequencia livre de NID)\n");
+    std::printf("ed25519_identity_smoke: start (NID-free sequence)\n");
 
     // ---- [1] generateUniqueId(): seed do CSPRNG da biblioteca ----
     unsigned char seed[32];
@@ -174,11 +173,11 @@ int main() {
     // ---- [2] generateUniqueId(): chave via parser OID (keyFromSeed) ----
     EVP_PKEY* key = keyFromSeed(seed);
     if (!key) return fail(2, "d2i_AutoPrivateKey (PKCS#8 minimo + seed)");
-    std::printf("[2] chave Ed25519 reconstruida por OID ok\n");
+    std::printf("[2] Ed25519 key rebuilt by OID ok\n");
 
     // ---- [3] storeIdentityKey(): chave publica em SPKI DER ----
     const int pubLen = i2d_PUBKEY(key, nullptr);
-    if (pubLen <= 0) return fail(3, "i2d_PUBKEY (previsao de tamanho)");
+    if (pubLen <= 0) return fail(3, "i2d_PUBKEY (size prediction)");
     unsigned char pub[128] = {0};
     unsigned char* p = pub;
     if (i2d_PUBKEY(key, &p) != pubLen) return fail(4, "i2d_PUBKEY");
@@ -189,20 +188,20 @@ int main() {
     size_t seedLen = sizeof(seedBack);
     if (EVP_PKEY_get_raw_private_key(key, seedBack, &seedLen) != 1)
         return fail(5, "EVP_PKEY_get_raw_private_key");
-    if (seedLen != 32) return fail(6, "seed com tamanho inesperado");
+    if (seedLen != 32) return fail(6, "unexpected seed size");
     if (std::memcmp(seed, seedBack, 32) != 0)
-        return fail(7, "seed round-trip diferente da original");
-    std::printf("[4] seed crua ok com round-trip identico (%zu bytes)\n", seedLen);
+        return fail(7, "seed round-trip differs from the original");
+    std::printf("[4] raw seed ok with identical round-trip (%zu bytes)\n", seedLen);
 
-    // ---- [5] diagnostico do bug historico (v1.1.0 a v1.1.2) ----
-    // i2d_PrivateKey com Ed25519: no BoringSSL do SDK devolve -1. E a
-    // razao pela qual a chave privada nunca foi persistida como PKCS#8.
+    // ---- [5] diagnosis of the historical bug (v1.1.0 to v1.1.2) ----
+    // i2d_PrivateKey with Ed25519: the SDK BoringSSL returns -1. That is the
+    // reason the private key was never persisted as PKCS#8.
     if (i2d_PrivateKey(key, nullptr) > 0)
-        std::printf("[5] i2d_PrivateKey aceita Ed25519 (OpenSSL-like)\n");
+        std::printf("[5] i2d_PrivateKey accepts Ed25519 (OpenSSL-like)\n");
     else
-        std::printf("[5] i2d_PrivateKey rejeita Ed25519 (confirma a causa raiz antiga)\n");
+        std::printf("[5] i2d_PrivateKey rejects Ed25519 (confirms the old root cause)\n");
 
-    // ---- [6] signNonce(): assinatura do desafio de 32 bytes ----
+    // ---- [6] signNonce(): signature of the 32-byte challenge ----
     unsigned char nonce[32];
     for (int i = 0; i < 32; ++i) nonce[i] = static_cast<unsigned char>(i * 7 + 1);
     EVP_MD_CTX* sctx = EVP_MD_CTX_new();
@@ -214,10 +213,10 @@ int main() {
     if (EVP_DigestSign(sctx, sig, &sigLen, nonce, sizeof(nonce)) != 1)
         return fail(10, "EVP_DigestSign");
     EVP_MD_CTX_free(sctx);
-    if (sigLen != 64) return fail(11, "assinatura com tamanho != 64");
-    std::printf("[6] assinatura do desafio ok (%zu bytes)\n", sigLen);
+    if (sigLen != 64) return fail(11, "signature size != 64");
+    std::printf("[6] challenge signature ok (%zu bytes)\n", sigLen);
 
-    // ---- [7] verificacao no estilo do servidor (SPKI DER + DigestVerify) ----
+    // ---- [7] server-style verification (SPKI DER + DigestVerify) ----
     const unsigned char* q = pub;
     EVP_PKEY* vk = d2i_PUBKEY(nullptr, &q, pubLen);
     if (!vk) return fail(12, "d2i_PUBKEY");
@@ -229,23 +228,23 @@ int main() {
         return fail(15, "EVP_DigestVerify");
     EVP_MD_CTX_free(vctx);
     EVP_PKEY_free(vk);
-    std::printf("[7] verificacao estilo servidor ok\n");
+    std::printf("[7] server-style verification ok\n");
 
     // ---- [8] migracao legada: PKCS#8 completo parseia e assina ----
     const unsigned char* r = kLegacyPkcs8;
     EVP_PKEY* lk = d2i_AutoPrivateKey(nullptr, &r, static_cast<long>(sizeof(kLegacyPkcs8)));
-    if (!lk) return fail(16, "d2i_AutoPrivateKey (PKCS#8 legado do cofre)");
+    if (!lk) return fail(16, "d2i_AutoPrivateKey (legacy vault PKCS#8)");
     EVP_MD_CTX* lctx = EVP_MD_CTX_new();
     unsigned char lsig[128] = {0};
     size_t lsigLen = sizeof(lsig);
     if (!lctx) return fail(17, "EVP_MD_CTX_new (legado)");
     if (EVP_DigestSignInit(lctx, nullptr, nullptr, nullptr, lk) != 1)
-        return fail(18, "EVP_DigestSignInit (legado)");
+        return fail(18, "EVP_DigestSignInit (legacy key)");
     if (EVP_DigestSign(lctx, lsig, &lsigLen, nonce, sizeof(nonce)) != 1)
-        return fail(19, "EVP_DigestSign (legado)");
+        return fail(19, "EVP_DigestSign (legacy key)");
     EVP_MD_CTX_free(lctx);
     EVP_PKEY_free(lk);
-    std::printf("[8] assinatura com chave PKCS#8 legada ok (%zu bytes)\n", lsigLen);
+    std::printf("[8] signature with the legacy PKCS#8 key ok (%zu bytes)\n", lsigLen);
 
     // ---- [9] seed crua e rejeitada pelo parser ASN.1 direto ----
     const unsigned char* s = kRawSeedNotAsn1;
@@ -256,41 +255,41 @@ int main() {
     }
     std::printf("[9] seed crua rejeitada pelo parser PKCS#8 direto (esperado)\n");
 
-    // ---- [10] backup portátil: PBKDF2-HMAC-SHA256 (mesma sequência do
-    // exportIdentityBackupFile — formato "halla-identity-backup" v1, idêntico
-    // ao Halla Mobile) ----
+    // ---- [10] portable backup: PBKDF2-HMAC-SHA256 (same sequence as
+    // exportIdentityBackupFile -- "halla-identity-backup" v1 format, identical
+    // to Halla Mobile) ----
     unsigned char salt[16], iv[12];
     if (RAND_bytes(salt, sizeof(salt)) != 1) return fail(21, "RAND_bytes (salt)");
     if (RAND_bytes(iv, sizeof(iv)) != 1) return fail(22, "RAND_bytes (iv)");
     unsigned char backupKey[32];
 
-    // Vetores conhecidos ANTES do uso real: provam que o PBKDF2 manual é
-    // byte a byte o mesmo do PBKDF2WithHmacSHA256 do Java (Halla Mobile).
+    // Known vectors BEFORE the real use: they prove the hand-written PBKDF2 is
+    // byte for byte the same as Java PBKDF2WithHmacSHA256 (Halla Mobile).
     unsigned char vec[32];
     if (!smokePbkdf2(reinterpret_cast<const unsigned char*>("password"), 8,
                      reinterpret_cast<const unsigned char*>("salt"), 4, 1, vec)
             || !smokeHexEq(vec, kPbkdf2Vec1))
-        return fail(23, "PBKDF2 vetor RFC c=1");
+        return fail(23, "PBKDF2 RFC vector c=1");
     if (!smokePbkdf2(reinterpret_cast<const unsigned char*>("password"), 8,
                      reinterpret_cast<const unsigned char*>("salt"), 4, 2, vec)
             || !smokeHexEq(vec, kPbkdf2Vec2))
-        return fail(24, "PBKDF2 vetor RFC c=2");
+        return fail(24, "PBKDF2 RFC vector c=2");
     if (!smokePbkdf2(reinterpret_cast<const unsigned char*>("password"), 8,
                      reinterpret_cast<const unsigned char*>("salt"), 4, 4096, vec)
             || !smokeHexEq(vec, kPbkdf2Vec3))
-        return fail(25, "PBKDF2 vetor RFC c=4096");
-    std::printf("[10] PBKDF2-HMAC-SHA256 manual ok (3 vetores RFC conferidos)\n");
+        return fail(25, "PBKDF2 RFC vector c=4096");
+    std::printf("[10] hand-written PBKDF2-HMAC-SHA256 ok (3 RFC vectors checked)\n");
 
-    // A sequência real do export: senha com tamanho EXPLÍCITO (nunca -1),
-    // salt aleatório, 310000 iterações.
+    // The real export sequence: password with an EXPLICIT length (never -1),
+    // random salt, 310000 iterations.
     if (!smokePbkdf2(reinterpret_cast<const unsigned char*>("senha-do-backup-123"), 19,
                      salt, sizeof(salt), 310000, backupKey))
-        return fail(26, "PBKDF2 (310000 iteracoes)");
-    std::printf("[10b] PBKDF2 310000 iteracoes ok\n");
+        return fail(26, "PBKDF2 (310000 iterations)");
+    std::printf("[10b] PBKDF2 310000 iterations ok\n");
 
-    // ---- [11] backup portátil: AES-256-GCM com AAD + tag ----
-    // O plaintext é o PKCS#8 mínimo (cabeçalho + seed) — exatamente o que o
-    // export grava no arquivo (e o MESMO layout que Java/Android produz).
+    // ---- [11] portable backup: AES-256-GCM with AAD + tag ----
+    // The plaintext is the minimal PKCS#8 (header + seed) -- exactly what the
+    // export writes to the file (and the SAME layout Java/Android produces).
     unsigned char pkcs8[48];
     std::memcpy(pkcs8, kPkcs8SeedHeader, sizeof(kPkcs8SeedHeader));
     std::memcpy(pkcs8 + sizeof(kPkcs8SeedHeader), seedBack, 32);
@@ -304,7 +303,7 @@ int main() {
     if (EVP_CIPHER_CTX_ctrl(ectx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1)
         return fail(29, "EVP_CTRL_GCM_SET_IVLEN");
     if (EVP_EncryptInit_ex(ectx, nullptr, nullptr, backupKey, iv) != 1)
-        return fail(30, "EVP_EncryptInit_ex (chave/iv)");
+        return fail(30, "EVP_EncryptInit_ex (key/iv)");
     if (EVP_EncryptUpdate(ectx, nullptr, &len,
                           reinterpret_cast<const unsigned char*>(aad),
                           static_cast<int>(std::strlen(aad))) != 1)
@@ -319,10 +318,10 @@ int main() {
         return fail(34, "EVP_CTRL_GCM_GET_TAG");
     total += 16;
     EVP_CIPHER_CTX_free(ectx);
-    if (total != 48 + 16) return fail(35, "cifrado com tamanho inesperado");
-    std::printf("[11] AES-256-GCM cifrada com AAD e tag ok (%d bytes)\n", total);
+    if (total != 48 + 16) return fail(35, "unexpected ciphertext size");
+    std::printf("[11] AES-256-GCM with AAD and tag ok (%d bytes)\n", total);
 
-    // ---- [12] backup portátil: decifra e confere o plaintext ----
+    // ---- [12] portable backup: decrypt and check the plaintext ----
     EVP_CIPHER_CTX* dctx = EVP_CIPHER_CTX_new();
     if (!dctx) return fail(36, "EVP_CIPHER_CTX_new (decrypt)");
     unsigned char pt[64] = {0};
@@ -334,7 +333,7 @@ int main() {
     if (EVP_CIPHER_CTX_ctrl(dctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) != 1)
         return fail(38, "EVP_CTRL_GCM_SET_IVLEN (decrypt)");
     if (EVP_DecryptInit_ex(dctx, nullptr, nullptr, backupKey, iv) != 1)
-        return fail(39, "EVP_DecryptInit_ex (chave/iv)");
+        return fail(39, "EVP_DecryptInit_ex (key/iv)");
     if (EVP_DecryptUpdate(dctx, nullptr, &len,
                           reinterpret_cast<const unsigned char*>(aad),
                           static_cast<int>(std::strlen(aad))) != 1)
@@ -347,8 +346,8 @@ int main() {
         return fail(43, "EVP_DecryptFinal_ex (tag ou senha errada)");
     EVP_CIPHER_CTX_free(dctx);
     if (std::memcmp(pt, pkcs8, sizeof(pkcs8)) != 0)
-        return fail(44, "plaintext decifrado difere do original");
-    std::printf("[12] decifragem GCM confere com o PKCS#8 original\n");
+        return fail(44, "decrypted plaintext differs from the original");
+    std::printf("[12] GCM decryption matches the original PKCS#8\n");
 
     // ---- [13] AAD adulterada: a decifragem TEM que falhar ----
     EVP_CIPHER_CTX* wctx = EVP_CIPHER_CTX_new();

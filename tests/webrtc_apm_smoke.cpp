@@ -1,18 +1,18 @@
-// Gate de release para o DSP de voz (v1.1.20): compila o módulo REAL do app
-// (src/audio/HallaAudioProcessing.cpp) contra o SDK que será linkado ao
-// instalador e prova, em runtime, que eco e ruído de fundo são realmente
-// atenuados — a mesma família de tecnologia do Krisp (AEC3 + supressão de
-// ruído neural do libwebrtc).
+// Release gate for the voice DSP (v1.1.20): compiles the REAL app module
+// (src/audio/HallaAudioProcessing.cpp) against the SDK that ships in the
+// installer and proves, at runtime, that echo and background noise are really
+// attenuated -- the same family of technology as Krisp (AEC3 + neural noise
+// suppression from libwebrtc).
 //
-// Cenários:
-//   1. O módulo cria e reporta os efeitos como ativos.
-//   2. Eco puro (captura idêntica ao far-end) perde >= 6 dB após adaptação.
-//   3. Ruído branco estacionário (sem voz) perde >= 6 dB com NS máximo.
+// Scenarios:
+//   1. The module creates the effects and reports them as active.
+//   2. Pure echo (capture identical to the far-end) loses >= 6 dB after
+//      adaptation.
+//   3. Stationary white noise (no voice) loses >= 6 dB at maximum NS.
 //
-// Se este teste falhar, o instalador NÃO é publicado: a redução de
-// ruído/eco teria regredido para "config que não processa nada" (exatamente
-// o estado do v1.1.19 — checkboxes sem efeito algum no pipeline).
-
+// If this test fails the installer is NOT published: noise/echo reduction would
+// have regressed to "config that processes nothing" (exactly the v1.1.19 state
+// -- checkboxes with no effect at all on the pipeline).
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -33,7 +33,7 @@ double rmsDb(const int16_t* samples, size_t count) {
     return 20.0 * std::log10(rms / 32767.0);
 }
 
-// LCG determinístico: mesma sequência em qualquer plataforma/compilador.
+// Deterministic LCG: the same sequence on any platform/compiler.
 uint32_t lcgState = 0x12345678u;
 uint32_t nextRandom() {
     lcgState = lcgState * 1664525u + 1013904223u;
@@ -48,12 +48,12 @@ void fillWhiteNoise(int16_t* out, size_t count, int amplitude) {
 } // namespace
 
 int main() {
-    // ---------- 1) eco puro: captura == far-end ----------
+    // ---------- 1) pure echo: capture == far-end ----------
     {
         HallaAudioProcessing apm;
         apm.configure(/*denoise=*/false, /*level=*/0, /*echo=*/true);
         if (!apm.echoActive()) {
-            std::printf("FAIL: cancelamento de eco reportado como inativo\n");
+            std::printf("FAIL: echo cancellation reported as inactive\n");
             return 20;
         }
 
@@ -61,10 +61,10 @@ int main() {
         int16_t capture[480] = {};
         double beforeDb = 0.0;
         double afterDb = 0.0;
-        const int frames = 100; // 1 s de adaptação do AEC3
+        const int frames = 100; // 1 s of AEC3 adaptation
         for (int frame = 0; frame < frames; ++frame) {
             fillWhiteNoise(reverse, 480, 9000);
-            for (size_t i = 0; i < 480; ++i) capture[i] = reverse[i]; // eco perfeito
+            for (size_t i = 0; i < 480; ++i) capture[i] = reverse[i]; // perfect echo
             if (frame == frames - 20) beforeDb = rmsDb(capture, 480);
             apm.setPlayoutDelayMs(100);
             apm.processReverseFrame(reverse);
@@ -72,28 +72,28 @@ int main() {
             if (frame == frames - 1) afterDb = rmsDb(capture, 480);
         }
         const double erleDb = beforeDb - afterDb;
-        std::printf("eco puro: entrada %.1f dB -> saida %.1f dB (ERLE %.1f dB)\n",
+        std::printf("pure echo: input %.1f dB -> output %.1f dB (ERLE %.1f dB)\n",
                     beforeDb, afterDb, erleDb);
         if (erleDb < 6.0) {
-            std::printf("FAIL: cancelamento de eco nao atenuou o eco (ERLE %.1f dB < 6 dB)\n",
+            std::printf("FAIL: echo cancellation did not attenuate the echo (ERLE %.1f dB < 6 dB)\n",
                         erleDb);
             return 22;
         }
     }
 
-    // ---------- 2) ruído estacionário sem far-end ----------
+    // ---------- 2) stationary noise without far-end ----------
     {
         HallaAudioProcessing apm;
         apm.configure(/*denoise=*/true, /*level=*/100, /*echo=*/false);
         if (!apm.denoiseActive()) {
-            std::printf("FAIL: supressao de ruido reportada como inativa\n");
+            std::printf("FAIL: noise suppression reported as inactive\n");
             return 23;
         }
 
         int16_t capture[480] = {};
         double beforeDb = 0.0;
         double afterDb = 0.0;
-        const int frames = 100; // 1 s para o estimador de ruído convergir
+        const int frames = 100; // 1 s for the noise estimator to converge
         for (int frame = 0; frame < frames; ++frame) {
             fillWhiteNoise(capture, 480, 3000);
             if (frame == frames - 20) beforeDb = rmsDb(capture, 480);
@@ -101,15 +101,15 @@ int main() {
             if (frame == frames - 1) afterDb = rmsDb(capture, 480);
         }
         const double reductionDb = beforeDb - afterDb;
-        std::printf("ruido branco: entrada %.1f dB -> saida %.1f dB (-%.1f dB)\n",
+        std::printf("white noise: input %.1f dB -> output %.1f dB (-%.1f dB)\n",
                     beforeDb, afterDb, reductionDb);
         if (reductionDb < 6.0) {
-            std::printf("FAIL: supressao de ruido nao atenuou o ruido (-%.1f dB < 6 dB)\n",
+            std::printf("FAIL: noise suppression did not attenuate the noise (-%.1f dB < 6 dB)\n",
                         reductionDb);
             return 24;
         }
     }
 
-    std::printf("APM smoke OK: modulo de voz real compila, linka e processa\n");
+    std::printf("APM smoke OK: the real voice module compiles, links and processes\n");
     return 0;
 }

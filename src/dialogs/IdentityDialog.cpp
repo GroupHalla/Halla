@@ -854,8 +854,8 @@ QList<QStringList> IdentityDialog::loadAll() {
             QJsonObject o = v.toObject();
             QString uid = o["uid"].toString();
             if (uid.isEmpty() || publicKeyForUid(uid).isEmpty()) { uid = generateUniqueId(); migrated = true; }
-            // v6: identities created before E2EE get the X25519 pair here
-            // — o login v6 recusa identidade sem chave de criptografia.
+            // v6: identities created before E2EE get the X25519 pair here --
+            // the v6 login rejects an identity without an encryption key.
             if (!uid.isEmpty()) ensureDhKeyPair(uid);
             rows << QStringList{ o["def"].toBool() ? "1" : "0",
                                  o["nick"].toString(), o["phon"].toString(),

@@ -1,20 +1,21 @@
-// Smoke de runtime do E2EE v6 (src/core/E2eeCrypto.cpp) — executado no MESMO
-// ambiente misto do build de release Windows: headers OpenSSL 3 (vcpkg) +
-// BoringSSL embutido no webrtc.lib do SDK. Assim como o Ed25519 smoke, cada
-// etapa devolve um código de saída distinto: o número aponta qual primitiva
-// quebrou.
+// E2EE v6 runtime smoke (src/core/E2eeCrypto.cpp) -- runs in the SAME mixed
+// environment as the Windows release build: OpenSSL 3 headers (vcpkg) plus the
+// BoringSSL embedded in the SDK webrtc.lib. Like the Ed25519 smoke, every
+// stage returns a distinct exit code: the number points at the primitive that
+// broke.
 //
-// Cobertura (vetores públicos + propriedades de segurança):
-//   1.  X25519 — vetor do RFC 7748 (chaves de Alice/Bob e segredo compartilhado)
-//   2.  geração de par + dhPublicFromPrivate
-//   3.  HKDF-SHA256 — vetor do RFC 5869 (caso 1)
-//   4.  AES-256-GCM — vetor NIST (chave/IV zerados, plaintext vazio)
-//   5.  AES-256-GCM — round-trip + detecção de adulteração (tag)
-//   6.  Envelope e2e_key — wrap→unwrap, e NÃO abre para terceiro (ECDH)
-//   7.  Par-a-par estático-estático — simetria dos dois lados + AAD distinto
-//   8.  Ed25519 — assinatura da seed crua + verificação via SPKI DER
-//   9.  Binding DH — verifyDhBinding aceita par legítimo e rejeita forjado
-//   10. SAS — determinístico, simétrico entre as pontas, difere p/ outra chave
+// Coverage (public vectors + security properties):
+//   1.  X25519 -- RFC 7748 vector (Alice/Bob keys and shared secret)
+//   2.  key pair generation + dhPublicFromPrivate
+//   3.  HKDF-SHA256 -- RFC 5869 vector (case 1)
+//   4.  AES-256-GCM -- NIST vector (zeroed key/IV, empty plaintext)
+//   5.  AES-256-GCM -- round-trip + tamper detection (tag)
+//   6.  e2e_key envelope -- wrap->unwrap, and NO opening for a third party (ECDH)
+//   7.  Static-static peer to peer -- symmetry on both sides + distinct AAD
+//   8.  Ed25519 -- raw-seed signature + verification through SPKI DER
+//   9.  DH binding -- verifyDhBinding accepts a legitimate pair, rejects forgeries
+//   10. SAS -- deterministic, symmetric between both ends, differs for another
+//       key
 
 #include <cstdio>
 #include <cstring>
@@ -25,10 +26,11 @@
 
 #include "core/E2eeCrypto.h"
 
-// Declarações OpenSSL mínimas para o teste 9 (SPKI DER via i2d_PUBKEY sem
-// expor OpenSSL no header do E2ee). DEVEM ficar em escopo global: o MSVC
-// rejeita linkage specification dentro de função (C2598) — o GCC aceita
-// como extensão, o que mascarava o erro nos builds MinGW (run 33686799303).
+// Minimal OpenSSL declarations for stage 9 (SPKI DER through i2d_PUBKEY
+// without exposing OpenSSL in the E2ee header). They MUST stay in global
+// scope: MSVC rejects a linkage specification inside a function (C2598) while
+// GCC accepts it as an extension, which masked the error in the MinGW builds
+// (run 33686799303).
 struct evp_pkey_st; typedef struct evp_pkey_st EVP_PKEY;
 extern "C" {
 EVP_PKEY* d2i_AutoPrivateKey(EVP_PKEY** a, const unsigned char** pp, long length);
@@ -38,17 +40,17 @@ void EVP_PKEY_free(EVP_PKEY* key);
 
 static int g_stage = 0;
 static int fail(int code, const char* what) {
-    std::printf("E2EE-SMOKE-FALHA %d (etapa %d): %s\n", code, g_stage, what);
+    std::printf("E2EE-SMOKE-FAIL %d (stage %d): %s\n", code, g_stage, what);
     std::fflush(stdout);
     return code;
 }
 static void stage(int n, const char* name) {
     g_stage = n;
-    std::printf("etapa %d: %s\n", n, name);
+    std::printf("stage %d: %s\n", n, name);
     std::fflush(stdout);
 }
 
-// bytes → QByteArray (facilita vetores literais)
+// bytes -> QByteArray (makes literal vectors easier)
 static QByteArray B(const char* hex) {
     QByteArray out;
     const int len = int(std::strlen(hex));
@@ -62,7 +64,7 @@ static QByteArray B(const char* hex) {
 
 int main() {
     // ---------------------------------------------------------------- 1
-    stage(1, "X25519 — vetor RFC 7748");
+    stage(1, "X25519 -- RFC 7748 vector");
     const QByteArray alicePriv = B("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a");
     const QByteArray bobPub    = B("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f");
     const QByteArray expectShared = B("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742");
@@ -70,17 +72,17 @@ int main() {
         return fail(11, "segredo X25519 divergiu do RFC 7748");
 
     // ---------------------------------------------------------------- 2
-    stage(2, "geração de par + pública derivada da privada");
+    stage(2, "key pair generation + public key derived from the private one");
     E2ee::DhKeyPair a, b;
     if (!E2ee::generateDhKeyPair(a) || !E2ee::generateDhKeyPair(b))
-        return fail(21, "geração X25519 falhou");
+        return fail(21, "X25519 generation failed");
     if (a.priv.size() != 32 || a.pub.size() != 32 || a.priv == b.priv)
-        return fail(22, "par gerado com tamanho/entropia inválidos");
+        return fail(22, "generated pair has invalid size/entropy");
     if (E2ee::dhPublicFromPrivate(a.priv) != a.pub)
-        return fail(23, "dhPublicFromPrivate divergiu da pública gerada");
+        return fail(23, "dhPublicFromPrivate diverged from the generated public key");
 
     // ---------------------------------------------------------------- 3
-    stage(3, "HKDF-SHA256 — vetor RFC 5869 caso 1");
+    stage(3, "HKDF-SHA256 -- RFC 5869 vector, case 1");
     const QByteArray ikm(22, '\x0b');
     const QByteArray salt = B("000102030405060708090a0b0c");
     const QByteArray info = B("f0f1f2f3f4f5f6f7f8f9");
@@ -92,7 +94,7 @@ int main() {
         return fail(31, "HKDF-SHA256 divergiu do RFC 5869");
 
     // ---------------------------------------------------------------- 4
-    stage(4, "AES-256-GCM — vetor NIST (chave/IV zerados, texto vazio)");
+    stage(4, "AES-256-GCM -- NIST vector (zeroed key/IV, empty text)");
     {
         const QByteArray key(32, '\0');
         const QByteArray nonce(12, '\0');
@@ -106,7 +108,7 @@ int main() {
     }
 
     // ---------------------------------------------------------------- 5
-    stage(5, "AES-256-GCM — round-trip + tag rejeita adulteração");
+    stage(5, "AES-256-GCM -- round-trip + tag rejects tampering");
     {
         const QByteArray key = E2ee::randomBytes(32);
         const QByteArray nonce = E2ee::randomBytes(12);
@@ -117,9 +119,9 @@ int main() {
             return fail(51, "seal falhou");
         QByteArray back;
         if (!E2ee::aeadOpen(key, nonce, aad, ct, back) || back != plain)
-            return fail(52, "open não devolveu o plaintext");
+            return fail(52, "open did not return the plaintext");
         if (E2ee::aeadOpen(key, nonce, QByteArray(E2ee::kDomainPoke), ct, back))
-            return fail(53, "AAD de outro domínio foi aceito (tag deveria falhar)");
+            return fail(53, "AAD from another domain was accepted (the tag should have failed)");
         QByteArray tampered = ct;
         tampered[tampered.size() / 2] = char(tampered[tampered.size() / 2] ^ 0x01);
         if (E2ee::aeadOpen(key, nonce, aad, tampered, back))
@@ -127,7 +129,7 @@ int main() {
     }
 
     // ---------------------------------------------------------------- 6
-    stage(6, "envelope e2e_key — só o destinatário abre");
+    stage(6, "e2e_key envelope -- only the recipient can open it");
     {
         const QByteArray groupKey(32, '\x77');
         const QByteArray envelope = E2ee::envelopeWrap(b.pub, E2ee::kDomainKeyWrap, groupKey);
@@ -135,18 +137,18 @@ int main() {
             return fail(61, "wrap falhou");
         const QByteArray got = E2ee::envelopeUnwrap(b.priv, E2ee::kDomainKeyWrap, envelope);
         if (got != groupKey)
-            return fail(62, "destinatário não abriu o próprio envelope");
+            return fail(62, "the recipient could not open its own envelope");
         E2ee::DhKeyPair eve;
         if (!E2ee::generateDhKeyPair(eve))
-            return fail(63, "geração de terceiro falhou");
+            return fail(63, "third-party key generation failed");
         if (!E2ee::envelopeUnwrap(eve.priv, E2ee::kDomainKeyWrap, envelope).isEmpty())
             return fail(64, "terceiro abriu envelope alheio (quebra total do modelo)");
         if (!E2ee::envelopeUnwrap(b.priv, E2ee::kDomainChat, envelope).isEmpty())
-            return fail(65, "envelope de domínio KEYWRAP aberto com AAD de CHAT");
+            return fail(65, "KEYWRAP envelope opened with a CHAT AAD");
     }
 
     // ---------------------------------------------------------------- 7
-    stage(7, "par-a-par estático-estático — simetria e domínio");
+    stage(7, "static-static peer to peer -- symmetry and domain");
     {
         const QByteArray msg = QByteArrayLiteral("mensagem privada entre Alice e Bob");
         const QByteArray chatDom(E2ee::kDomainChat);
@@ -154,17 +156,17 @@ int main() {
         const QByteArray c1 = E2ee::pairwiseEncrypt(a.priv, b.pub, chatDom, msg);
         if (c1.isEmpty())
             return fail(71, "pairwiseEncrypt falhou");
-        // Bob decifra com a própria privada + pública de Alice
+        // Bob decrypts with his own private key + Alice public key
         if (E2ee::pairwiseDecrypt(b.priv, a.pub, chatDom, c1) != msg)
-            return fail(72, "decifragem par-a-par assimétrica falhou");
-        // o caminho inverso (Bob cifra com sua priv + pub de Alice) abre para Alice
+            return fail(72, "asymmetric peer-to-peer decryption failed");
+        // the reverse path (Bob encrypts with his private key + Alice public key) opens for Alice
         const QByteArray c2 = E2ee::pairwiseEncrypt(b.priv, a.pub, chatDom, msg);
         if (E2ee::pairwiseDecrypt(a.priv, b.pub, chatDom, c2) != msg)
-            return fail(73, "simetria estático-estática quebrada");
-        // domínio distinto não abre
+            return fail(73, "static-static symmetry broken");
+        // a different domain does not open
         if (!E2ee::pairwiseDecrypt(b.priv, a.pub, offDom, c1).isEmpty())
-            return fail(74, "ciphertext de CHAT aberto no domínio OFFLINE");
-        // terceiro não abre
+            return fail(74, "CHAT ciphertext opened in the OFFLINE domain");
+        // a third party cannot open it
         E2ee::DhKeyPair eve;
         E2ee::generateDhKeyPair(eve);
         if (!E2ee::pairwiseDecrypt(eve.priv, a.pub, chatDom, c1).isEmpty())
@@ -172,34 +174,34 @@ int main() {
     }
 
     // ---------------------------------------------------------------- 8
-    stage(8, "Ed25519 — assinatura com seed crua e verificação via SPKI");
+    stage(8, "Ed25519 -- raw-seed signature and verification through SPKI");
     {
-        // par Ed25519 do cliente: seed aleatória → chave via EVP → SPKI DER
-        // (mesma sequência do IdentityDialog, aqui mínima para o teste).
+        // client Ed25519 pair: random seed -> key through EVP -> SPKI DER
+        // (the same sequence as IdentityDialog, minimal here for the test).
         const QByteArray seed = E2ee::randomBytes(32);
         const QByteArray msg = E2ee::dhBindingMessage(a.pub);
         const QByteArray sig = E2ee::ed25519Sign(seed, msg);
         if (sig.size() != 64)
             return fail(81, "assinatura Ed25519 com tamanho errado");
-        // pública via SPKI DER: reconstrução mínima usando o mesmo caminho
-        // de storeIdentityKey (i2d_PUBKEY) — aqui gerada pelo próprio E2ee
-        // não expõe helper de Ed25519 pubkey, então verificamos indiretamente
-        // no etapa 9 com o par gerado via envelope do binding.
+        // public key through SPKI DER: minimal rebuild using the same path as
+        // storeIdentityKey (i2d_PUBKEY) -- generated here by E2ee itself
+        // no Ed25519 pubkey helper is exposed, so it is verified indirectly in
+        // stage 9 with the pair generated through the binding envelope.
 
-        // assinatura determinística: mesma seed+msg → mesma assinatura
+        // deterministic signature: same seed+msg -> same signature
         const QByteArray sig2 = E2ee::ed25519Sign(seed, msg);
         if (sig != sig2)
-            return fail(82, "assinatura Ed25519 não determinística");
+            return fail(82, "Ed25519 signature is not deterministic");
     }
 
     // ---------------------------------------------------------------- 9
-    stage(9, "binding DH — verifyDhBinding");
+    stage(9, "DH binding -- verifyDhBinding");
     {
         // Cadeia completa como no login: identidade Ed25519 assina a X25519.
-        // Construção via EVP (i2d_PUBKEY) — igual ao IdentityDialog.
+        // Built through EVP (i2d_PUBKEY) -- same as IdentityDialog.
         const QByteArray seed = E2ee::randomBytes(32);
-        // Gera Ed25519 pública SPKI DER com a MESMA sequência do cliente:
-        // embrulha a seed no PKCS#8 mínimo e reconstrói por OID.
+        // Builds the Ed25519 SPKI DER public key with the SAME client
+        // sequence: wraps the seed in the minimal PKCS#8 and rebuilds by OID.
         static const unsigned char kPkcs8Header[] = {
             0x30, 0x2E, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2B, 0x65, 0x70,
             0x04, 0x22, 0x04, 0x20,
@@ -208,8 +210,8 @@ int main() {
         std::memcpy(pkcs8.data(), kPkcs8Header, sizeof(kPkcs8Header));
         std::memcpy(pkcs8.data() + sizeof(kPkcs8Header), seed.constData(), 32);
 
-        // assinatura do binding com o caminho do cliente (E2ee::ed25519Sign
-        // aceita tanto seed crua quanto PKCS#8 — testa os DOIS formatos).
+        // binding signature through the client path (E2ee::ed25519Sign
+        // accepts both the raw seed and PKCS#8 -- both formats are tested).
         const QByteArray dhPub = b.pub;
         const QByteArray bindMsg = E2ee::dhBindingMessage(dhPub);
         const QByteArray sigSeed = E2ee::ed25519Sign(seed, bindMsg);
@@ -217,47 +219,48 @@ int main() {
         if (sigSeed.isEmpty() || sigSeed != sigPkcs8)
             return fail(91, "assinatura por seed e por PKCS#8 divergiram");
 
-        // pública SPKI DER via o caminho OpenSSL comum (declarações no topo
-        // do arquivo — escopo global, exigência do MSVC; ver comentário lá).
+        // public key SPKI DER through the common OpenSSL path (declarations at
+        // the top of the file -- global scope, an MSVC requirement; see the
+        // comment there).
         const unsigned char* p = reinterpret_cast<const unsigned char*>(pkcs8.constData());
         EVP_PKEY* key = d2i_AutoPrivateKey(nullptr, &p, pkcs8.size());
-        if (!key) return fail(92, "reconstrução da chave Ed25519 falhou");
+        if (!key) return fail(92, "Ed25519 key rebuild failed");
         unsigned char* der = nullptr;
         const int derLen = i2d_PUBKEY(key, &der);
         EVP_PKEY_free(key);
         if (derLen <= 0) return fail(93, "i2d_PUBKEY falhou");
         const QByteArray idPub(reinterpret_cast<char*>(der), derLen);
-        // (limpeza: der foi alocado por OPENSSL_malloc; leak controlado do teste)
+        // (cleanup: der was allocated by OPENSSL_malloc; controlled test leak)
 
         if (!E2ee::verifyDhBinding(idPub, dhPub, sigSeed))
-            return fail(94, "binding legítimo rejeitado");
-        // dhPub diferente → binding deve falhar
+            return fail(94, "legitimate binding rejected");
+        // a different dhPub -> the binding must fail
         if (E2ee::verifyDhBinding(idPub, a.pub, sigSeed))
-            return fail(95, "binding aceito para dhPub que não foi assinada");
-        // uid = base64(SHA-256(SPKI)) — fórmula do cliente e do servidor
+            return fail(95, "binding accepted for a dhPub that was not signed");
+        // uid = base64(SHA-256(SPKI)) -- client and server formula
         if (E2ee::uidForIdPub(idPub) !=
             QString::fromLatin1(QCryptographicHash::hash(idPub, QCryptographicHash::Sha256).toBase64()))
-            return fail(96, "uidForIdPub divergiu da fórmula da identidade");
+            return fail(96, "uidForIdPub diverged from the identity formula");
     }
 
     // ---------------------------------------------------------------- 10
-    stage(10, "SAS — determinístico, simétrico, discriminante");
+    stage(10, "SAS -- deterministic, symmetric, discriminating");
     {
         const QByteArray idA = E2ee::randomBytes(44);
         const QByteArray idB = E2ee::randomBytes(44);
         const QString ab = E2ee::sasCode(idA, idB);
         const QString ba = E2ee::sasCode(idB, idA);
         if (ab.isEmpty() || ab != ba)
-            return fail(101, "código SAS assimétrico entre as duas pontas");
-        // Mudar UM byte da chave do par muda o digest: código diferente
-        // (determinístico — sem flakiness de aleatoriedade).
+            return fail(101, "SAS code asymmetric between the two ends");
+        // Changing ONE byte of the peer key changes the digest: a different
+        // code (deterministic -- no randomness flakiness).
         QByteArray idC = idB;
         idC[idC.size() - 1] = char(idC[idC.size() - 1] ^ 0x01);
         if (ab == E2ee::sasCode(idA, idC))
-            return fail(102, "SAS igual para chave diferente do par");
+            return fail(102, "SAS identical for a different peer key");
     }
 
-    std::printf("E2EE-SMOKE-OK: todas as 10 etapas passaram\n");
+    std::printf("E2EE-SMOKE-OK: all 10 stages passed\n");
     std::fflush(stdout);
     return 0;
 }

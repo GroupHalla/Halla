@@ -27,6 +27,20 @@ extern "C" {
 }
 #endif
 
+#ifndef HALLA_WEBRTC_NATIVE
+// Input-level compensation for the embedded RNNoise path. The model expects
+// frames in the int16 range with speech-like energy; kDspTargetRms (about
+// -22 dBFS) sits in the middle of its useful range for both quiet headsets
+// and loud USB microphones. kDspGainSmoothing is the one-pole coefficient of
+// the per-frame gain tracker: 0.05 at 100 frames/s settles in roughly 200 ms,
+// fast enough to follow a speaker changing distance and slow enough never to
+// modulate the gain inside speech.
+constexpr float kDspTargetRms = 2500.0f;
+constexpr float kDspGainSmoothing = 0.05f;
+constexpr float kDspMinGain = 0.03f;
+constexpr float kDspMaxGain = 32.0f;
+#endif
+
 // The concrete implementation is hidden in Impl so libwebrtc headers
 // (C++20 + abseil) do not leak into the rest of the app -- the rest of Halla
 // keeps compiling identically in the no-SDK fallback build.
@@ -51,15 +65,19 @@ struct HallaAudioProcessing::Impl {
     // 2nd-order high-pass (rumble/DC) -- same role as the APM high_pass_filter:
     // removes sub-bass energy that only wastes bitrate and opens the VAD.
     float hpX1 = 0, hpX2 = 0, hpY1 = 0, hpY2 = 0;
-    // One-frame dry delay line: RNNoise output lags the input by one 480-sample
-    // frame, so the dry signal is delayed by the same amount before mixing --
-    // otherwise dry/wet mixing comb-filters the voice.
-    float dryDelay[480] = {};
-    bool dryPrimed = false;
     // The AEC only processes with a recent far-end reference: without playout
     // there is no echo, and calling capture without playback spams warnings
     // and diverges the speex filter. Counter of frames without reverse (10 ms).
     int reverseStarved = 100000;
+    // Input-level compensation: RNNoise's internal VAD is trained on speech-like
+    // spectral energy, so a microphone that is too quiet or too hot makes the
+    // model conclude "already speech" (or "pure silence") and the suppression
+    // collapses. A slow automatic gain steers the frame RMS towards
+    // kDspTargetRms before the model and divides it back out afterwards, which
+    // keeps the caller's level intact while the model always sees a usable
+    // range. The correction is frozen whenever a far-end echo path is active,
+    // since AEC residual rides on the same signal.
+    float inputGain = 1.0f;
 #endif
 };
 
@@ -95,7 +113,7 @@ void HallaAudioProcessing::configure(bool denoiseEnabled, int denoiseLevel0to100
         // checkbox without effect.
         m_impl->apm = webrtc::BuiltinAudioProcessingBuilder().Build(
             webrtc::CreateEnvironment());
-        if (!m_impl->apm) return; // caller detecta via echoActive()/denoiseActive()
+        if (!m_impl->apm) return; // caller checks through echoActive()/denoiseActive()
     }
 
     webrtc::AudioProcessing::Config config;
@@ -217,42 +235,45 @@ void HallaAudioProcessing::processCaptureFrame(int16_t* samples480) {
     if (!d.denoise) return; // echo only: done
 
     // ---- 2. NS (RNNoise, float domain) ----
-    // RNNoise expects int16-scale floats (values in [-32768, 32767]): feeding
-    // normalized [-1, 1] samples makes the model see near-silence and the
-    // suppression never engages. The model's internal silence detector
-    // calibrates with typical speech spectral energy at ~-10 dBFS; everyday
-    // microphones arrive well below that. A FIXED +8 dB pre-gain (x2.5) -- no
-    // dynamics, therefore no gain modulation between frames -- brings common
-    // mics into the model regime, and the final division restores the
-    // original scale: the model band gains are relative, so the result is
-    // the same signal with attenuated noise.
-    constexpr float kPreGain = 2.5f;
+    // RNNoise works on int16-scale samples ([-32768, 32767]); normalized
+    // [-1, 1] input makes every frame look like silence to its internal
+    // energy gate and the suppression never engages.
+    constexpr float kScale = 32768.0f;
     float x[480];
     for (int i = 0; i < 480; ++i)
-        x[i] = qBound(-32768.0f, float(samples480[i]) * kPreGain, 32767.0f);
+        x[i] = float(samples480[i]);
 
     // ---- 3. high-pass (together with the NS, as in the APM) ----
     highPassFrame(x, 480, d.hpX1, d.hpX2, d.hpY1, d.hpY2);
 
+    // ---- 4. input-level compensation ----
+    // Slow, level-only gain towards kDspTargetRms. It is frozen while the echo
+    // canceller is running so the AEC residual is not amplified, and it never
+    // touches the model's own band gains.
+    if (!d.echo) {
+        double energy = 0.0;
+        for (int i = 0; i < 480; ++i)
+            energy += double(x[i]) * double(x[i]);
+        const float frameRms = float(std::sqrt(energy / 480.0));
+        const float wanted =
+            qBound(kDspMinGain, kDspTargetRms / std::max(frameRms, 1.0f), kDspMaxGain);
+        d.inputGain += kDspGainSmoothing * (wanted - d.inputGain);
+    }
+    const float sampleGain = d.inputGain;
+    for (int i = 0; i < 480; ++i)
+        x[i] = qBound(-kScale, x[i] * sampleGain, kScale - 1.0f);
+
     float y[480];
     rnnoise_process_frame(d.ns, y, x);
 
-    // Slider level: original/processed mix. RNNoise gains preserve phase, so
-    // linear mixing does not cancel. The dry signal is delayed by one frame
-    // to align with the RNNoise output latency (480 samples).
-    float dry[480];
-    if (!d.dryPrimed) {
-        std::memcpy(dry, x, sizeof(dry));
-        d.dryPrimed = true;
-    } else {
-        std::memcpy(dry, d.dryDelay, sizeof(dry));
-    }
-    std::memcpy(d.dryDelay, x, sizeof(d.dryDelay));
+    // Slider level: mix of original and processed signal. Both paths carry the
+    // same frame, so the mix stays sample-aligned, and the model's band gains
+    // preserve phase -- a linear mix therefore does not comb-filter the voice.
+    const float invGain = 1.0f / sampleGain;
     const float alpha = d.denoiseAlpha;
-    const float invGain = 1.0f / kPreGain;
     for (int i = 0; i < 480; ++i) {
-        const float mixed = alpha * y[i] + (1.0f - alpha) * dry[i];
-        samples480[i] = int16_t(qBound(-32768.0f, mixed * invGain, 32767.0f));
+        const float mixed = alpha * (y[i] * invGain) + (1.0f - alpha) * (x[i] * invGain);
+        samples480[i] = int16_t(qBound(-kScale, mixed, kScale - 1.0f));
     }
 }
 

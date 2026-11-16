@@ -1286,7 +1286,7 @@ void HallaWebRtcSession::detachFromNet(NetSession* net) {
 
 HallaWebRtcSession::~HallaWebRtcSession() {
     stopBroadcast();
-    // Encerra a thread de captura iniciada em startBroadcast (se existir).
+    // Joins the capture thread started by startBroadcast (when present).
     if (m_captureThread) {
         if (m_captureTimer)
             QMetaObject::invokeMethod(m_captureTimer, [t = m_captureTimer] { t->stop(); },

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Builds Halla on Linux (installs dependencies on Debian/Ubuntu when needed)
 #
-# Sem o SDK do WebRTC: build fallback (voz Qt Multimedia + DSP embutido
-# RNNoise/speex, screenshare JPEG). Para o build nativo (WebRTC de verdade,
+# Without the WebRTC SDK: fallback build (Qt Multimedia voice + embedded
+# RNNoise/speex DSP, JPEG screen share). For the native build (real WebRTC,
 # X11 capture + PC audio through PulseAudio), download the linux-x64 SDK from
 # https://github.com/GroupHalla/Halla-WebRTC-Builds/releases e configure:
 #
 #   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-#     -DHALLA_WEBRTC_SDK_DIR=/caminho/halla-webrtc-sdk \
+#     -DHALLA_WEBRTC_SDK_DIR=/path/to/halla-webrtc-sdk \
 #     -DHALLA_ENABLE_WEBRTC_NATIVE=ON
 #
 set -e

@@ -88,9 +88,10 @@ int          p
 }
 
 
-/* Halla: MSVC (C puro) não tem VLA — os arrays viram fixos nos limites que
- * o rnnoise usa (ord <= LPC_ORDER; autocorr com n <= PITCH_BUF_SIZE/2 do
- * denoise.c = 864; rn_celt_iir não é chamado pelo rnnoise, tamanho folgado). */
+/* Halla: MSVC (plain C) has no VLA -- the arrays become fixed at the bounds
+ * rnnoise uses (ord <= LPC_ORDER; autocorrelation with n <= PITCH_BUF_SIZE/2
+ * from denoise.c = 864; rn_celt_iir is not called by rnnoise, so the size is
+ * generous). */
 void rn_celt_fir(
          const opus_val16 *x,
          const opus_val16 *num,

@@ -1592,7 +1592,7 @@ int main(int argc, char* argv[]) {
         app.setFont(f);
     }
 
-    // modo de captura de tela (desenvolvimento)
+    // screenshot mode (development only)
     const QStringList args = app.arguments();
     const int shotIdx = args.indexOf(QStringLiteral("--shot"));
     if (shotIdx >= 0 && shotIdx + 2 < args.size()) {

@@ -1176,7 +1176,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                 if (t->net()) m_webrtcSession->setNetSession(t->net());
     });
 
-    // menu de contexto nas abas (como no Halla)
+    // context menu on the tabs (same behaviour as the rest of Halla)
     m_tabs->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tabs->tabBar(), &QTabBar::customContextMenuRequested, this,
             [this](const QPoint& pos) {
@@ -2063,7 +2063,7 @@ void MainWindow::applyHotkeys() {
                 mh.held = false;
                 m_mouseHotkeys << mh;
             } else {
-                // GLOBAL: funciona em segundo plano, como no Halla
+                // GLOBAL: works in the background, as everywhere in Halla
                 UINT vk = 0, mods = 0;
                 if (specToVkFromSpec(keyStr, vk, mods)) {
                     const int id = 100 + idx;
@@ -2662,7 +2662,7 @@ void MainWindow::toggleScreenShare() {
             m_screenShareSeq = 0;
 
             if (m_webrtcSession && m_webrtcSession->isNativeAvailable()) {
-                // v1.1.28: transmite pela aba ATIVA — o m_net podia estar
+                // v1.1.28: broadcast from the ACTIVE tab -- m_net could be
                 // pointing at another connected tab (multi-server).
                 m_webrtcSession->setNetSession(t->net());
                 m_webrtcSession->setCaptureSource(m_screenShareSourceType, m_screenShareSourceId);

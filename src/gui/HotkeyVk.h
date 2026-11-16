@@ -147,8 +147,8 @@ inline bool specToVkCore(int combined, VkFromCharFn vkFromChar,
         if (key == '*') { vk = kVkMultiply; applyQtMods(); return true; }
         if (key == '/') { vk = kVkDivide;   applyQtMods(); return true; }
         if (key == '.') { vk = kVkDecimal;  applyQtMods(); return true; }
-        // "Num+Return"/"Num+Enter": numpad-enter reporta VK_RETURN comum —
-        // segue como Return normal abaixo
+        // "Num+Return"/"Num+Enter": numpad-enter reports a plain VK_RETURN --
+        // it falls through as a normal Return below
     }
 
     // ASCII letters and digits (the VK matches the character code)

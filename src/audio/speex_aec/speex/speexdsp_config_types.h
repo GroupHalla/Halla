@@ -1,6 +1,6 @@
-/* Halla — tipos de configuração do speexdsp embutido.
-   Gerado a partir de include/speex/speexdsp_config_types.h.in do xiph/speexdsp:
-   build embutido sem autotools, ponto flutuante, inteiros do <stdint.h>. */
+/* Halla -- configuration types for the embedded speexdsp.
+   Generated from include/speex/speexdsp_config_types.h.in of xiph/speexdsp:
+   embedded build without autotools, floating point, integers from <stdint.h>. */
 
 #ifndef __SPEEX_TYPES_H__
 #define __SPEEX_TYPES_H__
